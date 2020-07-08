@@ -2,6 +2,7 @@
 ### Example user template
 .data
 runs
+demo/MNIST/
 # IntelliJ project files
 .idea
 *.iml

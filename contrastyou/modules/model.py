@@ -150,10 +150,10 @@ class Model(metaclass=ABCMeta):
             self._scheduler.step(*args, **kwargs)
 
     def set_mode(self, mode):
-        assert mode in (ModelState.TRAIN, ModelState.EVAL) or mode in ("train", "eval")
+        assert (mode in (ModelState.TRAIN, ModelState.TEST)) or (mode in ("train", "val"))
         if mode in (ModelState.TRAIN, "train"):
             self.train()
-        elif mode in (ModelState.EVAL, "eval"):
+        elif mode in (ModelState.TEST, "val"):
             self.eval()
 
     def train(self):
@@ -175,8 +175,9 @@ class Model(metaclass=ABCMeta):
 
     def get_lr(self):
         if self._scheduler is not None:
-            return self._scheduler.get_lr()
-        return None
+            return self._scheduler.get_last_lr()
+        warnings.warn("No scheduler is found while calling for `get_lr()`")
+        return [0]
 
     @property
     def optimizer(self):

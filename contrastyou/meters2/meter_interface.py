@@ -25,17 +25,13 @@ class MeterInteractMixin:
             assert group_name in self.group
             return {
                 k: v.detailed_summary() if detailed_summary else v.summary()
-                for k, v in self.individual_meters.items()
+                for k, v in self.meters.items()
                 if k in self._group_dicts[group_name]
             }
         return {
             k: v.detailed_summary() if detailed_summary else v.summary()
-            for k, v in self.individual_meters.items()
+            for k, v in self.meters.items()
         }
-
-    def add(self, meter_name, *args, **kwargs):
-        assert meter_name in self.meter_names
-        self._ind_meter_dicts[meter_name].add(*args, **kwargs)
 
     def reset(self) -> None:
         """
@@ -63,8 +59,7 @@ class MeterInterface(MeterInteractMixin):
         try:
             return self._ind_meter_dicts[meter_name]
         except KeyError as e:
-            print(f"meter_interface.meter_names:{self.meter_names}")
-            raise e
+            raise KeyError(f"meter_interface.meter_names:{self.meter_names} with error {e}")
 
     def register_meter(self, name: str, meter: _Metric, group_name=None) -> None:
         assert isinstance(name, str), name
@@ -107,7 +102,3 @@ class MeterInterface(MeterInteractMixin):
     @property
     def group(self) -> List[str]:
         return sorted(self._group_dicts.keys())
-
-    @property
-    def individual_meters(self):
-        return self._ind_meter_dicts

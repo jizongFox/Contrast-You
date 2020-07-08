@@ -60,17 +60,15 @@ class Storage(_IOMixin, metaclass=ABCMeta):
         return self._storage[name][epoch]
 
     def summary(self) -> pd.DataFrame:
-        """
-        summary on the list of sub summarys, merging them together.
-        :return:
-        """
-        result_dict = {}
-        for k, v in self._storage.items():
-            result_dict[k]=v.record_dict
-        # flatten the dict
-        from deepclustering.utils import flatten_dict
-        flatten_result = flatten_dict(result_dict)
-        return pd.DataFrame(flatten_result)
+        list_of_summary = [
+            rename_df_columns(v.summary(), k) for k, v in self._storage.items()
+        ]
+        # merge the list
+        summary = functools.reduce(
+            lambda x, y: pd.merge(x, y, left_index=True, right_index=True),
+            list_of_summary,
+        )
+        return pd.DataFrame(summary)
 
     @property
     def meter_names(self, sorted=False) -> List[str]:

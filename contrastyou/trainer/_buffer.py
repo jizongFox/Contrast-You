@@ -17,7 +17,7 @@ class _BufferMixin:
     def __init__(self) -> None:
         self._buffers = OrderedDict()
 
-    def register_buffer(self, name: str, value: Union[str, N]):
+    def _register_buffer(self, name: str, value: Union[str, N]):
         r"""Adds a persistent buffer to the module.
         """
         if '_buffers' not in self.__dict__:

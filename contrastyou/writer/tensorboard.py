@@ -3,6 +3,9 @@ from pathlib import Path
 
 from tensorboardX import SummaryWriter as _SummaryWriter
 
+from contrastyou.callbacks._callback import _EpochCallack
+from ..helper import flatten_dict
+
 
 def path2Path(path) -> Path:
     assert isinstance(path, (str, Path)), path
@@ -15,6 +18,7 @@ class SummaryWriter(_SummaryWriter):
         log_dir = path2Path(log_dir)
         assert log_dir.exists() and log_dir.is_dir(), log_dir
         super().__init__(str(log_dir / "tensorboard"), comment, **kwargs)
+        atexit.register(self.close)
 
     def add_scalar_with_tag(
         self, tag, tag_scalar_dict, global_step=None, walltime=None
@@ -35,5 +39,4 @@ class SummaryWriter(_SummaryWriter):
     def __enter__(self):
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        atexit.register(self.close)
+

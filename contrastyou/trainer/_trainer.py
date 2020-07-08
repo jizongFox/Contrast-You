@@ -1,23 +1,33 @@
 from abc import abstractmethod
 from copy import deepcopy
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Union, Dict, Any, TypeVar
+from pprint import pprint
+from typing import Union, Dict, Any, TypeVar, List
 
 import numpy as np
 import torch
-from deepclustering.utils import path2Path
-from deepclustering.writer import SummaryWriter
 from torch import Tensor
 from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import _BaseDataLoaderIter
 
 from ._buffer import _BufferMixin
 from .. import PROJECT_PATH
-# from ..meters import MeterInterface, AverageValueMeter
+from ..callbacks._callback import _TrainerCallback, EpochCallBacks
+from ..helper.utils import toDataLoaderIterator
 from ..modules.model import Model
 from ..storage import Storage
+from ..writer.tensorboard import path2Path
 
 N = TypeVar('N', int, float, Tensor, np.ndarray)
+
+
+@dataclass()
+class EpochResult:
+    train_result: Dict[str, Dict[str, Union[int, float]]] = None
+    val_result: Dict[str, Dict[str, Union[int, float]]] = None
+    test_result: Dict[str, Dict[str, Union[int, float]]] = None
+
 
 
 class _Trainer(_BufferMixin):
@@ -36,7 +46,6 @@ class _Trainer(_BufferMixin):
         val_loader: DataLoader,
         max_epoch: int = 100,
         save_dir: str = "base",
-        checkpoint: str = None,
         device="cpu",
         config: dict = None,
     ) -> None:
@@ -45,14 +54,13 @@ class _Trainer(_BufferMixin):
         self._train_loader = train_loader
         self._val_loader = val_loader
 
-        self.register_buffer("_max_epoch", int(max_epoch))
-        self.register_buffer("_best_score", -1.0)
-        self.register_buffer("_start_epoch", 0)  # whether 0 or loaded from the checkpoint.
-        self.register_buffer("_epoch", None)
+        self._register_buffer("_max_epoch", int(max_epoch))
+        self._register_buffer("_best_score", -1.0)
+        self._register_buffer("_start_epoch", 0)  # whether 0 or loaded from the checkpoint.
+        self._register_buffer("_cur_epoch", 0)
 
         self._save_dir: Path = Path(self.RUN_PATH) / str(save_dir)
         self._save_dir.mkdir(exist_ok=True, parents=True)
-        self._checkpoint = checkpoint
         self._device = torch.device(device)
 
         if config:
@@ -64,48 +72,18 @@ class _Trainer(_BufferMixin):
     def to(self, device):
         self._model.to(device=device)
 
+    @abstractmethod
     def _start_training(self):
-        for epoch in range(self._start_epoch, self._max_epoch):
-            if self._model.get_lr() is not None:
-                self._meter_interface["lr"].add(self._model.get_lr()[0])
-            self.train_loop(train_loader=self._train_loader, epoch=epoch)
-            with torch.no_grad():
-                current_score = self.eval_loop(self._val_loader, epoch)
-            self._model.schedulerStep()
-            # save meters and checkpoints
-            self._meter_interface.step()
-            self.save_checkpoint(self.state_dict(), epoch, current_score)
-            self._meter_interface.summary().to_csv(self._save_dir / "wholeMeter.csv")
+        pass
 
     def start_training(self):
-        with SummaryWriter(log_dir=self._save_dir) as self.writer:
-            return self._start_training()
+        return self._start_training()
 
-    @abstractmethod
-    def _train_loop(
-        self,
-        train_loader: Union[DataLoader, _BaseDataLoaderIter] = None,
-        epoch: int = 0,
-        mode=None,
-        *args,
-        **kwargs,
-    ):
+    def _start_single_epoch(self) -> EpochResult:
         pass
 
-    def train_loop(self, *args, **kwargs):
-        return self._train_loop(*args, **kwargs)
-
-    @abstractmethod
-    def _eval_loop(
-        self,
-        val_loader: Union[DataLoader, _BaseDataLoaderIter] = None,
-        epoch: int = 0,
-        mode=None,
-    ) -> float:
-        pass
-
-    def eval_loop(self, *args, **kwargs):
-        return self._eval_loop(*args, **kwargs)
+    def start_single_epoch(self):
+        return self._start_single_epoch()
 
     def inference(self, identifier="best.pth", *args, **kwargs):
         """
@@ -228,3 +206,57 @@ class _Trainer(_BufferMixin):
             shutil.rmtree(save_dir, ignore_errors=True)
         shutil.move(str(self._save_dir), str(save_dir))
         shutil.rmtree(str(self._save_dir), ignore_errors=True)
+
+
+class _TrainerMixin:
+
+    def __init__(self, *args, **kwargs, ) -> None:
+        super().__init__(*args, **kwargs)
+        self._callbacks: List[_TrainerCallback] = []
+        self._epoch_callbacks = EpochCallBacks(None, None, None)
+
+    def register_callbacks(self, callbacks: List[_TrainerCallback]):
+        if not isinstance(callbacks, list):
+            callbacks = [callbacks, ]
+        for i, c in enumerate(callbacks):
+            if not isinstance(c, _TrainerCallback):
+                raise TypeError(f"callbacks [{i}] should be an instance of {_TrainerCallback.__name__}, "
+                                f"given {c.__class__.__name__}.")
+            c.set_trainer(self)
+            self._callbacks.append(c)
+
+    def register_epoch_callbacks(self, epoch_callback: EpochCallBacks = None):
+        if epoch_callback:
+            self._epoch_callbacks = epoch_callback
+
+    def _before_train_start(self, *args, **kwargs):
+        for c in self._callbacks:
+            c.before_train(*args, **kwargs)
+
+    def _after_train_end(self, *args, **kwargs):
+        for c in self._callbacks:
+            c.after_train(*args, **kwargs)
+
+    def _before_epoch_start(self, *args, **kwargs):
+        for c in self._callbacks:
+            c.before_epoch(*args, **kwargs)
+
+    def _after_epoch_end(self, *args, **kwargs):
+        for c in self._callbacks:
+            c.after_epoch(*args, **kwargs)
+
+    def start_running(self):
+        self._before_train_start()
+        train_result = self._start_running()
+        self._after_train_end(train_result=train_result)
+        return train_result
+
+    def start_single_epoch(self):
+        self._before_epoch_start()
+        epoch_result = self._start_single_epoch()
+        self._after_epoch_end(epoch_result=epoch_result)
+        return epoch_result
+
+
+class Trainer(_TrainerMixin, _Trainer):
+    pass

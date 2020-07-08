@@ -5,6 +5,8 @@ from typing import Dict, OrderedDict as OrderedDict_Type, Any
 
 import pandas as pd
 
+from contrastyou.helper import flatten_dict
+
 _Record_Type = Dict[str, float]
 _Save_Type = OrderedDict_Type[int, _Record_Type]
 
@@ -26,6 +28,7 @@ class HistoricalContainer(metaclass=ABCMeta):
 
     def add(self, input_dict: _Record_Type, epoch=None) -> None:
         # only str-num dict can be added.
+        input_dict = flatten_dict(input_dict)
         for v in input_dict.values():
             assert isinstance(v, numbers.Number), v
         if epoch:
