@@ -245,9 +245,9 @@ class _TrainerMixin:
         for c in self._callbacks:
             c.after_epoch(*args, **kwargs)
 
-    def start_running(self):
+    def start_training(self):
         self._before_train_start()
-        train_result = self._start_running()
+        train_result = self._start_training()
         self._after_train_end(train_result=train_result)
         return train_result
 

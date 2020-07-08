@@ -59,7 +59,7 @@ class TrainEpoch(Epoch):
     def _step(self, data) -> REPORT_DICT:
         image, target = self._prepare_batch(data, self._device)
         onehot_target = class2one_hot(target, 10)
-        predict_simplex = self._model(image.repeat(1, 3, 1, 1), force_simplex=True)
+        predict_simplex = self._model(image, force_simplex=True)
         loss = self._criterion(predict_simplex, onehot_target)
         self._model.zero_grad()
         loss.backward()
@@ -99,7 +99,7 @@ class ValEpoch(TrainEpoch):
     def _step(self, data) -> REPORT_DICT:
         image, target = self._prepare_batch(data, self._device)
         onehot_target = class2one_hot(target, 10)
-        predict_simplex = self._model(image.repeat(1, 3, 1, 1), force_simplex=True)
+        predict_simplex = self._model(image, force_simplex=True)
         loss = self._criterion(predict_simplex, onehot_target, disable_assert=True)
         self.meters["loss"].add(loss.item())
         self.meters["confusion_mx"].add(predict_simplex.max(1)[1], target)
@@ -138,7 +138,7 @@ class Trainer(Trainer):
 
 if __name__ == '__main__':
     from torchvision.models import resnet18
-    from torchvision.datasets import MNIST
+    from torchvision.datasets import CIFAR10
     from contrastyou.callbacks import TQDMCallback, PrintResultCallback, SummaryCallback, SchedulerCallback, \
         EpochCallBacks, StorageCallback
 
@@ -146,11 +146,11 @@ if __name__ == '__main__':
     optim = torch.optim.Adam(arch.parameters())
     scheduler = torch.optim.lr_scheduler.StepLR(optim, 10, 0.1)
     model = Model(arch, optim, scheduler)
-    dataset = MNIST(root="./", transform=ToTensor(), download=True)
-    val_dataset = MNIST(root="./", transform=ToTensor(), download=True, train=False)
+    dataset = CIFAR10(root="./", transform=ToTensor(), download=True)
+    val_dataset = CIFAR10(root="./", transform=ToTensor(), download=True, train=False)
     dataloader = DataLoader(dataset, batch_size=100, num_workers=4, pin_memory=True, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=1000, num_workers=4)
-    trainer = Trainer(model, dataloader, val_loader, max_epoch=30, num_batches=None, save_dir="123", device="cuda",
+    trainer = Trainer(model, dataloader, val_loader, max_epoch=1, num_batches=20, save_dir="123", device="cuda",
                       criterion=KL_div())
     # trainer callback
     scheduler_cb = SchedulerCallback()

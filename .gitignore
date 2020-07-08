@@ -3,6 +3,8 @@
 .data
 runs
 demo/MNIST/
+demo/cifar-10-batches-py/
+demo/cifar-10-python.tar.gz
 # IntelliJ project files
 .idea
 *.iml
