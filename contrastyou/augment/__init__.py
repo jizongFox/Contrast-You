@@ -28,19 +28,19 @@ class ACDC_transforms:
         pil_augment.Compose([
             pil_augment.CenterCrop(224),
             pil_augment.RandomRotation(5),
-            pil_augment.ToTensor()
+            pil_augment.ToLabel()
         ]),
         if_is_target=[False, True]
 
     )
-    val = SequentialWrapperTwice(
+    val = SequentialWrapper(
         pil_augment.Compose([
             pil_augment.CenterCrop(224),
             pil_augment.ToTensor()
         ]),
         pil_augment.Compose([
             pil_augment.CenterCrop(224),
-            pil_augment.ToTensor()
+            pil_augment.ToLabel()
         ]),
         if_is_target=[False, True]
 

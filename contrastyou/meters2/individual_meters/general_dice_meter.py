@@ -4,17 +4,17 @@ import torch
 from torch import Tensor
 
 from ._metric import _Metric
-from deepclustering.utils import (
+from deepclustering2.utils import (
     simplex,
     one_hot,
     class2one_hot,
     probs2one_hot,
-    to_float,
 )
+from deepclustering2.type import to_float
 from collections.abc import Iterable
 import numpy as np
 
-from multimodal.utils import average_list
+from deepclustering2.utils import iter_average as average_list
 
 
 class UniversalDice(_Metric):
