@@ -69,7 +69,7 @@ class _Epoch(metaclass=ABCMeta):
         self.to(self._device)
 
     @classmethod
-    def create_from_trainer(cls, trainer,*args,**kwargs):
+    def create_from_trainer(cls, trainer, *args, **kwargs):
         model = trainer._model
         device = trainer._device
         cur_epoch = trainer._cur_epoch
@@ -120,4 +120,8 @@ class _Epoch(metaclass=ABCMeta):
 
 class Epoch(_EpochMixin, _Epoch):
     """Epocher with Mixin"""
-    pass
+
+    @classmethod
+    @abstractmethod
+    def create_from_trainer(cls, trainer, loader=None):
+        pass

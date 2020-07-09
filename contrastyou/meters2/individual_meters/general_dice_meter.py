@@ -3,9 +3,7 @@ from typing import Union, List
 import torch
 from torch import Tensor
 
-from deepclustering.meters._metric import _Metric
-from deepclustering.meters import BatchDiceMeter
-from deepclustering.loss.dice_loss import MetaDice
+from ._metric import _Metric
 from deepclustering.utils import (
     simplex,
     one_hot,
@@ -15,6 +13,8 @@ from deepclustering.utils import (
 )
 from collections.abc import Iterable
 import numpy as np
+
+from multimodal.utils import average_list
 
 
 class UniversalDice(_Metric):
@@ -70,7 +70,8 @@ class UniversalDice(_Metric):
                     raise TypeError(f"type of `group_name` wrong {type(group_name)}")
 
         onehot_pred, onehot_target = self._convert2onehot(pred, target)
-        B, C, *hw = pred.shape
+        B, C, *hw = onehot_pred.shape
+        assert C == self._C, C
 
         # current group name:
         current_group_name = [
@@ -117,12 +118,19 @@ class UniversalDice(_Metric):
 
     def summary(self) -> dict:
         means, stds = self.value()
-        return {f"DSC{i}": to_float(means[i]) for i in self._report_axis}
+        report_dict = {f"DSC{i}": to_float(means[i]) for i in self._report_axis}
+        report_dict.update({"DSC_mean": average_list(report_dict.values())})
+        return report_dict
 
     def detailed_summary(self) -> dict:
         means, stds = self.value()
         return {
             **{f"DSC{i}": to_float(means[i]) for i in self._report_axis},
+            **{
+                f"DSC_mean": average_list(
+                    [to_float(means[i]) for i in self._report_axis]
+                )
+            },
             **{f"DSC_std{i}": to_float(stds[i]) for i in self._report_axis},
         }
 

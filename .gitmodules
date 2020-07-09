@@ -4,3 +4,6 @@
 [submodule "references/SupContrast"]
 	path = references/SupContrast
 	url = https://github.com/ETS-Research-Repositories/SupContrast.git
+[submodule "references/PyContrast"]
+	path = references/PyContrast
+	url = https://github.com/HobbitLong/PyContrast.git

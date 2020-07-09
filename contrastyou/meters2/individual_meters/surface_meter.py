@@ -1,6 +1,8 @@
 from typing import List, Union
 
 import numpy as np
+from torch import Tensor
+
 from deepclustering.meters._metric import _Metric
 from deepclustering.utils import (
     simplex,
@@ -9,8 +11,6 @@ from deepclustering.utils import (
     probs2one_hot,
     to_float,
 )
-from torch import Tensor
-
 from .surface_distance import (
     mod_hausdorff_distance,
     hausdorff_distance,
@@ -70,7 +70,8 @@ class SurfaceMeter(_Metric):
         assert not pred.requires_grad and not target.requires_grad
 
         onehot_pred, onehot_target = self._convert2onehot(pred, target)
-        B, C, *hw = pred.shape
+        B, C, *hw = onehot_pred.shape
+        assert C == self._C, C
         mhd = self._evalue(onehot_pred, onehot_target, voxelspacing)
         assert mhd.shape == (B, len(self._report_axis))
         self._mhd.append(mhd)

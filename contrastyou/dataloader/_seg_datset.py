@@ -1,12 +1,12 @@
 import random
-from abc import abstractmethod
+from abc import abstractmethod, ABCMeta
 from copy import deepcopy as dcp
 from typing import Union, List, Set
 
 from torch.utils.data.sampler import Sampler
 
 
-class ContrastDataset:
+class ContrastDataset(metaclass=ABCMeta):
     """
     each patient has 2 code, the first code is the group_name, which is the patient id
     the second code is the partition code, indicating the position of the image slice.

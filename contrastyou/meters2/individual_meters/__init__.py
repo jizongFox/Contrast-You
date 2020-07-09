@@ -28,3 +28,5 @@ from .confusionmatrix import ConfusionMatrix
 from .hausdorff import HaussdorffDistance
 from .instance import InstanceValue
 from .iou import IoU
+from .general_dice_meter import UniversalDice
+from .surface_meter import SurfaceMeter

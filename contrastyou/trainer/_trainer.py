@@ -72,9 +72,11 @@ class _Trainer(_BufferMixin):
     def to(self, device):
         self._model.to(device=device)
 
-    @abstractmethod
     def _start_training(self):
-        pass
+        for self._cur_epoch in range(self._cur_epoch, self._max_epoch):
+            epoch_result = self.start_single_epoch()
+        return self._storage.summary()
+
 
     def start_training(self):
         return self._start_training()
@@ -188,7 +190,7 @@ class _Trainer(_BufferMixin):
             state_dict = torch.load(
                 str(checkpoint_path), map_location=torch.device("cpu"),
             )
-        self.load_checkpoint(state_dict)
+        self.load_state_dict(state_dict)
 
     def clean_up(self, wait_time=3):
         """

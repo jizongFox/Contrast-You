@@ -121,7 +121,7 @@ class Trainer(Trainer):
         self._num_batches = num_batches
 
     def _start_training(self):
-        for self._cur_epoch in range(self._start_epoch, self._max_epoch):
+        for self._cur_epoch in range(self._cur_epoch, self._max_epoch):
             epoch_result = self.start_single_epoch()
         return self._storage.summary()
 
@@ -135,12 +135,15 @@ class Trainer(Trainer):
             val_result = val_epoch.run(mode=ModelState.TEST)
         return EpochResult(train_result=tra_result, val_result=val_result)
 
+    def _save_checkpoint(self, cur_score):
+        self.save_checkpoint(self.state_dict(), self._cur_epoch, cur_score=float(cur_score), save_dir=self._save_dir)
+
 
 if __name__ == '__main__':
     from torchvision.models import resnet18
     from torchvision.datasets import CIFAR10
     from contrastyou.callbacks import TQDMCallback, PrintResultCallback, SummaryCallback, SchedulerCallback, \
-        EpochCallBacks, StorageCallback
+        EpochCallBacks, StorageCallback, SaveBestCheckpoint
 
     arch = resnet18(num_classes=10)
     optim = torch.optim.Adam(arch.parameters())
@@ -150,14 +153,16 @@ if __name__ == '__main__':
     val_dataset = CIFAR10(root="./", transform=ToTensor(), download=True, train=False)
     dataloader = DataLoader(dataset, batch_size=100, num_workers=4, pin_memory=True, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=1000, num_workers=4)
-    trainer = Trainer(model, dataloader, val_loader, max_epoch=1, num_batches=20, save_dir="123", device="cuda",
+    trainer = Trainer(model, dataloader, val_loader, max_epoch=100, num_batches=50, save_dir="123", device="cuda",
                       criterion=KL_div())
+    trainer.load_checkpoint_from_path("/home/jizong/Workspace/Contrast-You/runs/123/last.pth")
+    # print(trainer._storage.summary())
     # trainer callback
     scheduler_cb = SchedulerCallback()
     writer = SummaryCallback(str(trainer._save_dir))
     storage_cb = StorageCallback()
     printable_callback = PrintResultCallback()
-    trainer.register_callbacks([scheduler_cb, writer, storage_cb, printable_callback])
+    trainer.register_callbacks([scheduler_cb, writer, storage_cb, printable_callback,SaveBestCheckpoint()])
     # epoch callback
     printable_callback = PrintResultCallback()
     tqdm_indicator = TQDMCallback(frequency_print=10)
