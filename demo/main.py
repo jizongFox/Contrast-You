@@ -13,6 +13,7 @@ from torch.utils.data.dataloader import _BaseDataLoaderIter
 from tqdm import tqdm
 
 from contrastyou import PROJECT_PATH, DATA_PATH
+from contrastyou.augment import ACDC_transforms
 from contrastyou.dataloader._seg_datset import ContrastBatchSampler
 from contrastyou.dataloader.acdc_dataset import ACDCSemiInterface
 from contrastyou.meters2 import AverageValueMeter, UniversalDice
@@ -76,7 +77,8 @@ class Trainer(_Trainer):
             self._model.step()
             with torch.no_grad():
                 self._meter_interface["tra_loss"].add(sup_loss.item())
-                self._meter_interface["tra_dice"].add(label_logits.max(1)[1], ltarget.squeeze(1),group_name = list(group_list))
+                self._meter_interface["tra_dice"].add(label_logits.max(1)[1], ltarget.squeeze(1),
+                                                      group_name=list(group_list))
                 self._meter_interface["reg_loss"].add(reg_loss.item())
                 report_dict = self._meter_interface.tracking_status("tra")
                 indicator.set_postfix(report_dict)
@@ -113,7 +115,9 @@ class Trainer(_Trainer):
 
 
 acdc_manager = ACDCSemiInterface(root_dir=DATA_PATH, labeled_data_ratio=0.1, unlabeled_data_ratio=0.9)
-label_set, unlabel_set, val_set = acdc_manager._create_semi_supervised_datasets()
+label_set, unlabel_set, val_set = acdc_manager._create_semi_supervised_datasets(labeled_transform=ACDC_transforms.train,
+                                                                                unlabeled_transform=ACDC_transforms.train,
+                                                                                val_transform=ACDC_transforms.val)
 
 labeled_loader = DataLoader(label_set,
                             batch_sampler=ContrastBatchSampler(label_set, group_sample_num=4, partition_sample_num=1),
@@ -135,6 +139,7 @@ optim = torch.optim.Adam(arch.parameters())
 scheduler = torch.optim.lr_scheduler.StepLR(optim, 10, 0.1)
 model = Model(arch, optim, scheduler)
 from deepclustering.loss import Entropy
+
 trainer = Trainer(model, labeled_loader, unlabeled_loader, val_loader, sup_criterion=KL_div(),
                   reg_criterion=Entropy(), device="cuda", num_batches=20)
 
