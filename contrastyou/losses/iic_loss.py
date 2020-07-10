@@ -62,8 +62,4 @@ class IIDSegmentationLoss:
                        - self.lamda * torch.log(p_j_mat)
                    )
                ).sum() / (T_side_dense * T_side_dense)
-        return (
-            loss,
-            torch.tensor(0, dtype=torch.float, device=x_out.device),
-            torch.tensor(0, dtype=torch.float, device=x_out.device),
-        )
+        return loss
