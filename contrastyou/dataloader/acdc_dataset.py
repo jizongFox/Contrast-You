@@ -1,7 +1,7 @@
 from typing import List, Tuple, Union
 
-from deepclustering.augment import SequentialWrapper
-from deepclustering.dataset import ACDCDataset as _ACDCDataset, ACDCSemiInterface as _ACDCSemiInterface
+from deepclustering2.augment import SequentialWrapper
+from deepclustering2.dataset import ACDCDataset as _ACDCDataset, ACDCSemiInterface as _ACDCSemiInterface
 from torch import Tensor
 
 from contrastyou.dataloader._seg_datset import ContrastDataset

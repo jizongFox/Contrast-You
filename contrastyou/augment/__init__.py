@@ -1,6 +1,6 @@
 from typing import Callable, Union, List, Tuple
 
-from deepclustering.augment import pil_augment, SequentialWrapper
+from deepclustering2.augment import pil_augment, SequentialWrapper
 
 
 class SequentialWrapperTwice(SequentialWrapper):
