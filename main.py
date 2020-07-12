@@ -29,7 +29,8 @@ label_set, unlabel_set, val_set = acdc_manager._create_semi_supervised_datasets(
 )
 train_set = ACDCDataset(root_dir=DATA_PATH, mode="train", transforms=ACDC_transforms.train)
 
-train_loader = DataLoader(train_set, sampler=InfiniteRandomSampler(train_set), num_workers=4, pin_memory=True)
+train_loader = DataLoader(train_set, sampler=InfiniteRandomSampler(train_set), num_workers=8, pin_memory=True,
+                          batch_size=12,)
 
 labeled_loader = DataLoader(label_set,
                             batch_sampler=ContrastBatchSampler(label_set, group_sample_num=4, partition_sample_num=1),
@@ -38,22 +39,23 @@ unlabeled_loader = DataLoader(unlabel_set,
                               batch_sampler=ContrastBatchSampler(unlabel_set, group_sample_num=4,
                                                                  partition_sample_num=1),
                               num_workers=4, pin_memory=True)
-val_loader = DataLoader(val_set,
-                        batch_sampler=PatientSampler(
-                            val_set,
-                            grp_regex=val_set.dataset_pattern,
-                            shuffle=False),
-                        pin_memory=True)
+val_loader = DataLoader(val_set, batch_sampler=PatientSampler(
+    val_set,
+    grp_regex=val_set.dataset_pattern,
+    shuffle=False), pin_memory=True)
 
 reg_criterion = IIDSegmentationLoss(padding=5)
 
 model = Model(config["Arch"], config["Optim"], config["Scheduler"])
-trainer_name = config["Trainer"].pop("name")
+trainer_name = config["Trainer"].pop("name", None)
 Trainer = trainer_zoos.get(trainer_name)
 assert Trainer
+checkpoint = config["Trainer"].pop("checkpoint", None)
 
 trainer = Trainer(model, iter(train_loader), iter(labeled_loader), iter(unlabeled_loader), val_loader,
                   sup_criterion=KL_div(), reg_criterion=reg_criterion, configuration=cmanager.config,
                   **config["Trainer"])
+if checkpoint:
+    trainer.load_state_dict_from_path(checkpoint)
 
 trainer.start_training()

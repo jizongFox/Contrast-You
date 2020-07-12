@@ -4,7 +4,7 @@ Arch:
 
 Optim:
   name: Adam
-  lr: 0.0001
+  lr: 0.0000005
   weight_decay: 0.00005
 
 Scheduler:

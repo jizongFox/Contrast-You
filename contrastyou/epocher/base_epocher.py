@@ -1,6 +1,8 @@
 from typing import Union
 
 import torch
+from torch.utils.data import DataLoader
+
 from deepclustering2 import ModelMode
 from deepclustering2.arch import Tuple
 from deepclustering2.epoch._epocher import _Epocher, proxy_trainer
@@ -11,7 +13,6 @@ from deepclustering2.tqdm import tqdm
 from deepclustering2.trainer.trainer import T_loader, T_loss
 from deepclustering2.type import to_device
 from deepclustering2.utils import class2one_hot
-from torch.utils.data import DataLoader
 
 
 class FSEpocher:
@@ -137,7 +138,8 @@ class SemiEpocher:
             report_dict: EpochResultDict
             self.meters["lr"].add(self._model.get_lr()[0])
 
-            with tqdm(range(self._num_batches)).set_description(desc=f"Training {self._cur_epoch}") as indicator:
+            with tqdm(range(self._num_batches)).set_description(
+                desc=f"{self.__class__.__name__} {self._cur_epoch}") as indicator:
                 for i, label_data, unlabel_data in zip(indicator, self._labeled_loader, self._unlabeled_loader):
                     (labelimage, labeltarget), (labelimage_tf, labeltarget_tf), filename, partition_list, group_list, (
                         unlabelimage, unlabelimage_tf) = self._preprocess_data(label_data, unlabel_data, self._device)
@@ -203,7 +205,7 @@ class SemiEpocher:
             assert not self._model.training, self._model.training
             report_dict: EpochResultDict
 
-            with tqdm(self._val_loader).set_description(f"Val Epoch {self._cur_epoch}") as indicator:
+            with tqdm(self._val_loader).set_description(f"{self.__class__.__name__} {self._cur_epoch}") as indicator:
                 for i, val_data in enumerate(indicator):
                     vimage, vtarget, vfilename = self._preprocess_data(val_data, self._device)
 
