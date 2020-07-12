@@ -1,6 +1,3 @@
-[submodule "references/deep-clustering-toolbox"]
-	path = references/deep-clustering-toolbox
-	url = https://github.com/jizongFox/deep-clustering-toolbox.git
 [submodule "references/SupContrast"]
 	path = references/SupContrast
 	url = https://github.com/ETS-Research-Repositories/SupContrast.git
