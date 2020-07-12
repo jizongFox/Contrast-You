@@ -4,3 +4,6 @@
 [submodule "references/PyContrast"]
 	path = references/PyContrast
 	url = https://github.com/HobbitLong/PyContrast.git
+[submodule "references/deepclustering2"]
+	path = references/deepclustering2
+	url = https://github.com/jizongFox/deepclustering2.git

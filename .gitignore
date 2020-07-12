@@ -10,6 +10,9 @@ demo/cifar-10-python.tar.gz
 *.iml
 out
 gen
+venv
+.pytest_cache*
+
 ### Python template
 # Byte-compiled / optimized / DLL files
 __pycache__/

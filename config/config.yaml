@@ -8,6 +8,13 @@ Optim:
   weight_decay: 0.00005
 
 Scheduler:
-  name: StepLR
-  step_size: 30
-  gamma: 0.1
+  name: CosineAnnealingLR
+  T_max: 90
+  warmup:
+    multiplier: 300
+    total_epoch: 10
+
+Trainer:
+  save_dir: test
+  device: cuda
+  num_batches: 50

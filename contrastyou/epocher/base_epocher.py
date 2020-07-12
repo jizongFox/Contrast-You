@@ -1,8 +1,6 @@
 from typing import Union
 
 import torch
-from torch.utils.data import DataLoader
-
 from deepclustering2 import ModelMode
 from deepclustering2.arch import Tuple
 from deepclustering2.epoch._epocher import _Epocher, proxy_trainer
@@ -13,6 +11,7 @@ from deepclustering2.tqdm import tqdm
 from deepclustering2.trainer.trainer import T_loader, T_loss
 from deepclustering2.type import to_device
 from deepclustering2.utils import class2one_hot
+from torch.utils.data import DataLoader
 
 
 class FSEpocher:
@@ -41,7 +40,8 @@ class FSEpocher:
             self._model.set_mode(ModelMode.TRAIN)
             assert self._model.training, self._model.training
             self.meters["lr"].add(self._model.get_lr()[0])
-            with tqdm(range(self._num_batches)).set_description(desc=f"Training {self._cur_epoch}") as indicator:
+            with tqdm(range(self._num_batches)).set_description(
+                desc=f"{self.__class__.__name__} {self._cur_epoch}") as indicator:
                 for i, data in zip(indicator, self._data_loader):
                     images, targets, filename, partition_list, group_list = self._preprocess_data(data, self._device)
                     predict_logits = self._model(images)
@@ -69,10 +69,10 @@ class FSEpocher:
                              cur_epoch=cur_epoch, device=device)
             assert isinstance(val_data_loader, DataLoader), type(val_data_loader)
 
-        @proxy_trainer
         @classmethod
+        @proxy_trainer
         def create_from_trainer(cls, trainer):
-            return cls(trainer._model, trainer._val_loader, trainer._cur_epoch, trainer._device)
+            return cls(trainer._model, trainer._val_loader, trainer._sup_criterion, trainer._cur_epoch, trainer._device)
 
         def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
             super()._configure_meters(meters)
@@ -82,19 +82,24 @@ class FSEpocher:
         def _run(self, *args, **kwargs) -> Union[EpochResultDict, Tuple[EpochResultDict, float]]:
             self._model.set_mode(ModelMode.EVAL)
             assert not self._model.training, self._model.training
-            with tqdm(range(self._num_batches)).set_description(desc=f"Eval {self._cur_epoch}") as indicator:
+            with tqdm(range(len(self._data_loader))).set_description(
+                desc=f"{self.__class__.__name__} {self._cur_epoch}") as indicator:
                 for i, data in zip(indicator, self._data_loader):
                     images, targets, filename, partiton_list, group_list = self._preprocess_data(data, self._device)
                     predict_logits = self._model(images)
                     assert not simplex(predict_logits), predict_logits.shape
                     onehot_targets = class2one_hot(targets.squeeze(1), 4)
-                    loss = self._sup_criterion(predict_logits.softmax(1), onehot_targets)
+                    loss = self._sup_criterion(predict_logits.softmax(1), onehot_targets, disable_assert=True)
                     self.meters["sup_loss"].add(loss.item())
                     self.meters["ds"].add(predict_logits.max(1)[1], targets.squeeze(1), group_name=list(group_list))
                     report_dict = self.meters.tracking_status()
                     indicator.set_postfix_dict(report_dict)
             report_dict = self.meters.tracking_status()
-            return report_dict
+            return report_dict, report_dict["ds"]["DSC_mean"]
+
+        @staticmethod
+        def _preprocess_data(data, device):
+            return data[0][0].to(device), data[0][1].to(device), data[1], data[2], data[3]
 
 
 class SemiEpocher:
@@ -112,8 +117,8 @@ class SemiEpocher:
             self._num_batches = num_batches
             self._reg_weight = reg_weight
 
-        @proxy_trainer
         @classmethod
+        @proxy_trainer
         def create_from_trainer(cls, trainer):
             return cls(trainer._model, trainer._labeled_loader, trainer._unlabeled_loader, trainer._sup_criterion,
                        trainer._reg_criterion,
@@ -183,8 +188,8 @@ class SemiEpocher:
             self._val_loader = val_loader
             assert isinstance(val_loader, DataLoader), val_loader
 
-        @proxy_trainer
         @classmethod
+        @proxy_trainer
         def create_from_trainer(cls, trainer):
             return cls(trainer._model, trainer._val_loader, trainer._sup_criterion, trainer._cur_epoch, trainer._device)
 
