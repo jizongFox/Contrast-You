@@ -21,13 +21,13 @@ class SequentialWrapperTwice(SequentialWrapper):
 class ACDC_transforms:
     train = SequentialWrapperTwice(
         pil_augment.Compose([
-            pil_augment.CenterCrop(224),
-            pil_augment.RandomRotation(5),
+            pil_augment.RandomCrop(224),
+            pil_augment.RandomRotation(30),
             pil_augment.ToTensor()
         ]),
         pil_augment.Compose([
-            pil_augment.CenterCrop(224),
-            pil_augment.RandomRotation(5),
+            pil_augment.RandomCrop(224),
+            pil_augment.RandomRotation(30),
             pil_augment.ToLabel()
         ]),
         if_is_target=[False, True]
