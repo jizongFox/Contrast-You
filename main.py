@@ -20,7 +20,8 @@ set_benchmark(1)
 cmanager = ConfigManger(Path(PROJECT_PATH) / "config/config.yaml")
 config = cmanager.config
 
-acdc_manager = ACDCSemiInterface(root_dir=DATA_PATH, labeled_data_ratio=0.95, unlabeled_data_ratio=0.05)
+acdc_manager = ACDCSemiInterface(root_dir=DATA_PATH, labeled_data_ratio=config["Data"]["labeled_data_ratio"],
+                                 unlabeled_data_ratio=config["Data"]["unlabeled_data_ratio"])
 
 label_set, unlabel_set, val_set = acdc_manager._create_semi_supervised_datasets(
     labeled_transform=ACDC_transforms.train,
@@ -29,11 +30,13 @@ label_set, unlabel_set, val_set = acdc_manager._create_semi_supervised_datasets(
 )
 train_set = ACDCDataset(root_dir=DATA_PATH, mode="train", transforms=ACDC_transforms.train)
 
-train_loader = DataLoader(train_set, sampler=InfiniteRandomSampler(train_set, shuffle=True), num_workers=8, pin_memory=True,
-                          batch_size=12,)
+train_loader = DataLoader(train_set, sampler=InfiniteRandomSampler(train_set, shuffle=True), num_workers=8,
+                          pin_memory=True,
+                          batch_size=12, )
 if config["Data"]["use_contrast"]:
     labeled_loader = DataLoader(label_set,
-                                batch_sampler=ContrastBatchSampler(label_set, group_sample_num=4, partition_sample_num=1),
+                                batch_sampler=ContrastBatchSampler(label_set, group_sample_num=4,
+                                                                   partition_sample_num=1),
                                 num_workers=4, pin_memory=True)
     unlabeled_loader = DataLoader(unlabel_set,
                                   batch_sampler=ContrastBatchSampler(unlabel_set, group_sample_num=4,
@@ -45,7 +48,7 @@ else:
                                 sampler=InfiniteRandomSampler(label_set, shuffle=True),
                                 num_workers=4, pin_memory=True, batch_size=6)
     unlabeled_loader = DataLoader(unlabel_set,
-                                  sampler = InfiniteRandomSampler(unlabel_set, shuffle=True),
+                                  sampler=InfiniteRandomSampler(unlabel_set, shuffle=True),
                                   num_workers=4, pin_memory=True, batch_size=6)
 
 val_loader = DataLoader(val_set, batch_sampler=PatientSampler(
