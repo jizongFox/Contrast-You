@@ -1,12 +1,12 @@
 from pathlib import Path
 
+import torch
 from torch.utils.data import DataLoader
 
 from contrastyou import DATA_PATH, PROJECT_PATH
 from contrastyou.augment import ACDC_transforms
 from contrastyou.dataloader._seg_datset import ContrastBatchSampler
 from contrastyou.dataloader.acdc_dataset import ACDCSemiInterface, ACDCDataset
-from contrastyou.losses.iic_loss import IIDSegmentationLoss
 from contrastyou.trainer.contrast_trainer import trainer_zoos
 from deepclustering2.configparser import ConfigManger
 from deepclustering2.dataloader.sampler import InfiniteRandomSampler
@@ -30,10 +30,11 @@ label_set, unlabel_set, val_set = acdc_manager._create_semi_supervised_datasets(
 )
 train_set = ACDCDataset(root_dir=DATA_PATH, mode="train", transforms=ACDC_transforms.train)
 
-train_loader = DataLoader(train_set, sampler=InfiniteRandomSampler(train_set, shuffle=True), num_workers=8,
-                          pin_memory=True,
-                          batch_size=12, )
 if config["Data"]["use_contrast"]:
+    train_loader = DataLoader(train_set, batch_sampler=ContrastBatchSampler(label_set, group_sample_num=8,
+                                                                            partition_sample_num=1),
+                              num_workers=8, pin_memory=True, )
+
     labeled_loader = DataLoader(label_set,
                                 batch_sampler=ContrastBatchSampler(label_set, group_sample_num=4,
                                                                    partition_sample_num=1),
@@ -44,6 +45,9 @@ if config["Data"]["use_contrast"]:
                                   num_workers=4, pin_memory=True)
 
 else:
+    train_loader = DataLoader(train_set, sampler=InfiniteRandomSampler(train_set, shuffle=True), num_workers=8,
+                              pin_memory=True,
+                              batch_size=8, )
     labeled_loader = DataLoader(label_set,
                                 sampler=InfiniteRandomSampler(label_set, shuffle=True),
                                 num_workers=4, pin_memory=True, batch_size=6)
@@ -56,7 +60,12 @@ val_loader = DataLoader(val_set, batch_sampler=PatientSampler(
     grp_regex=val_set.dataset_pattern,
     shuffle=False), pin_memory=True)
 
-reg_criterion = IIDSegmentationLoss(padding=5)
+
+def NullLoss(pred, *args, **kwargs):
+    return torch.tensor(0, device=pred.device)
+
+
+reg_criterion = NullLoss
 
 model = Model(config["Arch"], config["Optim"], config["Scheduler"])
 trainer_name = config["Trainer"].pop("name", None)

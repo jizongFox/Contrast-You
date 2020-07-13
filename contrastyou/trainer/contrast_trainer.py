@@ -1,8 +1,7 @@
 from pathlib import Path
-
+from typing import Tuple
 from contrastyou import PROJECT_PATH
 from contrastyou.epocher.base_epocher import FSEpocher, SemiEpocher
-from deepclustering2.arch import Tuple
 from deepclustering2.epoch._epocher import _Epocher
 from deepclustering2.meters2 import EpochResultDict
 from deepclustering2.models import Model
