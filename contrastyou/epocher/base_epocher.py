@@ -28,8 +28,8 @@ class FSEpocher:
         @classmethod
         @proxy_trainer
         def create_from_trainer(cls, trainer):
-            return cls(trainer._model, trainer._tra_loader, trainer._sup_criterion, trainer._num_batches,
-                       trainer._cur_epoch, trainer._device)
+            return cls(trainer._model, trainer._tra_loader, trainer._sup_criterion, trainer._num_batches,  # noqa
+                       trainer._cur_epoch, trainer._device)  # noqa
 
         def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
             meters.register_meter("lr", AverageValueMeter())
@@ -42,7 +42,7 @@ class FSEpocher:
             assert self._model.training, self._model.training
             self.meters["lr"].add(self._model.get_lr()[0])
             with tqdm(range(self._num_batches)).set_description(
-                desc=f"{self.__class__.__name__} {self._cur_epoch}") as indicator:
+                desc=f"{self.__class__.__name__} {self._cur_epoch}") as indicator:  # noqa
                 for i, data in zip(indicator, self._data_loader):
                     images, targets, filename, partition_list, group_list = self._preprocess_data(data, self._device)
                     predict_logits = self._model(images)
@@ -61,7 +61,7 @@ class FSEpocher:
             return report_dict
 
         @staticmethod
-        def _preprocess_data(data, device):
+        def _preprocess_data(data, device):  # noqa
             return data[0][0][0].to(device), data[0][0][1].to(device), data[1], data[2], data[3]
 
     class EvalEpoch(TrainEpoch):
@@ -73,7 +73,8 @@ class FSEpocher:
         @classmethod
         @proxy_trainer
         def create_from_trainer(cls, trainer):
-            return cls(trainer._model, trainer._val_loader, trainer._sup_criterion, trainer._cur_epoch, trainer._device)
+            return cls(trainer._model, trainer._val_loader, trainer._sup_criterion, trainer._cur_epoch,
+                       trainer._device)  # noqa
 
         def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
             super()._configure_meters(meters)
@@ -99,7 +100,7 @@ class FSEpocher:
             return report_dict, report_dict["ds"]["DSC_mean"]
 
         @staticmethod
-        def _preprocess_data(data, device):
+        def _preprocess_data(data, device):  # noqa
             return data[0][0].to(device), data[0][1].to(device), data[1], data[2], data[3]
 
 
@@ -122,12 +123,13 @@ class SemiEpocher:
         @proxy_trainer
         def create_from_trainer(cls, trainer):
             return cls(trainer._model, trainer._labeled_loader, trainer._unlabeled_loader, trainer._sup_criterion,
-                       trainer._reg_criterion,
-                       trainer._num_batches, trainer._cur_epoch, trainer._device, trainer._reg_weight)
+                       trainer._reg_criterion, trainer._num_batches, trainer._cur_epoch, trainer._device,
+                       trainer._reg_weight)
 
         def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
             meters.register_meter("lr", AverageValueMeter())
             meters.register_meter("sup_loss", AverageValueMeter())
+            meters.register_meter("reg_weight", AverageValueMeter())
             meters.register_meter("reg_loss", AverageValueMeter())
             meters.register_meter("ds", UniversalDice(4, [1, 2, 3]))
             return meters
@@ -137,6 +139,7 @@ class SemiEpocher:
             assert self._model.training, self._model.training
             report_dict: EpochResultDict
             self.meters["lr"].add(self._model.get_lr()[0])
+            self.meters["reg_weight"].add(self._reg_weight)
 
             with tqdm(range(self._num_batches)).set_description(
                 desc=f"{self.__class__.__name__} {self._cur_epoch}") as indicator:
@@ -197,7 +200,7 @@ class SemiEpocher:
 
         def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
             meters = super()._configure_meters(meters)
-            meters.delete_meters(["lr", "reg_loss"])
+            meters.delete_meters(["lr", "reg_loss", "reg_weight"])
             return meters
 
         def _run(self, *args, **kwargs) -> Tuple[EpochResultDict, float]:

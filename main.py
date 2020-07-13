@@ -23,7 +23,7 @@ config = cmanager.config
 acdc_manager = ACDCSemiInterface(root_dir=DATA_PATH, labeled_data_ratio=config["Data"]["labeled_data_ratio"],
                                  unlabeled_data_ratio=config["Data"]["unlabeled_data_ratio"])
 
-label_set, unlabel_set, val_set = acdc_manager._create_semi_supervised_datasets(
+label_set, unlabel_set, val_set = acdc_manager._create_semi_supervised_datasets(  # noqa
     labeled_transform=ACDC_transforms.train,
     unlabeled_transform=ACDC_transforms.train,
     val_transform=ACDC_transforms.val

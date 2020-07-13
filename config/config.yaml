@@ -23,3 +23,4 @@ Data:
   use_contrast: True
   labeled_data_ratio: 0.1
   unlabeled_data_ratio: 0.9
+  reg_weight: 0.0
