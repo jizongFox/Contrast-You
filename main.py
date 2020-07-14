@@ -36,11 +36,11 @@ if config["Data"]["use_contrast"]:
                               num_workers=8, pin_memory=True, )
 
     labeled_loader = DataLoader(label_set,
-                                batch_sampler=ContrastBatchSampler(label_set, group_sample_num=4,
+                                batch_sampler=ContrastBatchSampler(label_set, group_sample_num=4,  # noqa
                                                                    partition_sample_num=1),
                                 num_workers=8, pin_memory=True)
     unlabeled_loader = DataLoader(unlabel_set,
-                                  batch_sampler=ContrastBatchSampler(unlabel_set, group_sample_num=4,
+                                  batch_sampler=ContrastBatchSampler(unlabel_set, group_sample_num=4, # noqa
                                                                      partition_sample_num=1),
                                   num_workers=4, pin_memory=True)
 
@@ -70,7 +70,7 @@ reg_criterion = NullLoss
 model = Model(config["Arch"], config["Optim"], config["Scheduler"])
 trainer_name = config["Trainer"].pop("name", None)
 Trainer = trainer_zoos.get(trainer_name)
-assert Trainer
+assert Trainer, trainer_name
 checkpoint = config["Trainer"].pop("checkpoint", None)
 
 trainer = Trainer(model, iter(train_loader), iter(labeled_loader), iter(unlabeled_loader), val_loader,

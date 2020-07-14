@@ -207,21 +207,17 @@ class SemiEpocher:
 
             with tqdm(self._val_loader).set_desc_from_epocher(self) as indicator:
                 for i, val_data in enumerate(indicator):
-                    vimage, vtarget, vfilename = self._preprocess_data(val_data, self._device)
-
-                    predict_logits = self._model(vimage, force_simplex=False)
-                    onehot_target = class2one_hot(vtarget.squeeze(1), 4, )
+                    images, targets, filename, partiton_list, group_list = self._preprocess_data(val_data, self._device)
+                    predict_logits = self._model(images, force_simplex=False)
+                    onehot_target = class2one_hot(targets.squeeze(1), 4, )
                     val_loss = self._sup_criterion(predict_logits.softmax(1), onehot_target, disable_assert=True)
-                    with torch.no_grad():
-                        self.meters["sup_loss"].add(val_loss.item())
-                        self.meters["ds"].add(predict_logits.max(1)[1], vtarget.squeeze(1))
-                        report_dict = self.meters.tracking_status()
-                        indicator.set_postfix_dict(report_dict)
+                    self.meters["sup_loss"].add(val_loss.item())
+                    self.meters["ds"].add(predict_logits.max(1)[1], targets.squeeze(1), group_name=list(group_list))
+                    report_dict = self.meters.tracking_status()
+                    indicator.set_postfix_dict(report_dict)
                 report_dict = self.meters.tracking_status()
             return report_dict, self.meters["ds"].summary()["DSC_mean"]
 
         @staticmethod
-        def _preprocess_data(val_data, device):
-            vimage, vtarget, vfilename = val_data[0][0].to(device), val_data[0][1].to(device), \
-                                         val_data[1]
-            return vimage, vtarget, vfilename
+        def _preprocess_data(data, device):  # noqa
+            return data[0][0].to(device), data[0][1].to(device), data[1], data[2], data[3]
