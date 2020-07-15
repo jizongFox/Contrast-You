@@ -4,14 +4,14 @@ from typing import Tuple
 from torch.utils.data import DataLoader
 
 from contrastyou import PROJECT_PATH
-from contrastyou.epocher import contrast_epocher
+from contrastyou.epocher.base_epocher import FSEpocher, SemiEpocher
 from deepclustering2.epoch._epocher import _Epocher
 from deepclustering2.meters2 import EpochResultDict
 from deepclustering2.models import Model
 from deepclustering2.trainer.trainer import _Trainer, T_loader, T_loss
 
 
-class ContrastTrainer(_Trainer):
+class FSTrainer(_Trainer):
     RUN_PATH = Path(PROJECT_PATH) / "runs"
 
     def __init__(self, model: Model, tra_loader: T_loader, labeled_loader: T_loader, unlabeled_loader: T_loader,
@@ -28,14 +28,20 @@ class ContrastTrainer(_Trainer):
         self._reg_criterion = reg_criterion
         self._reg_weight = reg_weight
 
-    def _run_epoch(self, epocher: _Epocher = contrast_epocher.TrainEpoch, *args, **kwargs) -> EpochResultDict:
+    def _run_epoch(self, epocher: _Epocher = FSEpocher.TrainEpoch, *args, **kwargs) -> EpochResultDict:
         return super()._run_epoch(epocher, *args, **kwargs)
 
-    def _train_encoder(self):
-        for self._cur_epoch in range(self._start_epoch, self._max_epoch):
-            pass
+    def _eval_epoch(self, epocher: _Epocher = FSEpocher.EvalEpoch, *args, **kwargs) -> Tuple[EpochResultDict, float]:
+        eval_epocher = epocher.create_from_trainer(trainer=self)
+        return eval_epocher.run()
 
-    def _train_decoder(self):
-        for self._cur_epoch in range(self._start_epoch, self._max_epoch):
-            pass
+
+class SemiTrainer(FSTrainer):
+    def _run_epoch(self, epocher: _Epocher = SemiEpocher.TrainEpoch, *args, **kwargs) -> EpochResultDict:
+        return super()._run_epoch(epocher, *args, **kwargs)
+
+    def _eval_epoch(self, epocher: _Epocher = SemiEpocher.EvalEpoch, *args, **kwargs) -> Tuple[EpochResultDict, float]:
+        return super()._eval_epoch(epocher, *args, **kwargs)
+
+
 

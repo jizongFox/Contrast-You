@@ -7,7 +7,7 @@ from contrastyou import DATA_PATH, PROJECT_PATH
 from contrastyou.augment import ACDC_transforms
 from contrastyou.dataloader._seg_datset import ContrastBatchSampler
 from contrastyou.dataloader.acdc_dataset import ACDCSemiInterface, ACDCDataset
-from contrastyou.trainer.contrast_trainer import trainer_zoos
+from contrastyou.trainer import trainer_zoos
 from deepclustering2.configparser import ConfigManger
 from deepclustering2.dataloader.sampler import InfiniteRandomSampler
 from deepclustering2.dataset import PatientSampler

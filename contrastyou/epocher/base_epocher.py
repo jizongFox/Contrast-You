@@ -1,18 +1,18 @@
-from typing import Union
+from typing import Union, Tuple
 
 import torch
 from torch.utils.data import DataLoader
 
 from deepclustering2 import ModelMode
-from deepclustering2.arch import Tuple
-from deepclustering2.epoch._epocher import _Epocher, proxy_trainer
+from deepclustering2.epoch import _Epocher, proxy_trainer  # noqa
 from deepclustering2.loss import simplex
 from deepclustering2.meters2 import EpochResultDict, MeterInterface, AverageValueMeter, UniversalDice
 from deepclustering2.models import Model
 from deepclustering2.tqdm import tqdm
 from deepclustering2.trainer.trainer import T_loader, T_loss
-from deepclustering2.type import to_device
 from deepclustering2.utils import class2one_hot
+from ._utils import preprocess_input_with_once_transformation, preprocess_input_train_fs, \
+    preprocess_input_with_twice_transformation
 
 
 class FSEpocher:
@@ -60,19 +60,19 @@ class FSEpocher:
             return report_dict
 
         @staticmethod
-        def _preprocess_data(data, device):  # noqa
-            return data[0][0][0].to(device), data[0][0][1].to(device), data[1], data[2], data[3]
+        def _preprocess_data(data, device):
+            return preprocess_input_train_fs(data, device)
 
     class EvalEpoch(TrainEpoch):
         def __init__(self, model: Model, val_data_loader: T_loader, sup_criterion, cur_epoch=0, device="cpu"):
-            super().__init__(model=model, data_loader=val_data_loader, sup_criteiron=sup_criterion, num_batches=None,
-                             cur_epoch=cur_epoch, device=device)
+            super().__init__(model=model, data_loader=val_data_loader, sup_criteiron=sup_criterion,
+                             num_batches=None, cur_epoch=cur_epoch, device=device)  # noqa
             assert isinstance(val_data_loader, DataLoader), type(val_data_loader)
 
         @classmethod
         @proxy_trainer
         def create_from_trainer(cls, trainer):
-            return cls(trainer._model, trainer._val_loader, trainer._sup_criterion, trainer._cur_epoch,
+            return cls(trainer._model, trainer._val_loader, trainer._sup_criterion, trainer._cur_epoch,  # noqa
                        trainer._device)  # noqa
 
         def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
@@ -80,6 +80,7 @@ class FSEpocher:
             meters.delete_meters(["lr"])
             return meters
 
+        @torch.no_grad()
         def _run(self, *args, **kwargs) -> Union[EpochResultDict, Tuple[EpochResultDict, float]]:
             self._model.set_mode(ModelMode.EVAL)
             assert not self._model.training, self._model.training
@@ -98,8 +99,8 @@ class FSEpocher:
             return report_dict, report_dict["ds"]["DSC_mean"]
 
         @staticmethod
-        def _preprocess_data(data, device):  # noqa
-            return data[0][0].to(device), data[0][1].to(device), data[1], data[2], data[3]
+        def _preprocess_data(data, device):
+            return preprocess_input_with_once_transformation(data, device)
 
 
 class SemiEpocher:
@@ -174,50 +175,10 @@ class SemiEpocher:
 
         @staticmethod
         def _preprocess_data(labeled_input, unlabeled_input, device):
-            [(labelimage, labeltarget), (labelimage_tf, labeltarget_tf)], filename, partition_list, group_list = \
-                to_device(labeled_input[0], device), labeled_input[1], labeled_input[2], labeled_input[3]
-            unlabelimage, unlabelimage_tf = to_device([unlabeled_input[0][0][0], unlabeled_input[0][1][0]],
-                                                      device)
-            return (labelimage, labeltarget), (labelimage_tf, labeltarget_tf), filename, partition_list, group_list, (
-                unlabelimage, unlabelimage_tf)
+            return preprocess_input_with_twice_transformation(labeled_input, unlabeled_input, device)
 
-    class EvalEpoch(TrainEpoch):
+    class EvalEpoch(FSEpocher.EvalEpoch):
+        pass
 
-        def __init__(self, model: Model, val_loader: DataLoader, sup_criteiron: T_loss,
-                     cur_epoch=0, device="cpu") -> None:
-            super().__init__(model, None, None, sup_criteiron, None, 1000, cur_epoch,
-                             device, 0)
-            self._val_loader = val_loader
-            assert isinstance(val_loader, DataLoader), val_loader
+    
 
-        @classmethod
-        @proxy_trainer
-        def create_from_trainer(cls, trainer):
-            return cls(trainer._model, trainer._val_loader, trainer._sup_criterion, trainer._cur_epoch, trainer._device)
-
-        def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
-            meters = super()._configure_meters(meters)
-            meters.delete_meters(["lr", "reg_loss", "reg_weight"])
-            return meters
-
-        def _run(self, *args, **kwargs) -> Tuple[EpochResultDict, float]:
-            self._model.set_mode(ModelMode.EVAL)
-            assert not self._model.training, self._model.training
-            report_dict: EpochResultDict
-
-            with tqdm(self._val_loader).set_desc_from_epocher(self) as indicator:
-                for i, val_data in enumerate(indicator):
-                    images, targets, filename, partiton_list, group_list = self._preprocess_data(val_data, self._device)
-                    predict_logits = self._model(images, force_simplex=False)
-                    onehot_target = class2one_hot(targets.squeeze(1), 4, )
-                    val_loss = self._sup_criterion(predict_logits.softmax(1), onehot_target, disable_assert=True)
-                    self.meters["sup_loss"].add(val_loss.item())
-                    self.meters["ds"].add(predict_logits.max(1)[1], targets.squeeze(1), group_name=list(group_list))
-                    report_dict = self.meters.tracking_status()
-                    indicator.set_postfix_dict(report_dict)
-                report_dict = self.meters.tracking_status()
-            return report_dict, self.meters["ds"].summary()["DSC_mean"]
-
-        @staticmethod
-        def _preprocess_data(data, device):  # noqa
-            return data[0][0].to(device), data[0][1].to(device), data[1], data[2], data[3]

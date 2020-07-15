@@ -1,6 +1,7 @@
 Arch:
-  name: enet
+  name: ContrastUnet
   num_classes: 4
+  input_dim: 1
 
 Optim:
   name: Adam
