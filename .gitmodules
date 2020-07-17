@@ -7,3 +7,6 @@
 [submodule "references/deepclustering2"]
 	path = references/deepclustering2
 	url = https://github.com/jizongFox/deepclustering2.git
+[submodule "references/OpenSelfSup"]
+	path = references/OpenSelfSup
+	url = https://github.com/open-mmlab/OpenSelfSup.git
