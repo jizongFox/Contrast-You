@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 
 from contrastyou import PROJECT_PATH
 from contrastyou.epocher.base_epocher import FSEpocher, SemiEpocher
-from deepclustering2.epoch._epocher import _Epocher
+from deepclustering2.epoch._epocher import _Epocher  # noqa
 from deepclustering2.meters2 import EpochResultDict
 from deepclustering2.models import Model
 from deepclustering2.trainer.trainer import _Trainer, T_loader, T_loss
@@ -42,6 +42,3 @@ class SemiTrainer(FSTrainer):
 
     def _eval_epoch(self, epocher: _Epocher = SemiEpocher.EvalEpoch, *args, **kwargs) -> Tuple[EpochResultDict, float]:
         return super()._eval_epoch(epocher, *args, **kwargs)
-
-
-
