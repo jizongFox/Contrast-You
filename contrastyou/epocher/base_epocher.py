@@ -11,8 +11,7 @@ from deepclustering2.models import Model
 from deepclustering2.tqdm import tqdm
 from deepclustering2.trainer.trainer import T_loader, T_loss
 from deepclustering2.utils import class2one_hot
-from ._utils import preprocess_input_with_once_transformation, preprocess_input_train_fs, \
-    preprocess_input_with_twice_transformation
+from ._utils import preprocess_input_with_single_transformation, preprocess_input_with_twice_transformation
 
 
 class FSEpocher:
@@ -61,7 +60,7 @@ class FSEpocher:
 
         @staticmethod
         def _preprocess_data(data, device):
-            return preprocess_input_train_fs(data, device)
+            return preprocess_input_with_single_transformation(data, device)
 
     class EvalEpoch(TrainEpoch):
         def __init__(self, model: Model, val_data_loader: T_loader, sup_criterion, cur_epoch=0, device="cpu"):
@@ -82,7 +81,7 @@ class FSEpocher:
 
         @torch.no_grad()
         def _run(self, *args, **kwargs) -> Union[EpochResultDict, Tuple[EpochResultDict, float]]:
-            self._model.set_mode(ModelMode.EVAL)
+            self._model.eval()
             assert not self._model.training, self._model.training
             with tqdm(range(len(self._data_loader))).set_desc_from_epocher(self) as indicator:
                 for i, data in zip(indicator, self._data_loader):
@@ -100,7 +99,7 @@ class FSEpocher:
 
         @staticmethod
         def _preprocess_data(data, device):
-            return preprocess_input_with_once_transformation(data, device)
+            return preprocess_input_with_single_transformation(data, device)
 
 
 class SemiEpocher:
@@ -174,11 +173,8 @@ class SemiEpocher:
             return report_dict
 
         @staticmethod
-        def _preprocess_data(labeled_input, unlabeled_input, device):
-            return preprocess_input_with_twice_transformation(labeled_input, unlabeled_input, device)
+        def _preprocess_data(data, device):
+            return preprocess_input_with_twice_transformation(data, device)
 
     class EvalEpoch(FSEpocher.EvalEpoch):
         pass
-
-    
-

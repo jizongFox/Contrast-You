@@ -2,10 +2,11 @@ import sys
 from typing import Tuple
 
 import torch
-from deepclustering2.utils import simplex
 from termcolor import colored
 from torch import Tensor
 from torch.nn import functional as F
+
+from deepclustering2.utils import simplex
 
 
 class IIDSegmentationLoss:

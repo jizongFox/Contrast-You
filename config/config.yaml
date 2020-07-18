@@ -1,24 +1,7 @@
-Arch:
-  name: ContrastUnet
-  num_classes: 4
-  input_dim: 1
-
-Optim:
-  name: Adam
-  lr: 0.000005
-  weight_decay: 0.00005
-
-Scheduler:
-  name: CosineAnnealingLR
-  T_max: 90
-  warmup:
-    multiplier: 300
-    total_epoch: 10
-
 Trainer:
   save_dir: test
   device: cuda
-  num_batches: 50
+  num_batches: 500
 
 Data:
   use_contrast: True

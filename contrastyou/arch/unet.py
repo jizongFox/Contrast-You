@@ -1,6 +1,7 @@
 import torch
 
 from torch import nn
+from torch.nn import functional as F
 
 __all__ = ["UNet"]
 
@@ -105,7 +106,7 @@ class UNet(nn.Module):
 
         d1 = self.Conv_1x1(d2)
         if return_features:
-            return d1, (d5, d4, d3, d2), (e5, e4, e3, e2, e1)
+            return d1,(e5, e4, e3, e2, e1), (d5, d4, d3, d2)
         return d1
 
     def disable_grad_encoder(self):
