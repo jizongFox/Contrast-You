@@ -19,7 +19,7 @@ from deepclustering2.models import Model, EMA_Model
 from deepclustering2.tqdm import tqdm
 from deepclustering2.trainer.trainer import T_loader, Trainer
 from deepclustering2.writer import SummaryWriter
-
+from torch.nn import functional as F
 
 class TransTwice:
 
@@ -30,6 +30,10 @@ class TransTwice:
     def __call__(self, img):
         return [self._transform(img), self._transform(img)]
 
+def loss_fn(x, y):
+    x = F.normalize(x, dim=-1, p=2)
+    y = F.normalize(y, dim=-1, p=2)
+    return 2 - 2 * (x * y).sum(dim=-1)
 
 class ContrastEpocher(_Epocher):
     def __init__(self, model: Model, target_model: EMA_Model, data_loader: T_loader, num_batches: int = 1000,
@@ -39,7 +43,7 @@ class ContrastEpocher(_Epocher):
         self._data_loader = data_loader
         assert isinstance(num_batches, int) and num_batches > 0, num_batches
         self._num_batches = num_batches
-        self._l2_criterion = nn.MSELoss()
+        self._l2_criterion = loss_fn
         self._target_model.to(self._device)
 
     @classmethod
@@ -63,8 +67,8 @@ class ContrastEpocher(_Epocher):
                 pred_img_project = self._model(img, return_prediction=True)
                 with torch.no_grad():
                     pred_img_tf = self._target_model(img_tf, return_projection=True)
-                loss = self._l2_criterion(pred_img_tf / pred_img_tf.norm(dim=1, keepdim=True),
-                                          pred_img_project / pred_img_project.norm(dim=1, keepdim=True))
+                loss = self._l2_criterion(pred_img_tf,
+                                          pred_img_project).mean()
                 self._model.zero_grad()
                 loss.backward()
                 self._model.step()
@@ -116,6 +120,8 @@ class FineTuneEpocher(_Epocher):
                     pred_features = self._model(img, return_features=True)
                 prediction = self._classfy_model(torch.flatten(pred_features, 1))
                 loss = self._sup_criterion(prediction, target)
+                if torch.isnan(loss):
+                    raise RuntimeError("nan in loss")
                 with torch.no_grad():
                     self.meters["sup_loss"].add(loss.item())
                     self.meters["cmx"].add(prediction.max(1)[1], target)
@@ -245,7 +251,7 @@ if __name__ == '__main__':
     from torchvision.datasets import CIFAR10
     from deepclustering2.schedulers import GradualWarmupScheduler
 
-    lr = 5e-6
+    lr = 1e-6
     net = VGG11()
     optim = torch.optim.Adam(net.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optim, 90, 0)
@@ -282,5 +288,5 @@ if __name__ == '__main__':
 
     trainer = BYOLTrainer(model=model, target_model=target_model, classify_model=classfy_model, save_dir="byol",
                           device="cuda", pretrain_loader=iter(pretra_loader), finetune_loader=iter(finetune_loader),
-                          val_loader=val_loader, max_epoch_contrastive=100, max_epoch_finetuning=100, num_batches=2000)
+                          val_loader=val_loader, max_epoch_contrastive=1, max_epoch_finetuning=100, num_batches=200)
     trainer.start_training()
