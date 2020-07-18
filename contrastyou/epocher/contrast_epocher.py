@@ -20,6 +20,7 @@ class PretrainEncoderEpoch(_Epocher):
         from deepclustering2.dataloader.sampler import _InfiniteRandomIterator
         assert isinstance(pretrain_encoder_loader._sampler_iter, _InfiniteRandomIterator), pretrain_encoder_loader
         assert isinstance(num_batches, int) and num_batches >= 1, num_batches
+        assert callable(contrastive_criterion), contrastive_criterion
         super().__init__(model, cur_epoch, device)
         self._pretrain_encoder_loader = pretrain_encoder_loader
         self._contrastive_criterion = contrastive_criterion
@@ -36,7 +37,7 @@ class PretrainEncoderEpoch(_Epocher):
         self._model._torchnet.enable_grad_encoder()  # noqa
         self._model._torchnet.disable_grad_decoder()  # noqa
 
-        with tqdm(range(self._num_batches)).set_desc_from_epocher(self) as indicator:
+        with tqdm(range(self._num_batches)).set_desc_from_epocher(self) as indicator:  # noqa
             for i, data in zip(indicator, self._pretrain_encoder_loader):
                 (img, _), (img_tf, _), filename, partition_list, group_list = self._preprocess_data(data, self._device)
                 representations = self._model(torch.cat([img, img_tf], dim=0))
@@ -73,7 +74,7 @@ class PretrainDecoderEpoch(PretrainEncoderEpoch):
         self._model._torchnet.enable_grad_decoder()  # noqa
         self._model._torchnet.disable_grad_encoder()  # noqa
 
-        with tqdm(range(self._num_batches)).set_desc_from_epocher(self) as indicator:
+        with tqdm(range(self._num_batches)).set_desc_from_epocher(self) as indicator:  # noqa
             for i, data in zip(indicator, self._pretrain_decoder_loader):
                 (img, _), (img_tf, _), filename, partition_list, group_list = self._preprocess_data(data, self._device)
                 representations = self._model(torch.cat([img, img_tf], dim=0))

@@ -8,10 +8,10 @@ from contrastyou.epocher.base_epocher import FSEpocher, SemiEpocher
 from deepclustering2.epoch._epocher import _Epocher  # noqa
 from deepclustering2.meters2 import EpochResultDict
 from deepclustering2.models import Model
-from deepclustering2.trainer.trainer import _Trainer, T_loader, T_loss
+from deepclustering2.trainer.trainer import Trainer, T_loader, T_loss
 
 
-class FSTrainer(_Trainer):
+class FSTrainer(Trainer):
     RUN_PATH = Path(PROJECT_PATH) / "runs"
 
     def __init__(self, model: Model, tra_loader: T_loader, labeled_loader: T_loader, unlabeled_loader: T_loader,
