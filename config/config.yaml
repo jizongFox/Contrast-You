@@ -1,10 +1,21 @@
+RandomSeed: 1
+
+Arch:
+  input_dim: 1
+  num_classes: 4
+
 Trainer:
-  save_dir: test
+  save_dir: test_pipeline
   device: cuda
-  num_batches: 500
+  num_batches: 1000
+  max_epoch_train_decoder: 100
+  max_epoch_train_encoder: 100
+  max_epoch_train_finetune: 100
+  train_encoder: True
+  train_decoder: True
 
 Data:
-  use_contrast: True
-  labeled_data_ratio: 0.1
-  unlabeled_data_ratio: 0.9
-  reg_weight: 0.0
+  labeled_data_ratio: 0.05
+  unlabeled_data_ratio: 0.95
+
+#Checkpoint: runs/test_pipeline

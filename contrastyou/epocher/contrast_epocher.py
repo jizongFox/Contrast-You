@@ -41,8 +41,6 @@ class PretrainEncoderEpoch(_Epocher):
     def _run(self, *args, **kwargs) -> EpochResultDict:
         self._model.train()
         assert self._model.training, self._model.training
-        self._model.enable_grad_encoder()  # noqa
-        self._model.disable_grad_decoder()  # noqa
         self.meters["lr"].add(self._optimizer.param_groups[0]["lr"])
 
         with tqdm(range(self._num_batches)).set_desc_from_epocher(self) as indicator:  # noqa
@@ -87,8 +85,6 @@ class PretrainDecoderEpoch(PretrainEncoderEpoch):
     def _run(self, *args, **kwargs) -> EpochResultDict:
         self._model.train()
         assert self._model.training, self._model.training
-        self._model.enable_grad_decoder()  # noqa
-        self._model.disable_grad_encoder()  # noqa
         self.meters["lr"].add(self._optimizer.param_groups[0]["lr"])
 
         with tqdm(range(self._num_batches)).set_desc_from_epocher(self) as indicator:  # noqa
@@ -161,12 +157,8 @@ class FineTuneEpoch(_Epocher):
     def _run(self, *args, **kwargs) -> EpochResultDict:
         self._model.train()
         assert self._model.training, self._model.training
-        self._model.enable_grad_encoder()
-        self._model.enable_grad_decoder()
-
         report_dict: EpochResultDict
         self.meters["lr"].add(self._optimizer.param_groups[0]["lr"])
-
         with tqdm(range(self._num_batches)).set_desc_from_epocher(self) as indicator:
             for i, label_data in zip(indicator, self._labeled_loader):
                 (labelimage, labeltarget), _, filename, partition_list, group_list \

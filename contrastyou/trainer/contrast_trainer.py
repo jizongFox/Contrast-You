@@ -1,4 +1,5 @@
 import itertools
+import os
 from pathlib import Path
 
 import torch
@@ -22,7 +23,8 @@ class ContrastTrainer(Trainer):
 
     def __init__(self, model: nn.Module, pretrain_loader: T_loader, fine_tune_loader: T_loader, val_loader: DataLoader,
                  save_dir: str = "base", max_epoch_train_encoder: int = 100, max_epoch_train_decoder: int = 100,
-                 max_epoch_train_finetune: int = 100, num_batches: int = 256, device: str = "cpu", configuration=None):
+                 max_epoch_train_finetune: int = 100, num_batches: int = 256, device: str = "cpu", configuration=None,
+                 train_encoder: bool = True, train_decoder: bool = True):
         """
         ContrastTraining Trainer
         :param model: nn.module network to be pretrained
@@ -33,7 +35,7 @@ class ContrastTrainer(Trainer):
         :param max_epoch_train_encoder: max_epoch to be trained for encoder training
         :param max_epoch_train_decoder: max_epoch to be trained for decoder training
         :param max_epoch_train_finetune: max_epoch to be trained for finetuning
-        :param num_batches:
+        :param num_batches:  num_batches used in training
         :param device: cpu or cuda
         :param configuration: configuration dict
         """
@@ -46,93 +48,140 @@ class ContrastTrainer(Trainer):
         self._max_epoch_train_decoder = max_epoch_train_decoder
         self._max_epoch_train_finetune = max_epoch_train_finetune
 
-    def _run_pretrain_encoder(self):
+        self._register_buffer("train_encoder", train_encoder)
+        self._register_buffer("train_decoder", train_decoder)
+        self._register_buffer("train_encoder_done", False)
+        self._register_buffer("train_decoder_done", False)
+
+        self._pretrain_encoder_storage = Storage()
+        self._pretrain_decoder_storage = Storage()
+        self._finetune_storage = Storage()
+
+    def pretrain_encoder_init(self):
         # adding optimizer and scheduler
-        projector = nn.Sequential(
+        self._projector = nn.Sequential(
             nn.AdaptiveAvgPool2d((1, 1)),
             Flatten(),
             nn.Linear(256, 256),
             nn.LeakyReLU(0.01, inplace=True),
             nn.Linear(256, 128),
         )
-        optimizer = torch.optim.Adam(itertools.chain(self._model.parameters(), projector.parameters()),
-                                     lr=1e-6, weight_decay=1e-5)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, self._max_epoch_train_encoder - 10, 0)
-        scheduler = GradualWarmupScheduler(optimizer, 300, 10, scheduler)
+        self._optimizer = torch.optim.Adam(itertools.chain(self._model.parameters(), self._projector.parameters()),
+                                           lr=1e-6, weight_decay=1e-5)  # noqa
+        self._scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self._optimizer,
+                                                                     self._max_epoch_train_encoder - 10, 0)
+        self._scheduler = GradualWarmupScheduler(self._optimizer, 300, 10, self._scheduler)  # noqa
+
+    def pretrain_encoder_run(self):
         self.to(self._device)
-        projector.to(self._device)
+        self._model.enable_grad_encoder()  # noqa
+        self._model.disable_grad_decoder()  # noqa
 
-        with Storage() as self._pretrain_encoder_storage:
-            for self._cur_epoch in range(self._start_epoch, self._max_epoch_train_encoder):
-                pretrain_encoder_dict = PretrainEncoderEpoch(
-                    model=self._model, projection_head=projector,
-                    optimizer=optimizer,
-                    pretrain_encoder_loader=self._pretrain_loader,
-                    contrastive_criterion=SupConLoss(), num_batches=self._num_batches,
-                    cur_epoch=self._cur_epoch, device=self._device
-                ).run()
-                scheduler.step()
-                storage_dict = StorageIncomeDict(pretrain_encode=pretrain_encoder_dict, )
-                self._pretrain_encoder_storage.put_from_dict(storage_dict, epoch=self._cur_epoch)
-                for k, v in storage_dict.__dict__.items():
-                    self._writer.add_scalar_with_tag(k, v, global_step=self._cur_epoch)
+        for self._cur_epoch in range(self._start_epoch, self._max_epoch_train_encoder):
+            pretrain_encoder_dict = PretrainEncoderEpoch(
+                model=self._model, projection_head=self._projector,
+                optimizer=self._optimizer,
+                pretrain_encoder_loader=self._pretrain_loader,
+                contrastive_criterion=SupConLoss(), num_batches=self._num_batches,
+                cur_epoch=self._cur_epoch, device=self._device
+            ).run()
+            self._scheduler.step()
+            storage_dict = StorageIncomeDict(PRETRAIN_ENCODER=pretrain_encoder_dict, )
+            self._pretrain_encoder_storage.put_from_dict(storage_dict, epoch=self._cur_epoch)
+            self._writer.add_scalar_with_StorageDict(storage_dict, self._cur_epoch)
+            self._save_to("last.pth", path=os.path.join(self._save_dir, "pretrain_encoder"))
+        self.train_encoder_done = True
 
-    def _run_pretrain_decoder(self):
+    def pretrain_decoder_init(self):
         # adding optimizer and scheduler
-        projector = nn.Sequential(
+        self._projector = nn.Sequential(
             nn.Conv2d(64, 64, 3, 1, 1),
             nn.BatchNorm2d(64),
+            nn.LeakyReLU(0.01, inplace=True),
             nn.Conv2d(64, 32, 3, 1, 1)
         )
-        optimizer = torch.optim.Adam(itertools.chain(self._model.parameters(), projector.parameters()),
-                                     lr=1e-6, weight_decay=0)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, self._max_epoch_train_decoder - 10, 0)
-        scheduler = GradualWarmupScheduler(optimizer, 300, 10, scheduler)
+        self._optimizer = torch.optim.Adam(itertools.chain(self._model.parameters(), self._projector.parameters()),
+                                           lr=1e-6, weight_decay=0)
+        self._scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self._optimizer,
+                                                                     self._max_epoch_train_decoder - 10, 0)
+        self._scheduler = GradualWarmupScheduler(self._optimizer, 300, 10, self._scheduler)
 
+    def pretrain_decoder_run(self):
         self.to(self._device)
-        projector.to(self._device)
-        with Storage() as self._pretrain_decoder_storage:
-            for self._cur_epoch in range(self._start_epoch, self._max_epoch_train_decoder):
-                pretrain_decoder_dict = PretrainDecoderEpoch(
-                    model=self._model, projection_head=projector,
-                    optimizer=optimizer,
-                    pretrain_decoder_loader=self._pretrain_loader,
-                    contrastive_criterion=SupConLoss(), num_batches=self._num_batches,
-                    cur_epoch=self._cur_epoch, device=self._device
-                ).run()
-                scheduler.step()
-                storage_dict = StorageIncomeDict(pretrain_decode=pretrain_decoder_dict, )
-                self._pretrain_encoder_storage.put_from_dict(storage_dict, epoch=self._cur_epoch)
-                for k, v in storage_dict.__dict__.items():
-                    self._writer.add_scalar_with_tag(k, v, global_step=self._cur_epoch)
+        self._projector.to(self._device)
 
-    def _run_finetune(self):
-        optimizer = torch.optim.Adam(self._model.parameters(), lr=1e-6, weight_decay=1e-5)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, self._max_epoch_train_decoder - 10, 0)
-        scheduler = GradualWarmupScheduler(optimizer, 300, 10, scheduler)
+        self._model.enable_grad_decoder()  # noqa
+        self._model.disable_grad_encoder()  # noqa
 
+        for self._cur_epoch in range(self._start_epoch, self._max_epoch_train_decoder):
+            pretrain_decoder_dict = PretrainDecoderEpoch(
+                model=self._model, projection_head=self._projector,
+                optimizer=self._optimizer,
+                pretrain_decoder_loader=self._pretrain_loader,
+                contrastive_criterion=SupConLoss(), num_batches=self._num_batches,
+                cur_epoch=self._cur_epoch, device=self._device
+            ).run()
+            self._scheduler.step()
+            storage_dict = StorageIncomeDict(PRETRAIN_DECODER=pretrain_decoder_dict, )
+            self._pretrain_encoder_storage.put_from_dict(storage_dict, epoch=self._cur_epoch)
+            self._writer.add_scalar_with_StorageDict(storage_dict, self._cur_epoch)
+            self._save_to("last.pth", path=os.path.join(self._save_dir, "pretrain_decoder"))
+        self.train_decoder_done = True
+
+    def finetune_network_init(self):
+
+        self._optimizer = torch.optim.Adam(self._model.parameters(), lr=1e-6, weight_decay=1e-5)
+        self._scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self._optimizer,
+                                                                     self._max_epoch_train_finetune - 10, 0)
+        self._scheduler = GradualWarmupScheduler(self._optimizer, 200, 10, self._scheduler)
+
+    def finetune_network_run(self):
         self.to(self._device)
+        self._model.enable_grad_decoder()  # noqa
+        self._model.enable_grad_encoder()  # noqa
 
-        with Storage() as self._finetune_storage:
-            for self._cur_epoch in range(self._start_epoch, self._max_epoch_train_finetune):
-                finetune_dict = FineTuneEpoch(
-                    model=self._model, optimizer=optimizer,
-                    labeled_loader=self._fine_tune_loader, num_batches=self._num_batches,
-                    cur_epoch=self._cur_epoch, device=self._device
-                ).run()
-                val_dict, cur_score = FSEpocher.EvalEpoch(self._model, val_data_loader=self._val_loader,
-                                                          sup_criterion=KL_div(),
-                                                          cur_epoch=self._cur_epoch, device=self._device).run()
-                scheduler.step()
-                storage_dict = StorageIncomeDict(finetune=finetune_dict, val=val_dict)
-                self._finetune_storage.put_from_dict(storage_dict, epoch=self._cur_epoch)
-                for k, v in storage_dict.__dict__.items():
-                    self._writer.add_scalar_with_tag(k, v, global_step=self._cur_epoch)
+        for self._cur_epoch in range(self._start_epoch, self._max_epoch_train_finetune):
+            finetune_dict = FineTuneEpoch(
+                model=self._model, optimizer=self._optimizer,
+                labeled_loader=self._fine_tune_loader, num_batches=self._num_batches,
+                cur_epoch=self._cur_epoch, device=self._device
+            ).run()
+            val_dict, cur_score = FSEpocher.EvalEpoch(self._model, val_data_loader=self._val_loader,
+                                                      sup_criterion=KL_div(),
+                                                      cur_epoch=self._cur_epoch, device=self._device).run()
+            self._scheduler.step()
+            storage_dict = StorageIncomeDict(finetune=finetune_dict, val=val_dict)
+            self._finetune_storage.put_from_dict(storage_dict, epoch=self._cur_epoch)
+            self._writer.add_scalar_with_StorageDict(storage_dict, self._cur_epoch)
+            self.save(cur_score, os.path.join(self._save_dir, "finetune"))
 
-                self.save(cur_score)
+    def start_training(self, checkpoint: str = None):
 
-    def start_training(self):
-        with SummaryWriter(str(self._save_dir)) as self._writer:
-            self._run_pretrain_encoder()
-            self._run_pretrain_decoder()
-            self._run_finetune()
+        with SummaryWriter(str(self._save_dir)) as self._writer:  # noqa
+            if self.train_encoder:
+                self.pretrain_encoder_init()
+                if checkpoint is not None:
+                    try:
+                        self.load_state_dict_from_path(os.path.join(checkpoint, "pretrain_encoder"))
+                    except Exception as e:
+                        raise RuntimeError(f"loading pretrain_encoder_checkpoint failed with {e}, ")
+
+                if not self.train_encoder_done:
+                    self.pretrain_encoder_run()
+            if self.train_decoder:
+                self.pretrain_decoder_init()
+                if checkpoint is not None:
+                    try:
+                        self.load_state_dict_from_path(os.path.join(checkpoint, "pretrain_decoder"))
+                        checkpoint_already_load = True
+                    except Exception as e:
+                        print(f"loading pretrain_decoder_checkpoint failed with {e}, ")
+                if not self.train_decoder_done:
+                    self.pretrain_decoder_run()
+            self.finetune_network_init()
+            if checkpoint is not None and not checkpoint_already_load:
+                try:
+                    self.load_state_dict_from_path(os.path.join(checkpoint, "finetune"))
+                except Exception as e:
+                    print(f"loading finetune_checkpoint failed with {e}, ")
+            self.finetune_network_run()
