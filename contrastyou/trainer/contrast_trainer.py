@@ -29,7 +29,7 @@ class ContrastTrainer(Trainer):
         ContrastTraining Trainer
         :param model: nn.module network to be pretrained
         :param pretrain_loader: all unlabeled data under ContrastiveBatchSampler
-        :param fine_tune_loader: a fraction of labeled data for finetuning
+        :param fine_tune_loader: a fraction of labeled data for finetuning, with InfiniteSampler
         :param val_loader: validation data
         :param save_dir: main save_die
         :param max_epoch_train_encoder: max_epoch to be trained for encoder training
@@ -56,6 +56,11 @@ class ContrastTrainer(Trainer):
         self._pretrain_encoder_storage = Storage()
         self._pretrain_decoder_storage = Storage()
         self._finetune_storage = Storage()
+
+        # place holder for optimizer and scheduler
+        self._optimizer = None
+        self._scheduler = None
+        self._projector = None
 
     def pretrain_encoder_init(self):
         # adding optimizer and scheduler
@@ -130,7 +135,7 @@ class ContrastTrainer(Trainer):
 
     def finetune_network_init(self):
 
-        self._optimizer = torch.optim.Adam(self._model.parameters(), lr=1e-6, weight_decay=1e-5)
+        self._optimizer = torch.optim.Adam(self._model.parameters(), lr=1e-7, weight_decay=1e-5)
         self._scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self._optimizer,
                                                                      self._max_epoch_train_finetune - 10, 0)
         self._scheduler = GradualWarmupScheduler(self._optimizer, 200, 10, self._scheduler)
@@ -173,13 +178,12 @@ class ContrastTrainer(Trainer):
                 if checkpoint is not None:
                     try:
                         self.load_state_dict_from_path(os.path.join(checkpoint, "pretrain_decoder"))
-                        checkpoint_already_load = True
                     except Exception as e:
                         print(f"loading pretrain_decoder_checkpoint failed with {e}, ")
                 if not self.train_decoder_done:
                     self.pretrain_decoder_run()
             self.finetune_network_init()
-            if checkpoint is not None and not checkpoint_already_load:
+            if checkpoint is not None:
                 try:
                     self.load_state_dict_from_path(os.path.join(checkpoint, "finetune"))
                 except Exception as e:
