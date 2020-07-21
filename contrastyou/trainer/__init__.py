@@ -1,4 +1,3 @@
-from .base_trainer import FSTrainer, SemiTrainer
-from .contrast_trainer import ContrastTrainer
+from .contrast_trainer import ContrastTrainer, ContrastTrainerMT
 
-trainer_zoos = {"fs": FSTrainer, "semi": SemiTrainer, "contrast": ContrastTrainer}
+trainer_zoos = {"contrast": ContrastTrainer, "contrastMT":ContrastTrainerMT}
