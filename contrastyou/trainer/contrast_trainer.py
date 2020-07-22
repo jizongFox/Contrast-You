@@ -3,6 +3,9 @@ import os
 from pathlib import Path
 
 import torch
+from torch import nn
+from torch.utils.data import DataLoader
+
 from contrastyou import PROJECT_PATH
 from contrastyou.epocher import PretrainEncoderEpoch, PretrainDecoderEpoch, SimpleFineTuneEpoch, MeanTeacherEpocher
 from contrastyou.epocher.base_epocher import EvalEpoch
@@ -13,8 +16,6 @@ from deepclustering2.meters2 import Storage, StorageIncomeDict
 from deepclustering2.schedulers import GradualWarmupScheduler
 from deepclustering2.trainer.trainer import Trainer, T_loader
 from deepclustering2.writer import SummaryWriter
-from torch import nn
-from torch.utils.data import DataLoader
 
 
 class ContrastTrainer(Trainer):
@@ -23,7 +24,7 @@ class ContrastTrainer(Trainer):
     def __init__(self, model: nn.Module, pretrain_loader: T_loader, fine_tune_loader: T_loader, val_loader: DataLoader,
                  save_dir: str = "base", max_epoch_train_encoder: int = 100, max_epoch_train_decoder: int = 100,
                  max_epoch_train_finetune: int = 100, num_batches: int = 256, device: str = "cpu", configuration=None,
-                 train_encoder: bool = True, train_decoder: bool = True,*args,**kwargs):
+                 train_encoder: bool = True, train_decoder: bool = True, *args, **kwargs):
         """
         ContrastTraining Trainer
         :param model: nn.module network to be pretrained
@@ -196,14 +197,14 @@ class ContrastTrainerMT(ContrastTrainer):
                  reg_criterion=nn.MSELoss(), *args, **kwargs):
         super().__init__(model, pretrain_loader, fine_tune_loader, val_loader, save_dir, max_epoch_train_encoder,
                          max_epoch_train_decoder, max_epoch_train_finetune, num_batches, device, configuration,
-                         train_encoder, train_decoder,*args, **kwargs)
+                         train_encoder, train_decoder, *args, **kwargs)
         self._teacher_model = None
         self._transform_axis = transform_axis
         self._reg_weight = reg_weight
         self._reg_criterion = reg_criterion
 
     def finetune_network_init(self, *args, **kwargs):
-        super().finetune_network_init(*args,**kwargs)
+        super().finetune_network_init(*args, **kwargs)
         from contrastyou.arch import UNet
         from deepclustering2.models import ema_updater
         # here we initialize the MT
