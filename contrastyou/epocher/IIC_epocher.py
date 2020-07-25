@@ -1,15 +1,16 @@
 import random
 
 import torch
-from contrastyou.epocher._utils import unfold_position
-from deepclustering2 import optim
-from deepclustering2.decorator import FixRandomSeed
-from deepclustering2.meters2 import EpochResultDict
-from deepclustering2.optim import get_lrs_from_optimizer
-from deepclustering2.trainer.trainer import T_loader, T_loss
 from torch import nn
 from torch.nn import functional as F
 
+from contrastyou.epocher._utils import unfold_position
+from deepclustering2 import optim
+from deepclustering2.decorator import FixRandomSeed
+from deepclustering2.meters2 import EpochResultDict, MeterInterface, AverageValueMeter
+from deepclustering2.optim import get_lrs_from_optimizer
+from deepclustering2.tqdm import tqdm
+from deepclustering2.trainer.trainer import T_loader, T_loss
 from .contrast_epocher import PretrainDecoderEpoch as _PretrainDecoderEpoch
 from .contrast_epocher import PretrainEncoderEpoch as _PretrainEncoderEpoch
 
@@ -41,6 +42,11 @@ class IICPretrainEcoderEpoch(_PretrainEncoderEpoch):
         self._iic_criterion = IIDLoss()
         self._iic_weight_ratio = iic_weight_ratio
 
+    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters.register_meter("iic_loss", AverageValueMeter())
+        meters = super()._configure_meters(meters)
+        return meters
+
     def _run(self, *args, **kwargs) -> EpochResultDict:
         self._model.train()
         assert self._model.training, self._model.training
@@ -56,7 +62,7 @@ class IICPretrainEcoderEpoch(_PretrainEncoderEpoch):
                 labels = self._label_generation(partition_list, group_list)
                 contrastive_loss = self._contrastive_criterion(torch.stack([global_enc, global_tf_enc], dim=1),
                                                                labels=labels)
-                iic_loss = self._iic_criterion(global_probs, global_tf_probs)  # todo
+                iic_loss = self._iic_criterion(global_probs, global_tf_probs)[0]  # todo
                 total_loss = self._iic_weight_ratio * iic_loss + (1 - self._iic_weight_ratio) * contrastive_loss
                 self._optimizer.zero_grad()
                 total_loss.backward()
@@ -64,6 +70,7 @@ class IICPretrainEcoderEpoch(_PretrainEncoderEpoch):
                 # todo: meter recording.
                 with torch.no_grad():
                     self.meters["contrastive_loss"].add(contrastive_loss.item())
+                    self.meters["iic_loss"].add(iic_loss.item())
                     report_dict = self.meters.tracking_status()
                     indicator.set_postfix_dict(report_dict)
         return report_dict
@@ -98,7 +105,9 @@ class IICPretrainDecoderEpoch(_PretrainDecoderEpoch):
                 assert d4_ctf_gtf.shape == d4_ctf.shape, (d4_ctf_gtf.shape, d4_ctf.shape)
                 d4_tf = torch.cat([d4_gtf, d4_ctf_gtf], dim=0)
                 local_enc_tf, local_enc_tf_ctf = torch.chunk(self._projection_head(d4_tf), chunks=2, dim=0)
-                # todo: convert representation to distance
+                # todo: iic local presentation
+                pass
+
                 local_enc_unfold, _ = unfold_position(local_enc_tf, partition_num=(2, 2))
                 local_tf_enc_unfold, _fold_partition = unfold_position(local_enc_tf_ctf, partition_num=(2, 2))
                 b, *_ = local_enc_unfold.shape

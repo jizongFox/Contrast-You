@@ -42,17 +42,12 @@ class IIDLoss(nn.Module):
         # p_i = x_out.mean(0).view(k, 1).expand(k, k)
         # p_j = x_tf_out.mean(0).view(1, k).expand(k, k)
         #
-        # avoid NaN losses. Effect will get cancelled out by p_i_j tiny anyway
-        if self.torch_vision < "1.3.0":
-            p_i_j[p_i_j < self.eps] = self.eps
-            p_j[p_j < self.eps] = self.eps
-            p_i[p_i < self.eps] = self.eps
 
         loss = -p_i_j * (
-            torch.log(p_i_j) - self.lamb * torch.log(p_j) - self.lamb * torch.log(p_i)
+            torch.log(p_i_j+1e-10) - self.lamb * torch.log(p_j+1e-10) - self.lamb * torch.log(p_i+1e-10)
         )
         loss = loss.sum()
-        loss_no_lamb = -p_i_j * (torch.log(p_i_j) - torch.log(p_j) - torch.log(p_i))
+        loss_no_lamb = -p_i_j * (torch.log(p_i_j+1e-10) - torch.log(p_j+1e-10) - torch.log(p_i+1e-10))
         loss_no_lamb = loss_no_lamb.sum()
         return loss, loss_no_lamb
 

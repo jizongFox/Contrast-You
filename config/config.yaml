@@ -20,7 +20,7 @@ Trainer:
   train_decoder: True
 
 PretrainEncoder:
-  group_option: patient
+  group_option: partition
 
 PretrainDecoder:
   null
