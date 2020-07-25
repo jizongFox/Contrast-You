@@ -19,7 +19,7 @@ from torch import nn
 class IICContrastTrainer(ContrastTrainer):
     RUN_PATH = Path(PROJECT_PATH) / "runs"
 
-    def pretrain_encoder_init(self, num_clusters=20, *args, **kwargs):
+    def pretrain_encoder_init(self, group_option, num_clusters=20):
         # adding optimizer and scheduler
         self._projector_contrastive = nn.Sequential(
             nn.AdaptiveAvgPool2d((1, 1)),

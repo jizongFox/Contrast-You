@@ -3,9 +3,6 @@ import os
 from pathlib import Path
 
 import torch
-from torch import nn
-from torch.utils.data import DataLoader
-
 from contrastyou import PROJECT_PATH
 from contrastyou.epocher import PretrainEncoderEpoch, PretrainDecoderEpoch, SimpleFineTuneEpoch, MeanTeacherEpocher
 from contrastyou.epocher.base_epocher import EvalEpoch
@@ -16,6 +13,8 @@ from deepclustering2.meters2 import Storage, StorageIncomeDict
 from deepclustering2.schedulers import GradualWarmupScheduler
 from deepclustering2.trainer.trainer import Trainer, T_loader
 from deepclustering2.writer import SummaryWriter
+from torch import nn
+from torch.utils.data import DataLoader
 
 
 class ContrastTrainer(Trainer):
@@ -24,7 +23,7 @@ class ContrastTrainer(Trainer):
     def __init__(self, model: nn.Module, pretrain_loader: T_loader, fine_tune_loader: T_loader, val_loader: DataLoader,
                  save_dir: str = "base", max_epoch_train_encoder: int = 100, max_epoch_train_decoder: int = 100,
                  max_epoch_train_finetune: int = 100, num_batches: int = 256, device: str = "cpu", configuration=None,
-                 train_encoder: bool = True, train_decoder: bool = True, *args, **kwargs):
+                 train_encoder: bool = True, train_decoder: bool = True):
         """
         ContrastTraining Trainer
         :param model: nn.module network to be pretrained
@@ -63,7 +62,7 @@ class ContrastTrainer(Trainer):
         self._projector = None
         self._sup_criterion = None
 
-    def pretrain_encoder_init(self, *args, **kwargs):
+    def pretrain_encoder_init(self, group_option: str):
         # adding optimizer and scheduler
         self._projector = nn.Sequential(
             nn.AdaptiveAvgPool2d((1, 1)),
@@ -78,6 +77,12 @@ class ContrastTrainer(Trainer):
                                                                      self._max_epoch_train_encoder - 10, 0)
         self._scheduler = GradualWarmupScheduler(self._optimizer, 300, 10, self._scheduler)  # noqa
 
+        self._group_option = group_option  # noqa
+
+        # set augmentation method as `total_freedom = True`
+        self._pretrain_loader.dataset._transform._total_freedom = True  # noqa
+        self._pretrain_loader_iter = iter(self._pretrain_loader)  # noqa
+
     def pretrain_encoder_run(self):
         self.to(self._device)
         self._model.enable_grad_encoder()  # noqa
@@ -87,9 +92,9 @@ class ContrastTrainer(Trainer):
             pretrain_encoder_dict = PretrainEncoderEpoch(
                 model=self._model, projection_head=self._projector,
                 optimizer=self._optimizer,
-                pretrain_encoder_loader=self._pretrain_loader,
+                pretrain_encoder_loader=self._pretrain_loader_iter,
                 contrastive_criterion=SupConLoss(), num_batches=self._num_batches,
-                cur_epoch=self._cur_epoch, device=self._device
+                cur_epoch=self._cur_epoch, device=self._device, group_option=self._group_option
             ).run()
             self._scheduler.step()
             storage_dict = StorageIncomeDict(PRETRAIN_ENCODER=pretrain_encoder_dict, )
@@ -112,6 +117,11 @@ class ContrastTrainer(Trainer):
                                                                      self._max_epoch_train_decoder - 10, 0)
         self._scheduler = GradualWarmupScheduler(self._optimizer, 300, 10, self._scheduler)
 
+        # set augmentation method as `total_freedom = False`
+        self._pretrain_loader.dataset._transform._total_freedom = False  # noqa
+
+        self._pretrain_loader_iter = iter(self._pretrain_loader)  # noqa
+
     def pretrain_decoder_run(self):
         self.to(self._device)
         self._projector.to(self._device)
@@ -123,9 +133,9 @@ class ContrastTrainer(Trainer):
             pretrain_decoder_dict = PretrainDecoderEpoch(
                 model=self._model, projection_head=self._projector,
                 optimizer=self._optimizer,
-                pretrain_decoder_loader=self._pretrain_loader,
+                pretrain_decoder_loader=self._pretrain_loader_iter,
                 contrastive_criterion=SupConLoss(), num_batches=self._num_batches,
-                cur_epoch=self._cur_epoch, device=self._device
+                cur_epoch=self._cur_epoch, device=self._device,
             ).run()
             self._scheduler.step()
             storage_dict = StorageIncomeDict(PRETRAIN_DECODER=pretrain_decoder_dict, )
@@ -136,11 +146,15 @@ class ContrastTrainer(Trainer):
 
     def finetune_network_init(self, *args, **kwargs):
 
-        self._optimizer = torch.optim.Adam(self._model.parameters(), lr=1e-7, weight_decay=1e-5)
+        self._optimizer = torch.optim.Adam(self._model.parameters(), lr=1e-6, weight_decay=1e-5)
         self._scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self._optimizer,
                                                                      self._max_epoch_train_finetune - 10, 0)
-        self._scheduler = GradualWarmupScheduler(self._optimizer, 200, 10, self._scheduler)
+        self._scheduler = GradualWarmupScheduler(self._optimizer, 300, 10, self._scheduler)
         self._sup_criterion = KL_div()
+
+        # set augmentation method as `total_freedom = True`
+        self._fine_tune_loader.dataset._transform._total_freedom = True  # noqa
+        self._fine_tune_loader_iter = iter(self._fine_tune_loader)  # noqa
 
     def finetune_network_run(self, epocher_type=SimpleFineTuneEpoch):
         self.to(self._device)
@@ -157,11 +171,22 @@ class ContrastTrainer(Trainer):
             self._writer.add_scalar_with_StorageDict(storage_dict, self._cur_epoch)
             self.save(cur_score, os.path.join(self._save_dir, "finetune"))
 
-    def start_training(self, checkpoint: str = None):
+    def start_training(
+        self, checkpoint: str = None,
+        pretrain_encoder_init_options=None,
+        pretrain_decoder_init_options=None,
+        finetune_network_init_options=None
+    ):
 
+        if finetune_network_init_options is None:
+            finetune_network_init_options = {}
+        if pretrain_decoder_init_options is None:
+            pretrain_decoder_init_options = {}
+        if pretrain_encoder_init_options is None:
+            pretrain_encoder_init_options = {}
         with SummaryWriter(str(self._save_dir)) as self._writer:  # noqa
             if self.train_encoder:
-                self.pretrain_encoder_init()
+                self.pretrain_encoder_init(**pretrain_encoder_init_options)
                 if checkpoint is not None:
                     try:
                         self.load_state_dict_from_path(os.path.join(checkpoint, "pretrain_encoder"))
@@ -171,7 +196,7 @@ class ContrastTrainer(Trainer):
                 if not self.train_encoder_done:
                     self.pretrain_encoder_run()
             if self.train_decoder:
-                self.pretrain_decoder_init()
+                self.pretrain_decoder_init(**pretrain_decoder_init_options)
                 if checkpoint is not None:
                     try:
                         self.load_state_dict_from_path(os.path.join(checkpoint, "pretrain_decoder"))
@@ -179,7 +204,7 @@ class ContrastTrainer(Trainer):
                         print(f"loading pretrain_decoder_checkpoint failed with {e}, ")
                 if not self.train_decoder_done:
                     self.pretrain_decoder_run()
-            self.finetune_network_init()
+            self.finetune_network_init(**finetune_network_init_options)
             if checkpoint is not None:
                 try:
                     self.load_state_dict_from_path(os.path.join(checkpoint, "finetune"))
@@ -190,21 +215,13 @@ class ContrastTrainer(Trainer):
 
 class ContrastTrainerMT(ContrastTrainer):
 
-    def __init__(self, model: nn.Module, pretrain_loader: T_loader, fine_tune_loader: T_loader, val_loader: DataLoader,
-                 save_dir: str = "base", max_epoch_train_encoder: int = 100, max_epoch_train_decoder: int = 100,
-                 max_epoch_train_finetune: int = 100, num_batches: int = 256, device: str = "cpu", configuration=None,
-                 train_encoder: bool = True, train_decoder: bool = True, transform_axis=[1, 2], reg_weight=0.0,
-                 reg_criterion=nn.MSELoss(), *args, **kwargs):
-        super().__init__(model, pretrain_loader, fine_tune_loader, val_loader, save_dir, max_epoch_train_encoder,
-                         max_epoch_train_decoder, max_epoch_train_finetune, num_batches, device, configuration,
-                         train_encoder, train_decoder, *args, **kwargs)
-        self._teacher_model = None
-        self._transform_axis = transform_axis
+    def finetune_network_init(self, reg_weight: float = 0.0, reg_criterion=nn.MSELoss(), transform_axis=[1, 2], *args, **kwargs):
+        super().finetune_network_init()
+
         self._reg_weight = reg_weight
         self._reg_criterion = reg_criterion
+        self._transform_axis = transform_axis
 
-    def finetune_network_init(self, *args, **kwargs):
-        super().finetune_network_init(*args, **kwargs)
         from contrastyou.arch import UNet
         from deepclustering2.models import ema_updater
         # here we initialize the MT

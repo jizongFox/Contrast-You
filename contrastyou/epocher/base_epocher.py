@@ -2,9 +2,7 @@ import random
 from typing import Union, Tuple
 
 import torch
-from torch import nn
-from torch.utils.data import DataLoader
-
+from deepclustering2.augment.tensor_augment import TensorRandomFlip
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.epoch import _Epocher, proxy_trainer  # noqa
 from deepclustering2.loss import simplex
@@ -14,8 +12,10 @@ from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.tqdm import tqdm
 from deepclustering2.trainer.trainer import T_loss, T_optim, T_loader
 from deepclustering2.utils import class2one_hot
-from ._utils import preprocess_input_with_single_transformation, preprocess_input_with_twice_transformation, \
-    TensorRandomFlip
+from torch import nn
+from torch.utils.data import DataLoader
+
+from ._utils import preprocess_input_with_single_transformation, preprocess_input_with_twice_transformation
 
 
 class EvalEpoch(_Epocher):
@@ -82,7 +82,7 @@ class SimpleFineTuneEpoch(_Epocher):
     @classmethod
     def create_from_trainer(cls, trainer):
         return cls(
-            model=trainer._model, optimizer=trainer._optimizer, labeled_loader=trainer._fine_tune_loader,
+            model=trainer._model, optimizer=trainer._optimizer, labeled_loader=trainer._fine_tune_loader_iter,
             sup_criterion=trainer._sup_criterion, num_batches=trainer._num_batches, cur_epoch=trainer._cur_epoch,
             device=trainer._device
         )
@@ -146,8 +146,9 @@ class MeanTeacherEpocher(SimpleFineTuneEpoch):
     @classmethod
     def create_from_trainer(cls, trainer):
         return cls(model=trainer._model, teacher_model=trainer._teacher_model, optimizer=trainer._optimizer,
-                   labeled_loader=trainer._fine_tune_loader, tra_loader=trainer._pretrain_loader,
-                   sup_criterion=trainer._sup_criterion, reg_criterion=trainer._reg_criterion, num_batches=trainer._num_batches,
+                   labeled_loader=trainer._fine_tune_loader_iter, tra_loader=trainer._pretrain_loader,
+                   sup_criterion=trainer._sup_criterion, reg_criterion=trainer._reg_criterion,
+                   num_batches=trainer._num_batches,
                    cur_epoch=trainer._cur_epoch, device=trainer._device, transform_axis=trainer._transform_axis,
                    reg_weight=trainer._reg_weight, ema_updater=trainer._ema_updater)
 

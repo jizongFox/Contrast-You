@@ -5,7 +5,7 @@ from pathlib import Path
 
 from contrastyou import DATA_PATH, PROJECT_PATH
 from contrastyou.arch import UNet
-from contrastyou.augment import ACDC_transforms
+from contrastyou.augment import ACDCTransforms
 from contrastyou.dataloader._seg_datset import ContrastBatchSampler  # noqa
 from contrastyou.dataloader.acdc_dataset import ACDCSemiInterface, ACDCDataset
 from contrastyou.trainer import trainer_zoos
@@ -28,11 +28,11 @@ acdc_manager = ACDCSemiInterface(root_dir=DATA_PATH, labeled_data_ratio=config["
                                  unlabeled_data_ratio=config["Data"]["unlabeled_data_ratio"])
 
 label_set, unlabel_set, val_set = acdc_manager._create_semi_supervised_datasets(  # noqa
-    labeled_transform=ACDC_transforms.train,
-    unlabeled_transform=ACDC_transforms.train,
-    val_transform=ACDC_transforms.val
+    labeled_transform=ACDCTransforms.train,
+    unlabeled_transform=ACDCTransforms.train,
+    val_transform=ACDCTransforms.val
 )
-train_set = ACDCDataset(root_dir=DATA_PATH, mode="train", transforms=ACDC_transforms.train)
+train_set = ACDCDataset(root_dir=DATA_PATH, mode="train", transforms=ACDCTransforms.train)
 
 # all training set is with ContrastBatchSampler
 train_loader = DataLoader(train_set,  # noqa
@@ -51,7 +51,9 @@ val_loader = DataLoader(val_set, batch_sampler=PatientSampler(
 checkpoint = config.pop("Checkpoint", None)
 Trainer = trainer_zoos[config["Trainer"].pop("name")]
 assert Trainer, Trainer
-trainer = Trainer(model=model, pretrain_loader=iter(train_loader), fine_tune_loader=iter(labeled_loader),
+trainer = Trainer(model=model, pretrain_loader=train_loader, fine_tune_loader=labeled_loader,
                   val_loader=val_loader, configuration=cmanager.config, **config["Trainer"], )
 
-trainer.start_training(checkpoint=checkpoint)
+trainer.start_training(checkpoint=checkpoint, pretrain_encoder_init_options=config["PretrainEncoder"],
+                       pretrain_decoder_init_options=config["PretrainDecoder"],
+                       finetune_network_init_options=config["FineTune"])

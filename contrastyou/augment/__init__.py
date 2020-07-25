@@ -1,47 +1,24 @@
-from typing import Callable, Union, List, Tuple
+from torchvision import transforms
 
-from deepclustering2.augment import pil_augment, SequentialWrapper
-
-
-class SequentialWrapperTwice(SequentialWrapper):
-
-    def __init__(self, img_transform: Callable = None, target_transform: Callable = None,
-                 if_is_target: Union[List[bool], Tuple[bool, ...]] = []) -> None:
-        super().__init__(img_transform, target_transform, if_is_target)
-
-    def __call__(
-        self, *imgs, random_seed=None
-    ):
-        return [
-            super(SequentialWrapperTwice, self).__call__(*imgs, random_seed=random_seed),
-            super(SequentialWrapperTwice, self).__call__(*imgs, random_seed=random_seed),
-        ]
+from contrastyou.augment.sequential_wrapper import SequentialWrapperTwice, SequentialWrapper
+from deepclustering2.augment import pil_augment
 
 
-class ACDC_transforms:
+class ACDCTransforms:
     train = SequentialWrapperTwice(
-        pil_augment.Compose([
+        comm_transform=pil_augment.Compose([
             pil_augment.RandomCrop(224),
             pil_augment.RandomRotation(30),
-            pil_augment.ToTensor()
         ]),
-        pil_augment.Compose([
-            pil_augment.RandomCrop(224),
-            pil_augment.RandomRotation(30),
+        img_transform=pil_augment.Compose([
+            transforms.ColorJitter(brightness=[0.5, 1.5], contrast=[0.5, 1.5], saturation=[0.5, 1.5]),
+            transforms.ToTensor()
+        ]),
+        target_transform=pil_augment.Compose([
             pil_augment.ToLabel()
         ]),
-        if_is_target=[False, True]
-
+        total_freedom=True
     )
     val = SequentialWrapper(
-        pil_augment.Compose([
-            pil_augment.CenterCrop(224),
-            pil_augment.ToTensor()
-        ]),
-        pil_augment.Compose([
-            pil_augment.CenterCrop(224),
-            pil_augment.ToLabel()
-        ]),
-        if_is_target=[False, True]
-
+        comm_transform=pil_augment.CenterCrop(224)
     )

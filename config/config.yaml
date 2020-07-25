@@ -18,9 +18,15 @@ Trainer:
   max_epoch_train_finetune: 100
   train_encoder: True
   train_decoder: True
-  # for mt trainer
-  transform_axis: [1, 2]
-  reg_weight: 10
+
+PretrainEncoder:
+  group_option: patient
+
+PretrainDecoder:
+  null
+FineTune:
+  reg_weight: 15
+
 
 
 #Checkpoint: runs/test_pipeline

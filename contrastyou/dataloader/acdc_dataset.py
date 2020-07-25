@@ -1,12 +1,13 @@
 import os
 import re
+from pathlib import Path
 from typing import List, Tuple, Union
 
 import numpy as np
 from torch import Tensor
 
+from contrastyou.augment.sequential_wrapper import SequentialWrapper
 from contrastyou.dataloader._seg_datset import ContrastDataset
-from deepclustering2.augment import SequentialWrapper
 from deepclustering2.dataset import ACDCDataset as _ACDCDataset, ACDCSemiInterface as _ACDCSemiInterface
 
 
@@ -15,20 +16,23 @@ class ACDCDataset(ContrastDataset, _ACDCDataset):
     zip_name = "ACDC_contrast.zip"
     folder_name = "ACDC_contrast"
 
-    def __init__(self, root_dir: str, mode: str, transforms: SequentialWrapper = None,
+    def __init__(self, root_dir: str, mode: str, transforms: SequentialWrapper = SequentialWrapper(),
                  verbose=True, *args, **kwargs) -> None:
         super().__init__(root_dir, mode, ["img", "gt"], transforms, verbose)
         self._acdc_info = np.load(os.path.join(self._root_dir, "acdc_info.npy"), allow_pickle=True).item()
         assert isinstance(self._acdc_info, dict) and len(self._acdc_info) == 200
+        self._transform = transforms
 
     def __getitem__(self, index) -> Tuple[List[Tensor], str, str, str]:
-        data, filename = super().__getitem__(index)
+        [img_png, target_png], filename_list = self._getitem_index(index)
+        filename = Path(filename_list[0]).stem
+        data = self._transform(imgs=[img_png], targets=[target_png], )
         partition = self._get_partition(filename)
         group = self._get_group(filename)
         return data, filename, partition, group
 
     def _get_group(self, filename) -> Union[str, int]:
-        return self._get_group_name(filename)
+        return str(self._get_group_name(filename))
 
     def _get_partition(self, filename) -> Union[str, int]:
         # set partition
@@ -36,10 +40,10 @@ class ACDCDataset(ContrastDataset, _ACDCDataset):
         cutting_point = max_len_given_group // 3
         cur_index = int(re.compile(r"\d+").findall(filename)[-1])
         if cur_index <= cutting_point - 1:
-            return 0
+            return str(0)
         if cur_index <= 2 * cutting_point:
-            return 1
-        return 2
+            return str(1)
+        return str(2)
 
     def show_paritions(self) -> List[Union[str, int]]:
         return [self._get_partition(f) for f in list(self._filenames.values())[0]]

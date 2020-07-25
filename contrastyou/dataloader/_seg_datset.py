@@ -56,7 +56,7 @@ class ContrastBatchSampler(Sampler):
         def __init__(self, group2index, partion2index, group_sample_num=4, partition_sample_num=1) -> None:
             self._group2index, self._partition2index = dcp(group2index), dcp(partion2index)
 
-            assert group_sample_num >= 1 and group_sample_num <= len(self._group2index.keys()), group_sample_num
+            assert 1 <= group_sample_num <= len(self._group2index.keys()), group_sample_num
             self._group_sample_num = group_sample_num
             self._partition_sample_num = partition_sample_num
 
