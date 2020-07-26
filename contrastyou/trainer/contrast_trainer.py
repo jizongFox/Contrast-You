@@ -53,9 +53,11 @@ class ContrastTrainer(Trainer):
         self._register_buffer("train_encoder_done", False)
         self._register_buffer("train_decoder_done", False)
 
-        self._pretrain_encoder_storage = Storage(csv_save_dir=os.path.join(self._save_dir, "pretrain_encoder"))
-        self._pretrain_decoder_storage = Storage(csv_save_dir=os.path.join(self._save_dir, "pretrain_decoder"))
-        self._finetune_storage = Storage(csv_save_dir=os.path.join(self._save_dir, "finetune"))
+        self._pretrain_encoder_storage = Storage(csv_save_dir=os.path.join(self._save_dir, "pretrain_encoder"),
+                                                 csv_name="encoder.csv")
+        self._pretrain_decoder_storage = Storage(csv_save_dir=os.path.join(self._save_dir, "pretrain_decoder"),
+                                                 csv_name="decoder.csv")
+        self._finetune_storage = Storage(csv_save_dir=os.path.join(self._save_dir, "finetune"), csv_name="finetune.csv")
 
         # place holder for optimizer and scheduler
         self._optimizer = None
@@ -127,7 +129,6 @@ class ContrastTrainer(Trainer):
 
     def pretrain_decoder_run(self):
         self.to(self._device)
-        self._projector.to(self._device)
 
         self._model.enable_grad_decoder()  # noqa
         self._model.disable_grad_encoder()  # noqa

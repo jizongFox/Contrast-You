@@ -12,7 +12,7 @@ Trainer:
   name: contrast
   save_dir: test_semi_trainer
   device: cuda
-  num_batches: 350
+  num_batches: 500
   max_epoch_train_decoder: 100
   max_epoch_train_encoder: 100
   max_epoch_train_finetune: 100
