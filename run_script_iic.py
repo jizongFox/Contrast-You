@@ -35,7 +35,7 @@ if trainer_name == "contrastMT":
 jobs = [
     f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/baseline  Trainer.train_encoder=False Trainer.train_decoder=False ",
     f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/iic_0.0  Trainer.train_encoder=True Trainer.train_decoder=False PretrainEncoder.iic_weight=0.0",
-    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/iic_0.5  Trainer.train_encoder=True Trainer.train_decoder=False PretrainEncoder.iic_weight=0.5",
+    # f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/iic_0.5  Trainer.train_encoder=True Trainer.train_decoder=False PretrainEncoder.iic_weight=0.5",
     f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/iic_1.0  Trainer.train_encoder=True Trainer.train_decoder=False PretrainEncoder.iic_weight=1.0",
 ]
 

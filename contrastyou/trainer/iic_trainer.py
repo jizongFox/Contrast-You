@@ -6,7 +6,7 @@ import torch
 from torch import nn
 
 from contrastyou import PROJECT_PATH
-from contrastyou.epocher.IIC_epocher import IICPretrainEcoderEpoch, IICPretrainDecoderEpoch
+from contrastyou.epocher.IIC_epocher import IICPretrainEcoderEpoch
 from contrastyou.losses.contrast_loss import SupConLoss
 from contrastyou.trainer._utils import Flatten
 from contrastyou.trainer.contrast_trainer import ContrastTrainer
@@ -58,7 +58,7 @@ class IICContrastTrainer(ContrastTrainer):
                 projection_classifier=self._projector_iic, optimizer=self._optimizer,
                 pretrain_encoder_loader=self._pretrain_loader_iter, contrastive_criterion=SupConLoss(),
                 num_batches=self._num_batches, cur_epoch=self._cur_epoch, device=self._device,
-                group_option=self._group_option, iic_weight_ratio=self._iic_weight,
+                group_option=self._group_option, iic_weight=self._iic_weight,
             ).run()
             self._scheduler.step()
             storage_dict = StorageIncomeDict(PRETRAIN_ENCODER=pretrain_encoder_dict, )

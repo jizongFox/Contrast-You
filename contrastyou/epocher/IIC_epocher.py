@@ -20,7 +20,7 @@ class IICPretrainEcoderEpoch(_PretrainEncoderEpoch):
     def __init__(self, model: nn.Module, projection_head: nn.Module, projection_classifier: nn.Module,
                  optimizer: optim.Optimizer, pretrain_encoder_loader: T_loader,
                  contrastive_criterion: T_loss, num_batches: int = 0,
-                 cur_epoch=0, device="cpu", group_option: str = "partition", iic_weight_ratio=1) -> None:
+                 cur_epoch=0, device="cpu", group_option: str = "partition", iic_weight=1) -> None:
         """
         :param model:
         :param projection_head:
@@ -40,9 +40,10 @@ class IICPretrainEcoderEpoch(_PretrainEncoderEpoch):
         self._projection_classifier = projection_classifier
         from ..losses.iic_loss import IIDLoss
         self._iic_criterion = IIDLoss()
-        self._iic_weight_ratio = iic_weight_ratio
+        self._iic_weight = iic_weight
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters.register_meter("reg_weight", AverageValueMeter())
         meters.register_meter("iic_loss", AverageValueMeter())
         meters = super()._configure_meters(meters)
         return meters
@@ -51,6 +52,7 @@ class IICPretrainEcoderEpoch(_PretrainEncoderEpoch):
         self._model.train()
         assert self._model.training, self._model.training
         self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer)[0])
+        self.meters["reg_weight"].add(self._iic_weight)
 
         with tqdm(range(self._num_batches)).set_desc_from_epocher(self) as indicator:  # noqa
             for i, data in zip(indicator, self._pretrain_encoder_loader):
@@ -63,7 +65,7 @@ class IICPretrainEcoderEpoch(_PretrainEncoderEpoch):
                 contrastive_loss = self._contrastive_criterion(torch.stack([global_enc, global_tf_enc], dim=1),
                                                                labels=labels)
                 iic_loss = self._iic_criterion(global_probs, global_tf_probs)[0]  # todo
-                total_loss = self._iic_weight_ratio * iic_loss + (1 - self._iic_weight_ratio) * contrastive_loss
+                total_loss = self._iic_weight * iic_loss + contrastive_loss
                 self._optimizer.zero_grad()
                 total_loss.backward()
                 self._optimizer.step()
