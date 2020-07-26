@@ -17,7 +17,8 @@ from deepclustering2.schedulers import GradualWarmupScheduler
 class IICContrastTrainer(ContrastTrainer):
     RUN_PATH = Path(PROJECT_PATH) / "runs"
 
-    def pretrain_encoder_init(self, group_option, num_clusters=40, iic_weight=1):
+    def pretrain_encoder_init(self, group_option: str, lr=1e-6, weight_decay=1e-5, multiplier=300, warmup_max=10,
+                              num_clusters=20, iic_weight=1):
         self._projector_contrastive = nn.Sequential(
             nn.AdaptiveAvgPool2d((1, 1)),
             Flatten(),
@@ -28,21 +29,22 @@ class IICContrastTrainer(ContrastTrainer):
         self._projector_iic = nn.Sequential(
             nn.AdaptiveAvgPool2d((1, 1)),
             Flatten(),
-            nn.Linear(256, 256),
+            nn.Linear(256, 512),
             nn.LeakyReLU(0.01, inplace=True),
-            nn.Linear(256, num_clusters),
+            nn.Linear(512, num_clusters),
             nn.Softmax(1)
         )
         self._optimizer = torch.optim.Adam(
             itertools.chain(self._model.parameters(), self._projector_contrastive.parameters(),
-                            self._projector_iic.parameters()), lr=1e-6, weight_decay=1e-5)  # noqa
+                            self._projector_iic.parameters()), lr=lr, weight_decay=weight_decay)  # noqa
         self._scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self._optimizer,
-                                                                     self._max_epoch_train_encoder - 10, 0)
-        self._scheduler = GradualWarmupScheduler(self._optimizer, 300, 10, self._scheduler)  # noqa
+                                                                     self._max_epoch_train_encoder - warmup_max, 0)
+        self._scheduler = GradualWarmupScheduler(self._optimizer, multiplier, warmup_max, self._scheduler)  # noqa
 
         self._group_option = group_option  # noqa
 
         # set augmentation method as `total_freedom = True`
+        assert hasattr(self._pretrain_loader.dataset._transform, "_total_freedom")  # noqa
         self._pretrain_loader.dataset._transform._total_freedom = True  # noqa
         self._pretrain_loader_iter = iter(self._pretrain_loader)  # noqa
         self._iic_weight = iic_weight

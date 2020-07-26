@@ -46,5 +46,4 @@ jobsubmiter = JobSubmiter(project_path="./", on_local=False, time=4)
 for j in jobs:
     jobsubmiter.prepare_env(["source ./venv/bin/activate ", "export OMP_NUM_THREADS=1", ])
     jobsubmiter.account = next(accounts)
-    # jobsubmiter.run(j)
-    print(j)
+    jobsubmiter.run(j)

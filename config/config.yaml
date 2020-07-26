@@ -21,11 +21,22 @@ Trainer:
 
 PretrainEncoder:
   group_option: partition
+  lr: 0.000001
+  weight_decay: 0.00001
+  multiplier: 300
+  warmup_max: 10
 
 PretrainDecoder:
-  null
+  lr: 0.000001
+  weight_decay: 0.0
+  multiplier: 300
+  warmup_max: 10
+
 FineTune:
-  reg_weight: 15
+  lr: 0.0000001
+  weight_decay: 0.00001
+  multiplier: 400
+  warmup_max: 10
 
 
 

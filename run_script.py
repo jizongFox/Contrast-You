@@ -23,7 +23,7 @@ unlabeled_data_ratio = 1 - labeled_data_ratio
 # trainer_name="contrast" # or contrastMT
 trainer_name = args.trainer_name
 contrast_on = args.contrast_on
-save_dir = f"0726/label_data_ration_{labeled_data_ratio}/{trainer_name}/contrast_on_{contrast_on}"
+save_dir = f"0726_2/label_data_ration_{labeled_data_ratio}/{trainer_name}/contrast_on_{contrast_on}"
 
 if trainer_name == "contrastMT":
     save_dir = save_dir + f"/reg_weight_{args.reg_weight:.2f}"
