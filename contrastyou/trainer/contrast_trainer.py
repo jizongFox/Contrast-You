@@ -146,10 +146,10 @@ class ContrastTrainer(Trainer):
 
     def finetune_network_init(self, *args, **kwargs):
 
-        self._optimizer = torch.optim.Adam(self._model.parameters(), lr=1e-6, weight_decay=1e-5)
+        self._optimizer = torch.optim.Adam(self._model.parameters(), lr=1e-7, weight_decay=1e-5)
         self._scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self._optimizer,
                                                                      self._max_epoch_train_finetune - 10, 0)
-        self._scheduler = GradualWarmupScheduler(self._optimizer, 300, 10, self._scheduler)
+        self._scheduler = GradualWarmupScheduler(self._optimizer, 200, 10, self._scheduler)
         self._sup_criterion = KL_div()
 
         # set augmentation method as `total_freedom = True`
