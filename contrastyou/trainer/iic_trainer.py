@@ -18,7 +18,7 @@ class IICContrastTrainer(ContrastTrainer):
     RUN_PATH = Path(PROJECT_PATH) / "runs"
 
     def pretrain_encoder_init(self, group_option: str, lr=1e-6, weight_decay=1e-5, multiplier=300, warmup_max=10,
-                              num_clusters=20, iic_weight=1):
+                              num_clusters=20, iic_weight=1, disable_contrastive=False):
         self._projector_contrastive = nn.Sequential(
             nn.AdaptiveAvgPool2d((1, 1)),
             Flatten(),
@@ -42,6 +42,7 @@ class IICContrastTrainer(ContrastTrainer):
         self._scheduler = GradualWarmupScheduler(self._optimizer, multiplier, warmup_max, self._scheduler)  # noqa
 
         self._group_option = group_option  # noqa
+        self._disable_contrastive = disable_contrastive
 
         # set augmentation method as `total_freedom = True`
         assert hasattr(self._pretrain_loader.dataset._transform, "_total_freedom")  # noqa
@@ -61,6 +62,7 @@ class IICContrastTrainer(ContrastTrainer):
                 pretrain_encoder_loader=self._pretrain_loader_iter, contrastive_criterion=SupConLoss(),
                 num_batches=self._num_batches, cur_epoch=self._cur_epoch, device=self._device,
                 group_option=self._group_option, iic_weight=self._iic_weight,
+                disable_contrastive=self._disable_contrastive
             ).run()
             self._scheduler.step()
             storage_dict = StorageIncomeDict(PRETRAIN_ENCODER=pretrain_encoder_dict, )

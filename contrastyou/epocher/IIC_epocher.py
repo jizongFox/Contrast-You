@@ -20,7 +20,8 @@ class IICPretrainEcoderEpoch(_PretrainEncoderEpoch):
     def __init__(self, model: nn.Module, projection_head: nn.Module, projection_classifier: nn.Module,
                  optimizer: optim.Optimizer, pretrain_encoder_loader: T_loader,
                  contrastive_criterion: T_loss, num_batches: int = 0,
-                 cur_epoch=0, device="cpu", group_option: str = "partition", iic_weight=1) -> None:
+                 cur_epoch=0, device="cpu", group_option: str = "partition", iic_weight=1,
+                 disable_contrastive=False) -> None:
         """
         :param model:
         :param projection_head:
@@ -31,7 +32,7 @@ class IICPretrainEcoderEpoch(_PretrainEncoderEpoch):
         :param num_batches:
         :param cur_epoch:
         :param device:
-        :param iic_weight_ratio: iic weight_ratio
+        :param iic_weight: iic weight_ratio
         """
         super(IICPretrainEcoderEpoch, self).__init__(model, projection_head, optimizer, pretrain_encoder_loader,
                                                      contrastive_criterion, num_batches,
@@ -41,6 +42,7 @@ class IICPretrainEcoderEpoch(_PretrainEncoderEpoch):
         from ..losses.iic_loss import IIDLoss
         self._iic_criterion = IIDLoss()
         self._iic_weight = iic_weight
+        self._disble_contrastive = disable_contrastive
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters.register_meter("reg_weight", AverageValueMeter())
@@ -64,6 +66,8 @@ class IICPretrainEcoderEpoch(_PretrainEncoderEpoch):
                 labels = self._label_generation(partition_list, group_list)
                 contrastive_loss = self._contrastive_criterion(torch.stack([global_enc, global_tf_enc], dim=1),
                                                                labels=labels)
+                if self._disble_contrastive:
+                    contrastive_loss *= 0.0
                 iic_loss = self._iic_criterion(global_probs, global_tf_probs)[0]  # todo
                 total_loss = self._iic_weight * iic_loss + contrastive_loss
                 self._optimizer.zero_grad()

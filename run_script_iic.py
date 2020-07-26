@@ -21,9 +21,9 @@ labeled_data_ratio = args.label_ratio
 unlabeled_data_ratio = 1 - labeled_data_ratio
 
 trainer_name = args.trainer_name
-assert trainer_name == "iiccontrast2"
+assert trainer_name == "iiccontrast"
 contrast_on = args.contrast_on
-save_dir = f"iic_contrast/label_data_ration_{labeled_data_ratio}/{trainer_name}/contrast_on_{contrast_on}"
+save_dir = f"iic_contrast3/label_data_ration_{labeled_data_ratio}/{trainer_name}/contrast_on_{contrast_on}"
 
 common_opts = f" Trainer.name={trainer_name} PretrainEncoder.group_option={contrast_on} " \
               f" PretrainEncoder.num_clusters={args.num_clusters} RandomSeed={random_seed} " \
@@ -33,10 +33,14 @@ if trainer_name == "contrastMT":
     common_opts += f" FineTune.reg_weight={args.reg_weight} "
 
 jobs = [
-    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/baseline  Trainer.train_encoder=False Trainer.train_decoder=False ",
-    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/iic_0.0  Trainer.train_encoder=True Trainer.train_decoder=False PretrainEncoder.iic_weight=0.0",
-    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/iic_0.5  Trainer.train_encoder=True Trainer.train_decoder=False PretrainEncoder.iic_weight=0.5",
-    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/iic_1.0  Trainer.train_encoder=True Trainer.train_decoder=False PretrainEncoder.iic_weight=1.0",
+    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/without_pretrain  Trainer.train_encoder=False Trainer.train_decoder=False ",
+    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/contrast_iic_0.0  Trainer.train_encoder=True Trainer.train_decoder=False PretrainEncoder.iic_weight=0.0",
+    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/contrast_iic_1.0  Trainer.train_encoder=True Trainer.train_decoder=False PretrainEncoder.iic_weight=1.0",
+    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/contrast_iic_3.0  Trainer.train_encoder=True Trainer.train_decoder=False PretrainEncoder.iic_weight=3.0",
+    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/contrast_iic_5.0  Trainer.train_encoder=True Trainer.train_decoder=False PretrainEncoder.iic_weight=5.0",
+    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/contrast_iic_10.0  Trainer.train_encoder=True Trainer.train_decoder=False PretrainEncoder.iic_weight=10.0",
+    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/only_iic  Trainer.train_encoder=True Trainer.train_decoder=False PretrainEncoder.iic_weight=1 "
+                                            f" PretrainEncoder.disable_contrastive=True ",
 ]
 
 # CC things
