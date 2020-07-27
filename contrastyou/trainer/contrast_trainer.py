@@ -157,6 +157,7 @@ class ContrastTrainer(Trainer):
         self._sup_criterion = KL_div()
 
         # set augmentation method as `total_freedom = True`
+        assert hasattr(self._fine_tune_loader.dataset._transform, "_total_freedom")
         self._fine_tune_loader.dataset._transform._total_freedom = True  # noqa
         self._fine_tune_loader_iter = iter(self._fine_tune_loader)  # noqa
 
