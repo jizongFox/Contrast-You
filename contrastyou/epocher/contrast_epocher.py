@@ -2,18 +2,20 @@ import random
 from typing import List
 
 import torch
+from torch import nn
+from torch.nn import functional as F
+
 from deepclustering2 import optim
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.epoch import _Epocher, proxy_trainer  # noqa
 from deepclustering2.meters2 import EpochResultDict, MeterInterface, AverageValueMeter
 from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.tqdm import tqdm
-from deepclustering2.trainer.trainer import T_loader, T_loss
-from torch import nn
-from torch.nn import functional as F
-
+from deepclustering2.trainer.trainer import T_loader, T_loss, T_optim
 from ._utils import preprocess_input_with_twice_transformation, unfold_position, GlobalLabelGenerator, \
     LocalLabelGenerator
+from .base_epocher import SimpleFineTuneEpoch as _SimpleFineTuneEpoch
+from ..losses.contrast_loss import SupConLoss
 
 
 class PretrainEncoderEpoch(_Epocher):
@@ -169,3 +171,61 @@ class PretrainDecoderEpoch(PretrainEncoderEpoch):
     def _label_generation(self, partition_list: List[str], patient_list: List[str], location_list: List[str]):
         return self._local_contrastive_label_generator(partition_list=partition_list, patient_list=patient_list,
                                                        location_list=location_list)
+
+
+class SemiContrastEpoch(_SimpleFineTuneEpoch):
+
+    def __init__(self, model: nn.Module, optimizer: T_optim, labeled_loader: T_loader, tra_loader: T_loader,
+                 num_batches: int = 100,
+                 sup_criterion: T_loss = None, cur_epoch=0, device="cpu", group_option="partition") -> None:
+        super().__init__(model, optimizer, labeled_loader, num_batches, sup_criterion, cur_epoch, device)
+        self._reg_criterion = SupConLoss()
+        self._tra_loader = tra_loader
+        self._group_option= group_option
+        self._init_label_generator(self._group_option)
+
+    def _init_label_generator(self, group_option):
+        contrastive_on_partition = False
+        contrastive_on_patient = False
+
+        if group_option == "partition":
+            contrastive_on_partition = True
+        if group_option == "patient":
+            contrastive_on_patient = True
+        if group_option == "both":
+            contrastive_on_patient = True
+            contrastive_on_partition = True
+        self._global_contrastive_label_generator = GlobalLabelGenerator(
+            contrastive_on_partition=contrastive_on_partition,
+            contrastive_on_patient=contrastive_on_patient
+        )
+
+    def _run(self, *args, **kwargs) -> EpochResultDict:
+        self._model.train()
+        assert self._model.training, self._model.training
+        report_dict: EpochResultDict
+        self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer)[0])
+        with tqdm(range(self._num_batches)).set_desc_from_epocher(self) as indicator:
+            for i, label_data, unlab_data in zip(indicator, self._labeled_loader, self._tra_loader):
+                (labelimage, labeltarget), _, filename, partition_list, group_list \
+                    = self._preprocess_data(label_data, self._device)
+                (img,_), (img_tf,_)
+
+                predict_logits = self._model(labelimage)
+                assert not simplex(predict_logits), predict_logits
+
+                onehot_ltarget = class2one_hot(labeltarget.squeeze(1), 4)
+                sup_loss = self._sup_criterion(predict_logits.softmax(1), onehot_ltarget)
+
+                self._optimizer.zero_grad()
+                sup_loss.backward()
+                self._optimizer.step()
+
+                with torch.no_grad():
+                    self.meters["sup_loss"].add(sup_loss.item())
+                    self.meters["ds"].add(predict_logits.max(1)[1], labeltarget.squeeze(1),
+                                          group_name=list(group_list))
+                    report_dict = self.meters.tracking_status()
+                    indicator.set_postfix_dict(report_dict)
+            report_dict = self.meters.tracking_status()
+        return report_dict

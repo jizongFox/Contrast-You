@@ -22,3 +22,31 @@ class ACDCTransforms:
     val = SequentialWrapper(
         comm_transform=pil_augment.CenterCrop(224)
     )
+
+
+class ACDCStrongTransforms:
+    train = SequentialWrapperTwice(
+        comm_transform=pil_augment.Compose([
+            pil_augment.RandomRotation(30),
+            pil_augment.RandomApply([
+                pil_augment.RandomVerticalFlip(),
+                pil_augment.RandomHorizontalFlip()
+            ]),
+            pil_augment.RandomCrop(224),
+
+        ]),
+        img_transform=pil_augment.Compose([
+            transforms.ColorJitter(brightness=[0.5, 1.5], contrast=[0.5, 1.5], saturation=[0.5, 1.5]),
+            transforms.ToTensor()
+        ]),
+        target_transform=pil_augment.Compose([
+            pil_augment.ToLabel()
+        ]),
+        total_freedom=True
+    )
+    val = SequentialWrapper(
+        comm_transform=pil_augment.CenterCrop(224)
+    )
+
+
+transform_dict = {"strong": ACDCStrongTransforms, "simple": ACDCTransforms}

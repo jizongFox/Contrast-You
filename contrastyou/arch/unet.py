@@ -1,7 +1,7 @@
-import torch
+from collections import OrderedDict
 
+import torch
 from torch import nn
-from torch.nn import functional as F
 
 __all__ = ["UNet"]
 
@@ -68,7 +68,7 @@ class UNet(nn.Module):
         self.Up2 = up_conv(in_ch=32, out_ch=16)
         self.Up_conv2 = conv_block(in_ch=32, out_ch=16)
 
-        self.Conv_1x1 = nn.Conv2d(16, num_classes, kernel_size=1, stride=1, padding=0)
+        self.DeConv_1x1 = nn.Conv2d(16, num_classes, kernel_size=1, stride=1, padding=0)
 
     def forward(self, x, return_features=False):
         # encoding path
@@ -104,28 +104,70 @@ class UNet(nn.Module):
         d2 = torch.cat((e1, d2), dim=1)
         d2 = self.Up_conv2(d2)
 
-        d1 = self.Conv_1x1(d2)
+        d1 = self.DeConv_1x1(d2)
         if return_features:
-            return d1,(e5, e4, e3, e2, e1), (d5, d4, d3, d2)
+            return d1, (e5, e4, e3, e2, e1), (d5, d4, d3, d2)
         return d1
 
     def disable_grad_encoder(self):
-        encoder_names = ["Conv1", "Conv2", "Conv3", "Conv4", "Conv5"]
-        self._set_grad(encoder_names, False)
+        self._set_grad(self.encoder_names, False)
 
     def enable_grad_encoder(self):
-        encoder_names = ["Conv1", "Conv2", "Conv3", "Conv4", "Conv5"]
-        self._set_grad(encoder_names, True)
+        self._set_grad(self.encoder_names, True)
 
     def disable_grad_decoder(self):
-        decoder_names = ["Up5", "Up_conv5", "Up4", "Up_conv4", "Up3", "Up_conv3", "Up2", "Up_conv2", "Conv_1x1"]
-        self._set_grad(decoder_names, False)
+        self._set_grad(self.decoder_names, False)
 
     def enable_grad_decoder(self):
-        decoder_names = ["Up5", "Up_conv5", "Up4", "Up_conv4", "Up3", "Up_conv3", "Up2", "Up_conv2", "Conv_1x1"]
-        self._set_grad(decoder_names, True)
+        self._set_grad(self.decoder_names, True)
+
+    def enable_grad_util(self, name: str):
+        assert name in self.component_names, name
+        index = self.component_names.index(name)
+        self._set_grad(self.component_names[:index], True)
+
+    def disable_grad_util(self, name):
+        assert name in self.component_names, name
+        index = self.component_names.index(name)
+        self._set_grad(self.component_names[:index], False)
+
+    def enable_grad_all(self):
+        self._set_grad(self.component_names, True)
+
+    def disable_grad_all(self):
+        self._set_grad(self.component_names, False)
+
+    def enable_grad(self, from_: str, util: str):
+        assert from_ in self.component_names, from_
+        assert util in self.component_names, util
+        self.enable_grad_util(util)
+        self.disable_grad_util(from_)
+
+    def disable_grad(self, from_: str, util: str):
+        assert from_ in self.component_names, from_
+        assert util in self.component_names, util
+        self.disable_grad_util(util)
+        self.enable_grad_util(from_)
 
     def _set_grad(self, name_list, requires_grad=False):
         for n in name_list:
             for parameter in getattr(self, n).parameters():
                 parameter.requires_grad = requires_grad
+
+    @property
+    def encoder_names(self):
+        return ["Conv1", "Conv2", "Conv3", "Conv4", "Conv5"]
+
+    @property
+    def decoder_names(self):
+        return ["Up5", "Up_conv5", "Up4", "Up_conv4", "Up3", "Up_conv3", "Up2", "Up_conv2", "DeConv_1x1"]
+
+    @property
+    def component_names(self):
+        return self.encoder_names + self.decoder_names
+
+    def weight_norm(self):
+        weights = OrderedDict()
+        for name, p in self.named_parameters():
+            weights[name] = p.norm().item()
+        return weights

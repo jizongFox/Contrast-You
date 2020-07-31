@@ -38,7 +38,7 @@ common_opts = f" Trainer.name={trainer_name} PretrainEncoder.group_option={contr
               f" PretrainEncoder.num_clusters={args.num_clusters} RandomSeed={random_seed} " \
               f" Data.labeled_data_ratio={labeled_data_ratio} Data.unlabeled_data_ratio={unlabeled_data_ratio} " \
               f" Trainer.num_batches={num_batches} PretrainEncoder.temperature={args.temperature}  " \
-              f" ContrastData.group_sample_num={args.group_sample_num} ContrastData.shuffule={args.contrast_shuffle}"
+              f" ContrastData.group_sample_num={args.group_sample_num} ContrastData.shuffle={args.contrast_shuffle}"
 if trainer_name == "contrastMT":
     common_opts += f" FineTune.reg_weight={args.reg_weight} "
 
