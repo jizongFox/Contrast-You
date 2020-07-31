@@ -15,6 +15,7 @@ parser.add_argument("-t", "--temperature", default=1, type=float)
 parser.add_argument("-g", "--group_sample_num", default=6, type=int)
 parser.add_argument("--contrast_shuffle", default=False, action="store_true")
 parser.add_argument("--save_dir", default=None, type=str)
+parser.add_argument("--time", default=4, type=int)
 
 args = parser.parse_args()
 
@@ -55,7 +56,7 @@ jobs = [
 # CC things
 accounts = cycle(["def-chdesa", "def-mpederso", "rrg-mpederso"])
 
-jobsubmiter = JobSubmiter(project_path="./", on_local=False, time=4)
+jobsubmiter = JobSubmiter(project_path="./", on_local=False, time=args.time)
 for j in jobs:
     jobsubmiter.prepare_env(["source ./venv/bin/activate ", "export OMP_NUM_THREADS=1", ])
     jobsubmiter.account = next(accounts)
