@@ -23,7 +23,7 @@ unlabeled_data_ratio = 1 - labeled_data_ratio
 # trainer_name="contrast" # or contrastMT
 trainer_name = args.trainer_name
 contrast_on = args.contrast_on
-save_dir = f"0726/label_data_ration_{labeled_data_ratio}/{trainer_name}/contrast_on_{contrast_on}"
+save_dir = f"0726_3/label_data_ration_{labeled_data_ratio}/{trainer_name}/contrast_on_{contrast_on}"
 
 if trainer_name == "contrastMT":
     save_dir = save_dir + f"/reg_weight_{args.reg_weight:.2f}"
@@ -43,7 +43,7 @@ jobs = [
 # CC things
 accounts = cycle(["def-chdesa", "def-mpederso", "rrg-mpederso"])
 
-jobsubmiter = JobSubmiter(project_path="./", on_local=False, time=6)
+jobsubmiter = JobSubmiter(project_path="./", on_local=False, time=4)
 for j in jobs:
     jobsubmiter.prepare_env(["source ./venv/bin/activate ", "export OMP_NUM_THREADS=1", ])
     jobsubmiter.account = next(accounts)

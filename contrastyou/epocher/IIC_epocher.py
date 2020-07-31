@@ -1,9 +1,6 @@
 import random
 
 import torch
-from torch import nn
-from torch.nn import functional as F
-
 from contrastyou.epocher._utils import unfold_position
 from deepclustering2 import optim
 from deepclustering2.decorator import FixRandomSeed
@@ -11,8 +8,12 @@ from deepclustering2.meters2 import EpochResultDict, MeterInterface, AverageValu
 from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.tqdm import tqdm
 from deepclustering2.trainer.trainer import T_loader, T_loss
+from torch import nn
+from torch.nn import functional as F
+
 from .contrast_epocher import PretrainDecoderEpoch as _PretrainDecoderEpoch
 from .contrast_epocher import PretrainEncoderEpoch as _PretrainEncoderEpoch
+from ..losses.iic_loss import IIDLoss, IIDSegmentationLoss
 
 
 class IICPretrainEcoderEpoch(_PretrainEncoderEpoch):
@@ -20,7 +21,8 @@ class IICPretrainEcoderEpoch(_PretrainEncoderEpoch):
     def __init__(self, model: nn.Module, projection_head: nn.Module, projection_classifier: nn.Module,
                  optimizer: optim.Optimizer, pretrain_encoder_loader: T_loader,
                  contrastive_criterion: T_loss, num_batches: int = 0,
-                 cur_epoch=0, device="cpu", group_option: str = "partition", iic_weight=1) -> None:
+                 cur_epoch=0, device="cpu", group_option: str = "partition", iic_weight=1,
+                 disable_contrastive=False) -> None:
         """
         :param model:
         :param projection_head:
@@ -31,16 +33,16 @@ class IICPretrainEcoderEpoch(_PretrainEncoderEpoch):
         :param num_batches:
         :param cur_epoch:
         :param device:
-        :param iic_weight_ratio: iic weight_ratio
+        :param iic_weight: iic weight_ratio
         """
         super(IICPretrainEcoderEpoch, self).__init__(model, projection_head, optimizer, pretrain_encoder_loader,
                                                      contrastive_criterion, num_batches,
                                                      cur_epoch, device, group_option=group_option)
         assert pretrain_encoder_loader is not None
         self._projection_classifier = projection_classifier
-        from ..losses.iic_loss import IIDLoss
         self._iic_criterion = IIDLoss()
         self._iic_weight = iic_weight
+        self._disble_contrastive = disable_contrastive
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters.register_meter("reg_weight", AverageValueMeter())
@@ -64,6 +66,8 @@ class IICPretrainEcoderEpoch(_PretrainEncoderEpoch):
                 labels = self._label_generation(partition_list, group_list)
                 contrastive_loss = self._contrastive_criterion(torch.stack([global_enc, global_tf_enc], dim=1),
                                                                labels=labels)
+                if self._disble_contrastive:
+                    contrastive_loss *= 0.0
                 iic_loss = self._iic_criterion(global_probs, global_tf_probs)[0]  # todo
                 total_loss = self._iic_weight * iic_loss + contrastive_loss
                 self._optimizer.zero_grad()
@@ -79,18 +83,28 @@ class IICPretrainEcoderEpoch(_PretrainEncoderEpoch):
 
 
 class IICPretrainDecoderEpoch(_PretrainDecoderEpoch):
+
     def __init__(self, model: nn.Module, projection_head: nn.Module, projection_classifier: nn.Module,
                  optimizer: optim.Optimizer, pretrain_decoder_loader: T_loader, contrastive_criterion: T_loss,
-                 iic_criterion: T_loss, num_batches: int = 0, cur_epoch=0, device="cpu") -> None:
+                 num_batches: int = 0, cur_epoch=0, device="cpu", disable_contrastive=False, iic_weight=0.01) -> None:
         super().__init__(model, projection_head, optimizer, pretrain_decoder_loader, contrastive_criterion, num_batches,
                          cur_epoch, device)
-        self._projection_classifer = projection_classifier
-        self._iic_criterion = iic_criterion
+        self._projection_classifier = projection_classifier
+        self._iic_criterion = IIDSegmentationLoss(padding=1)
+        self._disable_contrastive = disable_contrastive
+        self._iic_weight = iic_weight
+
+    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters.register_meter("reg_weight", AverageValueMeter())
+        meters.register_meter("iic_loss", AverageValueMeter())
+        meters = super()._configure_meters(meters)
+        return meters
 
     def _run(self, *args, **kwargs) -> EpochResultDict:
         self._model.train()
         assert self._model.training, self._model.training
         self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer)[0])
+        self.meters["reg_weight"].add(self._iic_weight)
 
         with tqdm(range(self._num_batches)).set_desc_from_epocher(self) as indicator:  # noqa
             for i, data in zip(indicator, self._pretrain_decoder_loader):
@@ -108,7 +122,8 @@ class IICPretrainDecoderEpoch(_PretrainDecoderEpoch):
                 d4_tf = torch.cat([d4_gtf, d4_ctf_gtf], dim=0)
                 local_enc_tf, local_enc_tf_ctf = torch.chunk(self._projection_head(d4_tf), chunks=2, dim=0)
                 # todo: iic local presentation
-                pass
+                iic_enc_tf, iic_enc_tf_ctf = torch.chunk(self._projection_classifier(d4_tf), chunks=2, dim=0)
+                iic_loss = self._iic_criterion(iic_enc_tf, iic_enc_tf_ctf)
 
                 local_enc_unfold, _ = unfold_position(local_enc_tf, partition_num=(2, 2))
                 local_tf_enc_unfold, _fold_partition = unfold_position(local_enc_tf_ctf, partition_num=(2, 2))
@@ -123,12 +138,16 @@ class IICPretrainDecoderEpoch(_PretrainDecoderEpoch):
                 )
                 if torch.isnan(contrastive_loss):
                     raise RuntimeError(contrastive_loss)
+                if self._disable_contrastive:
+                    contrastive_loss *= 0.0
+                total_loss = contrastive_loss + self._iic_weight * iic_loss
                 self._optimizer.zero_grad()
-                contrastive_loss.backward()
+                total_loss.backward()
                 self._optimizer.step()
                 # todo: meter recording.
                 with torch.no_grad():
                     self.meters["contrastive_loss"].add(contrastive_loss.item())
+                    self.meters["iic_loss"].add(iic_loss.item())
                     report_dict = self.meters.tracking_status()
                     indicator.set_postfix_dict(report_dict)
         return report_dict

@@ -8,6 +8,17 @@ Data:
   labeled_data_ratio: 0.05
   unlabeled_data_ratio: 0.95
 
+ContrastData:
+  group_sample_num: 6
+  partition_sample_num: 1
+  num_workers: 6
+  shuffle: false
+
+LabeledData:
+  shuffle: true
+  batch_size: 16
+  num_workers: 8
+
 Trainer:
   name: contrast
   save_dir: test_semi_trainer
@@ -21,11 +32,22 @@ Trainer:
 
 PretrainEncoder:
   group_option: partition
+  lr: 0.000001
+  weight_decay: 0.00001
+  multiplier: 300
+  warmup_max: 10
 
 PretrainDecoder:
-  null
+  lr: 0.000001
+  weight_decay: 0.0
+  multiplier: 300
+  warmup_max: 10
+
 FineTune:
-  reg_weight: 15
+  lr: 0.0000001
+  weight_decay: 0.00001
+  multiplier: 400
+  warmup_max: 10
 
 
 

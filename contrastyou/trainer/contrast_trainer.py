@@ -3,6 +3,9 @@ import os
 from pathlib import Path
 
 import torch
+from torch import nn
+from torch.utils.data import DataLoader
+
 from contrastyou import PROJECT_PATH
 from contrastyou.epocher import PretrainEncoderEpoch, PretrainDecoderEpoch, SimpleFineTuneEpoch, MeanTeacherEpocher
 from contrastyou.epocher.base_epocher import EvalEpoch
@@ -13,8 +16,6 @@ from deepclustering2.meters2 import Storage, StorageIncomeDict
 from deepclustering2.schedulers import GradualWarmupScheduler
 from deepclustering2.trainer.trainer import Trainer, T_loader
 from deepclustering2.writer import SummaryWriter
-from torch import nn
-from torch.utils.data import DataLoader
 
 
 class ContrastTrainer(Trainer):
@@ -52,9 +53,11 @@ class ContrastTrainer(Trainer):
         self._register_buffer("train_encoder_done", False)
         self._register_buffer("train_decoder_done", False)
 
-        self._pretrain_encoder_storage = Storage()
-        self._pretrain_decoder_storage = Storage()
-        self._finetune_storage = Storage()
+        self._pretrain_encoder_storage = Storage(csv_save_dir=os.path.join(self._save_dir, "pretrain_encoder"),
+                                                 csv_name="encoder.csv")
+        self._pretrain_decoder_storage = Storage(csv_save_dir=os.path.join(self._save_dir, "pretrain_decoder"),
+                                                 csv_name="decoder.csv")
+        self._finetune_storage = Storage(csv_save_dir=os.path.join(self._save_dir, "finetune"), csv_name="finetune.csv")
 
         # place holder for optimizer and scheduler
         self._optimizer = None
@@ -62,24 +65,26 @@ class ContrastTrainer(Trainer):
         self._projector = None
         self._sup_criterion = None
 
-    def pretrain_encoder_init(self, group_option: str):
+    def pretrain_encoder_init(self, group_option: str, lr=1e-6, weight_decay=1e-5, multiplier=300, warmup_max=10):
         # adding optimizer and scheduler
-        self._projector = nn.Sequential(
+        self._projector = nn.Sequential(  # noqa
             nn.AdaptiveAvgPool2d((1, 1)),
             Flatten(),
             nn.Linear(256, 256),
             nn.LeakyReLU(0.01, inplace=True),
             nn.Linear(256, 128),
         )
-        self._optimizer = torch.optim.Adam(itertools.chain(self._model.parameters(), self._projector.parameters()),
-                                           lr=1e-6, weight_decay=1e-5)  # noqa
-        self._scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self._optimizer,
-                                                                     self._max_epoch_train_encoder - 10, 0)
-        self._scheduler = GradualWarmupScheduler(self._optimizer, 300, 10, self._scheduler)  # noqa
+        self._optimizer = torch.optim.Adam(itertools.chain(self._model.parameters(),  # noqa
+                                                           self._projector.parameters()),  # noqa
+                                           lr=lr, weight_decay=weight_decay)  # noqa
+        self._scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self._optimizer,  # noqa
+                                                                     self._max_epoch_train_encoder - warmup_max, 0)
+        self._scheduler = GradualWarmupScheduler(self._optimizer, multiplier, warmup_max, self._scheduler)  # noqa
 
         self._group_option = group_option  # noqa
 
         # set augmentation method as `total_freedom = True`
+        assert hasattr(self._pretrain_loader.dataset._transform, "_total_freedom")  # noqa
         self._pretrain_loader.dataset._transform._total_freedom = True  # noqa
         self._pretrain_loader_iter = iter(self._pretrain_loader)  # noqa
 
@@ -103,7 +108,7 @@ class ContrastTrainer(Trainer):
             self._save_to("last.pth", path=os.path.join(self._save_dir, "pretrain_encoder"))
         self.train_encoder_done = True
 
-    def pretrain_decoder_init(self, *args, **kwargs):
+    def pretrain_decoder_init(self, lr: float = 1e-6, weight_decay: float = 0.0, multiplier: int = 300, warmup_max=10):
         # adding optimizer and scheduler
         self._projector = nn.Sequential(
             nn.Conv2d(64, 64, 3, 1, 1),
@@ -112,19 +117,18 @@ class ContrastTrainer(Trainer):
             nn.Conv2d(64, 32, 3, 1, 1)
         )
         self._optimizer = torch.optim.Adam(itertools.chain(self._model.parameters(), self._projector.parameters()),
-                                           lr=1e-6, weight_decay=0)
+                                           lr=lr, weight_decay=weight_decay)
         self._scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self._optimizer,
-                                                                     self._max_epoch_train_decoder - 10, 0)
-        self._scheduler = GradualWarmupScheduler(self._optimizer, 300, 10, self._scheduler)
+                                                                     self._max_epoch_train_decoder - warmup_max, 0)
+        self._scheduler = GradualWarmupScheduler(self._optimizer, multiplier, warmup_max, self._scheduler)
 
         # set augmentation method as `total_freedom = False`
+        assert hasattr(self._pretrain_loader.dataset._transform, "_total_freedom")  # noqa
         self._pretrain_loader.dataset._transform._total_freedom = False  # noqa
-
         self._pretrain_loader_iter = iter(self._pretrain_loader)  # noqa
 
     def pretrain_decoder_run(self):
         self.to(self._device)
-        self._projector.to(self._device)
 
         self._model.enable_grad_decoder()  # noqa
         self._model.disable_grad_encoder()  # noqa
@@ -144,15 +148,16 @@ class ContrastTrainer(Trainer):
             self._save_to("last.pth", path=os.path.join(self._save_dir, "pretrain_decoder"))
         self.train_decoder_done = True
 
-    def finetune_network_init(self, *args, **kwargs):
+    def finetune_network_init(self, lr: float = 1e-7, weight_decay: float = 1e-5, multiplier: int = 200, warmup_max=10):
 
-        self._optimizer = torch.optim.Adam(self._model.parameters(), lr=1e-7, weight_decay=1e-5)
+        self._optimizer = torch.optim.Adam(self._model.parameters(), lr=lr, weight_decay=weight_decay)
         self._scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self._optimizer,
-                                                                     self._max_epoch_train_finetune - 10, 0)
-        self._scheduler = GradualWarmupScheduler(self._optimizer, 200, 10, self._scheduler)
+                                                                     self._max_epoch_train_finetune - warmup_max, 0)
+        self._scheduler = GradualWarmupScheduler(self._optimizer, multiplier, warmup_max, self._scheduler)
         self._sup_criterion = KL_div()
 
         # set augmentation method as `total_freedom = True`
+        assert hasattr(self._fine_tune_loader.dataset._transform, "_total_freedom")
         self._fine_tune_loader.dataset._transform._total_freedom = True  # noqa
         self._fine_tune_loader_iter = iter(self._fine_tune_loader)  # noqa
 
@@ -215,11 +220,12 @@ class ContrastTrainer(Trainer):
 
 class ContrastTrainerMT(ContrastTrainer):
 
-    def finetune_network_init(self, reg_weight: float = 0.0, reg_criterion=nn.MSELoss(), transform_axis=[1, 2], *args, **kwargs):
-        super().finetune_network_init()
+    def finetune_network_init(self, lr: float = 1e-7, weight_decay: float = 1e-5, multiplier: int = 200, warmup_max=10,
+                              transform_axis=[1, 2], reg_weight: float = 10.0):
+        super().finetune_network_init(lr, weight_decay, multiplier, warmup_max)
 
         self._reg_weight = reg_weight
-        self._reg_criterion = reg_criterion
+        self._reg_criterion = nn.MSELoss()
         self._transform_axis = transform_axis
 
         from contrastyou.arch import UNet
