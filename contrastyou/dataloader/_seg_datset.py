@@ -53,12 +53,14 @@ class ContrastBatchSampler(Sampler):
 
     class _SamplerIterator:
 
-        def __init__(self, group2index, partion2index, group_sample_num=4, partition_sample_num=1) -> None:
+        def __init__(self, group2index, partion2index, group_sample_num=4, partition_sample_num=1,
+                     shuffle=False) -> None:
             self._group2index, self._partition2index = dcp(group2index), dcp(partion2index)
 
             assert 1 <= group_sample_num <= len(self._group2index.keys()), group_sample_num
             self._group_sample_num = group_sample_num
             self._partition_sample_num = partition_sample_num
+            self._shuffle = shuffle
 
         def __iter__(self):
             return self
@@ -74,9 +76,11 @@ class ContrastBatchSampler(Sampler):
                     sampled_slices = random.sample(sorted(set(gavailableslices) & set(savailbleslices)),
                                                    self._partition_sample_num)
                     batch_index.extend(sampled_slices)
+            if self._shuffle:
+                random.shuffle(batch_index)
             return batch_index
 
-    def __init__(self, dataset: ContrastDataset, group_sample_num=4, partition_sample_num=1) -> None:
+    def __init__(self, dataset: ContrastDataset, group_sample_num=4, partition_sample_num=1, shuffle=False) -> None:
         self._dataset = dataset
         filenames = dcp(list(dataset._filenames.values())[0])
         group2index = {}
@@ -94,10 +98,11 @@ class ContrastBatchSampler(Sampler):
         self._partition2index = partiton2index
         self._group_sample_num = group_sample_num
         self._partition_sample_num = partition_sample_num
+        self._shuffle = shuffle
 
     def __iter__(self):
         return self._SamplerIterator(self._group2index, self._partition2index, self._group_sample_num,
-                                     self._partition_sample_num)
+                                     self._partition_sample_num, shuffle=self._shuffle)
 
     def __len__(self) -> int:
         return len(self._dataset)  # type: ignore

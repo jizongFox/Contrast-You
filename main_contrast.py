@@ -35,13 +35,28 @@ label_set, unlabel_set, val_set = acdc_manager._create_semi_supervised_datasets(
 train_set = ACDCDataset(root_dir=DATA_PATH, mode="train", transforms=ACDCTransforms.train)
 
 # all training set is with ContrastBatchSampler
-train_loader = DataLoader(train_set,  # noqa
-                          batch_sampler=ContrastBatchSampler(train_set, group_sample_num=6, partition_sample_num=1),
-                          num_workers=8, pin_memory=True)
+train_loader = DataLoader(
+    train_set,  # noqa
+    batch_sampler=ContrastBatchSampler(
+        train_set,
+        group_sample_num=config["ContrastData"]["group_sample_num"],
+        partition_sample_num=config["ContrastData"]["partition_sample_num"],
+        shuffle=config["ContrastData"]["shuffle"]
+    ),
+    num_workers=config["ContrastData"]["num_workers"],
+    pin_memory=True
+)
 
 # labeled loader is with normal 2d slicing and InfiniteRandomSampler
-labeled_loader = DataLoader(label_set, sampler=InfiniteRandomSampler(label_set, shuffle=True), batch_size=16,
-                            num_workers=8, pin_memory=True)
+labeled_loader = DataLoader(
+    label_set, sampler=InfiniteRandomSampler(
+        label_set,
+        shuffle=config["LabeledData"]["shuffle"]
+    ),
+    batch_size=config["LabeledData"]["batch_size"],
+    num_workers=config["LabeledData"]["num_workers"],
+    pin_memory=True
+)
 
 val_loader = DataLoader(val_set, batch_sampler=PatientSampler(
     val_set,

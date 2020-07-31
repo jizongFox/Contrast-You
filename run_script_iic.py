@@ -11,7 +11,8 @@ parser.add_argument("-b", "--num_batches", default=100, type=int)
 parser.add_argument("-s", "--random_seed", default=1, type=int)
 parser.add_argument("-o", "--contrast_on", default="partition", type=str)
 parser.add_argument("-c", "--num_clusters", default=40, type=int)
-parser.add_argument("-t", "--temperature", default=10, type=float)
+parser.add_argument("-t", "--temperature", default=1, type=float)
+parser.add_argument("-g", "--group_sample_num", default=6, type=int)
 
 args = parser.parse_args()
 
@@ -24,12 +25,14 @@ unlabeled_data_ratio = 1 - labeled_data_ratio
 trainer_name = args.trainer_name
 assert trainer_name == "iiccontrast"
 contrast_on = args.contrast_on
-save_dir = f"iic_contrast_on_temperature_cluster_num/label_data_ration_{labeled_data_ratio}/{trainer_name}/contrast_on_{contrast_on}/cluster_num_{args.num_clusters}/t_{args.temperature}"
+save_dir = f"iic_contrast_on_temperature_cluster_num/label_data_ration_{labeled_data_ratio}/{trainer_name}/" \
+           f"contrast_on_{contrast_on}/group_sample_num_{args.group_sample_num}/cluster_num_{args.num_clusters}/t_{args.temperature}"
 
 common_opts = f" Trainer.name={trainer_name} PretrainEncoder.group_option={contrast_on} " \
               f" PretrainEncoder.num_clusters={args.num_clusters} RandomSeed={random_seed} " \
               f" Data.labeled_data_ratio={labeled_data_ratio} Data.unlabeled_data_ratio={unlabeled_data_ratio} " \
-              f" Trainer.num_batches={num_batches} PretrainEncoder.temperature={args.temperature}"
+              f" Trainer.num_batches={num_batches} PretrainEncoder.temperature={args.temperature}  " \
+              f" ContrastData.group_sample_num={args.group_sample_num} "
 if trainer_name == "contrastMT":
     common_opts += f" FineTune.reg_weight={args.reg_weight} "
 
