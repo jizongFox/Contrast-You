@@ -13,6 +13,13 @@ gen
 venv
 .pytest_cache*
 
+cotra_idea/checkpoint/
+cotra_idea/cifar-10-python.tar.gz
+cotra_idea/data/
+cotra_idea/main_cifar/
+cotra_idea/main_self/
+
+
 ### Python template
 # Byte-compiled / optimized / DLL files
 __pycache__/

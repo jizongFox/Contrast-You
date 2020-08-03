@@ -49,7 +49,7 @@ class IIDLoss(nn.Module):
         loss = loss.sum()
         loss_no_lamb = -p_i_j * (torch.log(p_i_j+1e-10) - torch.log(p_j+1e-10) - torch.log(p_i+1e-10))
         loss_no_lamb = loss_no_lamb.sum()
-        return loss, loss_no_lamb
+        return loss, loss_no_lamb, p_i_j
 
 
 def compute_joint(x_out: Tensor, x_tf_out: Tensor, symmetric=True) -> Tensor:
