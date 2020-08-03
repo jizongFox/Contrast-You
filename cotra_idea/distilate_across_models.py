@@ -1,17 +1,17 @@
 import itertools
 
 import torch
-from deepclustering2.tqdm import tqdm
 from torch import nn
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
-from torchvision.models import resnet18
 from torchvision.transforms import Compose
 
 from deepclustering2.dataloader.sampler import InfiniteRandomSampler
 from deepclustering2.meters2 import AverageValueMeter, ConfusionMatrix
+from deepclustering2.models.ema import ema_updater
 from deepclustering2.optim import get_lrs_from_optimizer
+from deepclustering2.tqdm import tqdm
 from deepclustering2.writer import SummaryWriter
 
 train_transform = Compose([transforms.RandomCrop(32, padding=4),
@@ -23,7 +23,7 @@ val_transform = Compose([transforms.ToTensor(),
 
 train_data = CIFAR10(root="./data", download=True, transform=train_transform)
 val_data = CIFAR10("./data", train=False, download=True, transform=val_transform)
-train_loader = DataLoader(train_data, batch_size=128, num_workers=2, sampler=InfiniteRandomSampler(train_data, True))
+train_loader = DataLoader(train_data, batch_size=128, num_workers=8, sampler=InfiniteRandomSampler(train_data, True))
 val_loader = DataLoader(val_data, batch_size=100)
 
 
@@ -46,7 +46,9 @@ class NetArray(list):
 def average_iter(a_list):
     return sum(a_list) / float(len(a_list))
 
+
 from models import ResNet18 as resnet18
+
 device = torch.device("cuda")
 nets = NetArray([resnet18(num_classes=10) for _ in range(1)])
 optimizer = torch.optim.SGD(itertools.chain(*(x.parameters() for x in nets)), lr=1e-1, weight_decay=5e-4, momentum=0.9)
@@ -68,7 +70,7 @@ class Trainer:
         self._val_loader = val_loader
         self._num_batches = 391
         self._sup_loss = nn.CrossEntropyLoss()
-        # self._ema_updater = ema_updater(justify_alpha=False, alpha=0.999, weight_decay=1e-6, update_bn=True)
+        self._ema_updater = ema_updater(justify_alpha=False, alpha=0.999, weight_decay=1e-6, update_bn=True)
         self.to(device)
         self._writer = SummaryWriter(log_dir="./main_self")
 
@@ -96,6 +98,8 @@ class Trainer:
             list(map(lambda meter, logits: meter.add(logits.max(1)[1], target), acc_meters, logit_list))
             report_dict = {"training loss": average_iter([x.summary()["mean"] for x in loss_meters]),
                            "training acc": average_iter([x.summary()["acc"] for x in acc_meters])}
+            for n in self._nets:
+                self._ema_updater(self._teacher_net, n)
             indicator.set_postfix(report_dict)
 
         print("training loss:", [x.summary()["mean"] for x in loss_meters])
@@ -128,7 +132,7 @@ class Trainer:
     def train(self):
         for self._epoch in range(200):
             self.train_epoch()
-            self.val_epoch(self._nets[0])
+            self.val_epoch(self._teacher_net)
             self._scheduler.step()
 
     def to(self, device):
