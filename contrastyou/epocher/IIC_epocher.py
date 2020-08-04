@@ -1,16 +1,17 @@
 import random
 
 import torch
+from torch import nn
+from torch.nn import functional as F
+
 from contrastyou.epocher._utils import unfold_position
+from contrastyou.helper import average_iter
 from deepclustering2 import optim
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.meters2 import EpochResultDict, MeterInterface, AverageValueMeter
 from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.tqdm import tqdm
 from deepclustering2.trainer.trainer import T_loader, T_loss
-from torch import nn
-from torch.nn import functional as F
-
 from .contrast_epocher import PretrainDecoderEpoch as _PretrainDecoderEpoch
 from .contrast_epocher import PretrainEncoderEpoch as _PretrainEncoderEpoch
 from ..losses.iic_loss import IIDLoss, IIDSegmentationLoss
@@ -61,15 +62,19 @@ class IICPretrainEcoderEpoch(_PretrainEncoderEpoch):
                 (img, _), (img_tf, _), filename, partition_list, group_list = self._preprocess_data(data, self._device)
                 _, (e5, *_), *_ = self._model(torch.cat([img, img_tf], dim=0), return_features=True)
                 global_enc, global_tf_enc = torch.chunk(F.normalize(self._projection_head(e5), dim=1), chunks=2, dim=0)
-                global_probs, global_tf_probs = torch.chunk(self._projection_classifier(e5), chunks=2, dim=0)
+                # projection_classifier gives a list of probabilities
+                global_probs, global_tf_probs = list(
+                    zip(*[torch.chunk(x, chunks=2, dim=0) for x in self._projection_classifier(e5)]))
                 # fixme: here lack of some code for IIC
                 labels = self._label_generation(partition_list, group_list)
                 contrastive_loss = self._contrastive_criterion(torch.stack([global_enc, global_tf_enc], dim=1),
                                                                labels=labels)
+                iic_loss_list = [self._iic_criterion(x, y)[0] for x, y in zip(global_probs, global_tf_probs)]
+                iic_loss = average_iter(iic_loss_list)
                 if self._disble_contrastive:
-                    contrastive_loss *= 0.0
-                iic_loss = self._iic_criterion(global_probs, global_tf_probs)[0]  # todo
-                total_loss = self._iic_weight * iic_loss + contrastive_loss
+                    total_loss = iic_loss
+                else:
+                    total_loss = self._iic_weight * iic_loss + contrastive_loss
                 self._optimizer.zero_grad()
                 total_loss.backward()
                 self._optimizer.step()

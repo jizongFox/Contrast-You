@@ -1,11 +1,13 @@
 import itertools
 
 import torch
+from models import ResNet18 as resnet18
 from torch import nn
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
 from torchvision.transforms import Compose
+from utils import ToMixin
 
 from deepclustering2.dataloader.sampler import InfiniteRandomSampler
 from deepclustering2.meters2 import AverageValueMeter, ConfusionMatrix
@@ -47,8 +49,6 @@ def average_iter(a_list):
     return sum(a_list) / float(len(a_list))
 
 
-from models import ResNet18 as resnet18
-
 device = torch.device("cuda")
 nets = NetArray([resnet18(num_classes=10) for _ in range(1)])
 optimizer = torch.optim.SGD(itertools.chain(*(x.parameters() for x in nets)), lr=1e-1, weight_decay=5e-4, momentum=0.9)
@@ -60,7 +60,7 @@ for param in teacher_net.parameters():
 teacher_net.train()
 
 
-class Trainer:
+class Trainer(ToMixin):
     def __init__(self, nets, teacher_net, optimizer, scheduler, train_loader, val_loader) -> None:
         self._nets = nets
         self._teacher_net = teacher_net
@@ -134,14 +134,6 @@ class Trainer:
             self.train_epoch()
             self.val_epoch(self._teacher_net)
             self._scheduler.step()
-
-    def to(self, device):
-        for k, v in self.__dict__.items():
-            if hasattr(v, "to"):
-                try:
-                    v.to(device)
-                except:
-                    continue
 
 
 trainer = Trainer(nets, teacher_net, optimizer, scheduler=scheduler, train_loader=train_loader, val_loader=val_loader)

@@ -15,10 +15,10 @@ NUM_SAMPLES = 400
 INTER = 5
 OUT = 3
 CLASS_OUT = 5
-NUM_SUBHEAD = 20
+NUM_SUBHEAD = 10
 
 ENABLE_CONTRAST = True
-ENABLE_IIC = True
+ENABLE_IIC = False
 # Create a sphere
 r = 0.98
 pi = np.pi
@@ -59,7 +59,7 @@ class ClassificationHead(nn.Module):
 
 
 device = torch.device("cuda")
-samples = torch.randn(NUM_SAMPLES, DIM, device=device)
+samples =  torch.randn(NUM_SAMPLES, DIM, device=device)
 samples.requires_grad = True
 mask = torch.eye(NUM_SAMPLES, device=device)
 
@@ -69,7 +69,7 @@ head2 = ClassificationHead(OUT=CLASS_OUT, num_head=NUM_SUBHEAD)
 head2.to(device)
 optimizer = torch.optim.Adam(
     itertools.chain((samples,), head.parameters(), head2.parameters()),
-    lr=1e-2, weight_decay=1e-4)
+    lr=1e-2, weight_decay=1e-5)
 iic_criterion = IIDLoss(lamb=1.0)
 
 
@@ -86,9 +86,9 @@ def extract_iic(projected_classes):
 with tqdm(range(10000)) as indicator:
     for i in indicator:
         contrast_loss = torch.tensor(0, dtype=torch.float, device=device)
+        projected_features = head(samples)
+        projected_vectors = projection(projected_features)
         if ENABLE_CONTRAST:
-            projected_features = head(samples)
-            projected_vectors = projection(projected_features)
             distance_map = projected_vectors.mm(projected_vectors.T)
             distance_map_T = distance_map / 0.07
             logits_exp = distance_map_T.exp()
@@ -97,18 +97,20 @@ with tqdm(range(10000)) as indicator:
 
         loss_iic = torch.tensor(0, dtype=torch.float, device=device)
         if ENABLE_IIC:
-            projected_classes = head2(projected_features)
+            projected_feature_norm = projected_features.norm(dim=1).mean()
+            aplitude_loss = nn.MSELoss()(projected_feature_norm, torch.ones_like(projected_feature_norm))
+            projected_classes = head2(samples)
             iic_losses = []
             for p_classes in projected_classes:
                 iic_losses.append(extract_iic(p_classes)[0])
-
             loss_iic = average_iter(iic_losses)
+            p_i_j = extract_iic(projected_classes[0])[1]
         optimizer.zero_grad()
         total_loss = 0
         if ENABLE_CONTRAST:
             total_loss += contrast_loss
         if ENABLE_IIC:
-            total_loss += loss_iic
+            total_loss += (loss_iic*0.5+ aplitude_loss)
         total_loss.backward()
         optimizer.step()
         indicator.set_postfix({"closs": contrast_loss.item(), "iic": loss_iic.item()})
@@ -136,11 +138,13 @@ with tqdm(range(10000)) as indicator:
 
                 fig = plt.figure(2)
                 ax = fig.add_subplot(111, projection='3d')
-                # ax.plot_surface(
-                #     x, y, z, rstride=1, cstride=1, color='c', alpha=0.6, linewidth=0)
+                ax.plot_surface(
+                    x, y, z, rstride=1, cstride=1, color='c', alpha=0.6, linewidth=0)
                 ax.scatter(projected_features[:, 0], projected_features[:, 1], projected_features[:, 2], color="g",
                            s=20)
                 plt.title("unnormalized features from contrastive loss")
+                plt.xlim([-1.5, 1.5])
+                plt.ylim([-1.5, 1.5])
                 plt.show(block=False)
                 plt.pause(0.001)
 
@@ -154,13 +158,13 @@ with tqdm(range(10000)) as indicator:
                 plt.ylim([-1.5, 1.5])
                 plt.show(block=False)
                 plt.pause(0.001)
-
-            # fig = plt.figure(4)
-            # plt.clf()
-            # plt.imshow(p_i_j.cpu().detach())
-            # plt.title("p_i_j")
-            # plt.colorbar()
-            # plt.show(block=False)
-            # plt.pause(0.001)
+            if ENABLE_IIC:
+                fig = plt.figure(4)
+                plt.clf()
+                plt.imshow(p_i_j.cpu().detach())
+                plt.title("p_i_j")
+                plt.colorbar()
+                plt.show(block=False)
+                plt.pause(0.001)
 
             print(samples.norm(dim=1).mean().item(), samples.norm(dim=1).std().item())

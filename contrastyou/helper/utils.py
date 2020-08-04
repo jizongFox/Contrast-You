@@ -22,6 +22,7 @@ def toDataLoaderIterator(loader_or_iter: Union[DataLoader, _BaseDataLoaderIter])
                         f"given {loader_or_iter.__class__.__name__}.")
     return loader_or_iter if isinstance(loader_or_iter, _BaseDataLoaderIter) else iter(loader_or_iter)
 
+
 # make a flatten dictionary to be printablely nice.
 def nice_dict(input_dict: Dict[str, Union[int, float]]) -> str:
     """
@@ -40,3 +41,6 @@ def nice_dict(input_dict: Dict[str, Union[int, float]]) -> str:
     flat_dict = input_dict if is_flat_dict else flatten_dict(input_dict, sep="")
     string_list = [f"{k}:{v:.3f}" for k, v in flat_dict.items()]
     return ", ".join(string_list)
+
+def average_iter(a_list):
+    return sum(a_list) / float(len(a_list))

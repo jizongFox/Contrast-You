@@ -10,7 +10,7 @@ from contrastyou import PROJECT_PATH
 from contrastyou.epocher import PretrainEncoderEpoch, PretrainDecoderEpoch, SimpleFineTuneEpoch, MeanTeacherEpocher
 from contrastyou.epocher.base_epocher import EvalEpoch
 from contrastyou.losses.contrast_loss import SupConLoss
-from contrastyou.trainer._utils import Flatten
+from contrastyou.trainer._utils import ProjectionHead
 from deepclustering2.loss import KL_div
 from deepclustering2.meters2 import Storage, StorageIncomeDict
 from deepclustering2.schedulers import GradualWarmupScheduler
@@ -65,20 +65,19 @@ class ContrastTrainer(Trainer):
         self._projector = None
         self._sup_criterion = None
 
-    def pretrain_encoder_init(self, group_option: str, lr=1e-6, weight_decay=1e-5, multiplier=300, warmup_max=10):
+    def pretrain_encoder_init(self, group_option: str, lr=1e-6, weight_decay=1e-5, multiplier=300, warmup_max=10,
+                              ptype="mlp"):
         # adding optimizer and scheduler
-        self._projector = nn.Sequential(  # noqa
-            nn.AdaptiveAvgPool2d((1, 1)),
-            Flatten(),
-            nn.Linear(256, 256),
-            nn.LeakyReLU(0.01, inplace=True),
-            nn.Linear(256, 128),
+        self._projector = ProjectionHead(input_dim=256, output_dim=256, head_type=ptype)  # noqa
+        self._optimizer = torch.optim.Adam(
+            itertools.chain(self._model.parameters(),  # noqa
+                            self._projector.parameters()),  # noqa
+            lr=lr, weight_decay=weight_decay
+        )  # noqa
+        self._scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            self._optimizer,  # noqa
+            self._max_epoch_train_encoder - warmup_max, 0
         )
-        self._optimizer = torch.optim.Adam(itertools.chain(self._model.parameters(),  # noqa
-                                                           self._projector.parameters()),  # noqa
-                                           lr=lr, weight_decay=weight_decay)  # noqa
-        self._scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self._optimizer,  # noqa
-                                                                     self._max_epoch_train_encoder - warmup_max, 0)
         self._scheduler = GradualWarmupScheduler(self._optimizer, multiplier, warmup_max, self._scheduler)  # noqa
 
         self._group_option = group_option  # noqa

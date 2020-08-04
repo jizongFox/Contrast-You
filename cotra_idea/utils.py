@@ -7,7 +7,7 @@ import os
 import sys
 import time
 import math
-
+import torch
 import torch.nn as nn
 import torch.nn.init as init
 
@@ -25,6 +25,16 @@ def get_mean_and_std(dataset):
     mean.div_(len(dataset))
     std.div_(len(dataset))
     return mean, std
+
+class ToMixin:
+    def to(self, device):
+        for k, v in self.__dict__.items():
+            if hasattr(v, "to"):
+                try:
+                    v.to(device)
+                except:
+                    continue
+
 
 def init_params(net):
     '''Init layer parameters.'''
