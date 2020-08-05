@@ -90,11 +90,11 @@ class ResNet(nn.Module):
         out = self.layer1(out)
         out = self.layer2(out)
         out = self.layer3(out)
-        out = self.layer4(out)
-        out = F.avg_pool2d(out, 4)
+        features = self.layer4(out)
+        out = F.avg_pool2d(features, 4)
         out = out.view(out.size(0), -1)
-        out = self.linear(out)
-        return out
+        logits = self.linear(out)
+        return logits, features
 
 
 def ResNet18(*args, **kwargs):
