@@ -58,7 +58,6 @@ val_transform = Compose([transforms.ToTensor(),
 CIFAR_LENGTH = 50000
 LABELED_LENGTH = args.num_labeled_data
 labeled_list = np.random.permutation(range(CIFAR_LENGTH))[:LABELED_LENGTH]
-unlabeled_list = list(set(range(CIFAR_LENGTH)) - set(labeled_list))
 
 labeled_data = CIFAR10.create_semi_dataset(
     root="./data", download=True, transform=train_transform,
@@ -83,7 +82,7 @@ projector_teacher = ProjectionHead(input_dim=512, output_dim=64, interm_dim=128,
 
 optimizer = torch.optim.Adam(
     chain(net.parameters(), projector_student.parameters(), projector_teacher.parameters()),
-    lr=1e-2, weight_decay=5e-6)
+    lr=5e-3)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=100, eta_min=0)
 
 teacher_net = resnet18(num_classes=10)
@@ -112,7 +111,7 @@ class Trainer(ToMixin):
         self._sup_criterion = nn.CrossEntropyLoss()
         self._reg_criterion = nn.MSELoss()
         self._contrastive_criterion = SupConLoss()
-        self._ema_updater = ema_updater(justify_alpha=True, alpha=0.999, weight_decay=1e-6, update_bn=True)
+        self._ema_updater = ema_updater(justify_alpha=True, alpha=0.999, weight_decay=0, update_bn=True)
         self._writer = SummaryWriter(log_dir=save_dir)
         self._contrastive_reg_scheduler = contrastive_weight_scheduler
         self._reg_weight = reg_weight
@@ -130,7 +129,11 @@ class Trainer(ToMixin):
         labeled_acc_meter = ConfusionMatrix(10)
         with tqdm(range(self._num_batches)) as indicator:
             indicator.set_description(f"training epoch {self._epoch}")
-            report_dict = {}
+            report_dict = {
+                "lr": get_lrs_from_optimizer(self._optimizer)[0],
+                "mt_weight": self._reg_weight,
+                "ct_weight": self._contrastive_reg_scheduler.value
+            }
             for i, (image, target), \
                 ((uimage, uimage_tf), _) in zip(indicator, self._labeled_iter, self._unlabeled_iter):
                 image, target = image.to(device), target.to(device)
@@ -163,21 +166,15 @@ class Trainer(ToMixin):
                     reg_loss_meter.add(reg_loss.item())
                     contrast_loss_meter.add(contrastive_loss.item())
                     labeled_acc_meter.add(labeled_logits.max(1)[1], target)
-
-                    report_dict = {
+                    report_dict.update({
                         "ttlloss": total_loss_meter.summary()["mean"],
                         "suploss": sup_loss_meter.summary()["mean"],
                         "regloss": reg_loss_meter.summary()["mean"],
                         "conloss": contrast_loss_meter.summary()["mean"],
                         "labacc": labeled_acc_meter.summary()["acc"]
-                    }
+                    })
                     self._ema_updater(self._teacher_net, self._net)
                     indicator.set_postfix(report_dict)
-            report_dict.update({"lr": get_lrs_from_optimizer(self._optimizer)[0],
-                                "mt_weight": self._reg_weight,
-                                "ct_weight": self._contrastive_reg_scheduler.value
-                                })
-            indicator.set_postfix(report_dict)
         return report_dict
 
     @torch.no_grad()

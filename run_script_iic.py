@@ -64,7 +64,7 @@ jobs = [
 # CC things
 accounts = cycle(["def-chdesa", "def-mpederso", "rrg-mpederso"])
 
-jobsubmiter = JobSubmiter(project_path="./", on_local=True, time=args.time)
+jobsubmiter = JobSubmiter(project_path="./", on_local=False, time=args.time)
 for j in jobs:
     jobsubmiter.prepare_env(["source ./venv/bin/activate ", "export OMP_NUM_THREADS=1", ])
     jobsubmiter.account = next(accounts)
