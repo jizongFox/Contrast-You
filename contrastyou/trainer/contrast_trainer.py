@@ -133,6 +133,9 @@ class ContrastTrainer(Trainer):
         self._model.disable_grad_encoder()  # noqa
 
         for self._cur_epoch in range(self._start_epoch, self._max_epoch_train_decoder):
+            # todo: 1. to improve the foldersplit function
+            #       2. to improve the gradient flow management for different representation
+
             pretrain_decoder_dict = PretrainDecoderEpoch(
                 model=self._model, projection_head=self._projector,
                 optimizer=self._optimizer,
