@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from typing import Union, List
 
 import torch
 from torch import nn
@@ -73,38 +74,48 @@ class UNet(nn.Module):
     def forward(self, x, return_features=False):
         # encoding path
         e1 = self.Conv1(x)
+        # e1-> Conv1
 
         e2 = self.Maxpool1(e1)
         e2 = self.Conv2(e2)
+        # e2 -> Conv2
 
         e3 = self.Maxpool2(e2)
         e3 = self.Conv3(e3)
+        # e3->Conv3
 
         e4 = self.Maxpool3(e3)
         e4 = self.Conv4(e4)
+        # e4->Conv4
 
         e5 = self.Maxpool4(e4)
         e5 = self.Conv5(e5)
+        # e5->Conv5
 
         # decoding + concat path
         d5 = self.Up5(e5)
         d5 = torch.cat((e4, d5), dim=1)
 
         d5 = self.Up_conv5(d5)
+        # d5->Up5+Up_conv5
 
         d4 = self.Up4(d5)
         d4 = torch.cat((e3, d4), dim=1)
         d4 = self.Up_conv4(d4)
+        # d4->Up4+Up_conv4
 
         d3 = self.Up3(d4)
         d3 = torch.cat((e2, d3), dim=1)
         d3 = self.Up_conv3(d3)
+        # d3->Up3+upconv3
 
         d2 = self.Up2(d3)
         d2 = torch.cat((e1, d2), dim=1)
         d2 = self.Up_conv2(d2)
+        # d2->up2+upconv2
 
         d1 = self.DeConv_1x1(d2)
+        # d1->Decov1x1
         if return_features:
             return d1, (e5, e4, e3, e2, e1), (d5, d4, d3, d2)
         return d1
@@ -124,12 +135,12 @@ class UNet(nn.Module):
     def enable_grad_util(self, name: str):
         assert name in self.component_names, name
         index = self.component_names.index(name)
-        self._set_grad(self.component_names[:index], True)
+        self._set_grad(self.component_names[:index + 1], True)
 
     def disable_grad_util(self, name):
         assert name in self.component_names, name
         index = self.component_names.index(name)
-        self._set_grad(self.component_names[:index], False)
+        self._set_grad(self.component_names[:index + 1], False)
 
     def enable_grad_all(self):
         self._set_grad(self.component_names, True)
@@ -140,14 +151,18 @@ class UNet(nn.Module):
     def enable_grad(self, from_: str, util: str):
         assert from_ in self.component_names, from_
         assert util in self.component_names, util
-        self.enable_grad_util(util)
-        self.disable_grad_util(from_)
+        from_index = self.component_names.index(from_)
+        util_index = self.component_names.index(util)
+        assert from_index <= util_index, (from_, util)
+        self._set_grad(self.component_names[from_index:util_index + 1], True)
 
     def disable_grad(self, from_: str, util: str):
         assert from_ in self.component_names, from_
         assert util in self.component_names, util
-        self.disable_grad_util(util)
-        self.enable_grad_util(from_)
+        from_index = self.component_names.index(from_)
+        util_index = self.component_names.index(util)
+        assert from_index <= util_index, (from_, util)
+        self._set_grad(self.component_names[from_index:util_index + 1], False)
 
     def _set_grad(self, name_list, requires_grad=False):
         for n in name_list:
@@ -171,3 +186,29 @@ class UNet(nn.Module):
         for name, p in self.named_parameters():
             weights[name] = p.norm().item()
         return weights
+
+
+class FeatureExtractor:
+    encoder_names = ["Conv1", "Conv2", "Conv3", "Conv4", "Conv5"]
+    decoder_names = ["Up_conv5", "Up_conv4", "Up_conv3", "Up_conv2"]
+    names = encoder_names + decoder_names
+
+    def __init__(self, feature_names: Union[List[str], str]) -> None:
+        if isinstance(feature_names, str):
+            feature_names = [feature_names, ]
+        for f in feature_names:
+            assert f in self.names, f
+        self._feature_names: List[str] = feature_names
+
+    def __call__(self, features) -> List[torch.Tensor]:
+        (e5, e4, e3, e2, e1), (d5, d4, d3, d2) = features
+        return_list = []
+
+        for f in self._feature_names:
+            if f in self.encoder_names:
+                index = self.encoder_names.index(f)
+                return_list.append(locals()[f"e{index + 1}"])
+            else:
+                index = self.decoder_names.index(f)
+                return_list.append(locals()[f"d{5 - index}"])
+        return return_list

@@ -38,6 +38,7 @@ save_dir = f"{save_dir_main}/label_data_ration_{labeled_data_ratio}/{trainer_nam
 common_opts = f" Trainer.name={trainer_name} PretrainEncoder.group_option={contrast_on} " \
               f" PretrainEncoder.num_clusters={args.num_clusters} " \
               f" PretrainEncoder.ctype={args.iichead_type} " \
+              f" PretrainEncoder.num_subheads={args.num_subheads} " \
               f" RandomSeed={random_seed} " \
               f" Data.labeled_data_ratio={labeled_data_ratio} Data.unlabeled_data_ratio={1 - labeled_data_ratio} " \
               f" Trainer.num_batches={num_batches} PretrainEncoder.ctemperature={args.ctemperature}  " \
@@ -63,7 +64,7 @@ jobs = [
 # CC things
 accounts = cycle(["def-chdesa", "def-mpederso", "rrg-mpederso"])
 
-jobsubmiter = JobSubmiter(project_path="./", on_local=True, time=args.time)
+jobsubmiter = JobSubmiter(project_path="./", on_local=False, time=args.time)
 for j in jobs:
     jobsubmiter.prepare_env(["source ./venv/bin/activate ", "export OMP_NUM_THREADS=1", ])
     jobsubmiter.account = next(accounts)
