@@ -15,10 +15,12 @@ from deepclustering2.schedulers import GradualWarmupScheduler
 class IICContrastTrainer(ContrastTrainer):
 
     def pretrain_encoder_init(self, group_option: str, lr=1e-6, weight_decay=1e-5, multiplier=300, warmup_max=10,
-                              num_clusters=20, iic_weight=1, disable_contrastive=False, ctemperature=1,
+                              num_clusters=20, num_subheads=10, iic_weight=1, disable_contrastive=False, ctemperature=1,
                               ctype="linear", ptype="mlp"):
         self._projector_contrastive = ProjectionHead(input_dim=256, output_dim=256, head_type=ptype)
-        self._projector_iic = ClassifierHead(input_dim=256, num_clusters=num_clusters, head_type=ctype, T=ctemperature)
+        self._projector_iic = ClassifierHead(
+            input_dim=256, num_clusters=num_clusters, head_type=ctype, T=ctemperature, num_subheads=num_subheads
+        )
         self._optimizer = torch.optim.Adam(
             itertools.chain(self._model.parameters(), self._projector_contrastive.parameters(),
                             self._projector_iic.parameters()), lr=lr, weight_decay=weight_decay)  # noqa

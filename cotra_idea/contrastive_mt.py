@@ -1,3 +1,6 @@
+from scipy.sparse import issparse  # noqa
+
+_ = issparse  # noqa
 import argparse
 from itertools import chain
 
