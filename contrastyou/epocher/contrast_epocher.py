@@ -158,7 +158,7 @@ class PretrainDecoderEpoch(PretrainEncoderEpoch):
                     torch.stack([local_enc_unfold_norm, local_tf_enc_unfold_norm], dim=1),
                     labels=labels
                 )
-                if ntorch.isnan(contrastive_loss):
+                if torch.isnan(contrastive_loss):
                     raise RuntimeError(contrastive_loss)
                 self._optimizer.zero_grad()
                 contrastive_loss.backward()

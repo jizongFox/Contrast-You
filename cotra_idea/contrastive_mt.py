@@ -142,8 +142,8 @@ class Trainer(ToMixin):
                 ((uimage, uimage_tf), _) in zip(indicator, self._labeled_iter, self._unlabeled_iter):
                 image, target = image.to(device), target.to(device)
                 uimage, uimage_tf = uimage.to(device), uimage_tf.to(device)
-                student_logits, student_features = self._net(torch.cat([image, uimage], dim=0))
-                student_labeled_logits, student_unlabeled_logits = torch.split(student_logits, [len(image), len(uimage)], dim=0)
+                _student_logits, student_features = self._net(torch.cat([image, uimage], dim=0))
+                student_labeled_logits, student_unlabeled_logits = torch.split(_student_logits, [len(image), len(uimage)], dim=0)
                 _, student_unlabeled_features = torch.split(student_features, [len(image), len(uimage)], dim=0)
                 sup_loss = self._sup_criterion(student_labeled_logits, target)
                 with torch.no_grad():

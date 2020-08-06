@@ -59,7 +59,7 @@ jobs = [
                                                 f"PretrainDecoder.disable_grad_encoder=False",
     f"python -O  main_contrast.py {common_opts} Trainer.save_dir={save_dir}/encoder_decoder_freeze_encoder "
                                                 f"Trainer.train_encoder=True Trainer.train_decoder=True "
-                                                f"PretrainDecoder.disable_grad_encoder=False",
+                                                f"PretrainDecoder.disable_grad_encoder=True",
 ]
 
 # CC things

@@ -3,6 +3,9 @@ import os
 from pathlib import Path
 
 import torch
+from torch import nn
+from torch.utils.data import DataLoader
+
 from contrastyou import PROJECT_PATH
 from contrastyou.arch import UNet, UNetFeatureExtractor
 from contrastyou.epocher import PretrainEncoderEpoch, PretrainDecoderEpoch, SimpleFineTuneEpoch, MeanTeacherEpocher
@@ -14,8 +17,6 @@ from deepclustering2.meters2 import Storage, StorageIncomeDict
 from deepclustering2.schedulers import GradualWarmupScheduler
 from deepclustering2.trainer.trainer import Trainer, T_loader
 from deepclustering2.writer import SummaryWriter
-from torch import nn
-from torch.utils.data import DataLoader
 
 
 class ContrastTrainer(Trainer):
@@ -107,12 +108,14 @@ class ContrastTrainer(Trainer):
             self._save_to("last.pth", path=os.path.join(self._save_dir, "pretrain_encoder"))
         self.train_encoder_done = True
 
-    def pretrain_decoder_init(self, lr: float = 1e-6, weight_decay: float = 0.0, multiplier: int = 300, warmup_max=10,
-                              extract_postiion="Up_conv3", disable_grad_encoder=True):
+    def pretrain_decoder_init(self, lr: float = 1e-6, weight_decay: float = 0.0,
+                              multiplier: int = 300, warmup_max=10,
+                              extract_position="Up_conv3",
+                              disable_grad_encoder=True):
         # feature_exactor
-        self._extract_position = extract_postiion
+        self._extract_position = extract_position
         self._feature_extractor = UNetFeatureExtractor(self._extract_position)
-        projector_input_dim = UNet.dimension_dict[extract_postiion]
+        projector_input_dim = UNet.dimension_dict[extract_position]
         # if disable_encoder's gradient
         self._disable_grad_encoder = disable_grad_encoder
 
@@ -141,9 +144,6 @@ class ContrastTrainer(Trainer):
         self.to(self._device)
 
         for self._cur_epoch in range(self._start_epoch, self._max_epoch_train_decoder):
-            # todo: 1. to improve the foldersplit function
-            #       2. to improve the gradient flow management for different representation
-
             pretrain_decoder_dict = PretrainDecoderEpoch(
                 model=self._model, projection_head=self._projector,
                 optimizer=self._optimizer,

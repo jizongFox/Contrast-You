@@ -212,6 +212,10 @@ class FeatureExtractor:
             assert f in self.names, f
         self._feature_names: List[str] = feature_names
 
+    @property
+    def feature_names(self):
+        return self._feature_names
+
     def __call__(self, features) -> List[torch.Tensor]:
         (e5, e4, e3, e2, e1), (d5, d4, d3, d2) = features
         return_list = []
