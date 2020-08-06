@@ -18,7 +18,7 @@ CLASS_OUT = 5
 NUM_SUBHEAD = 10
 
 ENABLE_CONTRAST = True
-ENABLE_IIC = False
+ENABLE_IIC = True
 # Create a sphere
 r = 0.98
 pi = np.pi

@@ -27,12 +27,11 @@ model = UNet(**config["Arch"])
 acdc_manager = ACDCSemiInterface(root_dir=DATA_PATH, labeled_data_ratio=config["Data"]["labeled_data_ratio"],
                                  unlabeled_data_ratio=config["Data"]["unlabeled_data_ratio"])
 transform = transform_dict[config.get("Augment", "simple")]
-label_set, unlabel_set, val_set = acdc_manager._create_semi_supervised_datasets(  # noqa
-    labeled_transform=transform.train,
-    unlabeled_transform=transform.train,
+label_set, _, val_set = acdc_manager._create_semi_supervised_datasets(  # noqa
+    labeled_transform=transform.label,
     val_transform=transform.val
 )
-train_set = ACDCDataset(root_dir=DATA_PATH, mode="train", transforms=transform.train)
+train_set = ACDCDataset(root_dir=DATA_PATH, mode="train", transforms=transform.pretrain)
 
 # all training set is with ContrastBatchSampler
 train_loader = DataLoader(  # noqa

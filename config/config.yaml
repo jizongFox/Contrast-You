@@ -39,13 +39,15 @@ PretrainEncoder:
   weight_decay: 0.00001
   multiplier: 300
   warmup_max: 10
+  extract_position: Conv5
 
 PretrainDecoder:
   lr: 0.000001
   weight_decay: 0.0
   multiplier: 300
   warmup_max: 10
-  disable_grad_encoder: true
+  enable_grad_from: Up5
+  extract_position: Up_conv3
 
 FineTune:
   lr: 0.0000001

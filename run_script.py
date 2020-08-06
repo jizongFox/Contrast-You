@@ -14,6 +14,9 @@ parser.add_argument("-w", "--reg_weight", default=0.0, type=float)
 parser.add_argument("--save_dir", default=None, type=str)
 parser.add_argument("-a", "--augment", default="simple", type=str)
 parser.add_argument("-g", "--group_sample_num", default=6, type=int)
+# parser.add_argument("--encoder_extractor", default="Conv5",type=str)
+# parser.add_argument("--decoder_extractor", default="Up_conv3", type=str)
+# parser.add_argument("--decoder_enable_grad_from", default="Up5", type=str)
 parser.add_argument("--time", default=4, type=int)
 
 args = parser.parse_args()
@@ -52,14 +55,38 @@ if trainer_name == "contrastMT":
 jobs = [
     f"python -O  main_contrast.py {common_opts} Trainer.save_dir={save_dir}/baseline  "
                                                 f"Trainer.train_encoder=False Trainer.train_decoder=False ",
-    f"python -O  main_contrast.py {common_opts} Trainer.save_dir={save_dir}/encoder  "
-                                                f"Trainer.train_encoder=True Trainer.train_decoder=False ",
-    f"python -O  main_contrast.py {common_opts} Trainer.save_dir={save_dir}/encoder_decoder "
+    f"python -O  main_contrast.py {common_opts} Trainer.save_dir={save_dir}/encoder/conv5  "
+                                                f"Trainer.train_encoder=True Trainer.train_decoder=False PretrainEncoder.extract_position=Conv5",
+
+    f"python -O  main_contrast.py {common_opts} Trainer.save_dir={save_dir}/encoder/conv4  "
+                                                f"Trainer.train_encoder=True Trainer.train_decoder=False PretrainEncoder.extract_position=Conv4",
+
+    f"python -O  main_contrast.py {common_opts} Trainer.save_dir={save_dir}/encoder/conv3  "
+                                                f"Trainer.train_encoder=True Trainer.train_decoder=False PretrainEncoder.extract_position=Conv3",
+
+    f"python -O  main_contrast.py {common_opts} Trainer.save_dir={save_dir}/encoder_decoder/encoder_conv5/decoder_conv3/freeze_encoder "
                                                 f"Trainer.train_encoder=True Trainer.train_decoder=True "
-                                                f"PretrainDecoder.disable_grad_encoder=False",
-    f"python -O  main_contrast.py {common_opts} Trainer.save_dir={save_dir}/encoder_decoder_freeze_encoder "
+                                                f"PretrainEncoder.extract_position=Conv5 "
+                                                f"PretrainDecoder.extract_position=Up_conv3 "
+                                                f"PretrainDecoder.enable_grad_from=Up5 ",
+
+    f"python -O  main_contrast.py {common_opts} Trainer.save_dir={save_dir}/encoder_decoder/encoder_conv5/decoder_conv2/freeze_encoder "
                                                 f"Trainer.train_encoder=True Trainer.train_decoder=True "
-                                                f"PretrainDecoder.disable_grad_encoder=True",
+                                                f"PretrainEncoder.extract_position=Conv5 "
+                                                f"PretrainDecoder.extract_position=Up_conv2 "
+                                                f"PretrainDecoder.enable_grad_from=Up5 ",
+
+    f"python -O  main_contrast.py {common_opts} Trainer.save_dir={save_dir}/encoder_decoder/encoder_conv5/decoder_conv3/enable_encoder "
+                                                f"Trainer.train_encoder=True Trainer.train_decoder=True "
+                                                f"PretrainEncoder.extract_position=Conv5 "
+                                                f"PretrainDecoder.extract_position=Up_conv3 "
+                                                f"PretrainDecoder.enable_grad_from=Conv1 ",
+
+    f"python -O  main_contrast.py {common_opts} Trainer.save_dir={save_dir}/encoder_decoder/encoder_conv5/decoder_conv2/enable_encoder "
+                                                f"Trainer.train_encoder=True Trainer.train_decoder=True "
+                                                f"PretrainEncoder.extract_position=Conv5 "
+                                                f"PretrainDecoder.extract_position=Up_conv2 "
+                                                f"PretrainDecoder.enable_grad_from=Conv1 ",
 ]
 
 # CC things

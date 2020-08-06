@@ -2,6 +2,9 @@ import random
 from typing import List
 
 import torch
+from torch import nn
+from torch.nn import functional as F
+
 from deepclustering2 import optim
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.epoch import _Epocher, proxy_trainer  # noqa
@@ -9,12 +12,9 @@ from deepclustering2.meters2 import EpochResultDict, MeterInterface, AverageValu
 from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.tqdm import tqdm
 from deepclustering2.trainer.trainer import T_loader, T_loss
-from torch import nn
-from torch.nn import functional as F
-
 from ._utils import preprocess_input_with_twice_transformation, unfold_position, GlobalLabelGenerator, \
     LocalLabelGenerator
-from ..arch.unet import FeatureExtractor
+from ..arch import UNetFeatureExtractor
 
 
 class PretrainEncoderEpoch(_Epocher):
@@ -22,7 +22,8 @@ class PretrainEncoderEpoch(_Epocher):
 
     def __init__(self, model: nn.Module, projection_head: nn.Module, optimizer: optim.Optimizer,
                  pretrain_encoder_loader: T_loader, contrastive_criterion: T_loss, num_batches: int = 0,
-                 cur_epoch=0, device="cpu", group_option: str = None) -> None:
+                 cur_epoch=0, device="cpu", group_option: str = None,
+                 feature_exactor: UNetFeatureExtractor = None) -> None:
         """
         PretrainEncoder Epocher
         :param model: nn.Module for a model
@@ -47,6 +48,8 @@ class PretrainEncoderEpoch(_Epocher):
         assert isinstance(group_option, str) and group_option in ("partition", "patient", "both"), group_option
         self._group_option = group_option
         self._init_label_generator(self._group_option)
+        assert isinstance(feature_exactor, UNetFeatureExtractor), feature_exactor
+        self._feature_extractor = feature_exactor
 
     def _init_label_generator(self, group_option):
         contrastive_on_partition = False
@@ -82,9 +85,9 @@ class PretrainEncoderEpoch(_Epocher):
         with tqdm(range(self._num_batches)).set_desc_from_epocher(self) as indicator:  # noqa
             for i, data in zip(indicator, self._pretrain_encoder_loader):
                 (img, _), (img_tf, _), filename, partition_list, group_list = self._preprocess_data(data, self._device)
-                _, (e5, *_), *_ = self._model(torch.cat([img, img_tf], dim=0), return_features=True)
-                global_enc, global_tf_enc = torch.chunk(F.normalize(self._projection_head(e5), dim=1), chunks=2, dim=0)
-                # todo: convert representation to distance
+                _, *features = self._model(torch.cat([img, img_tf], dim=0), return_features=True)
+                en = self._feature_extractor(features)[0]
+                global_enc, global_tf_enc = torch.chunk(F.normalize(self._projection_head(en), dim=1), chunks=2, dim=0)
                 labels = self._label_generation(partition_list, group_list)
                 contrastive_loss = self._contrastive_criterion(torch.stack([global_enc, global_tf_enc], dim=1),
                                                                labels=labels)
@@ -113,14 +116,12 @@ class PretrainDecoderEpoch(PretrainEncoderEpoch):
 
     def __init__(self, model: nn.Module, projection_head: nn.Module, optimizer: optim.Optimizer,
                  pretrain_decoder_loader: T_loader, contrastive_criterion: T_loss, num_batches: int = 0, cur_epoch=0,
-                 device="cpu", feature_extractor: FeatureExtractor = None) -> None:
+                 device="cpu", feature_extractor: UNetFeatureExtractor = None) -> None:
         super().__init__(model, projection_head, optimizer, pretrain_decoder_loader, contrastive_criterion, num_batches,
-                         cur_epoch, device, "both", )
+                         cur_epoch, device, "both", feature_extractor)
         self._pretrain_decoder_loader = self._pretrain_encoder_loader
         from deepclustering2.augment.tensor_augment import TensorRandomFlip
         self._transformer = TensorRandomFlip(axis=[1, 2], threshold=1)
-        assert feature_extractor is not None, feature_extractor
-        self._feature_extractor = feature_extractor
 
     def _init_label_generator(self, group_option):
         self._local_contrastive_label_generator = LocalLabelGenerator()
@@ -137,7 +138,6 @@ class PretrainDecoderEpoch(PretrainEncoderEpoch):
                 with FixRandomSeed(seed):
                     img_gtf = torch.stack([self._transformer(x) for x in img], dim=0)
                 assert img_gtf.shape == img.shape, (img_gtf.shape, img.shape)
-
                 _, *features = self._model(torch.cat([img_gtf, img_ctf], dim=0), return_features=True)
                 dn = self._feature_extractor(features)[0]
                 dn_gtf, dn_ctf = torch.chunk(dn, chunks=2, dim=0)
