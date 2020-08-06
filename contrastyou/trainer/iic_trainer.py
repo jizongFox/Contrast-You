@@ -4,9 +4,10 @@ import os
 import torch
 from torch import nn
 
+from contrastyou.arch import UNetFeatureExtractor, UNet
 from contrastyou.epocher.IIC_epocher import IICPretrainEcoderEpoch, IICPretrainDecoderEpoch
 from contrastyou.losses.contrast_loss import SupConLoss
-from contrastyou.trainer._utils import Flatten, SoftmaxWithT
+from contrastyou.trainer._utils import SoftmaxWithT, ClassifierHead, ProjectionHead
 from contrastyou.trainer.contrast_trainer import ContrastTrainer
 from deepclustering2.meters2 import StorageIncomeDict
 from deepclustering2.schedulers import GradualWarmupScheduler
@@ -15,21 +16,11 @@ from deepclustering2.schedulers import GradualWarmupScheduler
 class IICContrastTrainer(ContrastTrainer):
 
     def pretrain_encoder_init(self, group_option: str, lr=1e-6, weight_decay=1e-5, multiplier=300, warmup_max=10,
-                              num_clusters=20, iic_weight=1, disable_contrastive=False, temperature=10):
-        self._projector_contrastive = nn.Sequential(
-            nn.AdaptiveAvgPool2d((1, 1)),
-            Flatten(),
-            nn.Linear(256, 256),
-            nn.LeakyReLU(0.01, inplace=True),
-            nn.Linear(256, 256),
-        )
-        self._projector_iic = nn.Sequential(
-            nn.AdaptiveAvgPool2d((1, 1)),
-            Flatten(),
-            nn.Linear(256, 512),
-            nn.LeakyReLU(0.01, inplace=True),
-            nn.Linear(512, num_clusters),
-            SoftmaxWithT(1, T=temperature)
+                              num_clusters=20, num_subheads=10, iic_weight=1, disable_contrastive=False, ctemperature=1,
+                              ctype="linear", ptype="mlp"):
+        self._projector_contrastive = ProjectionHead(input_dim=256, output_dim=256, head_type=ptype)
+        self._projector_iic = ClassifierHead(
+            input_dim=256, num_clusters=num_clusters, head_type=ctype, T=ctemperature, num_subheads=num_subheads
         )
         self._optimizer = torch.optim.Adam(
             itertools.chain(self._model.parameters(), self._projector_contrastive.parameters(),
@@ -68,21 +59,32 @@ class IICContrastTrainer(ContrastTrainer):
             self._save_to("last.pth", path=os.path.join(self._save_dir, "pretrain_encoder"))
         self.train_encoder_done = True
 
-    def pretrain_decoder_init(self, lr: float = 1e-6, weight_decay: float = 0.0, multiplier: int = 300, warmup_max=10,
-                              num_clusters=20, temperature=10):
+    def pretrain_decoder_init(self, lr: float = 1e-6, weight_decay: float = 0.0,
+                              multiplier: int = 300, warmup_max=10,
+                              num_clusters=20, ctemperature=1,
+                              extract_position="Up_conv3",
+                              disable_grad_encoder=True):
+        # feature_exactor
+        self._extract_position = extract_position
+        self._feature_extractor = UNetFeatureExtractor(self._extract_position)
+        projector_input_dim = UNet.dimension_dict[extract_position]
+        # if disable_encoder's gradient
+        self._disable_grad_encoder = disable_grad_encoder
+
         # adding optimizer and scheduler
         self._projector_contrastive = nn.Sequential(
-            nn.Conv2d(64, 64, 3, 1, 1),
+            nn.Conv2d(projector_input_dim, 64, 3, 1, 1),
             nn.BatchNorm2d(64),
             nn.LeakyReLU(0.01, inplace=True),
-            nn.Conv2d(64, 32, 3, 1, 1)
-        )
+            nn.Conv2d(64, 32, 3, 1, 1),
+            nn.AdaptiveAvgPool2d((4, 4))
+        )  # fixme
         self._projector_iic = nn.Sequential(
             nn.Conv2d(64, 64, 3, 1, 1),
             nn.BatchNorm2d(64),
             nn.LeakyReLU(0.01, inplace=True),
             nn.Conv2d(64, num_clusters, 3, 1, 1),
-            SoftmaxWithT(1, T=temperature)
+            SoftmaxWithT(1, T=ctemperature)
         )
         self._optimizer = torch.optim.Adam(itertools.chain(
             self._model.parameters(),

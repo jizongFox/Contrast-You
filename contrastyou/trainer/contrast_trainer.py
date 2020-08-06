@@ -7,10 +7,11 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 from contrastyou import PROJECT_PATH
+from contrastyou.arch import UNet, UNetFeatureExtractor
 from contrastyou.epocher import PretrainEncoderEpoch, PretrainDecoderEpoch, SimpleFineTuneEpoch, MeanTeacherEpocher
 from contrastyou.epocher.base_epocher import EvalEpoch
 from contrastyou.losses.contrast_loss import SupConLoss
-from contrastyou.trainer._utils import Flatten
+from contrastyou.trainer._utils import ProjectionHead
 from deepclustering2.loss import KL_div
 from deepclustering2.meters2 import Storage, StorageIncomeDict
 from deepclustering2.schedulers import GradualWarmupScheduler
@@ -65,20 +66,25 @@ class ContrastTrainer(Trainer):
         self._projector = None
         self._sup_criterion = None
 
-    def pretrain_encoder_init(self, group_option: str, lr=1e-6, weight_decay=1e-5, multiplier=300, warmup_max=10):
+    def pretrain_encoder_init(self, group_option: str, lr=1e-6, weight_decay=1e-5, multiplier=300, warmup_max=10,
+                              ptype="mlp", extract_position="Conv5"):
         # adding optimizer and scheduler
-        self._projector = nn.Sequential(  # noqa
-            nn.AdaptiveAvgPool2d((1, 1)),
-            Flatten(),
-            nn.Linear(256, 256),
-            nn.LeakyReLU(0.01, inplace=True),
-            nn.Linear(256, 128),
+        self._extract_position = extract_position
+        self._feature_extractor = UNetFeatureExtractor(self._extract_position)
+        self._projector = ProjectionHead(
+            input_dim=UNet.dimension_dict[self._extract_position],
+            output_dim=256,
+            head_type=ptype
+        )  # noqa
+        self._optimizer = torch.optim.Adam(
+            itertools.chain(self._model.parameters(),  # noqa
+                            self._projector.parameters()),  # noqa
+            lr=lr, weight_decay=weight_decay
+        )  # noqa
+        self._scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            self._optimizer,  # noqa
+            self._max_epoch_train_encoder - warmup_max, 0
         )
-        self._optimizer = torch.optim.Adam(itertools.chain(self._model.parameters(),  # noqa
-                                                           self._projector.parameters()),  # noqa
-                                           lr=lr, weight_decay=weight_decay)  # noqa
-        self._scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self._optimizer,  # noqa
-                                                                     self._max_epoch_train_encoder - warmup_max, 0)
         self._scheduler = GradualWarmupScheduler(self._optimizer, multiplier, warmup_max, self._scheduler)  # noqa
 
         self._group_option = group_option  # noqa
@@ -90,8 +96,8 @@ class ContrastTrainer(Trainer):
 
     def pretrain_encoder_run(self):
         self.to(self._device)
-        self._model.enable_grad_encoder()  # noqa
-        self._model.disable_grad_decoder()  # noqa
+        self._model.disable_grad_all()
+        self._model.enable_grad(from_="Conv1", util=self._extract_position)
 
         for self._cur_epoch in range(self._start_epoch, self._max_epoch_train_encoder):
             pretrain_encoder_dict = PretrainEncoderEpoch(
@@ -99,7 +105,8 @@ class ContrastTrainer(Trainer):
                 optimizer=self._optimizer,
                 pretrain_encoder_loader=self._pretrain_loader_iter,
                 contrastive_criterion=SupConLoss(), num_batches=self._num_batches,
-                cur_epoch=self._cur_epoch, device=self._device, group_option=self._group_option
+                cur_epoch=self._cur_epoch, device=self._device, group_option=self._group_option,
+                feature_exactor=self._feature_extractor
             ).run()
             self._scheduler.step()
             storage_dict = StorageIncomeDict(PRETRAIN_ENCODER=pretrain_encoder_dict, )
@@ -108,13 +115,23 @@ class ContrastTrainer(Trainer):
             self._save_to("last.pth", path=os.path.join(self._save_dir, "pretrain_encoder"))
         self.train_encoder_done = True
 
-    def pretrain_decoder_init(self, lr: float = 1e-6, weight_decay: float = 0.0, multiplier: int = 300, warmup_max=10):
+    def pretrain_decoder_init(self, lr: float = 1e-6, weight_decay: float = 0.0,
+                              multiplier: int = 300, warmup_max=10,
+                              extract_position="Up_conv3", enable_grad_from="Up5", ):
+        # feature_exactor
+        self._extract_position = extract_position
+        self._feature_extractor = UNetFeatureExtractor(self._extract_position)
+        projector_input_dim = UNet.dimension_dict[extract_position]
+        # if disable_encoder's gradient
+        self._enable_grad_from = enable_grad_from
+
         # adding optimizer and scheduler
         self._projector = nn.Sequential(
-            nn.Conv2d(64, 64, 3, 1, 1),
+            nn.Conv2d(projector_input_dim, 64, 3, 1, 1),
             nn.BatchNorm2d(64),
             nn.LeakyReLU(0.01, inplace=True),
-            nn.Conv2d(64, 32, 3, 1, 1)
+            nn.Conv2d(64, 32, 3, 1, 1),
+            nn.AdaptiveAvgPool2d((4, 4))
         )
         self._optimizer = torch.optim.Adam(itertools.chain(self._model.parameters(), self._projector.parameters()),
                                            lr=lr, weight_decay=weight_decay)
@@ -128,10 +145,9 @@ class ContrastTrainer(Trainer):
         self._pretrain_loader_iter = iter(self._pretrain_loader)  # noqa
 
     def pretrain_decoder_run(self):
+        self._model.disable_grad_all()
+        self._model.enable_grad(from_=self._enable_grad_from, util=self._extract_position)
         self.to(self._device)
-
-        self._model.enable_grad_decoder()  # noqa
-        self._model.disable_grad_encoder()  # noqa
 
         for self._cur_epoch in range(self._start_epoch, self._max_epoch_train_decoder):
             pretrain_decoder_dict = PretrainDecoderEpoch(
@@ -139,7 +155,7 @@ class ContrastTrainer(Trainer):
                 optimizer=self._optimizer,
                 pretrain_decoder_loader=self._pretrain_loader_iter,
                 contrastive_criterion=SupConLoss(), num_batches=self._num_batches,
-                cur_epoch=self._cur_epoch, device=self._device,
+                cur_epoch=self._cur_epoch, device=self._device, feature_extractor=self._feature_extractor
             ).run()
             self._scheduler.step()
             storage_dict = StorageIncomeDict(PRETRAIN_DECODER=pretrain_decoder_dict, )
