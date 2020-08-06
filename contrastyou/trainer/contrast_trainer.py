@@ -3,10 +3,8 @@ import os
 from pathlib import Path
 
 import torch
-from torch import nn
-from torch.utils.data import DataLoader
-
 from contrastyou import PROJECT_PATH
+from contrastyou.arch import UNet, UNetFeatureExtractor
 from contrastyou.epocher import PretrainEncoderEpoch, PretrainDecoderEpoch, SimpleFineTuneEpoch, MeanTeacherEpocher
 from contrastyou.epocher.base_epocher import EvalEpoch
 from contrastyou.losses.contrast_loss import SupConLoss
@@ -16,6 +14,8 @@ from deepclustering2.meters2 import Storage, StorageIncomeDict
 from deepclustering2.schedulers import GradualWarmupScheduler
 from deepclustering2.trainer.trainer import Trainer, T_loader
 from deepclustering2.writer import SummaryWriter
+from torch import nn
+from torch.utils.data import DataLoader
 
 
 class ContrastTrainer(Trainer):
@@ -107,14 +107,23 @@ class ContrastTrainer(Trainer):
             self._save_to("last.pth", path=os.path.join(self._save_dir, "pretrain_encoder"))
         self.train_encoder_done = True
 
-    def pretrain_decoder_init(self, lr: float = 1e-6, weight_decay: float = 0.0, multiplier: int = 300, warmup_max=10):
+    def pretrain_decoder_init(self, lr: float = 1e-6, weight_decay: float = 0.0, multiplier: int = 300, warmup_max=10,
+                              extract_postiion="Up_conv3", disable_grad_encoder=True):
+        # feature_exactor
+        self._extract_position = extract_postiion
+        self._feature_extractor = UNetFeatureExtractor(self._extract_position)
+        projector_input_dim = UNet.dimension_dict[extract_postiion]
+        # if disable_encoder's gradient
+        self._disable_grad_encoder = disable_grad_encoder
+
         # adding optimizer and scheduler
         self._projector = nn.Sequential(
-            nn.Conv2d(64, 64, 3, 1, 1),
+            nn.Conv2d(projector_input_dim, 64, 3, 1, 1),
             nn.BatchNorm2d(64),
             nn.LeakyReLU(0.01, inplace=True),
-            nn.Conv2d(64, 32, 3, 1, 1)
-        )
+            nn.Conv2d(64, 32, 3, 1, 1),
+            nn.AdaptiveAvgPool2d((4,4))
+        )  # fixme
         self._optimizer = torch.optim.Adam(itertools.chain(self._model.parameters(), self._projector.parameters()),
                                            lr=lr, weight_decay=weight_decay)
         self._scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self._optimizer,
@@ -126,11 +135,21 @@ class ContrastTrainer(Trainer):
         self._pretrain_loader.dataset._transform._total_freedom = False  # noqa
         self._pretrain_loader_iter = iter(self._pretrain_loader)  # noqa
 
-    def pretrain_decoder_run(self):
-        self.to(self._device)
 
-        self._model.enable_grad_decoder()  # noqa
-        self._model.disable_grad_encoder()  # noqa
+
+    def pretrain_decoder_run(self):
+        self._model.load_state_dict(
+            torch.load(
+                "/home/jizong/Workspace/Contrast-You/runs/iic_contrast_shuffle_and_largeN"
+                "/label_data_ration_0.1/iiccontrast/contrast_on_partition/group_sample_num_6"
+                "/cluster_num_50/using_shuffle_False/t_1.0/without_pretrain/finetune/best.pth")
+            ["_model"],
+            strict=False
+        )
+
+        self._model.disable_grad_all()
+        self._model.enable_grad(from_="Up5" if self._disable_grad_encoder else "Conv1", util=self._extract_position)
+        self.to(self._device)
 
         for self._cur_epoch in range(self._start_epoch, self._max_epoch_train_decoder):
             # todo: 1. to improve the foldersplit function
@@ -141,7 +160,7 @@ class ContrastTrainer(Trainer):
                 optimizer=self._optimizer,
                 pretrain_decoder_loader=self._pretrain_loader_iter,
                 contrastive_criterion=SupConLoss(), num_batches=self._num_batches,
-                cur_epoch=self._cur_epoch, device=self._device,
+                cur_epoch=self._cur_epoch, device=self._device, feature_extractor=self._feature_extractor
             ).run()
             self._scheduler.step()
             storage_dict = StorageIncomeDict(PRETRAIN_DECODER=pretrain_decoder_dict, )

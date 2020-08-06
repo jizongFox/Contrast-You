@@ -2,20 +2,19 @@ import random
 from typing import List
 
 import torch
-from torch import nn
-from torch.nn import functional as F
-
 from deepclustering2 import optim
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.epoch import _Epocher, proxy_trainer  # noqa
 from deepclustering2.meters2 import EpochResultDict, MeterInterface, AverageValueMeter
 from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.tqdm import tqdm
-from deepclustering2.trainer.trainer import T_loader, T_loss, T_optim
+from deepclustering2.trainer.trainer import T_loader, T_loss
+from torch import nn
+from torch.nn import functional as F
+
 from ._utils import preprocess_input_with_twice_transformation, unfold_position, GlobalLabelGenerator, \
     LocalLabelGenerator
-from .base_epocher import SimpleFineTuneEpoch as _SimpleFineTuneEpoch
-from ..losses.contrast_loss import SupConLoss
+from ..arch.unet import FeatureExtractor
 
 
 class PretrainEncoderEpoch(_Epocher):
@@ -114,12 +113,14 @@ class PretrainDecoderEpoch(PretrainEncoderEpoch):
 
     def __init__(self, model: nn.Module, projection_head: nn.Module, optimizer: optim.Optimizer,
                  pretrain_decoder_loader: T_loader, contrastive_criterion: T_loss, num_batches: int = 0, cur_epoch=0,
-                 device="cpu", ) -> None:
+                 device="cpu", feature_extractor: FeatureExtractor = None) -> None:
         super().__init__(model, projection_head, optimizer, pretrain_decoder_loader, contrastive_criterion, num_batches,
                          cur_epoch, device, "both", )
         self._pretrain_decoder_loader = self._pretrain_encoder_loader
         from deepclustering2.augment.tensor_augment import TensorRandomFlip
         self._transformer = TensorRandomFlip(axis=[1, 2], threshold=1)
+        assert feature_extractor is not None, feature_extractor
+        self._feature_extractor = feature_extractor
 
     def _init_label_generator(self, group_option):
         self._local_contrastive_label_generator = LocalLabelGenerator()
@@ -137,13 +138,14 @@ class PretrainDecoderEpoch(PretrainEncoderEpoch):
                     img_gtf = torch.stack([self._transformer(x) for x in img], dim=0)
                 assert img_gtf.shape == img.shape, (img_gtf.shape, img.shape)
 
-                _, *_, (_, d4, *_) = self._model(torch.cat([img_gtf, img_ctf], dim=0), return_features=True)
-                d4_gtf, d4_ctf = torch.chunk(d4, chunks=2, dim=0)
+                _, *features = self._model(torch.cat([img_gtf, img_ctf], dim=0), return_features=True)
+                dn = self._feature_extractor(features)[0]
+                dn_gtf, dn_ctf = torch.chunk(dn, chunks=2, dim=0)
                 with FixRandomSeed(seed):
-                    d4_ctf_gtf = torch.stack([self._transformer(x) for x in d4_ctf], dim=0)
-                assert d4_ctf_gtf.shape == d4_ctf.shape, (d4_ctf_gtf.shape, d4_ctf.shape)
-                d4_tf = torch.cat([d4_gtf, d4_ctf_gtf])
-                local_enc_tf, local_enc_tf_ctf = torch.chunk(self._projection_head(d4_tf), chunks=2, dim=0)
+                    dn_ctf_gtf = torch.stack([self._transformer(x) for x in dn_ctf], dim=0)
+                assert dn_ctf_gtf.shape == dn_ctf.shape, (dn_ctf_gtf.shape, dn_ctf.shape)
+                dn_tf = torch.cat([dn_gtf, dn_ctf_gtf])
+                local_enc_tf, local_enc_tf_ctf = torch.chunk(self._projection_head(dn_tf), chunks=2, dim=0)
                 # todo: convert representation to distance
                 local_enc_unfold, _ = unfold_position(local_enc_tf, partition_num=(2, 2))
                 local_tf_enc_unfold, _fold_partition = unfold_position(local_enc_tf_ctf, partition_num=(2, 2))
@@ -156,7 +158,7 @@ class PretrainDecoderEpoch(PretrainEncoderEpoch):
                     torch.stack([local_enc_unfold_norm, local_tf_enc_unfold_norm], dim=1),
                     labels=labels
                 )
-                if torch.isnan(contrastive_loss):
+                if ntorch.isnan(contrastive_loss):
                     raise RuntimeError(contrastive_loss)
                 self._optimizer.zero_grad()
                 contrastive_loss.backward()
@@ -168,11 +170,12 @@ class PretrainDecoderEpoch(PretrainEncoderEpoch):
                     indicator.set_postfix_dict(report_dict)
         return report_dict
 
-    def _label_generation(self, partition_list: List[str], patient_list: List[str], location_list: List[str]):
+    def _label_generation(self, partition_list: List[str], patient_list: List[str], location_list: List[str]):  # noqa
         return self._local_contrastive_label_generator(partition_list=partition_list, patient_list=patient_list,
                                                        location_list=location_list)
 
 
+"""
 class SemiContrastEpoch(_SimpleFineTuneEpoch):
 
     def __init__(self, model: nn.Module, optimizer: T_optim, labeled_loader: T_loader, tra_loader: T_loader,
@@ -181,7 +184,7 @@ class SemiContrastEpoch(_SimpleFineTuneEpoch):
         super().__init__(model, optimizer, labeled_loader, num_batches, sup_criterion, cur_epoch, device)
         self._reg_criterion = SupConLoss()
         self._tra_loader = tra_loader
-        self._group_option= group_option
+        self._group_option = group_option
         self._init_label_generator(self._group_option)
 
     def _init_label_generator(self, group_option):
@@ -229,3 +232,4 @@ class SemiContrastEpoch(_SimpleFineTuneEpoch):
                     indicator.set_postfix_dict(report_dict)
             report_dict = self.meters.tracking_status()
         return report_dict
+"""

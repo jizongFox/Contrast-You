@@ -41,6 +41,18 @@ class up_conv(nn.Module):
 
 
 class UNet(nn.Module):
+    dimension_dict = {
+        "Conv1": 16,
+        "Conv2": 32,
+        "Conv3": 64,
+        "Conv4": 128,
+        "Conv5": 256,
+        "Up_conv5": 128,
+        "Up_conv4": 64,
+        "Up_conv3": 32,
+        "Up_conv2": 16
+    }
+
     def __init__(self, input_dim=3, num_classes=1):
         super(UNet, self).__init__()
         self.input_dim = input_dim
@@ -73,48 +85,48 @@ class UNet(nn.Module):
 
     def forward(self, x, return_features=False):
         # encoding path
-        e1 = self.Conv1(x)
+        e1 = self.Conv1(x)  # 16 224 224
         # e1-> Conv1
 
         e2 = self.Maxpool1(e1)
-        e2 = self.Conv2(e2)
+        e2 = self.Conv2(e2)  # 32 112 112
         # e2 -> Conv2
 
         e3 = self.Maxpool2(e2)
-        e3 = self.Conv3(e3)
+        e3 = self.Conv3(e3)  # 64 56 56
         # e3->Conv3
 
         e4 = self.Maxpool3(e3)
-        e4 = self.Conv4(e4)
+        e4 = self.Conv4(e4)  # 128 28 28
         # e4->Conv4
 
         e5 = self.Maxpool4(e4)
-        e5 = self.Conv5(e5)
+        e5 = self.Conv5(e5)  # 256 14 14
         # e5->Conv5
 
         # decoding + concat path
         d5 = self.Up5(e5)
         d5 = torch.cat((e4, d5), dim=1)
 
-        d5 = self.Up_conv5(d5)
+        d5 = self.Up_conv5(d5)  # 128 28 28
         # d5->Up5+Up_conv5
 
         d4 = self.Up4(d5)
         d4 = torch.cat((e3, d4), dim=1)
-        d4 = self.Up_conv4(d4)
+        d4 = self.Up_conv4(d4)  # 64 56 56
         # d4->Up4+Up_conv4
 
         d3 = self.Up3(d4)
         d3 = torch.cat((e2, d3), dim=1)
-        d3 = self.Up_conv3(d3)
+        d3 = self.Up_conv3(d3)  # 32 112 112
         # d3->Up3+upconv3
 
         d2 = self.Up2(d3)
         d2 = torch.cat((e1, d2), dim=1)
-        d2 = self.Up_conv2(d2)
+        d2 = self.Up_conv2(d2)  # 16 224 224
         # d2->up2+upconv2
 
-        d1 = self.DeConv_1x1(d2)
+        d1 = self.DeConv_1x1(d2)  # 4 224 224
         # d1->Decov1x1
         if return_features:
             return d1, (e5, e4, e3, e2, e1), (d5, d4, d3, d2)
@@ -212,3 +224,12 @@ class FeatureExtractor:
                 index = self.decoder_names.index(f)
                 return_list.append(locals()[f"d{5 - index}"])
         return return_list
+
+    def __repr__(self):
+        def list2string(a_list):
+            if len(a_list) == 1:
+                return str(a_list[0])
+            else:
+                return ", ".join(a_list)
+
+        return f"{self.__class__.__name__} with features to be extracted at {list2string(self._feature_names)}."
