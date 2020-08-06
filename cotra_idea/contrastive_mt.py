@@ -143,11 +143,11 @@ class Trainer(ToMixin):
                 image, target = image.to(device), target.to(device)
                 uimage, uimage_tf = uimage.to(device), uimage_tf.to(device)
                 student_logits, student_features = self._net(torch.cat([image, uimage], dim=0))
-                labeled_logits, student_unlabeled_logits = torch.split(student_logits, [len(image), len(uimage)], dim=0)
+                student_labeled_logits, student_unlabeled_logits = torch.split(student_logits, [len(image), len(uimage)], dim=0)
                 _, student_unlabeled_features = torch.split(student_features, [len(image), len(uimage)], dim=0)
-                sup_loss = self._sup_criterion(labeled_logits, target)
+                sup_loss = self._sup_criterion(student_labeled_logits, target)
                 with torch.no_grad():
-                    teacher_logits, teacher_unlabeled_features = self._net(uimage_tf)
+                    teacher_logits, teacher_unlabeled_features = self._teacher_net(uimage_tf)
                 assert student_unlabeled_features.shape == teacher_unlabeled_features.shape, \
                     (student_unlabeled_features.shape, teacher_unlabeled_features.shape)
                 assert teacher_logits.shape == student_unlabeled_logits.shape, \
@@ -169,7 +169,7 @@ class Trainer(ToMixin):
                     sup_loss_meter.add(sup_loss.item())
                     reg_loss_meter.add(reg_loss.item())
                     contrast_loss_meter.add(contrastive_loss.item())
-                    labeled_acc_meter.add(labeled_logits.max(1)[1], target)
+                    labeled_acc_meter.add(student_labeled_logits.max(1)[1], target)
                     report_dict.update({
                         "ttlloss": total_loss_meter.summary()["mean"],
                         "suploss": sup_loss_meter.summary()["mean"],
