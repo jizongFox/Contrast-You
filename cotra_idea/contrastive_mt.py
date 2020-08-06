@@ -35,6 +35,8 @@ parser.add_argument("-r", "--meanteacher_reg", type=float, required=True)
 parser.add_argument("-c", "--contrast_reg", type=float, required=True)
 parser.add_argument("-s", "--save_dir", type=str, required=True)
 parser.add_argument("--num_batches", default=500, type=int)
+parser.add_argument("-i", "--use_estimate_info", default=False, action="store_true")
+parser.add_argument("--update_bn", default=False, action="store_true")
 
 args = parser.parse_args()
 
@@ -63,10 +65,12 @@ labeled_data = CIFAR10.create_semi_dataset(
     root="./data", download=True, transform=train_transform,
     selected_index_list=labeled_list
 )
+assert len(labeled_data) == args.num_labeled_data
 unlabeled_data = CIFAR10.create_semi_dataset(
     root="./data", download=True,
     transform=TwiceTransformation(train_transform),
 )
+assert len(unlabeled_data) ==CIFAR_LENGTH
 val_data = CIFAR10("./data", train=False, download=True, transform=val_transform)
 labeled_loader = DataLoader(labeled_data, batch_size=64, num_workers=8,
                             sampler=InfiniteRandomSampler(labeled_data, True))
@@ -97,7 +101,7 @@ class Trainer(ToMixin):
     def __init__(self, net, teacher_net, projector_s, projector_t, optimizer, scheduler, labeled_loader,
                  unlabeled_loader, val_loader, contrastive_weight_scheduler: RampScheduler,
                  save_dir: str, num_batches=300, reg_weight: float = 10, max_epoch=100,
-                 use_estimated_info=True) -> None:
+                 use_estimated_info=True, update_bn=False) -> None:
         self._net = net
         self._teacher_net = teacher_net
         self._projector_s = projector_s
@@ -111,7 +115,7 @@ class Trainer(ToMixin):
         self._sup_criterion = nn.CrossEntropyLoss()
         self._reg_criterion = nn.MSELoss()
         self._contrastive_criterion = SupConLoss()
-        self._ema_updater = ema_updater(justify_alpha=True, alpha=0.999, weight_decay=0, update_bn=True)
+        self._ema_updater = ema_updater(justify_alpha=True, alpha=0.999, weight_decay=1e-6, update_bn=update_bn)
         self._writer = SummaryWriter(log_dir=save_dir)
         self._contrastive_reg_scheduler = contrastive_weight_scheduler
         self._reg_weight = reg_weight
@@ -139,16 +143,16 @@ class Trainer(ToMixin):
                 image, target = image.to(device), target.to(device)
                 uimage, uimage_tf = uimage.to(device), uimage_tf.to(device)
                 student_logits, student_features = self._net(torch.cat([image, uimage], dim=0))
-                labeled_logits, stduent_unlabeled_logits = torch.split(student_logits, [len(image), len(uimage)], dim=0)
+                labeled_logits, student_unlabeled_logits = torch.split(student_logits, [len(image), len(uimage)], dim=0)
                 _, student_unlabeled_features = torch.split(student_features, [len(image), len(uimage)], dim=0)
                 sup_loss = self._sup_criterion(labeled_logits, target)
                 with torch.no_grad():
                     teacher_logits, teacher_unlabeled_features = self._net(uimage_tf)
                 assert student_unlabeled_features.shape == teacher_unlabeled_features.shape, \
                     (student_unlabeled_features.shape, teacher_unlabeled_features.shape)
-                assert teacher_logits.shape == stduent_unlabeled_logits.shape, \
-                    (teacher_logits.shape, stduent_unlabeled_logits.shape)
-                reg_loss = self._reg_criterion(stduent_unlabeled_logits.softmax(1), teacher_logits.softmax(1).detach())
+                assert teacher_logits.shape == student_unlabeled_logits.shape, \
+                    (teacher_logits.shape, student_unlabeled_logits.shape)
+                reg_loss = self._reg_criterion(student_unlabeled_logits.softmax(1), teacher_logits.softmax(1).detach())
                 student_vectors = F.normalize(self._projector_s(student_unlabeled_features), dim=1)
                 teacher_vectors = F.normalize(self._projector_t(teacher_unlabeled_features), dim=1)
 
@@ -206,5 +210,6 @@ class Trainer(ToMixin):
 trainer = Trainer(net, teacher_net, projector_student, projector_teacher, optimizer, scheduler=scheduler,
                   labeled_loader=labeled_loader, unlabeled_loader=unlabeled_loader, val_loader=val_loader,
                   contrastive_weight_scheduler=rampup_scheduler,
-                  save_dir=args.save_dir, reg_weight=args.meanteacher_reg, num_batches=args.num_batches)
+                  save_dir=args.save_dir, reg_weight=args.meanteacher_reg, num_batches=args.num_batches,
+                  use_estimated_info=args.use_estimate_info, update_bn=args.update_bn)
 trainer.train()
