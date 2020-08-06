@@ -160,7 +160,7 @@ class Trainer(ToMixin):
                     torch.stack([student_vectors, teacher_vectors], dim=1),
                     labels=teacher_logits.max(1)[1].tolist() if self._use_estimate_info else None
                 )
-                total_loss = sup_loss + reg_loss + self._reg_weight * contrastive_loss + self._contrastive_reg_scheduler.value * contrastive_loss
+                total_loss = sup_loss + reg_loss * self._reg_weight + self._contrastive_reg_scheduler.value * contrastive_loss
                 self._optimizer.zero_grad()
                 total_loss.backward()
                 self._optimizer.step()

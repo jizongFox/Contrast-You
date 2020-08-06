@@ -14,8 +14,7 @@ parser.add_argument("-w", "--reg_weight", default=0.0, type=float)
 parser.add_argument("--save_dir", default=None, type=str)
 parser.add_argument("-a", "--augment", default="simple", type=str)
 parser.add_argument("-g", "--group_sample_num", default=6, type=int)
-parser.add_argument("--time", default=6, type=int)
-
+parser.add_argument("--time", default=4, type=int)
 
 args = parser.parse_args()
 
@@ -51,9 +50,16 @@ if trainer_name == "contrastMT":
     common_opts += f" FineTune.reg_weight={args.reg_weight} "
 
 jobs = [
-    f"python -O  main_contrast.py {common_opts} Trainer.save_dir={save_dir}/baseline  Trainer.train_encoder=False Trainer.train_decoder=False ",
-    f"python -O  main_contrast.py {common_opts} Trainer.save_dir={save_dir}/encoder  Trainer.train_encoder=True Trainer.train_decoder=False ",
-    f"python -O  main_contrast.py {common_opts} Trainer.save_dir={save_dir}/encoder_decoder Trainer.train_encoder=True Trainer.train_decoder=True "
+    f"python -O  main_contrast.py {common_opts} Trainer.save_dir={save_dir}/baseline  "
+                                                f"Trainer.train_encoder=False Trainer.train_decoder=False ",
+    f"python -O  main_contrast.py {common_opts} Trainer.save_dir={save_dir}/encoder  "
+                                                f"Trainer.train_encoder=True Trainer.train_decoder=False ",
+    f"python -O  main_contrast.py {common_opts} Trainer.save_dir={save_dir}/encoder_decoder "
+                                                f"Trainer.train_encoder=True Trainer.train_decoder=True "
+                                                f"PretrainDecoder.disable_grad_encoder=False",
+    f"python -O  main_contrast.py {common_opts} Trainer.save_dir={save_dir}/encoder_decoder_freeze_encoder "
+                                                f"Trainer.train_encoder=True Trainer.train_decoder=True "
+                                                f"PretrainDecoder.disable_grad_encoder=False",
 ]
 
 # CC things

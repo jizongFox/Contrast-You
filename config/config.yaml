@@ -45,9 +45,10 @@ PretrainDecoder:
   weight_decay: 0.0
   multiplier: 300
   warmup_max: 10
+  disable_grad_encoder: true
 
 FineTune:
-  lr: 0.0000002
+  lr: 0.0000001
   weight_decay: 0.00001
   multiplier: 400
   warmup_max: 10

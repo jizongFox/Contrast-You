@@ -122,7 +122,7 @@ class ContrastTrainer(Trainer):
             nn.BatchNorm2d(64),
             nn.LeakyReLU(0.01, inplace=True),
             nn.Conv2d(64, 32, 3, 1, 1),
-            nn.AdaptiveAvgPool2d((4,4))
+            nn.AdaptiveAvgPool2d((4, 4))
         )  # fixme
         self._optimizer = torch.optim.Adam(itertools.chain(self._model.parameters(), self._projector.parameters()),
                                            lr=lr, weight_decay=weight_decay)
@@ -135,18 +135,7 @@ class ContrastTrainer(Trainer):
         self._pretrain_loader.dataset._transform._total_freedom = False  # noqa
         self._pretrain_loader_iter = iter(self._pretrain_loader)  # noqa
 
-
-
     def pretrain_decoder_run(self):
-        self._model.load_state_dict(
-            torch.load(
-                "/home/jizong/Workspace/Contrast-You/runs/iic_contrast_shuffle_and_largeN"
-                "/label_data_ration_0.1/iiccontrast/contrast_on_partition/group_sample_num_6"
-                "/cluster_num_50/using_shuffle_False/t_1.0/without_pretrain/finetune/best.pth")
-            ["_model"],
-            strict=False
-        )
-
         self._model.disable_grad_all()
         self._model.enable_grad(from_="Up5" if self._disable_grad_encoder else "Conv1", util=self._extract_position)
         self.to(self._device)
