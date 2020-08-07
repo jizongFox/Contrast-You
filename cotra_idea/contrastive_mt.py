@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.transforms import Compose
 from utils import ToMixin
-
+from randaugment import RandAugment
 from contrastyou.losses.contrast_loss import SupConLoss
 from contrastyou.trainer._utils import ProjectionHead
 from deepclustering2.dataloader.sampler import InfiniteRandomSampler
@@ -24,8 +24,9 @@ from deepclustering2.models.ema import ema_updater
 from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.schedulers.customized_scheduler import RampScheduler
 from deepclustering2.tqdm import tqdm
-from deepclustering2.utils import fix_all_seed
+from deepclustering2.utils import fix_all_seed, path2Path
 from deepclustering2.writer import SummaryWriter
+from deepclustering2.schedulers import GradualWarmupScheduler
 
 fix_all_seed(1)
 
@@ -50,12 +51,17 @@ class TwiceTransformation:
         return [self._transform(*args, **kwargs) for _ in range(2)]
 
 
-train_transform = Compose([transforms.RandomCrop(32, padding=4),
-                           transforms.RandomHorizontalFlip(),
-                           transforms.ToTensor(),
-                           transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)), ])
-val_transform = Compose([transforms.ToTensor(),
-                         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)), ])
+train_transform = Compose([
+    transforms.RandomCrop(32, padding=4, padding_mode="reflect"),
+    transforms.RandomHorizontalFlip(),
+    RandAugment(),
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2470, 0.2435, 0.2616))
+])
+val_transform = Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2470, 0.2435, 0.2616)),
+])
 
 CIFAR_LENGTH = 50000
 LABELED_LENGTH = args.num_labeled_data
@@ -70,11 +76,11 @@ unlabeled_data = CIFAR10.create_semi_dataset(
     root="./data", download=True,
     transform=TwiceTransformation(train_transform),
 )
-assert len(unlabeled_data) ==CIFAR_LENGTH
+assert len(unlabeled_data) == CIFAR_LENGTH
 val_data = CIFAR10("./data", train=False, download=True, transform=val_transform)
 labeled_loader = DataLoader(labeled_data, batch_size=64, num_workers=8,
                             sampler=InfiniteRandomSampler(labeled_data, True))
-unlabeled_loader = DataLoader(unlabeled_data, batch_size=64, num_workers=8,
+unlabeled_loader = DataLoader(unlabeled_data, batch_size=256, num_workers=8,
                               sampler=InfiniteRandomSampler(unlabeled_data, True))
 val_loader = DataLoader(val_data, batch_size=100, num_workers=2)
 
@@ -86,13 +92,11 @@ projector_teacher = ProjectionHead(input_dim=512, output_dim=64, interm_dim=128,
 
 optimizer = torch.optim.Adam(
     chain(net.parameters(), projector_student.parameters(), projector_teacher.parameters()),
-    lr=5e-3)
-scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=100, eta_min=0)
+    lr=5e-5)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=100, eta_min=1e-7)
+scheduler = GradualWarmupScheduler(optimizer=optimizer, multiplier=100, total_epoch=10, after_scheduler=scheduler)
 
 teacher_net = resnet18(num_classes=10)
-for param in teacher_net.parameters():
-    param.detach_()
-teacher_net.train()
 
 rampup_scheduler = RampScheduler(begin_epoch=10, max_epoch=50, min_value=0, max_value=args.contrast_reg)
 
@@ -104,6 +108,8 @@ class Trainer(ToMixin):
                  use_estimated_info=True, update_bn=False) -> None:
         self._net = net
         self._teacher_net = teacher_net
+        for param in self._teacher_net.parameters():
+            param.detach_()
         self._projector_s = projector_s
         self._projector_t = projector_t
         self._optimizer = optimizer
@@ -116,11 +122,14 @@ class Trainer(ToMixin):
         self._reg_criterion = nn.MSELoss()
         self._contrastive_criterion = SupConLoss()
         self._ema_updater = ema_updater(justify_alpha=True, alpha=0.999, weight_decay=1e-6, update_bn=update_bn)
+        self._save_dir = path2Path(save_dir)
+        self._save_dir.mkdir(exist_ok=True, parents=True)
         self._writer = SummaryWriter(log_dir=save_dir)
         self._contrastive_reg_scheduler = contrastive_weight_scheduler
         self._reg_weight = reg_weight
         self._max_epoch = max_epoch
         self._use_estimate_info = use_estimated_info
+        self._best_acc = 0
         self.to(device)
 
     def train_epoch(self):
@@ -143,7 +152,8 @@ class Trainer(ToMixin):
                 image, target = image.to(device), target.to(device)
                 uimage, uimage_tf = uimage.to(device), uimage_tf.to(device)
                 _student_logits, student_features = self._net(torch.cat([image, uimage], dim=0))
-                student_labeled_logits, student_unlabeled_logits = torch.split(_student_logits, [len(image), len(uimage)], dim=0)
+                student_labeled_logits, student_unlabeled_logits = \
+                    torch.split(_student_logits, [len(image), len(uimage)], dim=0)
                 _, student_unlabeled_features = torch.split(student_features, [len(image), len(uimage)], dim=0)
                 sup_loss = self._sup_criterion(student_labeled_logits, target)
                 with torch.no_grad():
@@ -164,6 +174,7 @@ class Trainer(ToMixin):
                 self._optimizer.zero_grad()
                 total_loss.backward()
                 self._optimizer.step()
+                self._ema_updater(self._teacher_net, self._net)
                 with torch.no_grad():
                     total_loss_meter.add(total_loss.item())
                     sup_loss_meter.add(sup_loss.item())
@@ -177,7 +188,6 @@ class Trainer(ToMixin):
                         "conloss": contrast_loss_meter.summary()["mean"],
                         "labacc": labeled_acc_meter.summary()["acc"]
                     })
-                    self._ema_updater(self._teacher_net, self._net)
                     indicator.set_postfix(report_dict)
         return report_dict
 
@@ -194,17 +204,21 @@ class Trainer(ToMixin):
                 acc_meter.add(logit.max(1)[1], target)
                 report_dict = {"validating acc": acc_meter.summary()["acc"]}
                 val_loader.set_postfix(report_dict)
-        return report_dict
+        return report_dict, acc_meter.summary()["acc"]
 
     def train(self):
         for self._epoch in range(self._max_epoch):
             train_dict = self.train_epoch()
-            val_student_dict = self.val_epoch(self._net)
-            val_teacher_dict = self.val_epoch(self._teacher_net)
+            val_student_dict, _ = self.val_epoch(self._net)
+            val_teacher_dict, t_acc = self.val_epoch(self._teacher_net)
             self._scheduler.step()
             self._contrastive_reg_scheduler.step()
             result = StorageIncomeDict(train=train_dict, val_student=val_student_dict, val_teacher=val_teacher_dict)
             self._writer.add_scalar_with_StorageDict(result, self._epoch)
+            torch.save(self.state_dict(), str(self._save_dir/"last.pth"))
+            if self._best_acc < t_acc:
+                self._best_acc = t_acc
+                torch.save(self.state_dict(), str(self._save_dir / "best.pth"))
 
 
 trainer = Trainer(net, teacher_net, projector_student, projector_teacher, optimizer, scheduler=scheduler,
