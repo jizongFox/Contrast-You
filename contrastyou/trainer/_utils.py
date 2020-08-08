@@ -23,44 +23,6 @@ class SoftmaxWithT(nn.Softmax):
         return super().forward(input)
 
 
-class ClassifierHead(nn.Module):
-    def __init__(self, input_dim, num_clusters=5, num_subheads=10, head_type="linear", T=1) -> None:
-        super().__init__()
-        assert head_type in ("linear", "mlp"), head_type
-        self._input_dim = input_dim
-        self._num_clusters = num_clusters
-        self._num_subheads = num_subheads
-        self._T = T
-
-        def init_sub_header(head_type):
-            if head_type == "linear":
-                return nn.Sequential(
-                    nn.AdaptiveAvgPool2d((1, 1)),
-                    Flatten(),
-                    nn.Linear(self._input_dim, self._num_clusters),
-                    SoftmaxWithT(1, T=self._T)
-                )
-            else:
-                return nn.Sequential(
-                    nn.AdaptiveAvgPool2d((1, 1)),
-                    Flatten(),
-                    nn.Linear(self._input_dim, 128),
-                    nn.LeakyReLU(0.01, inplace=True),
-                    nn.Linear(128, num_clusters),
-                    SoftmaxWithT(1, T=self._T)
-                )
-
-        headers = [
-            init_sub_header(head_type)
-            for _ in range(self._num_subheads)
-        ]
-
-        self._headers = nn.ModuleList(headers)
-
-    def forward(self, features):
-        return [x(features) for x in self._headers]
-
-
 class ProjectionHead(nn.Module):
 
     def __init__(self, input_dim, output_dim, interm_dim=256, head_type="mlp") -> None:
@@ -111,3 +73,72 @@ class LocalProjectionHead(nn.Module):
         # fixme: Upsampling and interpolate don't pass the gradient correctly.
         return F.adaptive_max_pool2d(out, output_size=self._output_size)
         # return out
+
+
+class ClusterHead(nn.Module):
+    def __init__(self, input_dim, num_clusters=5, num_subheads=10, head_type="linear", T=1) -> None:
+        super().__init__()
+        assert head_type in ("linear", "mlp"), head_type
+        self._input_dim = input_dim
+        self._num_clusters = num_clusters
+        self._num_subheads = num_subheads
+        self._T = T
+
+        def init_sub_header(head_type):
+            if head_type == "linear":
+                return nn.Sequential(
+                    nn.AdaptiveAvgPool2d((1, 1)),
+                    Flatten(),
+                    nn.Linear(self._input_dim, self._num_clusters),
+                    SoftmaxWithT(1, T=self._T)
+                )
+            else:
+                return nn.Sequential(
+                    nn.AdaptiveAvgPool2d((1, 1)),
+                    Flatten(),
+                    nn.Linear(self._input_dim, 128),
+                    nn.LeakyReLU(0.01, inplace=True),
+                    nn.Linear(128, num_clusters),
+                    SoftmaxWithT(1, T=self._T)
+                )
+
+        headers = [
+            init_sub_header(head_type)
+            for _ in range(self._num_subheads)
+        ]
+
+        self._headers = nn.ModuleList(headers)
+
+    def forward(self, features):
+        return [x(features) for x in self._headers]
+
+
+class LocalClusterHead(nn.Module):
+    """
+    this classification head uses the loss for IIC segmentation, which consists of multiple heads
+    """
+
+    def __init__(self, input_dim, head_type="linear", num_clusters=10, num_subheads=10, T=1, interm_dim=64) -> None:
+        super().__init__()
+        assert head_type in ("linear", "mlp"), head_type
+        self._T = T
+
+        def init_sub_header(head_type):
+            if head_type == "linear":
+                return nn.Sequential(
+                    nn.Conv2d(input_dim, num_clusters, 1, 1, 0),
+                    SoftmaxWithT(1, T=self._T)
+                )
+            else:
+                return nn.Sequential(
+                    nn.Conv2d(input_dim, interm_dim),
+                    nn.LeakyReLU(0.01, inplace=True),
+                    nn.Conv2d(interm_dim, num_clusters),
+                    SoftmaxWithT(1, T=self._T)
+                )
+
+        headers = [init_sub_header(head_type) for _ in range(num_subheads)]
+        self._headers = nn.ModuleList(headers)
+
+    def forward(self, features):
+        return [x(features) for x in self._headers]

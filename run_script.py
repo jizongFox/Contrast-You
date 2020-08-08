@@ -55,8 +55,10 @@ if trainer_name == "contrastMT":
 jobs = [
     f"python -O  main_contrast.py {common_opts} Trainer.save_dir={save_dir}/baseline  "
     f"Trainer.train_encoder=False Trainer.train_decoder=False ",
+
     f"python -O  main_contrast.py {common_opts} Trainer.save_dir={save_dir}/encoder/conv5/enc_mlp  "
     f"Trainer.train_encoder=True Trainer.train_decoder=False PretrainEncoder.extract_position=Conv5",
+
     f"python -O  main_contrast.py {common_opts} Trainer.save_dir={save_dir}/encoder/conv5/enc_linear  "
     f"Trainer.train_encoder=True Trainer.train_decoder=False PretrainEncoder.extract_position=Conv5 "
     f"PretrainEncoder.ptype=linear ",

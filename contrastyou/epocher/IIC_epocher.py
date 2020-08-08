@@ -91,9 +91,10 @@ class IICPretrainDecoderEpoch(_PretrainDecoderEpoch):
 
     def __init__(self, model: nn.Module, projection_head: nn.Module, projection_classifier: nn.Module,
                  optimizer: optim.Optimizer, pretrain_decoder_loader: T_loader, contrastive_criterion: T_loss,
-                 num_batches: int = 0, cur_epoch=0, device="cpu", disable_contrastive=False, iic_weight=0.01) -> None:
+                 num_batches: int = 0, cur_epoch=0, device="cpu", disable_contrastive=False, iic_weight=0.01,
+                 feature_extractor: UNetFeatureExtractor = None) -> None:
         super().__init__(model, projection_head, optimizer, pretrain_decoder_loader, contrastive_criterion, num_batches,
-                         cur_epoch, device)
+                         cur_epoch, device, feature_extractor)
         self._projection_classifier = projection_classifier
         self._iic_criterion = IIDSegmentationLoss(padding=1)
         self._disable_contrastive = disable_contrastive
@@ -119,16 +120,21 @@ class IICPretrainDecoderEpoch(_PretrainDecoderEpoch):
                     img_gtf = torch.stack([self._transformer(x) for x in img], dim=0)
                 assert img_gtf.shape == img.shape, (img_gtf.shape, img.shape)
 
-                _, *_, (_, d4, *_) = self._model(torch.cat([img_gtf, img_ctf], dim=0), return_features=True)
-                d4_gtf, d4_ctf = torch.chunk(d4, chunks=2, dim=0)
+                _, *features = self._model(torch.cat([img_gtf, img_ctf], dim=0), return_features=True)
+                dn = self._feature_extractor(features)[0]
+                dn_gtf, dn_ctf = torch.chunk(dn, chunks=2, dim=0)
                 with FixRandomSeed(seed):
-                    d4_ctf_gtf = torch.stack([self._transformer(x) for x in d4_ctf], dim=0)
-                assert d4_ctf_gtf.shape == d4_ctf.shape, (d4_ctf_gtf.shape, d4_ctf.shape)
-                d4_tf = torch.cat([d4_gtf, d4_ctf_gtf], dim=0)
-                local_enc_tf, local_enc_tf_ctf = torch.chunk(self._projection_head(d4_tf), chunks=2, dim=0)
-                # todo: iic local presentation
-                iic_enc_tf, iic_enc_tf_ctf = torch.chunk(self._projection_classifier(d4_tf), chunks=2, dim=0)
-                iic_loss = self._iic_criterion(iic_enc_tf, iic_enc_tf_ctf)
+                    dn_ctf_gtf = torch.stack([self._transformer(x) for x in dn_ctf], dim=0)
+                assert dn_ctf_gtf.shape == dn_ctf.shape, (dn_ctf_gtf.shape, dn_ctf.shape)
+                dn_tf = torch.cat([dn_gtf, dn_ctf_gtf])
+                local_enc_tf, local_enc_tf_ctf = torch.chunk(self._projection_head(dn_tf), chunks=2, dim=0)
+
+                # IIC part
+                global_probs, global_tf_probs = list(
+                    zip(*[torch.chunk(x, chunks=2, dim=0) for x in self._projection_classifier(dn_tf)]))
+                iic_loss_list = [self._iic_criterion(x, y) for x, y in zip(global_probs, global_tf_probs)]
+                iic_loss = average_iter(iic_loss_list)
+                # IIC part ends
 
                 local_enc_unfold, _ = unfold_position(local_enc_tf, partition_num=(2, 2))
                 local_tf_enc_unfold, _fold_partition = unfold_position(local_enc_tf_ctf, partition_num=(2, 2))
@@ -157,15 +163,15 @@ class IICPretrainDecoderEpoch(_PretrainDecoderEpoch):
                     indicator.set_postfix_dict(report_dict)
         return report_dict
 
-
 """
 class CrossIICPretrainDecoderEpoch(_PretrainDecoderEpoch):
     def __init__(self, model: nn.Module, projection_head: nn.Module, projection_classifier: nn.Module,
                  optimizer: optim.Optimizer, pretrain_decoder_loader: T_loader, contrastive_criterion: T_loss,
-                 num_batches: int = 0, cur_epoch=0, device="cpu", feature_extractor: FeatureExtractor = None) -> None:
-        assert len(feature_extractor.feature_names) > 1, feature_extractor
+                 num_batches: int = 0, cur_epoch=0, device="cpu",
+                 feature_extractor: UNetFeatureExtractor = None) -> None:
         super().__init__(model, projection_head, optimizer, pretrain_decoder_loader, contrastive_criterion, num_batches,
                          cur_epoch, device, feature_extractor)
+        assert len(feature_extractor.feature_names) > 1, feature_extractor
         self._projection_classifier = projection_classifier
         self._iic_criterion = IIDSegmentationLoss(padding=1)
 
@@ -200,33 +206,33 @@ class CrossIICPretrainDecoderEpoch(_PretrainDecoderEpoch):
                 assert dn1_ctf_gtf.shape == dn1_ctf.shape, (dn1_ctf_gtf.shape, dn1_ctf.shape)
                 assert dn2_ctf_gtf.shape == dn2_ctf.shape, (dn2_ctf_gtf.shape, dn2_ctf.shape)
 
-        #         dn1_tf = torch.cat([dn1_gtf, dn1_ctf_gtf])
-        #         dn2_tf = torch.cat([dn2_gtf, dn2_ctf_gtf])
-        #
-        #         # local_probs1
-        #         local_enc_tf, local_enc_tf_ctf = torch.chunk(self._projection_head(dn_tf), chunks=2, dim=0)
-        #         local_enc_probs, local_enc_tf_probs = torch.chunk(self._projection_classifier(dn_tf), chunks=2, dim=0)
-        #
-        #         local_enc_unfold, _ = unfold_position(local_enc_tf, partition_num=(2, 2))
-        #         local_tf_enc_unfold, _fold_partition = unfold_position(local_enc_tf_ctf, partition_num=(2, 2))
-        #         b, *_ = local_enc_unfold.shape
-        #         local_enc_unfold_norm = F.normalize(local_enc_unfold.view(b, -1), p=2, dim=1)
-        #         local_tf_enc_unfold_norm = F.normalize(local_tf_enc_unfold.view(b, -1), p=2, dim=1)
-        #
-        #         labels = self._label_generation(partition_list, group_list, _fold_partition)
-        #         contrastive_loss = self._contrastive_criterion(
-        #             torch.stack([local_enc_unfold_norm, local_tf_enc_unfold_norm], dim=1),
-        #             labels=labels
-        #         )
-        #         if torch.isnan(contrastive_loss):
-        #             raise RuntimeError(contrastive_loss)
-        #         self._optimizer.zero_grad()
-        #         contrastive_loss.backward()
-        #         self._optimizer.step()
-        #         # todo: meter recording.
-        #         with torch.no_grad():
-        #             self.meters["contrastive_loss"].add(contrastive_loss.item())
-        #             report_dict = self.meters.tracking_status()
-        #             indicator.set_postfix_dict(report_dict)
-        # return report_dict
+                dn1_tf = torch.cat([dn1_gtf, dn1_ctf_gtf])
+                dn2_tf = torch.cat([dn2_gtf, dn2_ctf_gtf])
+
+                # local_probs1
+                local_enc_tf, local_enc_tf_ctf = torch.chunk(self._projection_head(dn_tf), chunks=2, dim=0)
+                local_enc_probs, local_enc_tf_probs = torch.chunk(self._projection_classifier(dn_tf), chunks=2, dim=0)
+
+                local_enc_unfold, _ = unfold_position(local_enc_tf, partition_num=(2, 2))
+                local_tf_enc_unfold, _fold_partition = unfold_position(local_enc_tf_ctf, partition_num=(2, 2))
+                b, *_ = local_enc_unfold.shape
+                local_enc_unfold_norm = F.normalize(local_enc_unfold.view(b, -1), p=2, dim=1)
+                local_tf_enc_unfold_norm = F.normalize(local_tf_enc_unfold.view(b, -1), p=2, dim=1)
+
+                labels = self._label_generation(partition_list, group_list, _fold_partition)
+                contrastive_loss = self._contrastive_criterion(
+                    torch.stack([local_enc_unfold_norm, local_tf_enc_unfold_norm], dim=1),
+                    labels=labels
+                )
+                if torch.isnan(contrastive_loss):
+                    raise RuntimeError(contrastive_loss)
+                self._optimizer.zero_grad()
+                contrastive_loss.backward()
+                self._optimizer.step()
+                # todo: meter recording.
+                with torch.no_grad():
+                    self.meters["contrastive_loss"].add(contrastive_loss.item())
+                    report_dict = self.meters.tracking_status()
+                    indicator.set_postfix_dict(report_dict)
+        return report_dict
 """
