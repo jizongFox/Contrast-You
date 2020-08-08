@@ -4,7 +4,7 @@ Arch:
   input_dim: 1
   num_classes: 4
 
-Augment: simple
+Augment: strong
 
 Data:
   labeled_data_ratio: 0.05
@@ -40,6 +40,7 @@ PretrainEncoder:
   multiplier: 300
   warmup_max: 10
   extract_position: Conv5
+  ptype: mlp
 
 PretrainDecoder:
   lr: 0.000001
@@ -48,6 +49,8 @@ PretrainDecoder:
   warmup_max: 10
   enable_grad_from: Up5
   extract_position: Up_conv3
+  ptype: mlp
+
 
 FineTune:
   lr: 0.0000001

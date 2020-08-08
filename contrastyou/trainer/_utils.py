@@ -1,4 +1,5 @@
 from torch import nn, Tensor
+from torch.nn import functional as F
 
 
 class Flatten(nn.Module):
@@ -7,7 +8,7 @@ class Flatten(nn.Module):
         super().__init__()
 
     def forward(self, features):
-        b, c, *_ = features.shape
+        b, *_ = features.shape
         return features.view(b, -1)
 
 
@@ -23,7 +24,7 @@ class SoftmaxWithT(nn.Softmax):
 
 
 class ClassifierHead(nn.Module):
-    def __init__(self, input_dim, num_clusters=5, num_subheads=10, head_type="mlp", T=1) -> None:
+    def __init__(self, input_dim, num_clusters=5, num_subheads=10, head_type="linear", T=1) -> None:
         super().__init__()
         assert head_type in ("linear", "mlp"), head_type
         self._input_dim = input_dim
@@ -43,9 +44,9 @@ class ClassifierHead(nn.Module):
                 return nn.Sequential(
                     nn.AdaptiveAvgPool2d((1, 1)),
                     Flatten(),
-                    nn.Linear(self._input_dim, 512),
+                    nn.Linear(self._input_dim, 128),
                     nn.LeakyReLU(0.01, inplace=True),
-                    nn.Linear(512, num_clusters),
+                    nn.Linear(128, num_clusters),
                     SoftmaxWithT(1, T=self._T)
                 )
 
@@ -79,5 +80,34 @@ class ProjectionHead(nn.Module):
                 Flatten(),
                 nn.Linear(input_dim, output_dim),
             )
+
     def forward(self, features):
         return self._header(features)
+
+
+class LocalProjectionHead(nn.Module):
+    """
+    return a fixed feature size
+    """
+
+    def __init__(self, input_dim, head_type="mlp", output_size=(4, 4)) -> None:
+        super().__init__()
+        assert head_type in ("mlp", "linear"), head_type
+        self._output_size = output_size
+        if head_type == "mlp":
+            self._projector = nn.Sequential(
+                nn.Conv2d(input_dim, 64, 3, 1, 1),
+                nn.LeakyReLU(0.01, inplace=True),
+                nn.Conv2d(64, 32, 3, 1, 1),
+            )
+        else:
+            self._projector = nn.Sequential(
+                nn.Conv2d(input_dim, 64, 3, 1, 1),
+            )
+
+    def forward(self, features):
+        b, c, h, w = features.shape
+        out = self._projector(features)
+        # fixme: Upsampling and interpolate don't pass the gradient correctly.
+        return F.adaptive_max_pool2d(out, output_size=self._output_size)
+        # return out

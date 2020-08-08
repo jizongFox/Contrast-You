@@ -12,12 +12,13 @@ from contrastyou.trainer import trainer_zoos
 from deepclustering2.configparser import ConfigManger
 from deepclustering2.dataloader.sampler import InfiniteRandomSampler
 from deepclustering2.dataset import PatientSampler
-from deepclustering2.utils import fix_all_seed
+from deepclustering2.utils import fix_all_seed, gethash
 from torch.utils.data import DataLoader
 
 # load configure from yaml and argparser
 cmanager = ConfigManger(Path(PROJECT_PATH) / "config/config.yaml")
 config = cmanager.config
+cur_githash = gethash(__file__)
 
 # set reproducibility
 fix_all_seed(config.get("RandomSeed", 1))
@@ -70,8 +71,9 @@ val_loader = DataLoader(
 checkpoint = config.pop("Checkpoint", None)
 Trainer = trainer_zoos[config["Trainer"].pop("name")]
 assert Trainer, Trainer
-trainer = Trainer(model=model, pretrain_loader=train_loader, fine_tune_loader=labeled_loader,
-                  val_loader=val_loader, configuration=cmanager.config, **config["Trainer"], )
+trainer = Trainer(model=model, pretrain_loader=train_loader, fine_tune_loader=labeled_loader, val_loader=val_loader,
+                  configuration={**cmanager.config, **{"GITHASH": cur_githash}},
+                  **config["Trainer"], )
 
 trainer.start_training(checkpoint=checkpoint, pretrain_encoder_init_options=config["PretrainEncoder"],
                        pretrain_decoder_init_options=config["PretrainDecoder"],

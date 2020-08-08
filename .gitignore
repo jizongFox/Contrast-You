@@ -2,6 +2,9 @@
 ### Example user template
 .data
 runs
+byol_demo/label_smoothing.py
+cotra_idea/test/
+
 demo/MNIST/
 demo/cifar-10-batches-py/
 demo/cifar-10-python.tar.gz

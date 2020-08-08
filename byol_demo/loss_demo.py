@@ -59,7 +59,7 @@ class ClassificationHead(nn.Module):
 
 
 device = torch.device("cuda")
-samples =  torch.randn(NUM_SAMPLES, DIM, device=device)
+samples = torch.randn(NUM_SAMPLES, DIM, device=device)
 samples.requires_grad = True
 mask = torch.eye(NUM_SAMPLES, device=device)
 
@@ -91,6 +91,7 @@ with tqdm(range(10000)) as indicator:
         if ENABLE_CONTRAST:
             distance_map = projected_vectors.mm(projected_vectors.T)
             distance_map_T = distance_map / 0.07
+            distance_map_T = distance_map_T - distance_map_T.max().detach()
             logits_exp = distance_map_T.exp()
             contrast_loss = (logits_exp * mask / logits_exp.sum(1, keepdim=True)).sum(1)
             contrast_loss = -torch.log(contrast_loss).mean()
@@ -110,7 +111,7 @@ with tqdm(range(10000)) as indicator:
         if ENABLE_CONTRAST:
             total_loss += contrast_loss
         if ENABLE_IIC:
-            total_loss += (loss_iic*0.5+ aplitude_loss)
+            total_loss += (loss_iic * 0.5 + aplitude_loss)
         total_loss.backward()
         optimizer.step()
         indicator.set_postfix({"closs": contrast_loss.item(), "iic": loss_iic.item()})

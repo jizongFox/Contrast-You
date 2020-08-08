@@ -6,6 +6,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from deepclustering2 import optim
+from deepclustering2.augment.tensor_augment import TensorRandomFlip
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.epoch import _Epocher, proxy_trainer  # noqa
 from deepclustering2.meters2 import EpochResultDict, MeterInterface, AverageValueMeter
@@ -23,7 +24,7 @@ class PretrainEncoderEpoch(_Epocher):
     def __init__(self, model: nn.Module, projection_head: nn.Module, optimizer: optim.Optimizer,
                  pretrain_encoder_loader: T_loader, contrastive_criterion: T_loss, num_batches: int = 0,
                  cur_epoch=0, device="cpu", group_option: str = None,
-                 feature_exactor: UNetFeatureExtractor = None) -> None:
+                 feature_extractor: UNetFeatureExtractor = None) -> None:
         """
         PretrainEncoder Epocher
         :param model: nn.Module for a model
@@ -35,8 +36,7 @@ class PretrainEncoderEpoch(_Epocher):
         :param cur_epoch: current epoch
         :param device: device for images
         :param group_option: group option for contrastive loss
-        :param args: additional args
-        :param kwargs: additional kwargs
+        :param feature_extractor: feature extractor defined in trainer
         """
         super().__init__(model, cur_epoch, device)
         self._projection_head = projection_head
@@ -48,8 +48,8 @@ class PretrainEncoderEpoch(_Epocher):
         assert isinstance(group_option, str) and group_option in ("partition", "patient", "both"), group_option
         self._group_option = group_option
         self._init_label_generator(self._group_option)
-        assert isinstance(feature_exactor, UNetFeatureExtractor), feature_exactor
-        self._feature_extractor = feature_exactor
+        assert isinstance(feature_extractor, UNetFeatureExtractor), feature_extractor
+        self._feature_extractor = feature_extractor
 
     def _init_label_generator(self, group_option):
         contrastive_on_partition = False
@@ -89,8 +89,10 @@ class PretrainEncoderEpoch(_Epocher):
                 en = self._feature_extractor(features)[0]
                 global_enc, global_tf_enc = torch.chunk(F.normalize(self._projection_head(en), dim=1), chunks=2, dim=0)
                 labels = self._label_generation(partition_list, group_list)
-                contrastive_loss = self._contrastive_criterion(torch.stack([global_enc, global_tf_enc], dim=1),
-                                                               labels=labels)
+                contrastive_loss = self._contrastive_criterion(
+                    torch.stack([global_enc, global_tf_enc], dim=1),
+                    labels=labels
+                )
                 self._optimizer.zero_grad()
                 contrastive_loss.backward()
                 self._optimizer.step()
@@ -120,8 +122,7 @@ class PretrainDecoderEpoch(PretrainEncoderEpoch):
         super().__init__(model, projection_head, optimizer, pretrain_decoder_loader, contrastive_criterion, num_batches,
                          cur_epoch, device, "both", feature_extractor)
         self._pretrain_decoder_loader = self._pretrain_encoder_loader
-        from deepclustering2.augment.tensor_augment import TensorRandomFlip
-        self._transformer = TensorRandomFlip(axis=[1, 2], threshold=1)
+        self._transformer = TensorRandomFlip(axis=[1, 2], threshold=0.5)
 
     def _init_label_generator(self, group_option):
         self._local_contrastive_label_generator = LocalLabelGenerator()

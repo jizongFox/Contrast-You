@@ -14,17 +14,16 @@ from deepclustering2.tqdm import tqdm
 from deepclustering2.trainer.trainer import T_loader, T_loss
 from .contrast_epocher import PretrainDecoderEpoch as _PretrainDecoderEpoch
 from .contrast_epocher import PretrainEncoderEpoch as _PretrainEncoderEpoch
-from ..arch.unet import FeatureExtractor
+from ..arch import UNetFeatureExtractor
 from ..losses.iic_loss import IIDLoss, IIDSegmentationLoss
 
 
 class IICPretrainEcoderEpoch(_PretrainEncoderEpoch):
 
     def __init__(self, model: nn.Module, projection_head: nn.Module, projection_classifier: nn.Module,
-                 optimizer: optim.Optimizer, pretrain_encoder_loader: T_loader,
-                 contrastive_criterion: T_loss, num_batches: int = 0,
-                 cur_epoch=0, device="cpu", group_option: str = "partition", iic_weight=1,
-                 disable_contrastive=False) -> None:
+                 optimizer: optim.Optimizer, pretrain_encoder_loader: T_loader, contrastive_criterion: T_loss,
+                 num_batches: int = 0, cur_epoch=0, device="cpu", group_option: str = "partition",
+                 feature_extractor: UNetFeatureExtractor = None, iic_weight=1, disable_contrastive=False) -> None:
         """
         :param model:
         :param projection_head:
@@ -37,9 +36,8 @@ class IICPretrainEcoderEpoch(_PretrainEncoderEpoch):
         :param device:
         :param iic_weight: iic weight_ratio
         """
-        super(IICPretrainEcoderEpoch, self).__init__(model, projection_head, optimizer, pretrain_encoder_loader,
-                                                     contrastive_criterion, num_batches,
-                                                     cur_epoch, device, group_option=group_option)
+        super().__init__(model, projection_head, optimizer, pretrain_encoder_loader, contrastive_criterion, num_batches,
+                         cur_epoch, device, group_option, feature_extractor)
         assert pretrain_encoder_loader is not None
         self._projection_classifier = projection_classifier
         self._iic_criterion = IIDLoss()
@@ -61,11 +59,12 @@ class IICPretrainEcoderEpoch(_PretrainEncoderEpoch):
         with tqdm(range(self._num_batches)).set_desc_from_epocher(self) as indicator:  # noqa
             for i, data in zip(indicator, self._pretrain_encoder_loader):
                 (img, _), (img_tf, _), filename, partition_list, group_list = self._preprocess_data(data, self._device)
-                _, (e5, *_), *_ = self._model(torch.cat([img, img_tf], dim=0), return_features=True)
-                global_enc, global_tf_enc = torch.chunk(F.normalize(self._projection_head(e5), dim=1), chunks=2, dim=0)
+                _, *features = self._model(torch.cat([img, img_tf], dim=0), return_features=True)
+                en = self._feature_extractor(features)[0]
+                global_enc, global_tf_enc = torch.chunk(F.normalize(self._projection_head(en), dim=1), chunks=2, dim=0)
                 # projection_classifier gives a list of probabilities
                 global_probs, global_tf_probs = list(
-                    zip(*[torch.chunk(x, chunks=2, dim=0) for x in self._projection_classifier(e5)]))
+                    zip(*[torch.chunk(x, chunks=2, dim=0) for x in self._projection_classifier(en)]))
                 # fixme: here lack of some code for IIC
                 labels = self._label_generation(partition_list, group_list)
                 contrastive_loss = self._contrastive_criterion(torch.stack([global_enc, global_tf_enc], dim=1),
@@ -157,6 +156,7 @@ class IICPretrainDecoderEpoch(_PretrainDecoderEpoch):
                     report_dict = self.meters.tracking_status()
                     indicator.set_postfix_dict(report_dict)
         return report_dict
+
 
 """
 class CrossIICPretrainDecoderEpoch(_PretrainDecoderEpoch):
