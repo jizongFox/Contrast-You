@@ -1,12 +1,12 @@
 import sys
-from typing import Tuple
 
 import torch
-from deepclustering2.utils import simplex
 from termcolor import colored
 from torch import Tensor
 from torch import nn
 from torch.nn import functional as F
+
+from deepclustering2.utils import simplex
 
 
 class IIDLoss(nn.Module):
@@ -44,10 +44,10 @@ class IIDLoss(nn.Module):
         #
 
         loss = -p_i_j * (
-            torch.log(p_i_j+1e-10) - self.lamb * torch.log(p_j+1e-10) - self.lamb * torch.log(p_i+1e-10)
+            torch.log(p_i_j + 1e-10) - self.lamb * torch.log(p_j + 1e-10) - self.lamb * torch.log(p_i + 1e-10)
         )
         loss = loss.sum()
-        loss_no_lamb = -p_i_j * (torch.log(p_i_j+1e-10) - torch.log(p_j+1e-10) - torch.log(p_i+1e-10))
+        loss_no_lamb = -p_i_j * (torch.log(p_i_j + 1e-10) - torch.log(p_j + 1e-10) - torch.log(p_i + 1e-10))
         loss_no_lamb = loss_no_lamb.sum()
         return loss, loss_no_lamb, p_i_j
 
@@ -115,18 +115,13 @@ class IIDSegmentationLoss:
         p_i_mat = p_i_j.sum(dim=2, keepdim=True).repeat(1, 1, k, 1)
         p_j_mat = p_i_j.sum(dim=3, keepdim=True).repeat(1, 1, 1, k)
 
-        if self.torch_vision < "1.3.0":
-            p_i_j[(p_i_j < self.eps).data] = self.eps
-            p_i_mat[(p_i_mat < self.eps).data] = self.eps
-            p_j_mat[(p_j_mat < self.eps).data] = self.eps
-
         # maximise information
         loss = (
                    -p_i_j
                    * (
-                       torch.log(p_i_j)
-                       - self.lamda * torch.log(p_i_mat)
-                       - self.lamda * torch.log(p_j_mat)
+                       torch.log(p_i_j + 1e-10)
+                       - self.lamda * torch.log(p_i_mat + 1e-10)
+                       - self.lamda * torch.log(p_j_mat + 1e-10)
                    )
                ).sum() / (T_side_dense * T_side_dense)
         return loss

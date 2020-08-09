@@ -176,6 +176,7 @@ class PretrainDecoderEpoch(PretrainEncoderEpoch):
                                                        location_list=location_list)
 
 
+
 """
 class SemiContrastEpoch(_SimpleFineTuneEpoch):
 

@@ -111,7 +111,6 @@ class ContrastTrainer(Trainer):
             self._pretrain_encoder_storage.put_from_dict(storage_dict, epoch=self._cur_epoch)
             self._writer.add_scalar_with_StorageDict(storage_dict, self._cur_epoch)
             self._save_to("last.pth", path=os.path.join(self._save_dir, "pretrain_encoder"))
-        self.train_encoder_done = True
 
     def pretrain_decoder_init(self, lr: float = 1e-6, weight_decay: float = 0.0,
                               multiplier: int = 300, warmup_max=10, ptype="mlp",
@@ -159,7 +158,6 @@ class ContrastTrainer(Trainer):
             self._pretrain_encoder_storage.put_from_dict(storage_dict, epoch=self._cur_epoch)
             self._writer.add_scalar_with_StorageDict(storage_dict, self._cur_epoch)
             self._save_to("last.pth", path=os.path.join(self._save_dir, "pretrain_decoder"))
-        self.train_decoder_done = True
 
     def finetune_network_init(self, lr: float = 1e-7, weight_decay: float = 1e-5, multiplier: int = 200, warmup_max=10):
 
