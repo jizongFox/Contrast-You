@@ -12,7 +12,7 @@ from contrastyou.trainer import trainer_zoos
 from deepclustering2.configparser import ConfigManger
 from deepclustering2.dataloader.sampler import InfiniteRandomSampler
 from deepclustering2.dataset import PatientSampler
-from deepclustering2.utils import fix_all_seed, gethash
+from deepclustering2.utils import gethash, set_benchmark
 from torch.utils.data import DataLoader
 
 # load configure from yaml and argparser
@@ -21,7 +21,7 @@ config = cmanager.config
 cur_githash = gethash(__file__)
 
 # set reproducibility
-fix_all_seed(config.get("RandomSeed", 1))
+set_benchmark(1)
 
 model = UNet(**config["Arch"])
 

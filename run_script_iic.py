@@ -64,22 +64,24 @@ jobs = [
 ]
 
 iic_job_array = [
+    # contrastive encoder
     f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/withoutpretrain      Trainer.train_encoder=False Trainer.train_decoder=False ",
 
     f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyContrast_encoder  Trainer.train_encoder=True Trainer.train_decoder=False "
-    f" PretrainEncoder.iic_weight=0.0 ",
+    f" PretrainEncoder.iic_weight=0.0 PretrainDecoder.iic_weight=0.0 PretrainEncoder.disable_contrastive=False PretrainDecoder.disable_contrastive=False ",
 
     f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyContrast_encoder_decoder/up_conv3/linear  Trainer.train_encoder=True Trainer.train_decoder=True "
-    f" PretrainEncoder.iic_weight=0.0 PretrainDecoder.iic_weight=0.0 PretrainDecoder.extract_position=Up_conv3 PretrainEncoder.ptype=linear ",
+    f" PretrainEncoder.iic_weight=0.0 PretrainDecoder.iic_weight=0.0 PretrainDecoder.extract_position=Up_conv3 PretrainDecoder.ptype=linear "
+    f" PretrainEncoder.disable_contrastive=False PretrainDecoder.disable_contrastive=False ",
 
     f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyContrast_encoder_decoder/up_conv3/mlp  Trainer.train_encoder=True Trainer.train_decoder=True "
-    f" PretrainEncoder.iic_weight=0.0 PretrainDecoder.iic_weight=0.0 PretrainDecoder.extract_position=Up_conv3 PretrainEncoder.ptype=mlp ",
+    f" PretrainEncoder.iic_weight=0.0 PretrainDecoder.iic_weight=0.0 PretrainDecoder.extract_position=Up_conv3 PretrainDecoder.ptype=mlp ",
 
     # iic encoder
     f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyIIC_encoder/linear   Trainer.train_encoder=True Trainer.train_decoder=False PretrainEncoder.iic_weight=1 "
-    f"PretrainEncoder.disable_contrastive=True PretrainEncoder.ctype=linear ",
+    f"PretrainEncoder.disable_contrastive=True PretrainDecoder.disable_contrastive=True  PretrainEncoder.ctype=linear ",
     f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyIIC_encoder/mlp   Trainer.train_encoder=True Trainer.train_decoder=False PretrainEncoder.iic_weight=1 "
-    f"PretrainEncoder.disable_contrastive=True PretrainEncoder.ctype=mlp ",
+    f"PretrainEncoder.disable_contrastive=True PretrainDecoder.disable_contrastive=True PretrainEncoder.ctype=mlp ",
 
     f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyIIC_encoder_decoder/mlp   Trainer.train_encoder=True Trainer.train_decoder=True PretrainEncoder.iic_weight=1 "
     f"PretrainDecoder.iic_weight=1 PretrainEncoder.disable_contrastive=True PretrainDecoder.disable_contrastive=True PretrainEncoder.ctype=mlp PretrainDecoder.ctype=mlp ",
@@ -92,7 +94,7 @@ iic_job_array = [
 accounts = cycle(["def-chdesa", "def-mpederso", "rrg-mpederso"])
 
 jobsubmiter = JobSubmiter(project_path="./", on_local=False, time=args.time)
-for j in jobs:
+for j in iic_job_array:
     jobsubmiter.prepare_env(["source ./venv/bin/activate ", "export OMP_NUM_THREADS=1", ])
     jobsubmiter.account = next(accounts)
     jobsubmiter.run(j)

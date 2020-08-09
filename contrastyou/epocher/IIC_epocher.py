@@ -42,7 +42,7 @@ class IICPretrainEcoderEpoch(_PretrainEncoderEpoch):
         self._projection_classifier = projection_classifier
         self._iic_criterion = IIDLoss()
         self._iic_weight = iic_weight
-        self._disble_contrastive = disable_contrastive
+        self._disable_contrastive = disable_contrastive
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters.register_meter("reg_weight", AverageValueMeter())
@@ -71,7 +71,7 @@ class IICPretrainEcoderEpoch(_PretrainEncoderEpoch):
                                                                labels=labels)
                 iic_loss_list = [self._iic_criterion(x, y)[0] for x, y in zip(global_probs, global_tf_probs)]
                 iic_loss = average_iter(iic_loss_list)
-                if self._disble_contrastive:
+                if self._disable_contrastive:
                     total_loss = iic_loss
                 else:
                     total_loss = self._iic_weight * iic_loss + contrastive_loss
@@ -149,9 +149,12 @@ class IICPretrainDecoderEpoch(_PretrainDecoderEpoch):
                 )
                 if torch.isnan(contrastive_loss):
                     raise RuntimeError(contrastive_loss)
+
                 if self._disable_contrastive:
-                    contrastive_loss *= 0.0
-                total_loss = contrastive_loss + self._iic_weight * iic_loss
+                    total_loss = iic_loss
+                else:
+                    total_loss = self._iic_weight * iic_loss + contrastive_loss
+
                 self._optimizer.zero_grad()
                 total_loss.backward()
                 self._optimizer.step()

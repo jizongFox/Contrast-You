@@ -16,7 +16,7 @@ class IICContrastTrainer(ContrastTrainer):
 
     def pretrain_encoder_init(self, group_option: str, lr=1e-6, weight_decay=1e-5, multiplier=300, warmup_max=10,
 
-                              num_clusters=10, num_subheads=10, iic_weight=1, disable_contrastive=True, ctemperature=1,
+                              num_clusters=10, num_subheads=10, iic_weight=1, disable_contrastive=False, ctemperature=1,
                               ctype: str = "linear", ptype: str = "mlp", extract_position: str = "Conv5",
 
                               ):
@@ -85,7 +85,7 @@ class IICContrastTrainer(ContrastTrainer):
                               num_clusters=20, ctemperature=1, num_subheads=10,
                               extract_position="Up_conv3",
                               enable_grad_from="Conv1", ptype="mlp", ctype="linear", iic_weight=1,
-                              disable_contrastive=True
+                              disable_contrastive=False
 
                               ):
         # feature_exactor

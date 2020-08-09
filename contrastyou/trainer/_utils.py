@@ -131,9 +131,9 @@ class LocalClusterHead(nn.Module):
                 )
             else:
                 return nn.Sequential(
-                    nn.Conv2d(input_dim, interm_dim),
+                    nn.Conv2d(input_dim, interm_dim, 1, 1, 0),
                     nn.LeakyReLU(0.01, inplace=True),
-                    nn.Conv2d(interm_dim, num_clusters),
+                    nn.Conv2d(interm_dim, num_clusters, 1, 1, 0),
                     SoftmaxWithT(1, T=self._T)
                 )
 
