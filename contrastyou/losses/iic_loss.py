@@ -148,15 +148,16 @@ class IIDSegmentationLoss:
         return loss
 
 
-def patch_generator(feature_map, patch_size=(32, 32)):
+def patch_generator(feature_map, patch_size=(32, 32), step_size=(16, 16)):
     b, c, h, w = feature_map.shape
-    hs = np.arange(0, h - patch_size[0], patch_size[0])
-    hs = np.append(hs, h - patch_size[0])
-    ws = np.arange(0, w - patch_size[1], patch_size[1])
-    ws = np.append(ws, w - patch_size[1])
+    hs = np.arange(0, h - patch_size[0], step_size[0])
+    hs = np.append(hs, max(h - patch_size[0], 0))
+    ws = np.arange(0, w - patch_size[1], step_size[1])
+    ws = np.append(ws, max(w - patch_size[1], 0))
     for _h in hs:
         for _w in ws:
-            yield feature_map[:, :, _h:_h + patch_size[0], _w:_w + patch_size[1]]
+            yield feature_map[:, :, _h:min(_h + patch_size[0], h), _w:min(_w + patch_size[1], w)]
+            # yield [_h, min(_h + patch_size[0], h), _w, min(_w + patch_size[1], w)]
 
 
 class IIDSegmentationSmallPathLoss(IIDSegmentationLoss):
@@ -164,19 +165,20 @@ class IIDSegmentationSmallPathLoss(IIDSegmentationLoss):
     def __init__(self, lamda=1.0, padding=7, eps: float = sys.float_info.epsilon, patch_size=32) -> None:
         super().__init__(lamda, padding, eps)
         self._patch_size = _pair(patch_size)
+        self._step_size = _pair(patch_size // 2)
 
     def __call__(self, x_out: Tensor, x_tf_out: Tensor, mask: Tensor = None):
         assert x_out.shape == x_tf_out.shape, (x_out.shape, x_tf_out.shape)
         if mask is None:
             iic_patch_list = [super(IIDSegmentationSmallPathLoss, self).__call__(x, y) for x, y in zip(
-                patch_generator(x_out, self._patch_size),
-                patch_generator(x_tf_out, self._patch_size)
+                patch_generator(x_out, self._patch_size, self._step_size),
+                patch_generator(x_tf_out, self._patch_size, self._step_size)
             )]
         else:
             iic_patch_list = [super(IIDSegmentationSmallPathLoss, self).__call__(x, y, m) for x, y, m in zip(
-                patch_generator(x_out, self._patch_size),
-                patch_generator(x_tf_out, self._patch_size),
-                patch_generator(mask, self._patch_size)
+                patch_generator(x_out, self._patch_size, self._step_size),
+                patch_generator(x_tf_out, self._patch_size, self._step_size),
+                patch_generator(mask, self._patch_size, self._step_size)
             )]
         if any([torch.isnan(x) for x in iic_patch_list]):
             raise RuntimeError(iic_patch_list)
@@ -188,6 +190,6 @@ class IIDSegmentationSmallPathLoss(IIDSegmentationLoss):
 
 if __name__ == '__main__':
     feature = torch.randn(10, 2, 100, 100)
-    patches = patch_generator(feature, (32, 32))
+    patches = patch_generator(feature, (32, 32), (16, 16))
     for i in patches:
-        print(i)
+        print(i.shape)

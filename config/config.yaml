@@ -1,4 +1,4 @@
-RandomSeed: 1
+RandomSeed: 10
 
 Arch:
   input_dim: 1
