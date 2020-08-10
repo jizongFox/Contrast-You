@@ -2,15 +2,15 @@ import itertools
 import os
 
 import torch
+from deepclustering2.meters2 import StorageIncomeDict
+from deepclustering2.schedulers import GradualWarmupScheduler
 
 from contrastyou.arch import UNetFeatureExtractor, UNet
 from contrastyou.epocher.IIC_epocher import IICPretrainEcoderEpoch, IICPretrainDecoderEpoch
 from contrastyou.losses.contrast_loss import SupConLoss
-from contrastyou.losses.iic_loss import IIDSegmentationLoss, IIDSegmentationSmallPathLoss
+from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
 from contrastyou.trainer._utils import ClusterHead, ProjectionHead, LocalProjectionHead, LocalClusterHead
 from contrastyou.trainer.contrast_trainer import ContrastTrainer
-from deepclustering2.meters2 import StorageIncomeDict
-from deepclustering2.schedulers import GradualWarmupScheduler
 
 
 class IICContrastTrainer(ContrastTrainer):
@@ -87,10 +87,9 @@ class IICContrastTrainer(ContrastTrainer):
                               extract_position="Up_conv3",
                               enable_grad_from="Conv1", ptype="mlp", ctype="mlp", iic_weight=1,
                               disable_contrastive=False,
-                              iic_criterion_type="seg", padding=0
+                              padding=0, patch_size=512,
 
                               ):
-        assert iic_criterion_type in ("seg", "patch_seg"), iic_criterion_type
         # feature_exactor
         self._extract_position = extract_position
         self._feature_extractor = UNetFeatureExtractor(self._extract_position)
@@ -131,8 +130,8 @@ class IICContrastTrainer(ContrastTrainer):
         # contrastive_loss
         self._contrastive_criterion = SupConLoss()
         self._disable_contrastive = disable_contrastive
-        self._iicseg_criterion = IIDSegmentationLoss(padding=padding) if iic_criterion_type == "seg" else \
-            IIDSegmentationSmallPathLoss(padding=padding, patch_size=1000)
+        self._iicseg_criterion = IIDSegmentationSmallPathLoss(padding=padding, patch_size=patch_size)
+        print(self._iicseg_criterion)
 
         # iic weight
         self._iic_weight = iic_weight

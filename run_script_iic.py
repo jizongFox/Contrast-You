@@ -67,27 +67,71 @@ iic_job_array = [
     # contrastive encoder
     f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/withoutpretrain      Trainer.train_encoder=False Trainer.train_decoder=False ",
 
-    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyContrast_encoder  Trainer.train_encoder=True Trainer.train_decoder=False "
-    f" PretrainEncoder.iic_weight=0.0 PretrainDecoder.iic_weight=0.0 PretrainEncoder.disable_contrastive=False PretrainDecoder.disable_contrastive=False ",
+    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyContrast_encoder/mlp  Trainer.train_encoder=True Trainer.train_decoder=False "
+    f" PretrainEncoder.iic_weight=0.0 PretrainDecoder.iic_weight=0.0 "
+    f"PretrainEncoder.disable_contrastive=False PretrainDecoder.disable_contrastive=False "
+    f"PretrainEncoder.ptype=mlp ",
 
-    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyContrast_encoder_decoder/up_conv3/linear  Trainer.train_encoder=True Trainer.train_decoder=True "
-    f" PretrainEncoder.iic_weight=0.0 PretrainDecoder.iic_weight=0.0 PretrainDecoder.extract_position=Up_conv3 PretrainDecoder.ptype=linear "
+    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyContrast_encoder/linear  Trainer.train_encoder=True Trainer.train_decoder=False "
+    f" PretrainEncoder.iic_weight=0.0 PretrainDecoder.iic_weight=0.0 "
+    f"PretrainEncoder.disable_contrastive=False PretrainDecoder.disable_contrastive=False "
+    f"PretrainEncoder.ptype=linear ",
+
+    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyContrast_encoder_decoder/up_conv3/mlp_linear  Trainer.train_encoder=True Trainer.train_decoder=True "
+    f" PretrainEncoder.iic_weight=0.0 PretrainDecoder.iic_weight=0.0 PretrainDecoder.extract_position=Up_conv3 "
+    f" PretrainEncoder.ptype=mlp PretrainDecoder.ptype=linear "
     f" PretrainEncoder.disable_contrastive=False PretrainDecoder.disable_contrastive=False ",
 
-    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyContrast_encoder_decoder/up_conv3/mlp  Trainer.train_encoder=True Trainer.train_decoder=True "
-    f" PretrainEncoder.iic_weight=0.0 PretrainDecoder.iic_weight=0.0 PretrainDecoder.extract_position=Up_conv3 PretrainDecoder.ptype=mlp ",
+    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyContrast_encoder_decoder/up_conv3/mlp_mlp  Trainer.train_encoder=True Trainer.train_decoder=True "
+    f" PretrainEncoder.iic_weight=0.0 PretrainDecoder.iic_weight=0.0 PretrainDecoder.extract_position=Up_conv3 "
+    f" PretrainDecoder.ptype=mlp ",
 
     # iic encoder
-    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyIIC_encoder/linear   Trainer.train_encoder=True Trainer.train_decoder=False PretrainEncoder.iic_weight=1 "
-    f"PretrainEncoder.disable_contrastive=True PretrainDecoder.disable_contrastive=True  PretrainEncoder.ctype=linear ",
-    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyIIC_encoder/mlp   Trainer.train_encoder=True Trainer.train_decoder=False PretrainEncoder.iic_weight=1 "
-    f"PretrainEncoder.disable_contrastive=True PretrainDecoder.disable_contrastive=True PretrainEncoder.ctype=mlp ",
+    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyIIC_encoder/linear   Trainer.train_encoder=True "
+    f"Trainer.train_decoder=False PretrainEncoder.iic_weight=1 "
+    f"PretrainEncoder.disable_contrastive=True PretrainDecoder.disable_contrastive=True  "
+    f"PretrainEncoder.ctype=linear ",
 
-    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyIIC_encoder_decoder/mlp   Trainer.train_encoder=True Trainer.train_decoder=True PretrainEncoder.iic_weight=1 "
-    f"PretrainDecoder.iic_weight=1 PretrainEncoder.disable_contrastive=True PretrainDecoder.disable_contrastive=True PretrainEncoder.ctype=mlp PretrainDecoder.ctype=mlp ",
+    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyIIC_encoder/mlp   Trainer.train_encoder=True "
+    f"Trainer.train_decoder=False PretrainEncoder.iic_weight=1 "
+    f"PretrainEncoder.disable_contrastive=True PretrainDecoder.disable_contrastive=True  "
+    f"PretrainEncoder.ctype=mlp ",
 
-    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyIIC_encoder_decoder/linear   Trainer.train_encoder=True Trainer.train_decoder=True PretrainEncoder.iic_weight=1 "
-    f"PretrainDecoder.iic_weight=1 PretrainEncoder.disable_contrastive=True PretrainDecoder.disable_contrastive=True PretrainEncoder.ctype=mlp PretrainDecoder.ctype=linear ",
+    # iic encoder + decoder
+    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyIIC_encoder_decoder/linear_mlp   "
+    f"Trainer.train_encoder=True Trainer.train_decoder=True PretrainEncoder.iic_weight=1 PretrainDecoder.iic_weight=1 "
+    f"PretrainEncoder.disable_contrastive=True PretrainDecoder.disable_contrastive=True "
+    f"PretrainEncoder.ctype=linear PretrainDecoder.ctype=mlp ",
+
+    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyIIC_encoder_decoder/linear_linear   "
+    f"Trainer.train_encoder=True Trainer.train_decoder=True PretrainEncoder.iic_weight=1 PretrainDecoder.iic_weight=1 "
+    f"PretrainEncoder.disable_contrastive=True PretrainDecoder.disable_contrastive=True "
+    f"PretrainEncoder.ctype=linear PretrainDecoder.ctype=linear ",
+
+    # different padding and different patch_size
+    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyIIC_encoder_decoder/padding_0_patch_512   "
+    f"Trainer.train_encoder=True Trainer.train_decoder=True PretrainEncoder.iic_weight=1 PretrainDecoder.iic_weight=1 "
+    f"PretrainEncoder.disable_contrastive=True PretrainDecoder.disable_contrastive=True "
+    f"PretrainEncoder.ctype=linear PretrainDecoder.ctype=mlp "
+    f"PretrainDecoder.padding=0 PretrainDecoder.patch_size=512 ",
+
+    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyIIC_encoder_decoder/padding_1_patch_512   "
+    f"Trainer.train_encoder=True Trainer.train_decoder=True PretrainEncoder.iic_weight=1 PretrainDecoder.iic_weight=1 "
+    f"PretrainEncoder.disable_contrastive=True PretrainDecoder.disable_contrastive=True "
+    f"PretrainEncoder.ctype=linear PretrainDecoder.ctype=mlp "
+    f"PretrainDecoder.padding=1 PretrainDecoder.patch_size=512 ",
+
+    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyIIC_encoder_decoder/padding_0_patch_32   "
+    f"Trainer.train_encoder=True Trainer.train_decoder=True PretrainEncoder.iic_weight=1 PretrainDecoder.iic_weight=1 "
+    f"PretrainEncoder.disable_contrastive=True PretrainDecoder.disable_contrastive=True "
+    f"PretrainEncoder.ctype=linear PretrainDecoder.ctype=mlp "
+    f"PretrainDecoder.padding=0 PretrainDecoder.patch_size=32 ",
+
+    f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyIIC_encoder_decoder/padding_1_patch_32   "
+    f"Trainer.train_encoder=True Trainer.train_decoder=True PretrainEncoder.iic_weight=1 PretrainDecoder.iic_weight=1 "
+    f"PretrainEncoder.disable_contrastive=True PretrainDecoder.disable_contrastive=True "
+    f"PretrainEncoder.ctype=linear PretrainDecoder.ctype=mlp "
+    f"PretrainDecoder.padding=1 PretrainDecoder.patch_size=32 ",
 ]
 
 # CC things

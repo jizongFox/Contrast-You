@@ -177,6 +177,8 @@ class IIDSegmentationSmallPathLoss(IIDSegmentationLoss):
                 patch_generator(mask, self._patch_size)
             )]
         return average_iter(iic_patch_list)
+    def __repr__(self):
+        return f"{self.__class__.__name__} with patch_size={self._patch_size} and padding={self.padding}."
 
 
 if __name__ == '__main__':

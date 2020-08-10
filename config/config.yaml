@@ -10,9 +10,8 @@ Data:
   labeled_data_ratio: 0.05
   unlabeled_data_ratio: 0.95
 
-
 ContrastData:
-  group_sample_num: 25
+  group_sample_num: 8
   partition_sample_num: 1
   num_workers: 6
   shuffle: false
@@ -27,9 +26,9 @@ Trainer:
   save_dir: test_semi_trainer
   device: cuda
   num_batches: 500
-  max_epoch_train_decoder: 100
+  max_epoch_train_decoder: 50
   max_epoch_train_encoder: 100
-  max_epoch_train_finetune: 100
+  max_epoch_train_finetune: 80
   train_encoder: True
   train_decoder: True
 
