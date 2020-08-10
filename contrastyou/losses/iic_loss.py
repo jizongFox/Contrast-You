@@ -1,12 +1,31 @@
 import sys
+from itertools import repeat
 
+import numpy as np
 import torch
 from termcolor import colored
 from torch import Tensor
 from torch import nn
+from torch._six import container_abcs
 from torch.nn import functional as F
 
+from contrastyou.helper import average_iter
 from deepclustering2.utils import simplex
+
+
+def _ntuple(n):
+    def parse(x):
+        if isinstance(x, container_abcs.Iterable):
+            return x
+        return tuple(repeat(x, n))
+
+    return parse
+
+
+_single = _ntuple(1)
+_pair = _ntuple(2)
+_triple = _ntuple(3)
+_quadruple = _ntuple(4)
 
 
 class IIDLoss(nn.Module):
@@ -83,7 +102,6 @@ class IIDSegmentationLoss:
         self.lamda = lamda
         self.padding = padding
         self.eps = eps
-        self.torch_vision = torch.__version__
 
     def __call__(
         self, x_out: Tensor, x_tf_out: Tensor, mask: Tensor = None
@@ -125,3 +143,44 @@ class IIDSegmentationLoss:
                    )
                ).sum() / (T_side_dense * T_side_dense)
         return loss
+
+
+def patch_generator(feature_map, patch_size=(32, 32)):
+    b, c, h, w = feature_map.shape
+    hs = np.arange(0, h - patch_size[0], patch_size[0])
+    hs = np.append(hs, h - patch_size[0])
+    ws = np.arange(0, w - patch_size[1], patch_size[1])
+    ws = np.append(ws, w - patch_size[1])
+    for _h in hs:
+        for _w in ws:
+            yield feature_map[:, :, _h:_h + patch_size[0], _w:_w + patch_size[1]]
+
+
+class IIDSegmentationSmallPathLoss(IIDSegmentationLoss):
+
+    def __init__(self, lamda=1.0, padding=7, eps: float = sys.float_info.epsilon, patch_size=32) -> None:
+        super().__init__(lamda, padding, eps)
+        self._patch_size = _pair(patch_size)
+
+    def __call__(self, x_out: Tensor, x_tf_out: Tensor, mask: Tensor = None):
+        assert x_out.shape == x_tf_out.shape, (x_out.shape, x_tf_out.shape)
+        iic_patch_list = []
+        if mask is None:
+            iic_patch_list = [super(IIDSegmentationSmallPathLoss, self).__call__(x, y) for x, y in zip(
+                patch_generator(x_out, self._patch_size),
+                patch_generator(x_tf_out, self._patch_size)
+            )]
+        else:
+            iic_patch_list = [super(IIDSegmentationSmallPathLoss, self).__call__(x, y, m) for x, y, m in zip(
+                patch_generator(x_out, self._patch_size),
+                patch_generator(x_tf_out, self._patch_size),
+                patch_generator(mask, self._patch_size)
+            )]
+        return average_iter(iic_patch_list)
+
+
+if __name__ == '__main__':
+    feature = torch.randn(10, 2, 100, 100)
+    patches = patch_generator(feature, (32, 32))
+    for i in patches:
+        print(i)
