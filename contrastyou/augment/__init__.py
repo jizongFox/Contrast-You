@@ -1,7 +1,8 @@
+from deepclustering2.augment import pil_augment
 from torchvision import transforms
 
 from contrastyou.augment.sequential_wrapper import SequentialWrapperTwice, SequentialWrapper
-from deepclustering2.augment import pil_augment
+from .tensor_affine_transform import AffineTensorTransform
 
 
 class ACDCTransforms:
