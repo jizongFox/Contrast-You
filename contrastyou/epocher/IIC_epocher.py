@@ -15,7 +15,7 @@ from deepclustering2.trainer.trainer import T_loader, T_loss
 from .contrast_epocher import PretrainDecoderEpoch as _PretrainDecoderEpoch
 from .contrast_epocher import PretrainEncoderEpoch as _PretrainEncoderEpoch
 from ..arch import UNetFeatureExtractor
-from ..losses.iic_loss import IIDLoss, IIDSegmentationLoss
+from ..losses.iic_loss import IIDLoss
 
 
 class IICPretrainEcoderEpoch(_PretrainEncoderEpoch):
@@ -91,12 +91,12 @@ class IICPretrainDecoderEpoch(_PretrainDecoderEpoch):
 
     def __init__(self, model: nn.Module, projection_head: nn.Module, projection_classifier: nn.Module,
                  optimizer: optim.Optimizer, pretrain_decoder_loader: T_loader, contrastive_criterion: T_loss,
-                 num_batches: int = 0, cur_epoch=0, device="cpu", disable_contrastive=False, iic_weight=0.01,
-                 feature_extractor: UNetFeatureExtractor = None) -> None:
+                 iicseg_criterion: T_loss, num_batches: int = 0, cur_epoch=0, device="cpu", disable_contrastive=False,
+                 iic_weight=0.01, feature_extractor: UNetFeatureExtractor = None) -> None:
         super().__init__(model, projection_head, optimizer, pretrain_decoder_loader, contrastive_criterion, num_batches,
                          cur_epoch, device, feature_extractor)
         self._projection_classifier = projection_classifier
-        self._iic_criterion = IIDSegmentationLoss(padding=1)
+        self._iic_criterion = iicseg_criterion
         self._disable_contrastive = disable_contrastive
         self._iic_weight = iic_weight
 
@@ -130,9 +130,9 @@ class IICPretrainDecoderEpoch(_PretrainDecoderEpoch):
                 local_enc_tf, local_enc_tf_ctf = torch.chunk(self._projection_head(dn_tf), chunks=2, dim=0)
 
                 # IIC part
-                global_probs, global_tf_probs = list(
+                local_probs, local_tf_probs = list(
                     zip(*[torch.chunk(x, chunks=2, dim=0) for x in self._projection_classifier(dn_tf)]))
-                iic_loss_list = [self._iic_criterion(x, y) for x, y in zip(global_probs, global_tf_probs)]
+                iic_loss_list = [self._iic_criterion(x, y) for x, y in zip(local_probs, local_tf_probs)]
                 iic_loss = average_iter(iic_loss_list)
                 # IIC part ends
 
@@ -149,6 +149,8 @@ class IICPretrainDecoderEpoch(_PretrainDecoderEpoch):
                 )
                 if torch.isnan(contrastive_loss):
                     raise RuntimeError(contrastive_loss)
+                if torch.isnan(iic_loss):
+                    raise RuntimeError(iic_loss)
 
                 if self._disable_contrastive:
                     total_loss = iic_loss
@@ -165,6 +167,7 @@ class IICPretrainDecoderEpoch(_PretrainDecoderEpoch):
                     report_dict = self.meters.tracking_status()
                     indicator.set_postfix_dict(report_dict)
         return report_dict
+
 
 """
 class CrossIICPretrainDecoderEpoch(_PretrainDecoderEpoch):

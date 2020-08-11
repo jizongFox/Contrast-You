@@ -2,14 +2,15 @@ import itertools
 import os
 
 import torch
+from deepclustering2.meters2 import StorageIncomeDict
+from deepclustering2.schedulers import GradualWarmupScheduler
 
 from contrastyou.arch import UNetFeatureExtractor, UNet
 from contrastyou.epocher.IIC_epocher import IICPretrainEcoderEpoch, IICPretrainDecoderEpoch
 from contrastyou.losses.contrast_loss import SupConLoss
+from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
 from contrastyou.trainer._utils import ClusterHead, ProjectionHead, LocalProjectionHead, LocalClusterHead
 from contrastyou.trainer.contrast_trainer import ContrastTrainer
-from deepclustering2.meters2 import StorageIncomeDict
-from deepclustering2.schedulers import GradualWarmupScheduler
 
 
 class IICContrastTrainer(ContrastTrainer):
@@ -84,8 +85,9 @@ class IICContrastTrainer(ContrastTrainer):
 
                               num_clusters=20, ctemperature=1, num_subheads=10,
                               extract_position="Up_conv3",
-                              enable_grad_from="Conv1", ptype="mlp", ctype="linear", iic_weight=1,
-                              disable_contrastive=False
+                              enable_grad_from="Conv1", ptype="mlp", ctype="mlp", iic_weight=1,
+                              disable_contrastive=False,
+                              padding=0, patch_size=512,
 
                               ):
         # feature_exactor
@@ -128,6 +130,8 @@ class IICContrastTrainer(ContrastTrainer):
         # contrastive_loss
         self._contrastive_criterion = SupConLoss()
         self._disable_contrastive = disable_contrastive
+        self._iicseg_criterion = IIDSegmentationSmallPathLoss(padding=padding, patch_size=patch_size)
+        print(self._iicseg_criterion)
 
         # iic weight
         self._iic_weight = iic_weight
@@ -140,12 +144,11 @@ class IICContrastTrainer(ContrastTrainer):
         for self._cur_epoch in range(self._start_epoch, self._max_epoch_train_decoder):
             pretrain_decoder_dict = IICPretrainDecoderEpoch(
                 model=self._model, projection_head=self._projector_contrastive,
-                projection_classifier=self._projector_iic,
-                optimizer=self._optimizer,
-                pretrain_decoder_loader=self._pretrain_loader_iter,
-                contrastive_criterion=self._contrastive_criterion, num_batches=self._num_batches,
-                cur_epoch=self._cur_epoch, device=self._device, disable_contrastive=self._disable_contrastive,
-                iic_weight=self._iic_weight, feature_extractor=self._feature_extractor,
+                projection_classifier=self._projector_iic, optimizer=self._optimizer,
+                pretrain_decoder_loader=self._pretrain_loader_iter, contrastive_criterion=self._contrastive_criterion,
+                iicseg_criterion=self._iicseg_criterion, num_batches=self._num_batches, cur_epoch=self._cur_epoch,
+                device=self._device, disable_contrastive=self._disable_contrastive, iic_weight=self._iic_weight,
+                feature_extractor=self._feature_extractor,
             ).run()
             self._scheduler.step()
             storage_dict = StorageIncomeDict(PRETRAIN_DECODER=pretrain_decoder_dict, )
