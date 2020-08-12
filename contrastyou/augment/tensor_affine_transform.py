@@ -90,7 +90,7 @@ class AffineTensorTransform(object):
         if AffineMatrix is None:
             AffineMatrix = self.get_random_affinematrix()
             if independent:
-                AffineMatrix = torch.stack([self.get_random_affinematrix()] * bn, dim=0)
+                AffineMatrix = torch.stack([self.get_random_affinematrix() for _ in range(bn)] , dim=0)
             else:
                 AffineMatrix = torch.stack([AffineMatrix] * bn, dim=0)
         else:
