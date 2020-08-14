@@ -18,7 +18,7 @@ CLASS_OUT = 5
 NUM_SUBHEAD = 10
 
 ENABLE_CONTRAST = True
-ENABLE_IIC = True
+ENABLE_IIC = False
 # Create a sphere
 r = 0.98
 pi = np.pi
@@ -28,6 +28,13 @@ phi, theta = np.mgrid[0.0:pi:100j, 0.0:2.0 * pi:100j]
 x = r * sin(phi) * cos(theta)
 y = r * sin(phi) * sin(theta)
 z = r * cos(phi)
+
+
+def uniform_loss(embeddings, t=2):
+    distance_map = embeddings.mm(embeddings.T)
+    exp_dis = torch.exp(distance_map * 2 * t - 2 * t)
+    mask = 1 - torch.eye(embeddings.shape[0]).to(embeddings.device)
+    return ((exp_dis * mask).mean()/2).log()
 
 
 def projection(tensor):
@@ -168,4 +175,5 @@ with tqdm(range(10000)) as indicator:
                 plt.show(block=False)
                 plt.pause(0.001)
 
-            print(samples.norm(dim=1).mean().item(), samples.norm(dim=1).std().item())
+        # print(samples.norm(dim=1).mean().item(), samples.norm(dim=1).std().item())
+            print(f"{i} iteration with uniform loss:{uniform_loss(projected_vectors,2)}")

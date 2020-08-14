@@ -9,16 +9,6 @@ Optim:
   lr: 0.00002
   weight_decay: 0.00001
 
-LocalCluster:
-  feature_names: ["Up_conv4", "Up_conv3"]
-  head_types: linear
-  num_subheads: 10
-  num_clusters: 10
-
-IIDSeg:
-  padding: 1
-  patch_size: 64
-
 Scheduler:
   multiplier: 400
   warmup_max: 10
@@ -40,11 +30,30 @@ UnlabeledData:
   num_workers: 4
 
 Trainer:
+  feature_names: ["Up_conv4", "Up_conv3"]
   name: partial
   save_dir: tmp
   device: cuda
   num_batches: 500
   max_epoch: 100
+
+UDARegCriterion:
+  name: mse # kl
+  weight: 0.1
+
+IICRegParameters:
+  IICSegcriterion:
+    lamda: 1.0
+    padding: 7
+    patch_size: 64
+  LocalCluster:
+    head_types: linear
+    num_subheads: 10
+    num_clusters: 10
+  weight: 0.1
+
+
+
 
 
 

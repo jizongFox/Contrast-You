@@ -1,5 +1,4 @@
 import os
-from itertools import chain
 
 from deepclustering2.loss import KL_div
 from scipy.sparse import issparse  # noqa
@@ -18,9 +17,6 @@ from deepclustering2.utils import gethash
 from torch.utils.data import DataLoader
 from deepclustering2.utils import set_benchmark
 from semi_seg.trainer import trainer_zoos
-from semi_seg._utils import LocalClusterWrappaer
-from deepclustering2 import optim
-from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
 
 # load configure from yaml and argparser
 cmanager = ConfigManger(Path(PROJECT_PATH) / "config/semi.yaml")
@@ -35,7 +31,7 @@ acdc_manager = ACDCSemiInterface(root_dir=DATA_PATH, labeled_data_ratio=config["
 transform = transform_dict[config.get("Augment", "simple")]
 label_set, unlabel_set, val_set = acdc_manager._create_semi_supervised_datasets(  # noqa
     labeled_transform=transform.label,
-    unlabeled_transform=transform.pretrain,
+    unlabeled_transform=transform.label,
     val_transform=transform.val
 )
 
@@ -72,36 +68,15 @@ trainer_name = config["Trainer"].pop("name")
 Trainer = trainer_zoos[trainer_name]
 
 model = UNet(**config["Arch"])
-optimizer = optim.__dict__[config["Optim"]["name"]](
-    params=model.parameters(),
-    **{k: v for k, v in config["Optim"].items() if k != "name"}
-)
-if "iic" in trainer_name:
-    projectors_wrapper = LocalClusterWrappaer(**config["LocalCluster"])
 
-    optimizer = optim.__dict__[config["Optim"]["name"]](
-        params=chain(model.parameters(), projectors_wrapper.parameters()),
-        **{k: v for k, v in config["Optim"].items() if k != "name"}
-    )
-    IIDSegCriterion = IIDSegmentationSmallPathLoss(**config["IIDSeg"])
-    Trainer.set_feature_positions(config["LocalCluster"]["feature_names"])
-    trainer = Trainer(model=model, optimizer=optimizer, labeled_loader=iter(labeled_loader),
-                      unlabeled_loader=iter(unlabeled_loader),
-                      val_loader=val_loader,
-                      sup_criterion=KL_div(),
-                      configuration={**cmanager.config, **{"GITHASH": cur_githash}},
-                      projector_wrappers=projectors_wrapper,
-                      IIDSegCriterion=IIDSegCriterion,
-                      **config["Trainer"], )
-else:
-    trainer = Trainer(model=model, optimizer=optimizer, labeled_loader=iter(labeled_loader),
-                      unlabeled_loader=iter(unlabeled_loader),
-                      val_loader=val_loader,
-                      sup_criterion=KL_div(),
-                      configuration={**cmanager.config, **{"GITHASH": cur_githash}},
-                      **config["Trainer"], )
+trainer = Trainer(
+    model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
+    val_loader=val_loader, sup_criterion=KL_div(),
+    configuration={**cmanager.config, **{"GITHASH": cur_githash}},
+    **config["Trainer"]
+)
+trainer.init()
 checkpoint = config.get("Checkpoint", None)
 if checkpoint is not None:
     trainer.load_state_dict_from_path(os.path.join(checkpoint, "last.pth"))
 trainer.start_training()
-

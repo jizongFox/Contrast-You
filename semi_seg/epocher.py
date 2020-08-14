@@ -1,6 +1,9 @@
+import random
 from typing import Union, Tuple
 
 import torch
+from deepclustering2.augment.tensor_augment import TensorRandomFlip
+from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.epoch import _Epocher
 from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, UniversalDice
 from deepclustering2.meters2 import MeterInterface
@@ -13,7 +16,6 @@ from torch import Tensor
 from torch import nn
 from torch.utils.data import DataLoader
 
-from contrastyou.augment import AffineTensorTransform
 from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
 from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
 from contrastyou.helper import average_iter
@@ -74,8 +76,7 @@ class TrainEpocher(_Epocher):
         self._sup_criterion = sup_criterion
         self._num_batches = num_batches
         self._reg_weight = reg_weight
-        self._affine_transformer = AffineTensorTransform()
-        self._affine_transformer_nearest = AffineTensorTransform(mode="nearest")
+        self._affine_transformer = TensorRandomFlip(axis=[1, 2], threshold=0.5)
         self._feature_position = feature_position
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
@@ -95,10 +96,14 @@ class TrainEpocher(_Epocher):
         with FeatureExtractor(self._model, self._feature_position) as self._fextractor:
             with tqdm(range(self._num_batches)).set_desc_from_epocher(self) as indicator:
                 for i, labeled_data, unlabeled_data in zip(indicator, self._labeled_loader, self._unlabeled_loader):
-                    labeled_image, labeled_target, labeled_filename, _, label_group = self._unzip_data(labeled_data,
-                                                                                                       self._device)
+                    seed = random.randint(0, int(1e7))
+                    labeled_image, labeled_target, labeled_filename, _, label_group = \
+                        self._unzip_data(labeled_data, self._device)
                     unlabeled_image, *_ = self._unzip_data(unlabeled_data, self._device)
-                    unlabeled_image_tf, AffineMatrix = self._affine_transformer(unlabeled_image, independent=True)
+                    with FixRandomSeed(seed):
+                        unlabeled_image_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_image], dim=0)
+                    assert unlabeled_image_tf.shape == unlabeled_image.shape, \
+                        (unlabeled_image_tf.shape, unlabeled_image.shape)
 
                     predict_logits = self._model(torch.cat([labeled_image, unlabeled_image, unlabeled_image_tf], dim=0))
                     label_logits, unlabel_logits, unlabel_tf_logits = \
@@ -107,7 +112,10 @@ class TrainEpocher(_Epocher):
                             [len(labeled_image), len(unlabeled_image), len(unlabeled_image_tf)],
                             dim=0
                         )
-                    unlabel_logits_tf, _ = self._affine_transformer(unlabel_logits, AffineMatrix)
+                    with FixRandomSeed(seed):
+                        unlabel_logits_tf = torch.stack([self._affine_transformer(x) for x in unlabel_tf_logits], dim=0)
+                    assert unlabel_logits_tf.shape == unlabel_tf_logits.shape, \
+                        (unlabel_logits_tf.shape, unlabel_tf_logits.shape)
                     # supervised part
                     onehot_target = class2one_hot(labeled_target.squeeze(1), 4)
                     sup_loss = self._sup_criterion(label_logits.softmax(1), onehot_target)
@@ -115,7 +123,7 @@ class TrainEpocher(_Epocher):
                     reg_loss = self.regularization(
                         unlabeled_tf_logits=unlabel_tf_logits,
                         unlabeled_logits_tf=unlabel_logits_tf,
-                        affine_matrix=AffineMatrix
+                        seed=seed
                     )
                     total_loss = sup_loss + self._reg_weight * reg_loss
                     # gradient backpropagation
@@ -160,7 +168,7 @@ class UDATrainEpocher(TrainEpocher):
         self,
         unlabeled_tf_logits: Tensor,
         unlabeled_logits_tf: Tensor,
-        affine_matrix, *args, **kwargs
+        seed, *args, **kwargs
     ):
         reg_loss = self._reg_criterion(
             unlabeled_tf_logits.softmax(1).detach(),
@@ -187,7 +195,7 @@ class IICTrainEpocher(TrainEpocher):
         self._IIDSegCriterion = IIDSegCriterion
         assert feature_position == self._projectors_wrapper._feature_names  # noqa
 
-    def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, affine_matrix, *args, **kwargs):
+    def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, *args, **kwargs):
         # todo: adding projectors here.
         feature_names = self._fextractor._feature_names  # noqa
         unlabeled_length = len(unlabeled_tf_logits) * 2
@@ -196,7 +204,10 @@ class IICTrainEpocher(TrainEpocher):
         for i, (inter_feature, projector) in enumerate(zip(self._fextractor, self._projectors_wrapper)):
             unlabeled_features = inter_feature[len(inter_feature) - unlabeled_length:]
             unlabeled_features, unlabeled_tf_features = torch.chunk(unlabeled_features, 2, dim=0)
-            unlabeled_features_tf, _ = self._affine_transformer(unlabeled_features, affine_matrix)
+            with FixRandomSeed(seed):
+                unlabeled_features_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_features], dim=0)
+            assert unlabeled_tf_features.shape == unlabeled_tf_features.shape, \
+                (unlabeled_tf_features.shape, unlabeled_tf_features.shape)
             prob1, prob2 = list(
                 zip(*[torch.chunk(x, 2, 0) for x in projector(
                     torch.cat([unlabeled_features_tf, unlabeled_tf_features], dim=0)
@@ -232,19 +243,19 @@ class UDAIICEpocher(IICTrainEpocher):
         meters.register_meter("uda_weight", AverageValueMeter())
         return meters
 
-    def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, affine_matrix, *args, **kwargs):
+    def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, *args, **kwargs):
         self.meters["iic_weight"].add(self._iic_weight)
         self.meters["uda_weight"].add(self._cons_weight)
         iic_loss = IICTrainEpocher.regularization(
             self,
             unlabeled_tf_logits=unlabeled_tf_logits,
             unlabeled_logits_tf=unlabeled_logits_tf,
-            affine_matrix=affine_matrix
+            seed=seed
         )
         cons_loss = UDATrainEpocher.regularization(
             self,
             unlabeled_tf_logits=unlabeled_tf_logits,
             unlabeled_logits_tf=unlabeled_logits_tf,
-            affine_matrix=affine_matrix
+            seed=seed,
         )
         return self._cons_weight * cons_loss + self._iic_weight * iic_loss
