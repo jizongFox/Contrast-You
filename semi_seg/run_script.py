@@ -34,14 +34,17 @@ jobs = [
     f" python main.py {common_opts} Trainer.name=FS Trainer.save_name={save_dir}/fs "
     f" Data.labeled_data_ratio=1 Data.unlabeled_data_ratio=0",
 
-    f" python main.py {common_opts} Trainer.name=uda Trainer.save_name={save_dir}/uda/mse/0.1 "
-    f" UDARegCriterion.name=mse UDARegCriterion.weight=0.1  ",
-
     f" python main.py {common_opts} Trainer.name=uda Trainer.save_name={save_dir}/uda/mse/1 "
     f" UDARegCriterion.name=mse UDARegCriterion.weight=1  ",
 
     f" python main.py {common_opts} Trainer.name=uda Trainer.save_name={save_dir}/uda/mse/5 "
     f" UDARegCriterion.name=mse UDARegCriterion.weight=5  ",
+
+    f" python main.py {common_opts} Trainer.name=uda Trainer.save_name={save_dir}/uda/mse/10 "
+    f" UDARegCriterion.name=mse UDARegCriterion.weight=10  ",
+
+    f" python main.py {common_opts} Trainer.name=uda Trainer.save_name={save_dir}/uda/mse/15 "
+    f" UDARegCriterion.name=mse UDARegCriterion.weight=15  ",
 
     f" python main.py {common_opts} Trainer.name=iic Trainer.save_name={save_dir}/uda/iic/0.001 "
     f" IICRegParameters.LocalCluster.num_subheads=8  IICRegParameters.LocalCluster.num_clusters=10 "

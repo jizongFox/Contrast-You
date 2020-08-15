@@ -1,15 +1,17 @@
 import os
 
-from deepclustering2.loss import KL_div
 from scipy.sparse import issparse  # noqa
+
+from deepclustering2.loss import KL_div
 
 _ = issparse  # noqa
 from pathlib import Path
 from contrastyou import DATA_PATH, PROJECT_PATH
 from contrastyou.arch import UNet
-from contrastyou.augment import transform_dict
+
 from contrastyou.dataloader._seg_datset import ContrastBatchSampler  # noqa
 from contrastyou.dataloader.acdc_dataset import ACDCSemiInterface
+from contrastyou.augment import transform_dict
 from deepclustering2.configparser import ConfigManger
 from deepclustering2.dataloader.sampler import InfiniteRandomSampler
 from deepclustering2.dataset import PatientSampler

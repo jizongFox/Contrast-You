@@ -173,8 +173,8 @@ class UDATrainEpocher(TrainEpocher):
         seed, *args, **kwargs
     ):
         reg_loss = self._reg_criterion(
-            unlabeled_tf_logits.softmax(1).detach(),
-            unlabeled_logits_tf.softmax(1)
+            unlabeled_tf_logits.softmax(1),
+            unlabeled_logits_tf.softmax(1).detach()
         )
         self.meters["uda"].add(reg_loss.item())
         return reg_loss
