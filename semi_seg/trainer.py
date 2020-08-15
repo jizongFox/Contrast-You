@@ -41,6 +41,11 @@ class SemiTrainer(Trainer):
 
     def _init(self):
         self.set_feature_positions(self._config["Trainer"]["feature_names"])
+        feature_importance = self._config["Trainer"]["feature_importance"]
+        assert isinstance(feature_importance, list), type(feature_importance)
+        feature_importance = [float(x) for x in feature_importance]
+        self._feature_importance = [x / sum(feature_importance) for x in feature_importance]
+        assert len(self._feature_importance) == len(self.feature_positions) + 1
 
     def _init_scheduler(self, optimizer):
         scheduler_dict = self._config.get("Scheduler", None)
@@ -65,9 +70,11 @@ class SemiTrainer(Trainer):
         )
 
     def _run_epoch(self, *args, **kwargs) -> EpochResultDict:
-        trainer = TrainEpocher(self._model, self._optimizer, self._labeled_loader, self._unlabeled_loader,
-                               self._sup_criterion, 0, self._num_batches, self._cur_epoch, self._device,
-                               feature_position=self.feature_positions)
+        trainer = TrainEpocher(
+            self._model, self._optimizer, self._labeled_loader, self._unlabeled_loader,
+            self._sup_criterion, 0, self._num_batches, self._cur_epoch, self._device,
+            feature_position=self.feature_positions, feature_importance=self._feature_importance
+        )
         result = trainer.run()
         return result
 
@@ -86,7 +93,8 @@ class SemiTrainer(Trainer):
             with torch.no_grad():
                 eval_result, cur_score = self.eval_epoch()
             # update lr_scheduler
-            self._scheduler.step()
+            if hasattr(self, "_scheduler"):
+                self._scheduler.step()
             storage_per_epoch = StorageIncomeDict(tra=train_result, val=eval_result)
             self._storage.put_from_dict(storage_per_epoch, self._cur_epoch)
             for k, v in storage_per_epoch.__dict__.items():
@@ -111,25 +119,14 @@ class UDATrainer(SemiTrainer):
 
     def _run_epoch(self, *args, **kwargs) -> EpochResultDict:
         trainer = UDATrainEpocher(self._model, self._optimizer, self._labeled_loader, self._unlabeled_loader,
-                                  self._sup_criterion, reg_criterion=self._reg_criterion, reg_weight=self._reg_weight,
-                                  num_batches=self._num_batches, cur_epoch=self._cur_epoch, device=self._device,
-                                  feature_position=self.feature_positions)
+                                  self._sup_criterion, reg_weight=self._reg_weight, num_batches=self._num_batches,
+                                  cur_epoch=self._cur_epoch, device=self._device, reg_criterion=self._reg_criterion,
+                                  feature_position=self.feature_positions, feature_importance=self._feature_importance)
         result = trainer.run()
         return result
 
 
 class IICTrainer(SemiTrainer):
-
-    def _run_epoch(self, *args, **kwargs) -> EpochResultDict:
-        trainer = IICTrainEpocher(self._model, self._projector_wrappers, self._optimizer, self._labeled_loader,
-                                  self._unlabeled_loader,
-                                  self._sup_criterion, IIDSegCriterion=self._IIDSegCriterion,
-                                  reg_weight=self._reg_weight,
-                                  num_batches=self._num_batches, cur_epoch=self._cur_epoch, device=self._device,
-                                  feature_position=self.feature_positions)
-        result = trainer.run()
-        return result
-
     def _init(self):
         super(IICTrainer, self)._init()
         config = deepcopy(self._config["IICRegParameters"])
@@ -137,6 +134,17 @@ class IICTrainer(SemiTrainer):
                                                         **config["LocalCluster"])
         self._IIDSegCriterion = IIDSegmentationSmallPathLoss(**config["IICSegcriterion"])
         self._reg_weight = float(config["weight"])
+
+    def _run_epoch(self, *args, **kwargs) -> EpochResultDict:
+        trainer = IICTrainEpocher(
+            self._model, self._projector_wrappers, self._optimizer, self._labeled_loader,
+            self._unlabeled_loader, self._sup_criterion, num_batches=self._num_batches,
+            cur_epoch=self._cur_epoch, device=self._device, reg_weight=self._reg_weight,
+            feature_position=self.feature_positions, feature_importance=self._feature_importance,
+            IIDSegCriterion=self._IIDSegCriterion
+        )
+        result = trainer.run()
+        return result
 
     def _init_optimizer(self):
         config = deepcopy(self._config["Optim"])
@@ -157,12 +165,13 @@ class UDAIICTrainer(IICTrainer):
         self._uda_weight = float(UDA_config["weight"])
 
     def _run_epoch(self, *args, **kwargs) -> EpochResultDict:
-        trainer = UDAIICEpocher(self._model, self._projector_wrappers, self._optimizer, self._labeled_loader,
-                                self._unlabeled_loader, self._sup_criterion, IIDSegCriterion=self._IIDSegCriterion,
-                                reg_weight=self._reg_weight, reg_criterion=self._reg_criterion,
-                                num_batches=self._num_batches, cur_epoch=self._cur_epoch, device=self._device,
-                                feature_position=self.feature_positions, cons_weight=self._uda_weight,
-                                iic_weight=self._iic_weight)
+        trainer = UDAIICEpocher(
+            self._model, self._projector_wrappers, self._optimizer, self._labeled_loader,
+            self._unlabeled_loader, self._sup_criterion, self._reg_criterion, self._IIDSegCriterion,
+            num_batches=self._num_batches, cur_epoch=self._cur_epoch, device=self._device,
+            feature_position=self.feature_positions, cons_weight=self._uda_weight,
+            iic_weight=self._iic_weight, feature_importance=self._feature_importance
+        )
         result = trainer.run()
         return result
 

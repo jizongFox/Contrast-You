@@ -18,7 +18,7 @@ from torch.utils.data import DataLoader
 
 from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
 from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
-from contrastyou.helper import average_iter
+from contrastyou.helper import average_iter, weighted_average_iter
 from semi_seg._utils import FeatureExtractor, LocalClusterWrappaer
 
 
@@ -68,7 +68,7 @@ class TrainEpocher(_Epocher):
 
     def __init__(self, model: Union[Model, nn.Module], optimizer: T_optim, labeled_loader: T_loader,
                  unlabeled_loader: T_loader, sup_criterion: T_loss, reg_weight: float, num_batches: int, cur_epoch=0,
-                 device="cpu", feature_position=["Conv5", "Up_conv3"]) -> None:
+                 device="cpu", feature_position=["Conv5", "Up_conv3"], feature_importance=None) -> None:
         super().__init__(model, cur_epoch, device)
         self._optimizer = optimizer
         self._labeled_loader = labeled_loader
@@ -76,8 +76,9 @@ class TrainEpocher(_Epocher):
         self._sup_criterion = sup_criterion
         self._num_batches = num_batches
         self._reg_weight = reg_weight
-        self._affine_transformer = TensorRandomFlip(axis=[1, 2], threshold=0.5)
+        self._affine_transformer = TensorRandomFlip(axis=[1, 2], threshold=0.8)
         self._feature_position = feature_position
+        self._feature_importance = feature_importance
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         C = 4
@@ -113,7 +114,7 @@ class TrainEpocher(_Epocher):
                             dim=0
                         )
                     with FixRandomSeed(seed):
-                        unlabel_logits_tf = torch.stack([self._affine_transformer(x) for x in unlabel_tf_logits], dim=0)
+                        unlabel_logits_tf = torch.stack([self._affine_transformer(x) for x in unlabel_logits], dim=0)
                     assert unlabel_logits_tf.shape == unlabel_tf_logits.shape, \
                         (unlabel_logits_tf.shape, unlabel_tf_logits.shape)
                     # supervised part
@@ -154,9 +155,10 @@ class UDATrainEpocher(TrainEpocher):
 
     def __init__(self, model: Union[Model, nn.Module], optimizer: T_optim, labeled_loader: T_loader,
                  unlabeled_loader: T_loader, sup_criterion: T_loss, reg_criterion: T_loss, reg_weight: float,
-                 num_batches: int, cur_epoch: int = 0, device="cpu", feature_position=["Conv5", "Up_conv3"]) -> None:
+                 num_batches: int, cur_epoch: int = 0, device="cpu", feature_position=["Conv5", "Up_conv3"],
+                 feature_importance=None) -> None:
         super().__init__(model, optimizer, labeled_loader, unlabeled_loader, sup_criterion, reg_weight, num_batches,
-                         cur_epoch, device, feature_position)
+                         cur_epoch, device, feature_position, feature_importance)
         self._reg_criterion = reg_criterion
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
@@ -188,9 +190,9 @@ class IICTrainEpocher(TrainEpocher):
     def __init__(self, model: Union[Model, nn.Module], projectors_wrapper: LocalClusterWrappaer, optimizer: T_optim,
                  labeled_loader: T_loader, unlabeled_loader: T_loader, sup_criterion: T_loss, IIDSegCriterion: T_loss,
                  reg_weight: float, num_batches: int, cur_epoch: int = 0, device="cpu",
-                 feature_position=["Up_conv3", "Up_conv2"]) -> None:
+                 feature_position=["Up_conv3", "Up_conv2"], feature_importance=None) -> None:
         super().__init__(model, optimizer, labeled_loader, unlabeled_loader, sup_criterion, reg_weight, num_batches,
-                         cur_epoch, device, feature_position)
+                         cur_epoch, device, feature_position, feature_importance)
         self._projectors_wrapper = projectors_wrapper
         self._IIDSegCriterion = IIDSegCriterion
         assert feature_position == self._projectors_wrapper._feature_names  # noqa
@@ -218,7 +220,8 @@ class IICTrainEpocher(TrainEpocher):
             iic_losses_for_features.append(iic_loss)
 
         iic_loss_on_segment = self._IIDSegCriterion(unlabeled_logits_tf.softmax(1), unlabeled_tf_logits.softmax(1))
-        reg_loss = average_iter([average_iter(iic_losses_for_features), iic_loss_on_segment])
+        iic_losses_for_features.append(iic_loss_on_segment)
+        reg_loss = weighted_average_iter(iic_losses_for_features, self._feature_importance)
         self.meters["mi"].add(-reg_loss.item())
 
         return reg_loss
@@ -228,13 +231,15 @@ class UDAIICEpocher(IICTrainEpocher):
 
     def __init__(self, model: Union[Model, nn.Module], projectors_wrapper: LocalClusterWrappaer, optimizer: T_optim,
                  labeled_loader: T_loader, unlabeled_loader: T_loader, sup_criterion: T_loss, reg_criterion: T_loss,
-                 IIDSegCriterion: T_loss, reg_weight: float, num_batches: int, cur_epoch: int = 0,
-                 device="cpu", feature_position=["Up_conv3", "Up_conv2"], cons_weight=1, iic_weight=0.1) -> None:
+                 IIDSegCriterion: T_loss, num_batches: int, cur_epoch: int = 0, device="cpu",
+                 feature_position=["Up_conv3", "Up_conv2"], feature_importance=None, cons_weight=1,
+                 iic_weight=0.1) -> None:
         super().__init__(model, projectors_wrapper, optimizer, labeled_loader, unlabeled_loader, sup_criterion,
-                         IIDSegCriterion, reg_weight, num_batches, cur_epoch, device, feature_position)
+                         IIDSegCriterion, 1.0, num_batches, cur_epoch, device, feature_position,
+                         feature_importance)
         self._cons_weight = cons_weight
         self._iic_weight = iic_weight
-        self._reg_criterion = nn.MSELoss()
+        self._reg_criterion = reg_criterion
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super()._configure_meters(meters)

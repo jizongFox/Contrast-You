@@ -24,7 +24,7 @@ config = cmanager.config
 cur_githash = gethash(__file__)
 
 # set reproducibility
-set_benchmark(1)
+set_benchmark(config.get("RandomSeed", 1))
 
 acdc_manager = ACDCSemiInterface(root_dir=DATA_PATH, labeled_data_ratio=config["Data"]["labeled_data_ratio"],
                                  unlabeled_data_ratio=config["Data"]["unlabeled_data_ratio"])

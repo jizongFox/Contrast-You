@@ -33,13 +33,16 @@ class TestPartialEpocher(TestCase):
         self.net = UNet(input_dim=1, num_classes=4)
         self.optimizer = torch.optim.Adam(self.net.parameters())
         self._num_batches = 10
+        self._feature_position = ["Up_conv3", "Up_conv2"]
+        self._feature_importance = [1, 1, 1]
+
         set_benchmark(1)
 
     def test_partial_epocher(self):
         partial_trainer = TrainEpocher(self.net, self.optimizer, self.labeled_loader, self.unlabeled_loader,
                                        sup_criterion=KL_div(), reg_weight=0.0, num_batches=self._num_batches,
-                                       cur_epoch=0,
-                                       device="cuda")
+                                       cur_epoch=0, device="cuda", feature_position=self._feature_position,
+                                       feature_importance=self._feature_importance)
         train_result = partial_trainer.run()
         print(train_result)
 
@@ -52,33 +55,35 @@ class TestPartialEpocher(TestCase):
     def test_uda_epocher(self):
         uda_trainer = UDATrainEpocher(self.net, self.optimizer, self.labeled_loader, self.unlabeled_loader,
                                       sup_criterion=KL_div(), reg_criterion=nn.MSELoss(), reg_weight=0.1,
-                                      num_batches=self._num_batches, cur_epoch=0,
-                                      device="cuda")
+                                      num_batches=self._num_batches, cur_epoch=0, device="cuda",
+                                      feature_position=self._feature_position,
+                                      feature_importance=self._feature_importance)
         uda_result = uda_trainer.run()
         print(uda_result)
 
     def test_iic_epocher(self):
         iic_segment_criterion = IIDSegmentationSmallPathLoss(padding=1, patch_size=64)
-        feature_position = ["Up_conv3", "Up_conv2"]
-        projectors_wrapper = LocalClusterWrappaer(feature_position, num_subheads=3, num_clusters=20).to("cuda")
-        iic_epocher = IICTrainEpocher(self.net, projectors_wrapper=projectors_wrapper, optimizer=self.optimizer,
-                                      labeled_loader=self.labeled_loader,
-                                      unlabeled_loader=self.unlabeled_loader, sup_criterion=KL_div(),
-                                      IIDSegCriterion=iic_segment_criterion, reg_weight=0.1,
+        projectors_wrapper = LocalClusterWrappaer(self._feature_position, num_subheads=3, num_clusters=20).to("cuda")
+        iic_epocher = IICTrainEpocher(self.net, optimizer=self.optimizer, labeled_loader=self.labeled_loader,
+                                      unlabeled_loader=self.unlabeled_loader, sup_criterion=KL_div(), reg_weight=0.1,
                                       num_batches=self._num_batches, cur_epoch=0, device="cuda",
-                                      feature_position=feature_position)
+                                      feature_position=self._feature_position,
+                                      feature_importance=self._feature_importance,
+                                      IIDSegCriterion=iic_segment_criterion, projectors_wrapper=projectors_wrapper)
         result_dict = iic_epocher.run()
         print(result_dict)
 
     def test_udaiic_epocher(self):
         iic_segment_criterion = IIDSegmentationSmallPathLoss(padding=1, patch_size=64)
-        feature_position = ["Up_conv3", "Up_conv2"]
-        projectors_wrapper = LocalClusterWrappaer(feature_position, num_subheads=10, num_clusters=10).to("cuda")
-        udaiic_epocher = UDAIICEpocher(self.net, projectors_wrapper=projectors_wrapper, optimizer=self.optimizer,
-                                       labeled_loader=self.labeled_loader,
-                                       unlabeled_loader=self.unlabeled_loader, sup_criterion=KL_div(),
-                                       reg_criterion=nn.MSELoss(), IIDSegCriterion=iic_segment_criterion,
-                                       reg_weight=1, num_batches=self._num_batches, cur_epoch=0, device="cuda",
-                                       feature_position=feature_position, cons_weight=1, iic_weight=0.1)
+        projectors_wrapper = LocalClusterWrappaer(self._feature_position, num_subheads=10, num_clusters=10).to("cuda")
+        udaiic_epocher = UDAIICEpocher(
+            self.net, optimizer=self.optimizer, labeled_loader=self.labeled_loader,
+            unlabeled_loader=self.unlabeled_loader, sup_criterion=KL_div(), iic_weight=0.1,
+            cons_weight=0.2,
+            num_batches=self._num_batches, cur_epoch=0, device="cuda",
+            feature_position=self._feature_position,
+            feature_importance=self._feature_importance,
+            reg_criterion=nn.MSELoss(),
+            IIDSegCriterion=iic_segment_criterion, projectors_wrapper=projectors_wrapper)
         result_dict = udaiic_epocher.run()
         print(result_dict)

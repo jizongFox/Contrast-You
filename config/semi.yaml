@@ -26,11 +26,12 @@ LabeledData:
 
 UnlabeledData:
   shuffle: true
-  batch_size: 4
+  batch_size: 8
   num_workers: 4
 
 Trainer:
   feature_names: ["Up_conv4", "Up_conv3"]
+  feature_importance: [0.3, 0.6, 0.1]
   name: partial
   save_dir: tmp
   device: cuda
@@ -43,14 +44,13 @@ UDARegCriterion:
 
 IICRegParameters:
   IICSegcriterion:
-    lamda: 1.0
-    padding: 7
-    patch_size: 64
+    padding: 1
+    patch_size: 1024
   LocalCluster:
     head_types: linear
-    num_subheads: 10
+    num_subheads: 5
     num_clusters: 10
-  weight: 0.1
+  weight: 0.01
 
 
 

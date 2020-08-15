@@ -42,5 +42,15 @@ def nice_dict(input_dict: Dict[str, Union[int, float]]) -> str:
     string_list = [f"{k}:{v:.3f}" for k, v in flat_dict.items()]
     return ", ".join(string_list)
 
+
 def average_iter(a_list):
     return sum(a_list) / float(len(a_list))
+
+
+def multiply_iter(iter_a, iter_b):
+    return [x * y for x, y in zip(iter_a, iter_b)]
+
+
+def weighted_average_iter(a_list, weight_list):
+    sum_weight = sum(weight_list)+1e-16
+    return sum(multiply_iter(a_list, weight_list)) / sum_weight
