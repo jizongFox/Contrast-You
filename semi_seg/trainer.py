@@ -13,8 +13,7 @@ from deepclustering2.trainer.trainer import T_loader, T_loss
 from torch import nn
 
 from contrastyou import PROJECT_PATH
-from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
-from semi_seg._utils import LocalClusterWrappaer
+from semi_seg._utils import IICLossWrapper, ProjectorWrapper
 from semi_seg.epocher import TrainEpocher, EvalEpocher, UDATrainEpocher, IICTrainEpocher, UDAIICEpocher
 
 __all__ = ["trainer_zoos"]
@@ -45,7 +44,7 @@ class SemiTrainer(Trainer):
         assert isinstance(feature_importance, list), type(feature_importance)
         feature_importance = [float(x) for x in feature_importance]
         self._feature_importance = [x / sum(feature_importance) for x in feature_importance]
-        assert len(self._feature_importance) == len(self.feature_positions) + 1
+        assert len(self._feature_importance) == len(self.feature_positions)
 
     def _init_scheduler(self, optimizer):
         scheduler_dict = self._config.get("Scheduler", None)
@@ -130,9 +129,19 @@ class IICTrainer(SemiTrainer):
     def _init(self):
         super(IICTrainer, self)._init()
         config = deepcopy(self._config["IICRegParameters"])
-        self._projector_wrappers = LocalClusterWrappaer(feature_names=self.feature_positions,
-                                                        **config["LocalCluster"])
-        self._IIDSegCriterion = IIDSegmentationSmallPathLoss(**config["IICSegcriterion"])
+        self._projector_wrappers = ProjectorWrapper()
+        self._projector_wrappers.init_encoder(
+            feature_names=self.feature_positions,
+            **config["EncoderParams"]
+        )
+        self._projector_wrappers.init_decoder(
+            feature_names=self.feature_positions,
+            **config["DecoderParams"]
+        )
+        self._IIDSegWrapper = IICLossWrapper(
+            feature_names=self.feature_positions,
+            **config["LossParams"]
+        )
         self._reg_weight = float(config["weight"])
 
     def _run_epoch(self, *args, **kwargs) -> EpochResultDict:
@@ -141,7 +150,7 @@ class IICTrainer(SemiTrainer):
             self._unlabeled_loader, self._sup_criterion, num_batches=self._num_batches,
             cur_epoch=self._cur_epoch, device=self._device, reg_weight=self._reg_weight,
             feature_position=self.feature_positions, feature_importance=self._feature_importance,
-            IIDSegCriterion=self._IIDSegCriterion
+            IIDSegCriterionWrapper=self._IIDSegWrapper
         )
         result = trainer.run()
         return result
@@ -167,7 +176,7 @@ class UDAIICTrainer(IICTrainer):
     def _run_epoch(self, *args, **kwargs) -> EpochResultDict:
         trainer = UDAIICEpocher(
             self._model, self._projector_wrappers, self._optimizer, self._labeled_loader,
-            self._unlabeled_loader, self._sup_criterion, self._reg_criterion, self._IIDSegCriterion,
+            self._unlabeled_loader, self._sup_criterion, self._reg_criterion, self._IIDSegWrapper,
             num_batches=self._num_batches, cur_epoch=self._cur_epoch, device=self._device,
             feature_position=self.feature_positions, cons_weight=self._uda_weight,
             iic_weight=self._iic_weight, feature_importance=self._feature_importance
