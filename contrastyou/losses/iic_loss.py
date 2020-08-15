@@ -94,10 +94,11 @@ def compute_joint(x_out: Tensor, x_tf_out: Tensor, symmetric=True) -> Tensor:
     return p_i_j
 
 
-class IIDSegmentationLoss:
+class IIDSegmentationLoss(nn.Module):
     def __init__(
         self, lamda=1.0, padding=7, eps: float = sys.float_info.epsilon
     ) -> None:
+        super(IIDSegmentationLoss, self).__init__()
         print(colored(f"Initialize {self.__class__.__name__}.", "green"))
         self.lamda = lamda
         self.padding = padding
