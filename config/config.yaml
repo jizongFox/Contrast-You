@@ -46,7 +46,7 @@ PretrainDecoder:
   weight_decay: 0.0
   multiplier: 300
   warmup_max: 10
-  enable_grad_from: Up5
+  enable_grad_from: Conv1
   extract_position: Up_conv3
   ptype: mlp
 
