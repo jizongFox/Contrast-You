@@ -63,6 +63,9 @@ jobs = [
 
     f" python main.py {common_opts} Trainer.name=iic Trainer.save_dir={save_dir}/iic/0.1 "
     f" IICRegParameters.weight=0.1 ",
+
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/5.0_0.1 "
+    f" IICRegParameters.weight=0.1 UDARegCriterion.weight=5 ",
 ]
 
 # CC things
