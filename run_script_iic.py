@@ -77,6 +77,7 @@ compare_jobs = [
     f"PretrainEncoder.disable_contrastive=True PretrainDecoder.disable_contrastive=True  "
     f"PretrainEncoder.ctype=linear ",
     # iic encoder + decoder
+
     f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyIIC_encoder_decoder/linear_linear/padding_1_64   "
     f"Trainer.train_encoder=True Trainer.train_decoder=True PretrainEncoder.iic_weight=1 PretrainDecoder.iic_weight=1 "
     f"PretrainEncoder.disable_contrastive=True PretrainDecoder.disable_contrastive=True "
@@ -89,8 +90,7 @@ compare_jobs = [
     f"PretrainEncoder.ctype=linear PretrainDecoder.ctype=linear "
     f"PretrainDecoder.padding=1 PretrainDecoder.patch_size=512 ",
 
-    # mix iic and contrastive
-
+   
     # weight = 0.0
     f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/contrast_iic_0.0/enc "
     f" Trainer.train_encoder=True Trainer.train_decoder=False PretrainEncoder.iic_weight=0.0 "
@@ -233,7 +233,6 @@ compare_jobs = [
     f" PretrainEncoder.ctype=linear PretrainDecoder.ctype=linear "
     f" PretrainDecoder.padding=0 PretrainDecoder.patch_size=1024 ",
 
-
 ]
 
 baseline_jobs = [
@@ -246,7 +245,6 @@ baseline_jobs = [
     f" PretrainEncoder.iic_weight=0.0 PretrainDecoder.iic_weight=0.0 "
     f" PretrainEncoder.disable_contrastive=False PretrainDecoder.disable_contrastive=False "
     f" PretrainEncoder.ptype=mlp ",
-
     f"python -O main_contrast.py {common_opts} Trainer.save_dir={save_dir}/onlyContrast_encoder/linear  "
     f" Trainer.train_encoder=True Trainer.train_decoder=False "
     f" PretrainEncoder.iic_weight=0.0 PretrainDecoder.iic_weight=0.0 "

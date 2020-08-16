@@ -3,8 +3,8 @@ from typing import List, Union
 import numpy as np
 from torch import Tensor
 
-from deepclustering.meters._metric import _Metric
-from deepclustering.utils import (
+from deepclustering2.meters2._metric import _Metric
+from deepclustering2.utils import (
     simplex,
     one_hot,
     class2one_hot,
