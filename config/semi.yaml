@@ -13,8 +13,6 @@ Scheduler:
   multiplier: 400
   warmup_max: 10
 
-Augment: strong
-
 Data:
   labeled_data_ratio: 0.05
   unlabeled_data_ratio: 0.95

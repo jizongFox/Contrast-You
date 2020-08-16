@@ -11,7 +11,6 @@ from contrastyou.arch import UNet
 
 from contrastyou.dataloader._seg_datset import ContrastBatchSampler  # noqa
 from contrastyou.dataloader.acdc_dataset import ACDCSemiInterface
-from contrastyou.augment import transform_dict
 from deepclustering2.configparser import ConfigManger
 from deepclustering2.dataloader.sampler import InfiniteRandomSampler
 from deepclustering2.dataset import PatientSampler
@@ -19,6 +18,7 @@ from deepclustering2.utils import gethash
 from torch.utils.data import DataLoader
 from deepclustering2.utils import set_benchmark
 from semi_seg.trainer import trainer_zoos
+from semi_seg.augment import ACDCStrongTransforms
 
 # load configure from yaml and argparser
 cmanager = ConfigManger(Path(PROJECT_PATH) / "config/semi.yaml")
@@ -30,11 +30,11 @@ set_benchmark(config.get("RandomSeed", 1))
 
 acdc_manager = ACDCSemiInterface(root_dir=DATA_PATH, labeled_data_ratio=config["Data"]["labeled_data_ratio"],
                                  unlabeled_data_ratio=config["Data"]["unlabeled_data_ratio"])
-transform = transform_dict[config.get("Augment", "simple")]
+
 label_set, unlabel_set, val_set = acdc_manager._create_semi_supervised_datasets(  # noqa
-    labeled_transform=transform.label,
-    unlabeled_transform=transform.label,
-    val_transform=transform.val
+    labeled_transform=ACDCStrongTransforms.pretrain,
+    unlabeled_transform=ACDCStrongTransforms.pretrain,
+    val_transform=ACDCStrongTransforms.val
 )
 
 # labeled loader is with normal 2d slicing and InfiniteRandomSampler
@@ -80,5 +80,5 @@ trainer = Trainer(
 trainer.init()
 checkpoint = config.get("Checkpoint", None)
 if checkpoint is not None:
-    trainer.load_state_dict_from_path(os.path.join(checkpoint, "last.pth"))
+    trainer.load_state_dict_from_path(os.path.join(checkpoint, "last.pth"), strict=False)
 trainer.start_training()

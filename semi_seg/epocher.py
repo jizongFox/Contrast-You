@@ -18,7 +18,7 @@ from torch.utils.data import DataLoader
 
 from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
 from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
-from contrastyou.trainer._utils import ClusterHead
+from contrastyou.trainer._utils import ClusterHead  # noqa
 from contrastyou.helper import average_iter, weighted_average_iter
 from semi_seg._utils import FeatureExtractor, ProjectorWrapper, IICLossWrapper
 
@@ -211,7 +211,7 @@ class IICTrainEpocher(TrainEpocher):
         iic_losses_for_features = []
 
         for i, (inter_feature, projector, criterion) \
-                in enumerate(zip(self._fextractor, self._projectors_wrapper, self._IIDSegCriterionWrapper)):
+            in enumerate(zip(self._fextractor, self._projectors_wrapper, self._IIDSegCriterionWrapper)):
 
             unlabeled_features = inter_feature[len(inter_feature) - unlabeled_length:]
             unlabeled_features, unlabeled_tf_features = torch.chunk(unlabeled_features, 2, dim=0)
