@@ -4,14 +4,14 @@ from typing import Union, Tuple
 import torch
 from deepclustering2.augment.tensor_augment import TensorRandomFlip
 from deepclustering2.decorator import FixRandomSeed
-from deepclustering2.epoch import _Epocher
-from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, UniversalDice, MultipleAverageValueMeter
-from deepclustering2.meters2 import MeterInterface
+from deepclustering2.epoch import _Epocher  # noqa
+from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, UniversalDice, MultipleAverageValueMeter, \
+    MeterInterface, SurfaceMeter
 from deepclustering2.models import Model
 from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.tqdm import tqdm
 from deepclustering2.trainer.trainer import T_loader, T_loss, T_optim
-from deepclustering2.utils import class2one_hot
+from deepclustering2.utils import class2one_hot, ExceptionIgnorer
 from torch import Tensor
 from torch import nn
 from torch.utils.data import DataLoader
@@ -38,6 +38,7 @@ class EvalEpocher(_Epocher):
         report_axis = [1, 2, 3]
         meters.register_meter("loss", AverageValueMeter())
         meters.register_meter("dice", UniversalDice(C, report_axises=report_axis, ))
+        meters.register_meter("hd", SurfaceMeter(C=4, report_axises=report_axis, metername="hausdorff"))
         return meters
 
     @torch.no_grad()
@@ -54,7 +55,8 @@ class EvalEpocher(_Epocher):
 
                 self.meters["loss"].add(val_loss.item())
                 self.meters["dice"].add(val_logits.max(1)[1], val_target.squeeze(1), group_name=group)
-
+                with ExceptionIgnorer(RuntimeError):
+                    self.meters["hd"].add(val_logits.max(1)[1], val_target.squeeze(1))
                 report_dict = self.meters.tracking_status()
                 indicator.set_postfix_dict(report_dict)
         return report_dict, self.meters["dice"].summary()["DSC_mean"]
