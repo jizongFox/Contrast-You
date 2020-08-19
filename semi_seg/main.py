@@ -80,5 +80,5 @@ trainer = Trainer(
 trainer.init()
 checkpoint = config.get("Checkpoint", None)
 if checkpoint is not None:
-    trainer.load_state_dict_from_path(os.path.join(checkpoint, "last.pth"), strict=False)
+    trainer.load_state_dict_from_path(checkpoint, strict=False)
 trainer.start_training()

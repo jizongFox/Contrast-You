@@ -383,7 +383,8 @@ class IICMeanTeacherEpocher(IICTrainEpocher):
 
         with torch.no_grad():
             teacher_logits = self._teacher_model(unlabeled_image)
-        teacher_logits_tf = torch.stack([self._affine_transformer(x) for x in teacher_logits], dim=0)
+        with FixRandomSeed(seed):
+            teacher_logits_tf = torch.stack([self._affine_transformer(x) for x in teacher_logits], dim=0)
         assert teacher_logits_tf.shape == teacher_logits.shape, (teacher_logits_tf.shape, teacher_logits.shape)
 
         for i, (student_inter_feature, teacher_unlabled_features, projector, criterion) \
