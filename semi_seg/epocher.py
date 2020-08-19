@@ -194,7 +194,7 @@ class IICTrainEpocher(TrainEpocher):
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super()._configure_meters(meters)
         meters.register_meter("mi", AverageValueMeter())
-        meters.register_meter("indidual_mis", MultipleAverageValueMeter())
+        meters.register_meter("individual_mis", MultipleAverageValueMeter())
         return meters
 
     def __init__(self, model: Union[Model, nn.Module], projectors_wrapper: ProjectorWrapper, optimizer: T_optim,
@@ -239,7 +239,7 @@ class IICTrainEpocher(TrainEpocher):
             iic_losses_for_features.append(_iic_loss)
         reg_loss = weighted_average_iter(iic_losses_for_features, self._feature_importance)
         self.meters["mi"].add(-reg_loss.item())
-        self.meters["indidual_mis"].add(**dict(zip(
+        self.meters["individual_mis"].add(**dict(zip(
             self._feature_position,
             [-x.item() for x in iic_losses_for_features]
         )))
@@ -278,7 +278,7 @@ class UDAIICEpocher(IICTrainEpocher):
             seed=seed
         )
         cons_loss = UDATrainEpocher.regularization(
-            self,
+            self,  # noqa
             unlabeled_tf_logits=unlabeled_tf_logits,
             unlabeled_logits_tf=unlabeled_logits_tf,
             seed=seed,
@@ -332,9 +332,102 @@ class MeanTeacherEpocher(TrainEpocher):
         with FixRandomSeed(seed):
             teacher_unlabeled_logit_tf = torch.stack(
                 [self._affine_transformer(x) for x in teacher_unlabeled_logit],
-                                                     dim=0)
+                dim=0)
         # compare teacher_unlabeled_logit_tf and student unlabeled_tf_logits
         reg_loss = self._reg_criterion(unlabeled_tf_logits.softmax(1), teacher_unlabeled_logit_tf.softmax(1).detach())
         # update teacher model here.
         self._ema_updater(self._teacher_model, self._model)
         return reg_loss
+
+
+class IICMeanTeacherEpocher(IICTrainEpocher):
+    def __init__(self, model: Union[Model, nn.Module], teacher_model: nn.Module, projectors_wrapper: ProjectorWrapper,
+                 optimizer: T_optim, ema_updater: EMA_Updater,
+                 labeled_loader: T_loader, unlabeled_loader: T_loader, sup_criterion: T_loss, reg_criterion: T_loss,
+                 IIDSegCriterionWrapper: IICLossWrapper, num_batches: int, cur_epoch: int = 0,
+                 device="cpu", feature_position=None, feature_importance=None, mt_weight=1,
+                 iic_weight=0.1) -> None:
+        super().__init__(model, projectors_wrapper, optimizer, labeled_loader, unlabeled_loader, sup_criterion,
+                         IIDSegCriterionWrapper, 1.0, num_batches, cur_epoch, device, feature_position,
+                         feature_importance)
+        self._reg_criterion = reg_criterion
+        self._teacher_model = teacher_model
+        self._ema_updater = ema_updater
+        self._teacher_model.train()
+        self._model.train()
+        self._mt_weight = float(mt_weight)
+        self._iic_weight = float(iic_weight)
+        assert self._reg_weight == 1.0, self._reg_weight
+
+    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters = super(IICMeanTeacherEpocher, self)._configure_meters(meters)
+        meters.register_meter("uda", AverageValueMeter())
+        return meters
+
+    def _run(self, *args, **kwargs) -> EpochResultDict:
+        with FeatureExtractor(self._teacher_model, self._feature_position) as self._teacher_fextractor:
+            return super(IICMeanTeacherEpocher, self)._run()
+
+    def regularization(
+        self,
+        unlabeled_tf_logits: Tensor,
+        unlabeled_logits_tf: Tensor,
+        seed: int,
+        unlabeled_image: Tensor = None,
+        unlabeled_image_tf: Tensor = None,
+        *args, **kwargs
+    ):
+        feature_names = self._fextractor._feature_names  # noqa
+        unlabeled_length = len(unlabeled_tf_logits) * 2
+        iic_losses_for_features = []
+
+        with torch.no_grad():
+            teacher_logits = self._teacher_model(unlabeled_image)
+        teacher_logits_tf = torch.stack([self._affine_transformer(x) for x in teacher_logits], dim=0)
+        assert teacher_logits_tf.shape == teacher_logits.shape, (teacher_logits_tf.shape, teacher_logits.shape)
+
+        for i, (student_inter_feature, teacher_unlabled_features, projector, criterion) \
+            in enumerate(zip(
+            self._fextractor, self._teacher_fextractor,
+            self._projectors_wrapper, self._IIDSegCriterionWrapper
+        )):
+
+            _student_unlabeled_features = student_inter_feature[len(student_inter_feature) - unlabeled_length:]
+            student_unlabeled_features, student_unlabeled_tf_features = torch.chunk(_student_unlabeled_features, 2,
+                                                                                    dim=0)
+            assert teacher_unlabled_features.shape == student_unlabeled_tf_features.shape, \
+                (teacher_unlabled_features.shape, student_unlabeled_tf_features.shape)
+
+            if isinstance(projector, ClusterHead):  # features from encoder
+                teacher_unlabeled_features_tf = teacher_unlabled_features
+            else:
+                with FixRandomSeed(seed):
+                    teacher_unlabeled_features_tf = torch.stack(
+                        [self._affine_transformer(x) for x in teacher_unlabled_features],
+                        dim=0)
+            assert teacher_unlabled_features.shape == teacher_unlabeled_features_tf.shape
+            prob1, prob2 = list(
+                zip(*[torch.chunk(x, 2, 0) for x in projector(
+                    torch.cat([teacher_unlabeled_features_tf, student_unlabeled_tf_features], dim=0)
+                )])
+            )
+            _iic_loss_list = [criterion(x, y) for x, y in zip(prob1, prob2)]
+            _iic_loss = average_iter(_iic_loss_list)
+            iic_losses_for_features.append(_iic_loss)
+        reg_loss = weighted_average_iter(iic_losses_for_features, self._feature_importance)
+        self.meters["mi"].add(-reg_loss.item())
+        self.meters["individual_mis"].add(**dict(zip(
+            self._feature_position,
+            [-x.item() for x in iic_losses_for_features]
+        )))
+        uda_loss = UDATrainEpocher.regularization(
+            self,
+            unlabeled_tf_logits,
+            teacher_logits_tf.detach(),
+            seed,
+        )
+
+        # update ema
+        self._ema_updater(self._teacher_model, self._model)
+
+        return self._mt_weight * uda_loss + self._iic_weight * reg_loss

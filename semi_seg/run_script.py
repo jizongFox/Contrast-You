@@ -130,6 +130,46 @@ jobs = [
     f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/15.0_0.05 "
     f" IICRegParameters.weight=0.05 UDARegCriterion.weight=15.0 ",
 
+    # iicmeanteacher
+    f" python main.py {common_opts} Trainer.name=iicmeanteacher Trainer.save_dir={save_dir}/iicmeanteacher/1.0_0.1 "
+    f" IICRegParameters.weight=0.1 MeanTeacherParameters.weight=1.0 ",
+
+    f" python main.py {common_opts} Trainer.name=iicmeanteacher Trainer.save_dir={save_dir}/iicmeanteacher/1.0_0.01 "
+    f" IICRegParameters.weight=0.01 MeanTeacherParameters.weight=1.0 ",
+
+    f" python main.py {common_opts} Trainer.name=iicmeanteacher Trainer.save_dir={save_dir}/iicmeanteacher/1.0_0.05 "
+    f" IICRegParameters.weight=0.05 MeanTeacherParameters.weight=1.0 ",
+
+    # repeat
+    f" python main.py {common_opts} Trainer.name=iicmeanteacher Trainer.save_dir={save_dir}/iicmeanteacher/5.0_0.1 "
+    f" IICRegParameters.weight=0.1 MeanTeacherParameters.weight=5.0 ",
+
+    f" python main.py {common_opts} Trainer.name=iicmeanteacher Trainer.save_dir={save_dir}/iicmeanteacher/5.0_0.01 "
+    f" IICRegParameters.weight=0.01 MeanTeacherParameters.weight=5.0 ",
+
+    f" python main.py {common_opts} Trainer.name=iicmeanteacher Trainer.save_dir={save_dir}/iicmeanteacher/5.0_0.05 "
+    f" IICRegParameters.weight=0.05 MeanTeacherParameters.weight=5.0 ",
+
+    # repeat
+    f" python main.py {common_opts} Trainer.name=iicmeanteacher Trainer.save_dir={save_dir}/iicmeanteacher/10.0_0.1 "
+    f" IICRegParameters.weight=0.1 MeanTeacherParameters.weight=10.0 ",
+
+    f" python main.py {common_opts} Trainer.name=iicmeanteacher Trainer.save_dir={save_dir}/iicmeanteacher/10.0_0.01 "
+    f" IICRegParameters.weight=0.01 MeanTeacherParameters.weight=10.0 ",
+
+    f" python main.py {common_opts} Trainer.name=iicmeanteacher Trainer.save_dir={save_dir}/iicmeanteacher/10.0_0.05 "
+    f" IICRegParameters.weight=0.05 MeanTeacherParameters.weight=10.0 ",
+
+    # repeat
+    f" python main.py {common_opts} Trainer.name=iicmeanteacher Trainer.save_dir={save_dir}/iicmeanteacher/15.0_0.1 "
+    f" IICRegParameters.weight=0.1 MeanTeacherParameters.weight=15.0 ",
+
+    f" python main.py {common_opts} Trainer.name=iicmeanteacher Trainer.save_dir={save_dir}/iicmeanteacher/15.0_0.01 "
+    f" IICRegParameters.weight=0.01 MeanTeacherParameters.weight=15.0 ",
+
+    f" python main.py {common_opts} Trainer.name=iicmeanteacher Trainer.save_dir={save_dir}/iicmeanteacher/15.0_0.05 "
+    f" IICRegParameters.weight=0.05 MeanTeacherParameters.weight=15.0 ",
+
 ]
 
 # CC things
