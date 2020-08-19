@@ -55,10 +55,16 @@ IICRegParameters:
     paddings: 1
     patch_sizes: 128
 
-
   weight: 0.01
 
+EntropyMinParameters:
+  weight: 0.00001
 
+MeanTeacherParameters:
+  name: mse
+  weight: 10
+  alpha: 0.999
+  weight_decay: 0.000001
 
 
 

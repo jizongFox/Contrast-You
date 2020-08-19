@@ -8,13 +8,15 @@ from deepclustering2 import optim
 from deepclustering2.loss import KL_div
 from deepclustering2.meters2 import EpochResultDict, StorageIncomeDict
 from deepclustering2.schedulers import GradualWarmupScheduler
+from deepclustering2.models import ema_updater
 from deepclustering2.trainer import Trainer
 from deepclustering2.trainer.trainer import T_loader, T_loss
 from torch import nn
 
 from contrastyou import PROJECT_PATH
 from semi_seg._utils import IICLossWrapper, ProjectorWrapper
-from semi_seg.epocher import TrainEpocher, EvalEpocher, UDATrainEpocher, IICTrainEpocher, UDAIICEpocher
+from semi_seg.epocher import TrainEpocher, EvalEpocher, UDATrainEpocher, IICTrainEpocher, UDAIICEpocher, \
+    EntropyMinEpocher, MeanTeacherEpocher
 
 __all__ = ["trainer_zoos"]
 
@@ -185,9 +187,57 @@ class UDAIICTrainer(IICTrainer):
         return result
 
 
+class EntropyMinTrainer(SemiTrainer):
+    def _init(self):
+        super(EntropyMinTrainer, self)._init()
+        config = deepcopy(self._config["EntropyMinParameters"])
+        self._reg_weight = float(config["weight"])
+
+    def _run_epoch(self, *args, **kwargs):
+        trainer = EntropyMinEpocher(self._model, self._optimizer, self._labeled_loader, self._unlabeled_loader,
+                                    self._sup_criterion, reg_weight=self._reg_weight, num_batches=self._num_batches,
+                                    cur_epoch=self._cur_epoch, device=self._device,
+                                    feature_position=self.feature_positions,
+                                    feature_importance=self._feature_importance)
+        result = trainer.run()
+        return result
+
+
+class MeanTeacherTrainer(SemiTrainer):
+    def _init(self):
+        super(MeanTeacherTrainer, self)._init()
+        self._teacher_model = deepcopy(self._model)
+        for param in self._teacher_model.parameters():
+            param.detach_()
+        self._teacher_model.train()
+        config = deepcopy(self._config["MeanTeacherParameters"])
+        self._reg_criterion = {"mse": nn.MSELoss(), "kl": KL_div()}[config["name"]]
+        self._ema_updater = ema_updater(alpha=float(config["alpha"]), weight_decay=float(config["weight_decay"]))
+        self._reg_weight = float(config["weight"])
+
+    def _run_epoch(self, *args, **kwargs) -> EpochResultDict:
+        trainer = MeanTeacherEpocher(self._model, self._teacher_model, self._optimizer, self._ema_updater,
+                                     self._labeled_loader, self._unlabeled_loader,
+                                     self._sup_criterion, reg_criterion=self._reg_criterion,
+                                     reg_weight=self._reg_weight, num_batches=self._num_batches,
+                                     cur_epoch=self._cur_epoch, device=self._device,
+                                     feature_position=self.feature_positions,
+                                     feature_importance=self._feature_importance)
+        result = trainer.run()
+        return result
+
+    def _eval_epoch(self, *args, **kwargs) -> Tuple[EpochResultDict, float]:
+        evaler = EvalEpocher(self._teacher_model, val_loader=self._val_loader, sup_criterion=self._sup_criterion,
+                             cur_epoch=self._cur_epoch, device=self._device)
+        result, cur_score = evaler.run()
+        return result, cur_score
+
+
 trainer_zoos = {
     "partial": SemiTrainer,
     "uda": UDATrainer,
     "iic": IICTrainer,
-    "udaiic": UDAIICTrainer
+    "udaiic": UDAIICTrainer,
+    "entropy": EntropyMinTrainer,
+    "meanteacher": MeanTeacherTrainer
 }

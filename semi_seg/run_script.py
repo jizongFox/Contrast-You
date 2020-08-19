@@ -42,7 +42,30 @@ jobs = [
 
     f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/fs "
     f" Data.labeled_data_ratio=1 Data.unlabeled_data_ratio=0",
+    # baseline
+    # entropy
+    f" python main.py {common_opts} Trainer.name=entropy Trainer.save_dir={save_dir}/entropy/0.00001 "
+    f" EntropyMinParameters.weight=0.00001",
 
+    f" python main.py {common_opts} Trainer.name=entropy Trainer.save_dir={save_dir}/entropy/0.0001 "
+    f" EntropyMinParameters.weight=0.0001",
+
+    f" python main.py {common_opts} Trainer.name=entropy Trainer.save_dir={save_dir}/entropy/0.001 "
+    f" EntropyMinParameters.weight=0.001",
+    # mean teacher
+    f" python main.py {common_opts} Trainer.name=meanteacher Trainer.save_dir={save_dir}/mt/1 "
+    f" MeanTeacherParameters.weight=1.0 ",
+
+    f" python main.py {common_opts} Trainer.name=meanteacher Trainer.save_dir={save_dir}/mt/5 "
+    f" MeanTeacherParameters.weight=5.0 ",
+
+    f" python main.py {common_opts} Trainer.name=meanteacher Trainer.save_dir={save_dir}/mt/10 "
+    f" MeanTeacherParameters.weight=10.0 ",
+
+    f" python main.py {common_opts} Trainer.name=meanteacher Trainer.save_dir={save_dir}/mt/15 "
+    f" MeanTeacherParameters.weight=15.0 ",
+
+    ## uda
     f" python main.py {common_opts} Trainer.name=uda Trainer.save_dir={save_dir}/uda/mse/1 "
     f" UDARegCriterion.name=mse UDARegCriterion.weight=1  ",
 
@@ -55,6 +78,8 @@ jobs = [
     f" python main.py {common_opts} Trainer.name=uda Trainer.save_dir={save_dir}/uda/mse/15 "
     f" UDARegCriterion.name=mse UDARegCriterion.weight=15  ",
 
+    # iic
+
     f" python main.py {common_opts} Trainer.name=iic Trainer.save_dir={save_dir}/iic/0.001 "
     f" IICRegParameters.weight=0.001 ",
 
@@ -63,6 +88,8 @@ jobs = [
 
     f" python main.py {common_opts} Trainer.name=iic Trainer.save_dir={save_dir}/iic/0.1 "
     f" IICRegParameters.weight=0.1 ",
+
+    # uda iic
 
     f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/1.0_0.1 "
     f" IICRegParameters.weight=0.1 UDARegCriterion.weight=1.0 ",
@@ -110,7 +137,9 @@ accounts = cycle(["def-chdesa", "def-mpederso", "rrg-mpederso"])
 
 jobsubmiter = JobSubmiter(project_path="./", on_local=False, time=args.time)
 for j in jobs:
-    jobsubmiter.prepare_env(["source ./venv/bin/activate ", "export OMP_NUM_THREADS=1", ])
+    jobsubmiter.prepare_env(["source ./venv/bin/activate ",
+                             "export OMP_NUM_THREADS=1",
+                             "export PYTHONOPTIMIZE=1"])
     jobsubmiter.account = next(accounts)
     jobsubmiter.run(j)
 

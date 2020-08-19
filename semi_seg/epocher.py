@@ -7,7 +7,7 @@ from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.epoch import _Epocher  # noqa
 from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, UniversalDice, MultipleAverageValueMeter, \
     MeterInterface, SurfaceMeter
-from deepclustering2.models import Model
+from deepclustering2.models import Model, ema_updater as EMA_Updater
 from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.tqdm import tqdm
 from deepclustering2.trainer.trainer import T_loader, T_loss, T_optim
@@ -21,6 +21,7 @@ from contrastyou.epocher._utils import preprocess_input_with_twice_transformatio
 from contrastyou.trainer._utils import ClusterHead  # noqa
 from contrastyou.helper import average_iter, weighted_average_iter
 from semi_seg._utils import FeatureExtractor, ProjectorWrapper, IICLossWrapper
+from deepclustering2.loss import Entropy
 
 
 class EvalEpocher(_Epocher):
@@ -130,7 +131,9 @@ class TrainEpocher(_Epocher):
                     reg_loss = self.regularization(
                         unlabeled_tf_logits=unlabel_tf_logits,
                         unlabeled_logits_tf=unlabel_logits_tf,
-                        seed=seed
+                        seed=seed,
+                        unlabeled_image=unlabeled_image,
+                        unlabeled_image_tf=unlabeled_image_tf,
                     )
                     total_loss = sup_loss + self._reg_weight * reg_loss
                     # gradient backpropagation
@@ -281,3 +284,57 @@ class UDAIICEpocher(IICTrainEpocher):
             seed=seed,
         )
         return self._cons_weight * cons_loss + self._iic_weight * iic_loss
+
+
+class EntropyMinEpocher(TrainEpocher):
+    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters = super(EntropyMinEpocher, self)._configure_meters(meters)
+        meters.register_meter("entropy", AverageValueMeter())
+        return meters
+
+    def regularization(
+        self,
+        unlabeled_tf_logits: Tensor,
+        unlabeled_logits_tf: Tensor,
+        seed, *args, **kwargs
+    ):
+        reg_loss = Entropy()(unlabeled_logits_tf.softmax(1))
+        self.meters["entropy"].add(reg_loss.item())
+        return reg_loss
+
+
+class MeanTeacherEpocher(TrainEpocher):
+
+    def __init__(self, model: Union[Model, nn.Module], teacher_model: Union[Model, nn.Module], optimizer: T_optim,
+                 ema_updater: EMA_Updater,
+                 labeled_loader: T_loader, unlabeled_loader: T_loader, sup_criterion: T_loss, reg_criterion: T_loss,
+                 reg_weight: float, num_batches: int, cur_epoch=0,
+                 device="cpu", feature_position=None, feature_importance=None) -> None:
+        assert type(model) == type(teacher_model), (type(model), type(teacher_model))
+        super().__init__(model, optimizer, labeled_loader, unlabeled_loader, sup_criterion, reg_weight, num_batches,
+                         cur_epoch, device, feature_position, feature_importance)
+        self._reg_criterion = reg_criterion
+        self._teacher_model = teacher_model
+        self._ema_updater = ema_updater
+        self._model.train()
+        self._teacher_model.train()
+
+    def regularization(
+        self,
+        unlabeled_tf_logits: Tensor,
+        unlabeled_logits_tf: Tensor,
+        seed: int,
+        unlabeled_image: Tensor,
+        unlabeled_image_tf: Tensor, *args, **kwargs
+    ):
+        with torch.no_grad():
+            teacher_unlabeled_logit = self._teacher_model(unlabeled_image)
+        with FixRandomSeed(seed):
+            teacher_unlabeled_logit_tf = torch.stack(
+                [self._affine_transformer(x) for x in teacher_unlabeled_logit],
+                                                     dim=0)
+        # compare teacher_unlabeled_logit_tf and student unlabeled_tf_logits
+        reg_loss = self._reg_criterion(unlabeled_tf_logits.softmax(1), teacher_unlabeled_logit_tf.softmax(1).detach())
+        # update teacher model here.
+        self._ema_updater(self._teacher_model, self._model)
+        return reg_loss
