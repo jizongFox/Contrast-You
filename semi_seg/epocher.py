@@ -107,7 +107,7 @@ class TrainEpocher(_Epocher):
                     seed = random.randint(0, int(1e7))
                     labeled_image, labeled_target, labeled_filename, _, label_group = \
                         self._unzip_data(labeled_data, self._device)
-                    unlabeled_image, *_ = self._unzip_data(unlabeled_data, self._device)
+                    unlabeled_image, unlabeled_target, *_ = self._unzip_data(unlabeled_data, self._device)
                     with FixRandomSeed(seed):
                         unlabeled_image_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_image], dim=0)
                     assert unlabeled_image_tf.shape == unlabeled_image.shape, \

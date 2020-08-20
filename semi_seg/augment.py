@@ -37,3 +37,18 @@ class ACDCStrongTransforms:
     val = SequentialWrapper(
         comm_transform=pil_augment.CenterCrop(224)
     )
+
+    trainval = SequentialWrapperTwice(
+        comm_transform=pil_augment.Compose([
+            pil_augment.RandomCrop(224),
+
+        ]),
+        img_transform=pil_augment.Compose([
+            transforms.ToTensor()
+        ]),
+        target_transform=pil_augment.Compose([
+            pil_augment.ToLabel()
+        ]),
+        total_freedom=True
+    )
+

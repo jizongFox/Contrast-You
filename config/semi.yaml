@@ -38,7 +38,7 @@ Trainer:
 
 UDARegCriterion:
   name: mse # kl
-  weight: 0.1
+  weight: 5.0
 
 IICRegParameters:
   EncoderParams:
@@ -55,7 +55,7 @@ IICRegParameters:
     paddings: 1
     patch_sizes: 128
 
-  weight: 0.01
+  weight: 0.1
 
 EntropyMinParameters:
   weight: 0.00001
