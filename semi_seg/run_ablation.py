@@ -58,12 +58,20 @@ jobs = [
     f" IICRegParameters.DecoderParams.num_clusters=10 "
     f" IICRegParameters.DecoderParams.num_subheads=5 ",
 
-    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/cluster_10_subhead_20 "
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/cluster_10_subhead_2 "
     f" IICRegParameters.weight=0.1 UDARegCriterion.weight=5.0 "
     f" IICRegParameters.EncoderParams.num_clusters=10 "
-    f" IICRegParameters.EncoderParams.num_subheads=20 "
+    f" IICRegParameters.EncoderParams.num_subheads=2 "
     f" IICRegParameters.DecoderParams.num_clusters=10 "
-    f" IICRegParameters.DecoderParams.num_subheads=20 ",
+    f" IICRegParameters.DecoderParams.num_subheads=2 ",
+
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/cluster_10_subhead_1 "
+    f" IICRegParameters.weight=0.1 UDARegCriterion.weight=5.0 "
+    f" IICRegParameters.EncoderParams.num_clusters=10 "
+    f" IICRegParameters.EncoderParams.num_subheads=1 "
+    f" IICRegParameters.DecoderParams.num_clusters=10 "
+    f" IICRegParameters.DecoderParams.num_subheads=1 ",
+
     # repeat
     f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/cluster_5_subhead_10 "
     f" IICRegParameters.weight=0.1 UDARegCriterion.weight=5.0 "
@@ -79,12 +87,19 @@ jobs = [
     f" IICRegParameters.DecoderParams.num_clusters=5 "
     f" IICRegParameters.DecoderParams.num_subheads=5 ",
 
-    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/cluster_5_subhead_20 "
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/cluster_5_subhead_2 "
     f" IICRegParameters.weight=0.1 UDARegCriterion.weight=5.0 "
     f" IICRegParameters.EncoderParams.num_clusters=5 "
-    f" IICRegParameters.EncoderParams.num_subheads=20 "
+    f" IICRegParameters.EncoderParams.num_subheads=2 "
     f" IICRegParameters.DecoderParams.num_clusters=5 "
-    f" IICRegParameters.DecoderParams.num_subheads=20 ",
+    f" IICRegParameters.DecoderParams.num_subheads=2 ",
+
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/cluster_5_subhead_1 "
+    f" IICRegParameters.weight=0.1 UDARegCriterion.weight=5.0 "
+    f" IICRegParameters.EncoderParams.num_clusters=5 "
+    f" IICRegParameters.EncoderParams.num_subheads=1 "
+    f" IICRegParameters.DecoderParams.num_clusters=5 "
+    f" IICRegParameters.DecoderParams.num_subheads=1 ",
 
     # repeat
     f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/cluster_20_subhead_10 "
@@ -101,12 +116,19 @@ jobs = [
     f" IICRegParameters.DecoderParams.num_clusters=20 "
     f" IICRegParameters.DecoderParams.num_subheads=5 ",
 
-    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/cluster_20_subhead_20 "
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/cluster_20_subhead_2 "
     f" IICRegParameters.weight=0.1 UDARegCriterion.weight=5.0 "
     f" IICRegParameters.EncoderParams.num_clusters=20 "
-    f" IICRegParameters.EncoderParams.num_subheads=20 "
+    f" IICRegParameters.EncoderParams.num_subheads=2 "
     f" IICRegParameters.DecoderParams.num_clusters=20 "
-    f" IICRegParameters.DecoderParams.num_subheads=20 ",
+    f" IICRegParameters.DecoderParams.num_subheads=2 ",
+
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/cluster_20_subhead_1 "
+    f" IICRegParameters.weight=0.1 UDARegCriterion.weight=5.0 "
+    f" IICRegParameters.EncoderParams.num_clusters=20 "
+    f" IICRegParameters.EncoderParams.num_subheads=1 "
+    f" IICRegParameters.DecoderParams.num_clusters=20 "
+    f" IICRegParameters.DecoderParams.num_subheads=1 ",
 
 ]
 
