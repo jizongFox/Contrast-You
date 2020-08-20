@@ -15,6 +15,7 @@ parser.add_argument("--decoder_cluster_subhead", nargs=2, type=int, default=[10,
 parser.add_argument("--decoder_loss_padding_patchsize", nargs=2, type=int, default=[1, 512])
 parser.add_argument("--save_dir", default=None, type=str)
 parser.add_argument("--time", default=4, type=int)
+parser.add_argument("--job_array", choices=["numbers", "features"], required=True)
 
 args = parser.parse_args()
 
@@ -24,7 +25,7 @@ random_seed = args.random_seed
 labeled_data_ratio = args.label_ratio
 
 importance = lambda len: "[" + ",".join([str(x) for x in [1] * len]) + "]"
-feature=lambda features: "[" + ",".join([str(x) for x in features]) + "]"
+feature = lambda features: "[" + ",".join([str(x) for x in features]) + "]"
 
 save_dir_main = args.save_dir if args.save_dir else "abalation_study"
 save_dir = f"{save_dir_main}/" \
@@ -132,11 +133,23 @@ jobs = [
 
 ]
 
+jobs_on_features = [
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/cluster_10_subhead_10 "
+    f" IICRegParameters.weight=0.1 UDARegCriterion.weight=5.0 "
+    f" IICRegParameters.EncoderParams.num_clusters=10 "
+    f" IICRegParameters.EncoderParams.num_subheads=10 "
+    f" IICRegParameters.DecoderParams.num_clusters=10 "
+    f" IICRegParameters.DecoderParams.num_subheads=10 ",
+]
+
 # CC things
 accounts = cycle(["def-chdesa", "def-mpederso", "rrg-mpederso"])
 
 jobsubmiter = JobSubmiter(project_path="./", on_local=True, time=args.time)
-for j in jobs:
+
+job_array = jobs if args.job_array == "numbers" else jobs_on_features
+
+for j in job_array:
     jobsubmiter.prepare_env(["source ./venv/bin/activate ",
                              "export OMP_NUM_THREADS=1",
                              "export PYTHONOPTIMIZE=1"])
