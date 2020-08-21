@@ -5,6 +5,7 @@ from deepclustering2.cchelper import JobSubmiter
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
+parser.add_argument("-n", "--dataset_name",default="acdc", type=str)
 parser.add_argument("-l", "--label_ratio", default=0.05, type=float)
 parser.add_argument("-b", "--num_batches", default=500, type=int)
 parser.add_argument("-e", "--max_epoch", default=100, type=int)
@@ -23,7 +24,7 @@ random_seed = args.random_seed
 labeled_data_ratio = args.label_ratio
 
 save_dir_main = args.save_dir if args.save_dir else "main_result_folder"
-save_dir = f"{save_dir_main}/" \
+save_dir = f"{save_dir_main}/{args.dataset_name}/" \
            f"label_data_ration_{labeled_data_ratio}"
 
 common_opts = f" Data.labeled_data_ratio={args.label_ratio} " \
