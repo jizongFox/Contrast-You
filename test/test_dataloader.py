@@ -3,30 +3,30 @@ from unittest import TestCase
 from torch.utils.data import DataLoader
 
 from contrastyou import DATA_PATH
-from contrastyou.augment import SequentialWrapperTwice
-from contrastyou.dataloader._seg_datset import ContrastBatchSampler # noqa
+from contrastyou.augment import SequentialWrapperTwice, SequentialWrapper
+from contrastyou.dataloader._seg_datset import ContrastBatchSampler  # noqa
 from contrastyou.dataloader.acdc_dataset import ACDCDataset
+from contrastyou.dataloader.spleen_dataset import SpleenDataset
 from contrastyou.epocher._utils import preprocess_input_with_single_transformation, \
-    preprocess_input_with_twice_transformation # noqa
-from deepclustering2.augment import SequentialWrapper, pil_augment
+    preprocess_input_with_twice_transformation  # noqa
+from deepclustering2.augment import pil_augment
 from deepclustering2.dataset import PatientSampler
 from deepclustering2.tqdm import tqdm
 from deepclustering2.type import to_float
+from contrastyou.augment import SpleenStrongTransforms
 
 single_transform = SequentialWrapper(
-    pil_augment.Compose([
+    comm_transform=pil_augment.Compose([
         pil_augment.RandomCrop(224),
         pil_augment.RandomRotation(40),
-        pil_augment.ToTensor()
     ]),
-    pil_augment.Compose([
-        pil_augment.RandomCrop(224),
-        pil_augment.RandomRotation(40),
-        pil_augment.ToLabel()
-    ]),
-    if_is_target=[False, True]
 )
-twice_transform = SequentialWrapperTwice(**single_transform.__dict__)
+twice_transform = SequentialWrapperTwice(
+    comm_transform=pil_augment.Compose([
+        pil_augment.RandomCrop(224),
+        pil_augment.RandomRotation(40),
+    ]),
+)
 
 
 class TestACDCDataset(TestCase):
@@ -70,3 +70,15 @@ class TestACDCDataset(TestCase):
             _, _, filenames, partition_list, group_list = preprocess_input_with_twice_transformation(data, "cpu")
             assert len(set(group_list)) == 4
             assert set(to_float(list(partition_list))) == {0, 1, 2}
+
+
+class TestSpleenDataset(TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self._root_dir = DATA_PATH
+        self._twice_trans = SpleenStrongTransforms.pretrain
+        self._single_trans = SpleenStrongTransforms.val
+
+    def test_train_test_dataset(self):
+        train_dataset = SpleenDataset(self._root_dir, mode="train", transforms=self._single_trans)
+        data = train_dataset[0]

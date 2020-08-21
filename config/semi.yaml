@@ -29,7 +29,7 @@ UnlabeledData:
 
 Trainer:
   feature_names: ["Conv5", "Up_conv3", "Up_conv2"]
-  feature_importance: [1, 0.5, 0.5]
+  feature_importance: [1, 1, 1]
   name: partial
   save_dir: tmp
   device: cuda
@@ -49,11 +49,11 @@ IICRegParameters:
   DecoderParams:
     num_clusters: 20
     num_subheads: 5
-    head_types: mlp
+    head_types: linear
 
   LossParams:
-    paddings: 1
-    patch_sizes: 128
+    paddings: [0, 1]
+    patch_sizes: 1024
 
   weight: 0.1
 
