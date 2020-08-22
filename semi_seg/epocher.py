@@ -2,9 +2,18 @@ import random
 from typing import Union, Tuple
 
 import torch
+from torch import Tensor
+from torch import nn
+from torch.utils.data import DataLoader
+
+from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
+from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
+from contrastyou.helper import average_iter, weighted_average_iter
+from contrastyou.trainer._utils import ClusterHead  # noqa
 from deepclustering2.augment.tensor_augment import TensorRandomFlip
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.epoch import _Epocher  # noqa
+from deepclustering2.loss import Entropy
 from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, UniversalDice, MultipleAverageValueMeter, \
     MeterInterface, SurfaceMeter
 from deepclustering2.models import Model, ema_updater as EMA_Updater
@@ -12,19 +21,18 @@ from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.tqdm import tqdm
 from deepclustering2.trainer.trainer import T_loader, T_loss, T_optim
 from deepclustering2.utils import class2one_hot, ExceptionIgnorer
-from torch import Tensor
-from torch import nn
-from torch.utils.data import DataLoader
-
-from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
-from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
-from contrastyou.trainer._utils import ClusterHead  # noqa
-from contrastyou.helper import average_iter, weighted_average_iter
 from semi_seg._utils import FeatureExtractor, ProjectorWrapper, IICLossWrapper
-from deepclustering2.loss import Entropy
 
 
-class EvalEpocher(_Epocher):
+class _num_class_mixin:
+    _model: nn.Module
+
+    @property
+    def num_classes(self):
+        return self._model.num_classes
+
+
+class EvalEpocher(_num_class_mixin, _Epocher):
 
     def __init__(self, model: Union[Model, nn.Module], val_loader: T_loader, sup_criterion: T_loss, cur_epoch=0,
                  device="cpu") -> None:
@@ -35,11 +43,11 @@ class EvalEpocher(_Epocher):
         self._sup_criterion = sup_criterion
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
-        C = 4
-        report_axis = [1, 2, 3]
+        C = self.num_classes
+        report_axis = list(range(1, C))
         meters.register_meter("loss", AverageValueMeter())
         meters.register_meter("dice", UniversalDice(C, report_axises=report_axis, ))
-        meters.register_meter("hd", SurfaceMeter(C=4, report_axises=report_axis, metername="hausdorff"))
+        meters.register_meter("hd", SurfaceMeter(C=C, report_axises=report_axis, metername="hausdorff"))
         return meters
 
     @torch.no_grad()
@@ -50,7 +58,7 @@ class EvalEpocher(_Epocher):
             for i, val_data in enumerate(indicator):
                 val_img, val_target, file_path, _, group = self._unzip_data(val_data, self._device)
                 val_logits = self._model(val_img)
-                onehot_target = class2one_hot(val_target.squeeze(1), 4)
+                onehot_target = class2one_hot(val_target.squeeze(1), self.num_classes)
 
                 val_loss = self._sup_criterion(val_logits.softmax(1), onehot_target, disable_assert=True)
 
@@ -68,7 +76,7 @@ class EvalEpocher(_Epocher):
         return image, target, filename, partition, group
 
 
-class TrainEpocher(_Epocher):
+class TrainEpocher(_num_class_mixin, _Epocher):
 
     def __init__(self, model: Union[Model, nn.Module], optimizer: T_optim, labeled_loader: T_loader,
                  unlabeled_loader: T_loader, sup_criterion: T_loss, reg_weight: float, num_batches: int, cur_epoch=0,
@@ -88,8 +96,8 @@ class TrainEpocher(_Epocher):
         self._feature_importance = feature_importance
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
-        C = 4
-        report_axis = [1, 2, 3]
+        C = self.num_classes
+        report_axis = list(range(1, C))
         meters.register_meter("lr", AverageValueMeter())
         meters.register_meter("sup_loss", AverageValueMeter())
         meters.register_meter("reg_loss", AverageValueMeter())
@@ -125,7 +133,7 @@ class TrainEpocher(_Epocher):
                     assert unlabel_logits_tf.shape == unlabel_tf_logits.shape, \
                         (unlabel_logits_tf.shape, unlabel_tf_logits.shape)
                     # supervised part
-                    onehot_target = class2one_hot(labeled_target.squeeze(1), 4)
+                    onehot_target = class2one_hot(labeled_target.squeeze(1), self.num_classes)
                     sup_loss = self._sup_criterion(label_logits.softmax(1), onehot_target)
                     # regularized part
                     reg_loss = self.regularization(

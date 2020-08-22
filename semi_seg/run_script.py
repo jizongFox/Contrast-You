@@ -5,7 +5,7 @@ from deepclustering2.cchelper import JobSubmiter
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-parser.add_argument("-n", "--dataset_name",default="acdc", type=str)
+parser.add_argument("-n", "--dataset_name", default="acdc", type=str)
 parser.add_argument("-l", "--label_ratio", default=0.05, type=float)
 parser.add_argument("-b", "--num_batches", default=500, type=int)
 parser.add_argument("-e", "--max_epoch", default=100, type=int)
@@ -20,6 +20,12 @@ random_seed = args.random_seed
 
 labeled_data_ratio = args.label_ratio
 
+dataset_name2class_numbers = {
+    "acdc": 4,
+    "prostate": 2,
+    "spleen": 2,
+}
+
 save_dir_main = args.save_dir if args.save_dir else "main_result_folder"
 save_dir = f"{save_dir_main}/{args.dataset_name}/" \
            f"label_data_ration_{labeled_data_ratio}"
@@ -27,7 +33,9 @@ save_dir = f"{save_dir_main}/{args.dataset_name}/" \
 common_opts = f" Data.labeled_data_ratio={args.label_ratio} " \
               f" Data.unlabeled_data_ratio={1 - args.label_ratio} " \
               f" Trainer.num_batches={num_batches} " \
-              f" Trainer.max_epoch={args.max_epoch} "
+              f" Trainer.max_epoch={args.max_epoch} " \
+              f" Data.name={args.dataset_name} " \
+              f" Arch.num_classes={dataset_name2class_numbers[args.dataset_name]} "
 
 jobs = [
     f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/ps  ",
