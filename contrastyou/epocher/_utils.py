@@ -1,6 +1,11 @@
-from typing import List
+import os
+import warnings
+from typing import List, Union
 
 import numpy as np
+from skimage.io import imsave
+from torch import Tensor
+
 from deepclustering2.type import to_device, torch
 
 
@@ -79,6 +84,38 @@ class LocalLabelGenerator(GlobalLabelGenerator):
         assert len(location_list) == len(partition_list)
 
         return super().__call__(_string_list_adding(patient_list, partition_list), location_list)
+
+
+def _write_single_png(mask: Tensor, save_dir: str, filename: str):
+    assert mask.shape.__len__() == 2, mask.shape
+    mask = mask.cpu().detach().numpy()
+    if not os.path.exists(save_dir):
+        os.mkdir(save_dir)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        imsave(os.path.join(save_dir, (filename + ".png")), mask.astype(np.uint8))
+
+
+def write_predict(predict_logit: Tensor, save_dir: str, filenames: Union[str, List[str]]):
+    assert len(predict_logit.shape) == 4, predict_logit.shape
+    if isinstance(filenames, str):
+        filenames = [filenames, ]
+    assert len(filenames) == len(predict_logit)
+    predict_mask = predict_logit.max(1)[1]
+    for m, f in zip(predict_mask, filenames):
+        _write_single_png(m, os.path.join(save_dir, "pred"), f)
+
+
+def write_img_target(image: Tensor, target: Tensor, save_dir: str, filenames: Union[str, List[str]]):
+    if isinstance(filenames, str):
+        filenames = [filenames, ]
+    image = image.squeeze()
+    target = target.squeeze()
+    assert image.shape == target.shape
+    for img, f in zip(image, filenames):
+        _write_single_png(img*255, os.path.join(save_dir, "img"), f)
+    for targ, f in zip(target, filenames):
+        _write_single_png(targ, os.path.join(save_dir, "gt"), f)
 
 
 if __name__ == '__main__':

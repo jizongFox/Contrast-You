@@ -42,3 +42,4 @@ checkpoint = config.get("Checkpoint", None)
 if checkpoint is not None:
     trainer.load_state_dict_from_path(checkpoint, strict=False)
 trainer.start_training()
+# trainer.inference(checkpoint=checkpoint)

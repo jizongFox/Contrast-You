@@ -1,22 +1,23 @@
+import os
 from copy import deepcopy
 from itertools import chain
 from pathlib import Path
 from typing import Tuple
 
 import torch
-from deepclustering2 import optim
-from deepclustering2.loss import KL_div
-from deepclustering2.meters2 import EpochResultDict, StorageIncomeDict
-from deepclustering2.schedulers import GradualWarmupScheduler
-from deepclustering2.models import ema_updater
-from deepclustering2.trainer import Trainer
-from deepclustering2.trainer.trainer import T_loader, T_loss
 from torch import nn
 
 from contrastyou import PROJECT_PATH
+from deepclustering2 import optim
+from deepclustering2.loss import KL_div
+from deepclustering2.meters2 import EpochResultDict, StorageIncomeDict
+from deepclustering2.models import ema_updater
+from deepclustering2.schedulers import GradualWarmupScheduler
+from deepclustering2.trainer import Trainer
+from deepclustering2.trainer.trainer import T_loader, T_loss
 from semi_seg._utils import IICLossWrapper, ProjectorWrapper
 from semi_seg.epocher import TrainEpocher, EvalEpocher, UDATrainEpocher, IICTrainEpocher, UDAIICEpocher, \
-    EntropyMinEpocher, MeanTeacherEpocher, IICMeanTeacherEpocher
+    EntropyMinEpocher, MeanTeacherEpocher, IICMeanTeacherEpocher, InferenceEpocher
 
 __all__ = ["trainer_zoos"]
 
@@ -104,6 +105,24 @@ class SemiTrainer(Trainer):
             self.save(cur_score)
             # save storage result on csv file.
             self._storage.to_csv(self._save_dir)
+
+    def inference(self, checkpoint=None):
+        if checkpoint is None:
+            self.load_state_dict_from_path(os.path.join(self._save_dir, "best.pth"), strict=True)
+        else:
+            checkpoint = Path(checkpoint)
+            if checkpoint.is_file():
+                if not checkpoint.suffix == ".pth":
+                    raise FileNotFoundError(checkpoint)
+            else:
+                assert checkpoint.exists()
+                checkpoint = checkpoint / "best.pth"
+            self.load_state_dict_from_path(str(checkpoint), strict=True)
+        evaler = InferenceEpocher(self._model, val_loader=self._val_loader, sup_criterion=self._sup_criterion,
+                                  cur_epoch=self._cur_epoch, device=self._device)
+        evaler.set_save_dir(self._save_dir)
+        result, cur_score = evaler.run()
+        return result, cur_score
 
     @classmethod
     def set_feature_positions(cls, feature_positions):

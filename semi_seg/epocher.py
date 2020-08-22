@@ -7,11 +7,16 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
+from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
 from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
+from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
+from contrastyou.epocher._utils import write_predict, write_img_target
 from contrastyou.helper import average_iter, weighted_average_iter
+from contrastyou.trainer._utils import ClusterHead  # noqa
 from contrastyou.trainer._utils import ClusterHead  # noqa
 from deepclustering2.augment.tensor_augment import TensorRandomFlip
 from deepclustering2.decorator import FixRandomSeed
+from deepclustering2.epoch import _Epocher  # noqa
 from deepclustering2.epoch import _Epocher  # noqa
 from deepclustering2.loss import Entropy
 from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, UniversalDice, MultipleAverageValueMeter, \
@@ -74,6 +79,34 @@ class EvalEpocher(_num_class_mixin, _Epocher):
     def _unzip_data(data, device):
         image, target, filename, partition, group = preprocess_input_with_single_transformation(data, device)
         return image, target, filename, partition, group
+
+
+class InferenceEpocher(EvalEpocher):
+
+    def set_save_dir(self, save_dir):
+        self._save_dir = save_dir
+
+    def _run(self, *args, **kwargs) -> Tuple[EpochResultDict, float]:
+        self._model.eval()
+        assert self._model.training is False, self._model.training
+        with tqdm(self._val_loader).set_desc_from_epocher(self) as indicator:
+            for i, val_data in enumerate(indicator):
+                val_img, val_target, file_path, _, group = self._unzip_data(val_data, self._device)
+                val_logits = self._model(val_img)
+                # write image
+                write_img_target(val_img, val_target, self._save_dir, file_path)
+                write_predict(val_logits, self._save_dir, file_path, )
+                onehot_target = class2one_hot(val_target.squeeze(1), self.num_classes)
+
+                val_loss = self._sup_criterion(val_logits.softmax(1), onehot_target, disable_assert=True)
+
+                self.meters["loss"].add(val_loss.item())
+                self.meters["dice"].add(val_logits.max(1)[1], val_target.squeeze(1), group_name=group)
+                with ExceptionIgnorer(RuntimeError):
+                    self.meters["hd"].add(val_logits.max(1)[1], val_target.squeeze(1))
+                report_dict = self.meters.tracking_status()
+                indicator.set_postfix_dict(report_dict)
+        return report_dict, self.meters["dice"].summary()["DSC_mean"]
 
 
 class TrainEpocher(_num_class_mixin, _Epocher):
