@@ -5,8 +5,8 @@ from torch import nn, Tensor
 from torch._six import container_abcs
 
 from contrastyou.arch import UNet
-from contrastyou.trainer._utils import LocalClusterHead as _LocalClusterHead, ClusterHead as _EncoderClusterHead
 from contrastyou.losses.iic_loss import IIDLoss as _IIDLoss, IIDSegmentationSmallPathLoss
+from contrastyou.trainer._utils import LocalClusterHead as _LocalClusterHead, ClusterHead as _EncoderClusterHead
 
 
 class IIDLoss(_IIDLoss):
@@ -87,6 +87,7 @@ class LocalClusterWrappaer(nn.Module):
         head_types: Union[str, List[str]] = "linear",
         num_subheads: Union[int, List[int]] = 5,
         num_clusters: Union[int, List[int]] = 10,
+        normalize: Union[bool, List[bool]] = False
     ) -> None:
         super(LocalClusterWrappaer, self).__init__()
         if isinstance(feature_names, str):
@@ -98,15 +99,18 @@ class LocalClusterWrappaer(nn.Module):
         self._head_types = n_pair(head_types)
         self._num_subheads = n_pair(num_subheads)
         self._num_clusters = n_pair(num_clusters)
+        self._normalize = n_pair(normalize)
 
         self._clusters = nn.ModuleDict()
 
-        for f, h, c, s in zip(self._feature_names, self._head_types, self._num_clusters, self._num_subheads):
+        for f, h, c, s, n in zip(self._feature_names, self._head_types, self._num_clusters, self._num_subheads,
+                                 self._normalize):
             self._clusters[f] = self._create_clusterheads(
                 input_dim=UNet.dimension_dict[f],
                 head_type=h,
                 num_clusters=c,
-                num_subheads=s
+                num_subheads=s,
+                normalize=n
             )
 
     def __len__(self):
@@ -142,11 +146,12 @@ class ProjectorWrapper(nn.Module):
         head_types: Union[str, List[str]] = "linear",
         num_subheads: Union[int, List[int]] = 5,
         num_clusters: Union[int, List[int]] = 10,
+        normalize: Union[bool, List[bool]] = False
     ):
         self._encoder_names = _filter_encodernames(feature_names)
         self._encoder_projectors = EncoderClusterWrapper(
             self._encoder_names, head_types, num_subheads,
-            num_clusters)
+            num_clusters, normalize)
         self.ENCODER_INITIALIZED = True
 
     def init_decoder(self,
@@ -154,11 +159,12 @@ class ProjectorWrapper(nn.Module):
                      head_types: Union[str, List[str]] = "linear",
                      num_subheads: Union[int, List[int]] = 5,
                      num_clusters: Union[int, List[int]] = 10,
+                     normalize: Union[bool, List[bool]] = False
                      ):
         self._decoder_names = _filter_decodernames(feature_names)
         self._decoder_projectors = LocalClusterWrappaer(
             self._decoder_names, head_types, num_subheads,
-            num_clusters)
+            num_clusters, normalize)
         self.DECODER_INITIALIZED = True
 
     @property
