@@ -11,7 +11,7 @@ from contrastyou.arch import UNet
 from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
 from semi_seg._utils import LocalClusterWrappaer
 from semi_seg.epocher import TrainEpocher, EvalEpocher, UDATrainEpocher, IICTrainEpocher, UDAIICEpocher
-from semi_seg.tests._helper import create_acdc_dataset
+from semi_seg.tests._helper import create_dataset
 
 
 class TestPartialEpocher(TestCase):
@@ -19,7 +19,7 @@ class TestPartialEpocher(TestCase):
     def setUp(self) -> None:
         super().setUp()
 
-        self.label_set, self.unlabel_set, self.val_set = create_acdc_dataset(0.1)
+        self.label_set, self.unlabel_set, self.val_set = create_dataset(0.1)
 
         self.labeled_loader = DataLoader(
             self.label_set, batch_size=2,

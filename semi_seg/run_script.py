@@ -25,17 +25,22 @@ dataset_name2class_numbers = {
     "prostate": 2,
     "spleen": 2,
 }
+lr_zooms = {"acdc": 0.0000001,
+            "prostate": 0.000001,
+            "spleen": 0.000001}
 
 save_dir_main = args.save_dir if args.save_dir else "main_result_folder"
 save_dir = f"{save_dir_main}/{args.dataset_name}/" \
-           f"label_data_ration_{labeled_data_ratio}"
+           f"label_data_ration_{labeled_data_ratio}/" \
+           f"random_seed_{random_seed}"
 
 common_opts = f" Data.labeled_data_ratio={args.label_ratio} " \
               f" Data.unlabeled_data_ratio={1 - args.label_ratio} " \
               f" Trainer.num_batches={num_batches} " \
               f" Trainer.max_epoch={args.max_epoch} " \
               f" Data.name={args.dataset_name} " \
-              f" Arch.num_classes={dataset_name2class_numbers[args.dataset_name]} "
+              f" Arch.num_classes={dataset_name2class_numbers[args.dataset_name]} " \
+              f" Optim.lr={lr_zooms[args.dataset_name]:.10f}"
 
 jobs = [
     f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/ps  ",
@@ -175,7 +180,7 @@ jobs = [
 # CC things
 accounts = cycle(["def-chdesa", "def-mpederso", "rrg-mpederso"])
 
-jobsubmiter = JobSubmiter(project_path="./", on_local=False, time=args.time)
+jobsubmiter = JobSubmiter(project_path="./", on_local=True, time=args.time)
 for j in jobs:
     jobsubmiter.prepare_env(["source ./venv/bin/activate ",
                              "export OMP_NUM_THREADS=1",

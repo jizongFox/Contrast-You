@@ -6,13 +6,13 @@ from torch.utils.data import DataLoader
 
 from contrastyou.augment import AffineTensorTransform
 from contrastyou.epocher._utils import preprocess_input_with_twice_transformation
-from semi_seg.tests._helper import create_acdc_dataset
+from semi_seg.tests._helper import create_dataset
 
 
 class TestAffineTransform(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.label_set, self.unlabel_set, self.val_set = create_acdc_dataset(0.1)
+        self.label_set, self.unlabel_set, self.val_set = create_dataset(name="acdc", labeled_ratio=0.1)
 
         self.labeled_loader = DataLoader(self.label_set, batch_size=16)
         self._bilinear_transformer = AffineTensorTransform()

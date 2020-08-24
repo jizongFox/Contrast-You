@@ -106,7 +106,7 @@ class SemiTrainer(Trainer):
             # save storage result on csv file.
             self._storage.to_csv(self._save_dir)
 
-    def inference(self, checkpoint=None):
+    def inference(self, checkpoint=None):  # noqa
         if checkpoint is None:
             self.load_state_dict_from_path(os.path.join(self._save_dir, "best.pth"), strict=True)
         else:

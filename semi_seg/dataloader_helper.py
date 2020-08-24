@@ -6,7 +6,7 @@ from contrastyou import DATA_PATH
 from contrastyou.dataloader import ACDCSemiInterface, SpleenSemiInterface, ProstateSemiInterface
 from deepclustering2.dataloader.sampler import InfiniteRandomSampler
 from deepclustering2.dataset import PatientSampler
-from semi_seg.augment import ACDCStrongTransforms, SpleenStrongTransforms
+from semi_seg.augment import ACDCStrongTransforms, SpleenStrongTransforms, ProstateStrongTransforms
 
 dataset_zoos = {
     "acdc": ACDCSemiInterface,
@@ -16,7 +16,7 @@ dataset_zoos = {
 augment_zoos = {
     "acdc": ACDCStrongTransforms,
     "spleen": SpleenStrongTransforms,
-    "prostate": ACDCStrongTransforms,
+    "prostate": ProstateStrongTransforms
 }
 
 
