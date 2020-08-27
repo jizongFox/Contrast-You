@@ -18,15 +18,23 @@ common_opts = f" Data.labeled_data_ratio={labeled_data_ratio} " \
 jobs = [
     # encoder
     f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder/cluster_num_10 "
-    f" IICRegParameters.EncoderParams.num_clusters=10 "
+    f" IICRegParameters.EncoderParams.num_clusters=10   Trainer.feature_importance=[1,0,0] ",
     
     f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder/cluster_num_20 "
-    f" IICRegParameters.EncoderParams.num_clusters=20 "
+    f" IICRegParameters.EncoderParams.num_clusters=20 Trainer.feature_importance=[1,0,0] ",
     
     f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder/cluster_num_5 "
-    f" IICRegParameters.EncoderParams.num_clusters=5 "
+    f" IICRegParameters.EncoderParams.num_clusters=5 Trainer.feature_importance=[1,0,0] ",
 
+    # decoder
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder_decoder/10_10 "
+    f" IICRegParameters.EncoderParams.num_clusters=10 IICRegParameters.DecoderParams.num_clusters=10 ",
 
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder_decoder/10_5 "
+    f" IICRegParameters.EncoderParams.num_clusters=10 IICRegParameters.DecoderParams.num_clusters=5 ",
+
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder_decoder/10_20 "
+    f" IICRegParameters.EncoderParams.num_clusters=10 IICRegParameters.DecoderParams.num_clusters=20 ",
 ]
 
 
