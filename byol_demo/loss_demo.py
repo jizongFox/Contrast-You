@@ -15,10 +15,10 @@ NUM_SAMPLES = 400
 INTER = 5
 OUT = 3
 CLASS_OUT = 5
-NUM_SUBHEAD = 10
+NUM_SUBHEAD = 20
 
-ENABLE_CONTRAST = True
-ENABLE_IIC = False
+ENABLE_CONTRAST = False
+ENABLE_IIC = True
 # Create a sphere
 r = 0.98
 pi = np.pi
@@ -34,7 +34,7 @@ def uniform_loss(embeddings, t=2):
     distance_map = embeddings.mm(embeddings.T)
     exp_dis = torch.exp(distance_map * 2 * t - 2 * t)
     mask = 1 - torch.eye(embeddings.shape[0]).to(embeddings.device)
-    return ((exp_dis * mask).mean()/2).log()
+    return ((exp_dis * mask).mean() / 2).log()
 
 
 def projection(tensor):
@@ -85,7 +85,8 @@ def average_iter(a_list):
 
 
 def extract_iic(projected_classes):
-    loss_iic_staff = iic_criterion(projected_classes.softmax(1), projected_classes.softmax(1))
+    loss_iic_staff = iic_criterion(projected_classes.softmax(1),
+                                   (projected_classes + 1 * torch.rand_like(projected_classes)).softmax(1))
     loss_iic, p_i_j = loss_iic_staff[0], loss_iic_staff[2]
     return loss_iic, p_i_j
 
@@ -105,12 +106,15 @@ with tqdm(range(10000)) as indicator:
 
         loss_iic = torch.tensor(0, dtype=torch.float, device=device)
         if ENABLE_IIC:
-            projected_feature_norm = projected_features.norm(dim=1).mean()
-            aplitude_loss = nn.MSELoss()(projected_feature_norm, torch.ones_like(projected_feature_norm))
+            # projected_feature_norm = projected_features.norm(dim=1).mean()
+            # aplitude_loss = nn.MSELoss()(projected_feature_norm, torch.ones_like(projected_feature_norm))
             projected_classes = head2(samples)
             iic_losses = []
+            p_i_js = []
             for p_classes in projected_classes:
-                iic_losses.append(extract_iic(p_classes)[0])
+                _iicloss, _pij = extract_iic(p_classes)
+                iic_losses.append(_iicloss)
+                p_i_js.append(_pij.detach())
             loss_iic = average_iter(iic_losses)
             p_i_j = extract_iic(projected_classes[0])[1]
         optimizer.zero_grad()
@@ -118,11 +122,11 @@ with tqdm(range(10000)) as indicator:
         if ENABLE_CONTRAST:
             total_loss += contrast_loss
         if ENABLE_IIC:
-            total_loss += (loss_iic * 0.5 + aplitude_loss)
+            total_loss += (loss_iic * 0.5)
         total_loss.backward()
         optimizer.step()
         indicator.set_postfix({"closs": contrast_loss.item(), "iic": loss_iic.item()})
-        if i % 100 == 0:
+        if i % 20 == 0:
             fig = plt.figure(0)
             ax = fig.add_subplot(111, projection='3d')
             # ax.plot_surface(
@@ -169,11 +173,11 @@ with tqdm(range(10000)) as indicator:
             if ENABLE_IIC:
                 fig = plt.figure(4)
                 plt.clf()
-                plt.imshow(p_i_j.cpu().detach())
+                plt.imshow(average_iter(p_i_js).cpu().detach())
                 plt.title("p_i_j")
                 plt.colorbar()
                 plt.show(block=False)
                 plt.pause(0.001)
 
-        # print(samples.norm(dim=1).mean().item(), samples.norm(dim=1).std().item())
-            print(f"{i} iteration with uniform loss:{uniform_loss(projected_vectors,2)}")
+            # print(samples.norm(dim=1).mean().item(), samples.norm(dim=1).std().item())
+            print(f"{i} iteration with uniform loss:{uniform_loss(projected_vectors, 2)}")
