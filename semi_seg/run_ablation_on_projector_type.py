@@ -20,11 +20,18 @@ common_opts = f" Data.labeled_data_ratio={labeled_data_ratio} " \
               f" IICRegParameters.weight=0.1 UDARegCriterion.weight=5.0 " \
               f" RandomSeed={seed} "
 jobs = [
-    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/mlp "
-    f" IICRegParameters.DecoderParams.head_types=mlp ",
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/mlp_mlp "
+    f" IICRegParameters.EncoderParams.head_types=mlp IICRegParameters.DecoderParams.head_types=mlp ",
 
-    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/linear "
-    f" IICRegParameters.DecoderParams.head_types=linear ",
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/linear_linear "
+    f" IICRegParameters.EncoderParams.head_types=linear IICRegParameters.DecoderParams.head_types=linear ",
+
+
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/mlp_linear "
+    f" IICRegParameters.EncoderParams.head_types=mlp IICRegParameters.DecoderParams.head_types=linear ",
+
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/linear_mlp "
+    f" IICRegParameters.EncoderParams.head_types=linear IICRegParameters.DecoderParams.head_types=mlp ",
 ]
 
 jobsubmiter = JobSubmiter(project_path="./", on_local=False, time=time)

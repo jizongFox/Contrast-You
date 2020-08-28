@@ -175,6 +175,35 @@ jobs = [
     f" python main.py {common_opts} Trainer.name=iicmeanteacher Trainer.save_dir={save_dir}/iicmeanteacher/15.0_0.05 "
     f" IICRegParameters.weight=0.05 MeanTeacherParameters.weight=15.0 ",
 
+
+    # midl
+    f" python main.py {common_opts} Trainer.name=midl Trainer.save_dir={save_dir}/midl/10_0.1 "
+    f" MIDLPaperParameters.iic_weight=0.1  UDARegCriterion.weight=10",
+
+    f" python main.py {common_opts} Trainer.name=midl Trainer.save_dir={save_dir}/midl/10_0.5 "
+    f" MIDLPaperParameters.iic_weight=0.5  UDARegCriterion.weight=10",
+
+    f" python main.py {common_opts} Trainer.name=midl Trainer.save_dir={save_dir}/midl/10_0.01 "
+    f" MIDLPaperParameters.iic_weight=0.01  UDARegCriterion.weight=10",
+
+    f" python main.py {common_opts} Trainer.name=midl Trainer.save_dir={save_dir}/midl/5_0.1 "
+    f" MIDLPaperParameters.iic_weight=0.1  UDARegCriterion.weight=5",
+
+    f" python main.py {common_opts} Trainer.name=midl Trainer.save_dir={save_dir}/midl/5_0.5 "
+    f" MIDLPaperParameters.iic_weight=0.5  UDARegCriterion.weight=5",
+
+    f" python main.py {common_opts} Trainer.name=midl Trainer.save_dir={save_dir}/midl/5_0.01 "
+    f" MIDLPaperParameters.iic_weight=0.01  UDARegCriterion.weight=5",
+
+    f" python main.py {common_opts} Trainer.name=midl Trainer.save_dir={save_dir}/midl/15_0.1 "
+    f" MIDLPaperParameters.iic_weight=0.1  UDARegCriterion.weight=15",
+
+    f" python main.py {common_opts} Trainer.name=midl Trainer.save_dir={save_dir}/midl/15_0.5 "
+    f" MIDLPaperParameters.iic_weight=0.5  UDARegCriterion.weight=15",
+
+    f" python main.py {common_opts} Trainer.name=midl Trainer.save_dir={save_dir}/midl/15_0.01 "
+    f" MIDLPaperParameters.iic_weight=0.01  UDARegCriterion.weight=15",
+
 ]
 
 # CC things

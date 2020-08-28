@@ -12,6 +12,7 @@ from contrastyou.epocher._utils import preprocess_input_with_twice_transformatio
 from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
 from contrastyou.epocher._utils import write_predict, write_img_target
 from contrastyou.helper import average_iter, weighted_average_iter
+from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
 from contrastyou.trainer._utils import ClusterHead  # noqa
 from contrastyou.trainer._utils import ClusterHead  # noqa
 from deepclustering2.augment.tensor_augment import TensorRandomFlip
@@ -228,6 +229,40 @@ class UDATrainEpocher(TrainEpocher):
         )
         self.meters["uda"].add(reg_loss.item())
         return reg_loss
+
+
+class MIDLPaperEpocher(UDATrainEpocher):
+
+    def __init__(self, model: Union[Model, nn.Module], optimizer: T_optim, labeled_loader: T_loader,
+                 unlabeled_loader: T_loader, sup_criterion: T_loss, reg_criterion: T_loss,
+                 iic_segcriterion: IIDSegmentationSmallPathLoss, uda_weight: float, iic_weight,
+                 num_batches: int, cur_epoch: int = 0, device="cpu", feature_position=None,
+                 feature_importance=None) -> None:
+        super().__init__(model, optimizer, labeled_loader, unlabeled_loader, sup_criterion, reg_criterion, 1.0,
+                         num_batches, cur_epoch, device, feature_position, feature_importance)
+        self._iic_segcriterion = iic_segcriterion
+        self._iic_weight = iic_weight
+        self._uda_weight = uda_weight
+
+    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters = super(MIDLPaperEpocher, self)._configure_meters(meters)
+        meters.register_meter("iic_mi", AverageValueMeter())
+        return meters
+
+    def regularization(
+        self,
+        unlabeled_tf_logits: Tensor,
+        unlabeled_logits_tf: Tensor,
+        seed, *args, **kwargs
+    ):
+        uda_loss = super(MIDLPaperEpocher, self).regularization(
+            unlabeled_tf_logits=unlabeled_tf_logits,
+            unlabeled_logits_tf=unlabeled_logits_tf,
+            seed=seed, *args, **kwargs
+        )
+        iic_loss = self._iic_segcriterion(unlabeled_tf_logits, unlabeled_logits_tf.detach())
+        self.meters["iic_mi"].add(iic_loss.item())
+        return uda_loss * self._uda_weight + iic_loss * self._iic_weight
 
 
 class IICTrainEpocher(TrainEpocher):
