@@ -1,10 +1,14 @@
-import itertools
+import argparse
 from itertools import cycle
 
 from deepclustering2.cchelper import JobSubmiter
 
+parser = argparse.ArgumentParser()
+parser.add_argument("-s", "--seed", required=True, type=int, help="random seed")
+seed = parser.parse_args().seed
+
 labeled_data_ratio = 0.05
-save_dir = "0827/abalation_cluster_number"
+save_dir = f"0828/abalation_cluster_number/seed_{seed}"
 num_batches = 300
 max_epoch = 100
 time = 6
@@ -13,30 +17,30 @@ common_opts = f" Data.labeled_data_ratio={labeled_data_ratio} " \
               f" Data.unlabeled_data_ratio={1 - labeled_data_ratio} " \
               f" Trainer.num_batches={num_batches} " \
               f" Trainer.max_epoch={max_epoch} " \
-              f" IICRegParameters.weight=0.1 UDARegCriterion.weight=5.0 "
+              f" IICRegParameters.weight=0.1 UDARegCriterion.weight=5.0 " \
+              f" RandomSeed={seed} "
 
 jobs = [
     # encoder
     f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder/cluster_num_10 "
     f" IICRegParameters.EncoderParams.num_clusters=10   Trainer.feature_importance=[1,0,0] ",
-    
+
     f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder/cluster_num_20 "
     f" IICRegParameters.EncoderParams.num_clusters=20 Trainer.feature_importance=[1,0,0] ",
-    
+
     f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder/cluster_num_5 "
     f" IICRegParameters.EncoderParams.num_clusters=5 Trainer.feature_importance=[1,0,0] ",
 
-    # decoder
-    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder_decoder/10_10 "
-    f" IICRegParameters.EncoderParams.num_clusters=10 IICRegParameters.DecoderParams.num_clusters=10 ",
-
-    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder_decoder/10_5 "
-    f" IICRegParameters.EncoderParams.num_clusters=10 IICRegParameters.DecoderParams.num_clusters=5 ",
-
-    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder_decoder/10_20 "
-    f" IICRegParameters.EncoderParams.num_clusters=10 IICRegParameters.DecoderParams.num_clusters=20 ",
+    # # decoder
+    # f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder_decoder/10_10 "
+    # f" IICRegParameters.EncoderParams.num_clusters=10 IICRegParameters.DecoderParams.num_clusters=10 ",
+    #
+    # f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder_decoder/10_5 "
+    # f" IICRegParameters.EncoderParams.num_clusters=10 IICRegParameters.DecoderParams.num_clusters=5 ",
+    #
+    # f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder_decoder/10_20 "
+    # f" IICRegParameters.EncoderParams.num_clusters=10 IICRegParameters.DecoderParams.num_clusters=20 ",
 ]
-
 
 # CC things
 accounts = cycle(["def-chdesa", "def-mpederso", "rrg-mpederso"])
