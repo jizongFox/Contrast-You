@@ -1,5 +1,4 @@
 from scipy.sparse import issparse  # noqa
-from scipy.sparse import issparse  # noqa
 
 _ = issparse  # noqa
 

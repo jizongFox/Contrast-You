@@ -10,7 +10,7 @@ from deepclustering2.meters2 import EpochResultDict, MeterInterface, AverageValu
 from deepclustering2.models import Model
 from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.tqdm import tqdm
-from deepclustering2.trainer.trainer import T_loss, T_optim, T_loader
+from deepclustering2.type import T_loss, T_optim, T_loader
 from deepclustering2.utils import class2one_hot
 from torch import nn
 from torch.utils.data import DataLoader

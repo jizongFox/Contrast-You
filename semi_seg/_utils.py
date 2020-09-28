@@ -48,7 +48,6 @@ class FeatureExtractor(nn.Module):
         self._feature_names = feature_names
         for f in self._feature_names:
             assert f in UNet().component_names, f
-        self._feature_exactors = {}
 
     def __enter__(self):
         self._feature_exactors = {}
@@ -61,7 +60,6 @@ class FeatureExtractor(nn.Module):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self._feature_exactors = {}
         for k, v in self._hook_handlers.items():
             v.remove()
         del self._feature_exactors, self._hook_handlers

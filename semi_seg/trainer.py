@@ -15,7 +15,7 @@ from deepclustering2.meters2 import EpochResultDict, StorageIncomeDict
 from deepclustering2.models import ema_updater
 from deepclustering2.schedulers import GradualWarmupScheduler
 from deepclustering2.trainer import Trainer
-from deepclustering2.trainer.trainer import T_loader, T_loss
+from deepclustering2.type import T_loader, T_loss
 from semi_seg._utils import IICLossWrapper, ProjectorWrapper
 from semi_seg.epocher import TrainEpocher, EvalEpocher, UDATrainEpocher, IICTrainEpocher, UDAIICEpocher, \
     EntropyMinEpocher, MeanTeacherEpocher, IICMeanTeacherEpocher, InferenceEpocher, MIDLPaperEpocher
@@ -24,7 +24,7 @@ __all__ = ["trainer_zoos"]
 
 
 class SemiTrainer(Trainer):
-    RUN_PATH = str(Path(PROJECT_PATH) / "semi_seg" / "runs")
+    RUN_PATH = str(Path(PROJECT_PATH) / "semi_seg" / "runs")  # noqa
 
     feature_positions = ["Up_conv4", "Up_conv3"]
 
@@ -100,8 +100,7 @@ class SemiTrainer(Trainer):
                 self._scheduler.step()
             storage_per_epoch = StorageIncomeDict(tra=train_result, val=eval_result)
             self._storage.put_from_dict(storage_per_epoch, self._cur_epoch)
-            for k, v in storage_per_epoch.__dict__.items():
-                self._writer.add_scalar_with_tag(k, v, global_step=self._cur_epoch)
+            self._writer.add_scalar_with_StorageDict(storage_per_epoch, self._cur_epoch)
             # save_checkpoint
             self.save(cur_score)
             # save storage result on csv file.

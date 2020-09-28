@@ -11,7 +11,7 @@ from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.meters2 import EpochResultDict, MeterInterface, AverageValueMeter
 from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.tqdm import tqdm
-from deepclustering2.trainer.trainer import T_loader, T_loss
+from deepclustering2.type import T_loader, T_loss
 from .contrast_epocher import PretrainDecoderEpoch as _PretrainDecoderEpoch
 from .contrast_epocher import PretrainEncoderEpoch as _PretrainEncoderEpoch
 from ..arch import UNetFeatureExtractor

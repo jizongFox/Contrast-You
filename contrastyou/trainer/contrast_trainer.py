@@ -15,7 +15,8 @@ from contrastyou.trainer._utils import ProjectionHead, LocalProjectionHead
 from deepclustering2.loss import KL_div
 from deepclustering2.meters2 import Storage, StorageIncomeDict
 from deepclustering2.schedulers import GradualWarmupScheduler
-from deepclustering2.trainer.trainer import Trainer, T_loader
+from deepclustering2.type import T_loader
+from deepclustering2.trainer import Trainer
 from deepclustering2.writer import SummaryWriter
 
 
