@@ -38,9 +38,9 @@ class EvalEpocher(_num_class_mixin, _Epocher):
 
     def __init__(self, model: Union[Model, nn.Module], val_loader: T_loader, sup_criterion: T_loss, cur_epoch=0,
                  device="cpu") -> None:
-        super().__init__(model, cur_epoch, device)
         assert isinstance(val_loader, DataLoader), \
             f"val_loader should be an instance of DataLoader, given {val_loader.__class__.__name__}."
+        super().__init__(model, num_batches=len(val_loader), cur_epoch=cur_epoch, device=device)
         self._val_loader = val_loader
         self._sup_criterion = sup_criterion
 
@@ -55,7 +55,7 @@ class EvalEpocher(_num_class_mixin, _Epocher):
     def _run(self, *args, **kwargs) -> Tuple[EpochResultDict, float]:
         self._model.eval()
         report_dict = EpochResultDict()
-        for i, val_data in enumerate(self._indicator):
+        for i, val_data in zip(self._indicator, self._val_loader):
             val_img, val_target, file_path, _, group = self._unzip_data(val_data, self._device)
             val_logits = self._model(val_img)
             onehot_target = class2one_hot(val_target.squeeze(1), self.num_classes)
@@ -80,7 +80,7 @@ class InferenceEpocher(EvalEpocher):
         self._save_dir = save_dir
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
-        meters =super()._configure_meters(meters)
+        meters = super()._configure_meters(meters)
         C = self.num_classes
         report_axis = list(range(1, C))
         meters.register_meter("hd", SurfaceMeter(C=C, report_axises=report_axis, metername="hausdorff"))
@@ -89,23 +89,22 @@ class InferenceEpocher(EvalEpocher):
     def _run(self, *args, **kwargs) -> Tuple[EpochResultDict, float]:
         self._model.eval()
         assert self._model.training is False, self._model.training
-        with tqdm(self._val_loader).set_desc_from_epocher(self) as indicator:
-            for i, val_data in enumerate(indicator):
-                val_img, val_target, file_path, _, group = self._unzip_data(val_data, self._device)
-                val_logits = self._model(val_img)
-                # write image
-                write_img_target(val_img, val_target, self._save_dir, file_path)
-                write_predict(val_logits, self._save_dir, file_path, )
-                onehot_target = class2one_hot(val_target.squeeze(1), self.num_classes)
+        for i, val_data in zip(self._indicator, self._val_loader):
+            val_img, val_target, file_path, _, group = self._unzip_data(val_data, self._device)
+            val_logits = self._model(val_img)
+            # write image
+            write_img_target(val_img, val_target, self._save_dir, file_path)
+            write_predict(val_logits, self._save_dir, file_path, )
+            onehot_target = class2one_hot(val_target.squeeze(1), self.num_classes)
 
-                val_loss = self._sup_criterion(val_logits.softmax(1), onehot_target, disable_assert=True)
+            val_loss = self._sup_criterion(val_logits.softmax(1), onehot_target, disable_assert=True)
 
-                self.meters["loss"].add(val_loss.item())
-                self.meters["dice"].add(val_logits.max(1)[1], val_target.squeeze(1), group_name=group)
-                with ExceptionIgnorer(RuntimeError):
-                    self.meters["hd"].add(val_logits.max(1)[1], val_target.squeeze(1))
-                report_dict = self.meters.tracking_status()
-                indicator.set_postfix_dict(report_dict)
+            self.meters["loss"].add(val_loss.item())
+            self.meters["dice"].add(val_logits.max(1)[1], val_target.squeeze(1), group_name=group)
+            with ExceptionIgnorer(RuntimeError):
+                self.meters["hd"].add(val_logits.max(1)[1], val_target.squeeze(1))
+            report_dict = self.meters.tracking_status()
+            self._indicator.set_postfix_dict(report_dict)
         return report_dict, self.meters["dice"].summary()["DSC_mean"]
 
 
@@ -114,12 +113,11 @@ class TrainEpocher(_num_class_mixin, _Epocher):
     def __init__(self, model: Union[Model, nn.Module], optimizer: T_optim, labeled_loader: T_loader,
                  unlabeled_loader: T_loader, sup_criterion: T_loss, reg_weight: float, num_batches: int, cur_epoch=0,
                  device="cpu", feature_position=None, feature_importance=None) -> None:
-        super().__init__(model, cur_epoch, device)
+        super().__init__(model, num_batches=num_batches, cur_epoch=cur_epoch, device=device)
         self._optimizer = optimizer
         self._labeled_loader = labeled_loader
         self._unlabeled_loader = unlabeled_loader
         self._sup_criterion = sup_criterion
-        self._num_batches = num_batches
         self._reg_weight = reg_weight
         self._affine_transformer = TensorRandomFlip(axis=[1, 2], threshold=0.8)
         assert isinstance(feature_position, list) and isinstance(feature_position[0], str), feature_position
