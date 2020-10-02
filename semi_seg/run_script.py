@@ -40,7 +40,8 @@ common_opts = f" Data.labeled_data_ratio={args.label_ratio} " \
               f" Trainer.max_epoch={args.max_epoch} " \
               f" Data.name={args.dataset_name} " \
               f" Arch.num_classes={dataset_name2class_numbers[args.dataset_name]} " \
-              f" Optim.lr={lr_zooms[args.dataset_name]:.10f}"
+              f" Optim.lr={lr_zooms[args.dataset_name]:.10f} " \
+              f" RandomSeed={random_seed} "
 
 jobs = [
     f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/ps  ",
