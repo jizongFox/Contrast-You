@@ -2,6 +2,16 @@ import random
 from typing import Union, Tuple
 
 import torch
+from deepclustering2.augment.tensor_augment import TensorRandomFlip
+from deepclustering2.decorator import FixRandomSeed
+from deepclustering2.epoch import _Epocher  # noqa
+from deepclustering2.loss import Entropy
+from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, UniversalDice, MultipleAverageValueMeter, \
+    MeterInterface, SurfaceMeter
+from deepclustering2.models import Model, ema_updater as EMA_Updater
+from deepclustering2.optim import get_lrs_from_optimizer
+from deepclustering2.type import T_loader, T_loss, T_optim
+from deepclustering2.utils import class2one_hot, ExceptionIgnorer
 from torch import Tensor
 from torch import nn
 from torch.utils.data import DataLoader
@@ -12,26 +22,7 @@ from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
 from contrastyou.helper import average_iter, weighted_average_iter
 from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
 from contrastyou.trainer._utils import ClusterHead  # noqa
-from deepclustering2.augment.tensor_augment import TensorRandomFlip
-from deepclustering2.decorator import FixRandomSeed
-from deepclustering2.epoch import _Epocher  # noqa
-from deepclustering2.loss import Entropy
-from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, UniversalDice, MultipleAverageValueMeter, \
-    MeterInterface, SurfaceMeter
-from deepclustering2.models import Model, ema_updater as EMA_Updater
-from deepclustering2.optim import get_lrs_from_optimizer
-from deepclustering2.tqdm import tqdm
-from deepclustering2.type import T_loader, T_loss, T_optim
-from deepclustering2.utils import class2one_hot, ExceptionIgnorer
-from semi_seg._utils import FeatureExtractor, ProjectorWrapper, IICLossWrapper
-
-
-class _num_class_mixin:
-    _model: nn.Module
-
-    @property
-    def num_classes(self):
-        return self._model.num_classes
+from semi_seg._utils import FeatureExtractor, ProjectorWrapper, IICLossWrapper, _num_class_mixin
 
 
 class EvalEpocher(_num_class_mixin, _Epocher):
@@ -152,6 +143,7 @@ class TrainEpocher(_num_class_mixin, _Epocher):
                     (unlabeled_image_tf.shape, unlabeled_image.shape)
 
                 predict_logits = self._model(torch.cat([labeled_image, unlabeled_image, unlabeled_image_tf], dim=0))
+
                 label_logits, unlabel_logits, unlabel_tf_logits = \
                     torch.split(
                         predict_logits,
@@ -179,13 +171,14 @@ class TrainEpocher(_num_class_mixin, _Epocher):
                 total_loss.backward()
                 self._optimizer.step()
                 # recording can be here or in the regularization method
-                with torch.no_grad():
-                    self.meters["sup_loss"].add(sup_loss.item())
-                    self.meters["sup_dice"].add(label_logits.max(1)[1], labeled_target.squeeze(1),
-                                                group_name=label_group)
-                    self.meters["reg_loss"].add(reg_loss.item())
-                    report_dict = self.meters.tracking_status()
-                    self._indicator.set_postfix_dict(report_dict)
+                if self.on_master():
+                    with torch.no_grad():
+                        self.meters["sup_loss"].add(sup_loss.item())
+                        self.meters["sup_dice"].add(label_logits.max(1)[1], labeled_target.squeeze(1),
+                                                    group_name=label_group)
+                        self.meters["reg_loss"].add(reg_loss.item())
+                        report_dict = self.meters.tracking_status()
+                        self._indicator.set_postfix_dict(report_dict)
         return report_dict
 
     @staticmethod

@@ -1,11 +1,12 @@
 from copy import deepcopy
 
+from deepclustering2.dataloader.sampler import InfiniteRandomSampler
+from deepclustering2.dataloader.distributed import InfiniteDistributedSampler
+from deepclustering2.dataset import PatientSampler
 from torch.utils.data import DataLoader
 
 from contrastyou import DATA_PATH
 from contrastyou.dataloader import ACDCSemiInterface, SpleenSemiInterface, ProstateSemiInterface
-from deepclustering2.dataloader.sampler import InfiniteRandomSampler
-from deepclustering2.dataset import PatientSampler
 from semi_seg.augment import ACDCStrongTransforms, SpleenStrongTransforms, ProstateStrongTransforms
 
 dataset_zoos = {
@@ -37,20 +38,33 @@ def get_dataloaders(config, group_val_patient=True):
     )
 
     # labeled loader is with normal 2d slicing and InfiniteRandomSampler
-    labeled_loader = DataLoader(
-        label_set, sampler=InfiniteRandomSampler(
+    labeled_sampler = InfiniteRandomSampler(
+        label_set,
+        shuffle=config["LabeledData"]["shuffle"]
+    )
+    unlabeled_sampler = InfiniteRandomSampler(
+        unlabel_set,
+        shuffle=config["UnlabeledData"]["shuffle"]
+    )
+    if config.get("DistributedTrain") is True:
+        labeled_sampler = InfiniteDistributedSampler(
             label_set,
             shuffle=config["LabeledData"]["shuffle"]
-        ),
+        )
+        unlabeled_sampler = InfiniteDistributedSampler(
+            unlabel_set,
+            shuffle=config["UnlabeledData"]["shuffle"]
+        )
+
+
+    labeled_loader = DataLoader(
+        label_set, sampler=labeled_sampler,
         batch_size=config["LabeledData"]["batch_size"],
         num_workers=config["LabeledData"]["num_workers"],
         pin_memory=True
     )
     unlabeled_loader = DataLoader(
-        unlabel_set, sampler=InfiniteRandomSampler(
-            unlabel_set,
-            shuffle=config["UnlabeledData"]["shuffle"]
-        ),
+        unlabel_set, sampler=unlabeled_sampler,
         batch_size=config["UnlabeledData"]["batch_size"],
         num_workers=config["UnlabeledData"]["num_workers"],
         pin_memory=True

@@ -14,7 +14,7 @@ from deepclustering2.loss import KL_div
 from deepclustering2.meters2 import EpochResultDict, StorageIncomeDict
 from deepclustering2.models import ema_updater
 from deepclustering2.schedulers import GradualWarmupScheduler
-from deepclustering2.trainer import Trainer
+from deepclustering2.trainer2 import Trainer
 from deepclustering2.type import T_loader, T_loss
 from semi_seg._utils import IICLossWrapper, ProjectorWrapper
 from semi_seg.epocher import TrainEpocher, EvalEpocher, UDATrainEpocher, IICTrainEpocher, UDAIICEpocher, \
@@ -93,18 +93,20 @@ class SemiTrainer(Trainer):
             eval_result: EpochResultDict
             cur_score: float
             train_result = self.run_epoch()
-            with torch.no_grad():
-                eval_result, cur_score = self.eval_epoch()
+            if self.on_master():
+                with torch.no_grad():
+                    eval_result, cur_score = self.eval_epoch()
             # update lr_scheduler
             if hasattr(self, "_scheduler"):
                 self._scheduler.step()
-            storage_per_epoch = StorageIncomeDict(tra=train_result, val=eval_result)
-            self._storage.put_from_dict(storage_per_epoch, self._cur_epoch)
-            self._writer.add_scalar_with_StorageDict(storage_per_epoch, self._cur_epoch)
-            # save_checkpoint
-            self.save(cur_score)
-            # save storage result on csv file.
-            self._storage.to_csv(self._save_dir)
+            if self.on_master():
+                storage_per_epoch = StorageIncomeDict(tra=train_result, val=eval_result)
+                self._storage.put_from_dict(storage_per_epoch, self._cur_epoch)
+                self._writer.add_scalar_with_StorageDict(storage_per_epoch, self._cur_epoch)
+                # save_checkpoint
+                self.save_on_score(cur_score)
+                # save storage result on csv file.
+                self._storage.to_csv(self._save_dir)
 
     def inference(self, checkpoint=None):  # noqa
         if checkpoint is None:

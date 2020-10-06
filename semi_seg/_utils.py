@@ -9,6 +9,20 @@ from contrastyou.losses.iic_loss import IIDLoss as _IIDLoss, IIDSegmentationSmal
 from contrastyou.trainer._utils import LocalClusterHead as _LocalClusterHead, ClusterHead as _EncoderClusterHead
 
 
+def get_model(model):
+    if isinstance(model, nn.parallel.DistributedDataParallel):
+        return model.module
+    return model
+
+
+class _num_class_mixin:
+    _model: nn.Module
+
+    @property
+    def num_classes(self):
+        return get_model(self._model).num_classes
+
+
 class IIDLoss(_IIDLoss):
 
     def forward(self, x_out: Tensor, x_tf_out: Tensor):
@@ -52,9 +66,10 @@ class FeatureExtractor(nn.Module):
     def __enter__(self):
         self._feature_exactors = {}
         self._hook_handlers = {}
+        net =get_model(self._net)
         for f in self._feature_names:
             extractor = self._FeatureExtractor()
-            handler = getattr(self._net, f).register_forward_hook(extractor)
+            handler = getattr(net, f).register_forward_hook(extractor)
             self._feature_exactors[f] = extractor
             self._hook_handlers[f] = handler
         return self

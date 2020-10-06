@@ -20,13 +20,13 @@ Data:
 
 LabeledData:
   shuffle: true
-  batch_size: 4
-  num_workers: 4
+  batch_size: 2
+  num_workers: 3
 
 UnlabeledData:
   shuffle: true
-  batch_size: 10
-  num_workers: 4
+  batch_size: 4
+  num_workers: 5
 
 Trainer:
   feature_names: ["Conv5", "Up_conv3", "Up_conv2"]
