@@ -6,19 +6,23 @@ from typing import Tuple
 
 import torch
 from torch import nn
+from torch import optim
 
 from contrastyou import PROJECT_PATH
 from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
 from deepclustering2 import optim
 from deepclustering2.loss import KL_div
-from deepclustering2.meters2 import EpochResultDict, StorageIncomeDict
+from deepclustering2.meters2 import EpochResultDict
+from deepclustering2.meters2 import StorageIncomeDict
 from deepclustering2.models import ema_updater
 from deepclustering2.schedulers import GradualWarmupScheduler
 from deepclustering2.trainer2 import Trainer
 from deepclustering2.type import T_loader, T_loss
-from semi_seg._utils import IICLossWrapper, ProjectorWrapper
-from semi_seg.epocher import TrainEpocher, EvalEpocher, UDATrainEpocher, IICTrainEpocher, UDAIICEpocher, \
-    EntropyMinEpocher, MeanTeacherEpocher, IICMeanTeacherEpocher, InferenceEpocher, MIDLPaperEpocher
+from semi_seg._utils import ProjectorWrapper, IICLossWrapper
+from semi_seg.epocher import IICTrainEpocher, UDAIICEpocher
+from semi_seg.epocher import TrainEpocher, EvalEpocher, UDATrainEpocher, EntropyMinEpocher, MeanTeacherEpocher, \
+    IICMeanTeacherEpocher, InferenceEpocher, MIDLPaperEpocher, FeatureOutputCrossIICUDAEpocher, \
+    FeatureOutputCrossIICEpocher
 
 __all__ = ["trainer_zoos"]
 
@@ -309,6 +313,89 @@ class IICMeanTeacherTrainer(IICTrainer):
         return result, cur_score
 
 
+class IICFeatureOutputTrainer(IICTrainer):
+    """This class only impose feature output MI"""
+
+    def _init(self):
+        super(IICFeatureOutputTrainer, self)._init()
+        self._cross_reg_weight = deepcopy(self._reg_weight)
+        config = deepcopy(self._config["FeatureOutputIICRegParameters"])
+        self._projector_wrappers_output = ProjectorWrapper()
+        self._projector_wrappers_output.init_encoder(
+            feature_names=self.feature_positions,
+        )
+        self._projector_wrappers_output.init_decoder(
+            feature_names=self.feature_positions,
+            **config["DecoderParams"]
+        )
+        self._IIDSegWrapper_output = IICLossWrapper(
+            feature_names=self.feature_positions,
+            **config["LossParams"]
+        )
+        self._output_reg_weight = float(config["weight"])
+
+    def _run_epoch(self, *args, **kwargs) -> EpochResultDict:
+        trainer = FeatureOutputCrossIICEpocher(
+            model=self._model, projectors_wrapper=self._projector_wrappers, optimizer=self._optimizer,
+            labeled_loader=self._labeled_loader,
+            unlabeled_loader=self._unlabeled_loader, sup_criterion=self._sup_criterion, num_batches=self._num_batches,
+            cur_epoch=self._cur_epoch, device=self._device,
+            feature_position=self.feature_positions, feature_importance=self._feature_importance,
+            IIDSegCriterionWrapper=self._IIDSegWrapper,
+            # new attribute
+            cross_reg_weight=self._cross_reg_weight,
+            output_reg_weight=self._output_reg_weight,
+        )
+        trainer.init(
+            IIDSegCriterionWrapper_output=self._IIDSegWrapper_output,
+            projectors_wrapper_output=self._projector_wrappers_output)
+        result = trainer.run()
+        return result
+
+    def _init_optimizer(self):
+        config = deepcopy(self._config["Optim"])
+        self._optimizer = optim.__dict__[config["name"]](
+            params=chain(self._model.parameters(), self._projector_wrappers.parameters(),
+                         self._projector_wrappers_output.parameters()),
+            **{k: v for k, v in config.items() if k != "name"}
+        )
+
+
+class UDAIICFeatureOutputTrainer(UDAIICTrainer):
+
+    def _init(self):
+        super()._init()
+        config = deepcopy(self._config["FeatureOutputIICRegParameters"])
+        self._projector_wrappers_output = ProjectorWrapper()
+        self._projector_wrappers_output.init_encoder(
+            feature_names=self.feature_positions,
+        )
+        self._projector_wrappers_output.init_decoder(
+            feature_names=self.feature_positions,
+            **config["DecoderParams"]
+        )
+        self._IIDSegWrapper_output = IICLossWrapper(
+            feature_names=self.feature_positions,
+            **config["LossParams"]
+        )
+        self._output_reg_weight = float(config["weight"])
+
+    def _run_epoch(self, *args, **kwargs) -> EpochResultDict:
+        trainer = FeatureOutputCrossIICUDAEpocher(
+            self._model, self._projector_wrappers, self._optimizer, self._labeled_loader,
+            self._unlabeled_loader, self._sup_criterion, self._reg_criterion, self._IIDSegWrapper,
+            num_batches=self._num_batches, cur_epoch=self._cur_epoch, device=self._device,
+            feature_position=self.feature_positions, cons_weight=self._uda_weight,
+            iic_weight=self._iic_weight, feature_importance=self._feature_importance,
+            output_reg_weight=self._output_reg_weight
+        )
+        trainer.init(
+            IIDSegCriterionWrapper_output=self._IIDSegWrapper_output,
+            projectors_wrapper_output=self._projector_wrappers_output)
+        result = trainer.run()
+        return result
+
+
 trainer_zoos = {
     "partial": SemiTrainer,
     "uda": UDATrainer,
@@ -317,5 +404,7 @@ trainer_zoos = {
     "entropy": EntropyMinTrainer,
     "meanteacher": MeanTeacherTrainer,
     "iicmeanteacher": IICMeanTeacherTrainer,
-    "midl": MIDLTrainer
+    "midl": MIDLTrainer,
+    "featureoutputiic": IICFeatureOutputTrainer,
+    "featureoutputudaiic": UDAIICFeatureOutputTrainer
 }

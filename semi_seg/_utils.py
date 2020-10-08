@@ -66,7 +66,7 @@ class FeatureExtractor(nn.Module):
     def __enter__(self):
         self._feature_exactors = {}
         self._hook_handlers = {}
-        net =get_model(self._net)
+        net = get_model(self._net)
         for f in self._feature_names:
             extractor = self._FeatureExtractor()
             handler = getattr(net, f).register_forward_hook(extractor)
@@ -152,6 +152,11 @@ class EncoderClusterWrapper(LocalClusterWrappaer):
 class ProjectorWrapper(nn.Module):
     ENCODER_INITIALIZED = False
     DECODER_INITIALIZED = False
+
+    def __init__(self):
+        super().__init__()
+        self._encoder_names = []
+        self._decoder_names = []
 
     def init_encoder(
         self,

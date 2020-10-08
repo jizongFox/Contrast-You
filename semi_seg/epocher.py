@@ -1,7 +1,19 @@
 import random
-from typing import Union, Tuple
+from itertools import repeat
+from typing import Union, Tuple, List
 
 import torch
+from torch import Tensor
+from torch import nn
+from torch.nn import functional as F
+from torch.utils.data import DataLoader
+
+from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
+from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
+from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
+from contrastyou.helper import average_iter, weighted_average_iter
+from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
+from contrastyou.trainer._utils import ClusterHead  # noqa
 from deepclustering2.augment.tensor_augment import TensorRandomFlip
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.epoch import _Epocher  # noqa
@@ -12,17 +24,7 @@ from deepclustering2.models import Model, ema_updater as EMA_Updater
 from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.type import T_loader, T_loss, T_optim
 from deepclustering2.utils import class2one_hot, ExceptionIgnorer
-from torch import Tensor
-from torch import nn
-from torch.utils.data import DataLoader
-
-from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
-from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
-from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
-from contrastyou.helper import average_iter, weighted_average_iter
-from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
-from contrastyou.trainer._utils import ClusterHead  # noqa
-from semi_seg._utils import FeatureExtractor, ProjectorWrapper, IICLossWrapper, _num_class_mixin
+from semi_seg._utils import FeatureExtractor, ProjectorWrapper, IICLossWrapper, _num_class_mixin, _filter_decodernames
 
 
 class EvalEpocher(_num_class_mixin, _Epocher):
@@ -497,3 +499,102 @@ class IICMeanTeacherEpocher(IICTrainEpocher):
         self._ema_updater(self._teacher_model, self._model)
 
         return self._mt_weight * uda_loss + self._iic_weight * reg_loss
+
+
+class _FeatureOutputIICEpocher:
+    meters: MeterInterface
+    _output_extractor: FeatureExtractor
+    _fextractor: FeatureExtractor
+    _feature_position: List[str]
+    _feature_importance: List[float]
+
+    def init(self, projectors_wrapper_output: ProjectorWrapper, IIDSegCriterionWrapper_output: IICLossWrapper,
+             ) -> None:
+        self._projectors_wrapper_output = projectors_wrapper_output
+        self._IIDSegCriterionWrapper_output = IIDSegCriterionWrapper_output
+
+    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters = super()._configure_meters(meters)
+        meters.register_meter("foutmi", AverageValueMeter())
+        meters.register_meter("foutindividual_mis", MultipleAverageValueMeter())
+        return meters
+
+    def _run(self, *args, **kwargs):
+        with  FeatureExtractor(self._model, "DeConv_1x1") as self._output_extractor:
+            return super(_FeatureOutputIICEpocher, self)._run(*args, **kwargs)
+
+    # we extend a method in order not to kill all.
+    def regularization_on_feature_output(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int,
+                                         *args, **kwargs):
+        feature_names = self._fextractor._feature_names  # noqa
+        unlabeled_length = len(unlabeled_tf_logits) * 2
+        iic_losses_for_features = []
+        unlabeled_preds = self._output_extractor["DeConv_1x1"][- unlabeled_length:].softmax(1)
+        output_size = unlabeled_preds.shape[-2:]
+        for i, (inter_feature, projector, criterion) \
+            in enumerate(zip(self._fextractor, self._projectors_wrapper_output, self._IIDSegCriterionWrapper_output)):
+            if isinstance(projector, ClusterHead):  # features from encoder
+                continue
+            # project unlabeled features to probabilities:
+            unlabeled_features = inter_feature[- unlabeled_length:]
+            prob_list1 = [F.interpolate(x, size=output_size, mode="bilinear", align_corners=True) for x in
+                          projector(unlabeled_features)]
+
+            _iic_loss_list = [criterion(x, y) for x, y in zip(prob_list1, repeat(unlabeled_preds))]
+            _iic_loss = average_iter(_iic_loss_list)
+            iic_losses_for_features.append(_iic_loss)
+        reg_loss = weighted_average_iter(iic_losses_for_features, self._feature_importance[1:])
+        self.meters["foutmi"].add(-reg_loss.item())
+        self.meters["foutindividual_mis"].add(**dict(zip(
+            _filter_decodernames(self._feature_position),
+            [-x.item() for x in iic_losses_for_features]
+        )))
+
+        return reg_loss
+
+
+class FeatureOutputCrossIICEpocher(_FeatureOutputIICEpocher, IICTrainEpocher):
+
+    def __init__(self, model: Union[Model, nn.Module], projectors_wrapper: ProjectorWrapper,
+                 optimizer: T_optim, labeled_loader: T_loader, unlabeled_loader: T_loader, sup_criterion: T_loss,
+                 IIDSegCriterionWrapper: IICLossWrapper,
+                 num_batches: int, cur_epoch: int = 0, device="cpu", feature_position=None, feature_importance=None,
+                 cross_reg_weight: float = 1.0, output_reg_weight: float = 1.0) -> None:
+        super().__init__(model, projectors_wrapper, optimizer, labeled_loader, unlabeled_loader, sup_criterion,
+                         IIDSegCriterionWrapper, 1.0, num_batches, cur_epoch, device, feature_position,
+                         feature_importance, )
+
+        self._cross_reg_weight = cross_reg_weight
+        self._output_reg_weight = output_reg_weight
+
+    def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, *args, **kwargs):
+        cross_mi = torch.tensor(0, dtype=torch.float, device=unlabeled_logits_tf.device)
+        if self._cross_reg_weight > 0:
+            cross_mi = super(FeatureOutputCrossIICEpocher, self).regularization(unlabeled_tf_logits,
+                                                                                unlabeled_logits_tf,
+                                                                                seed, *args, **kwargs)
+        featureoutput_mi = torch.tensor(0, dtype=torch.float, device=unlabeled_logits_tf.device)
+        if self._output_reg_weight > 0:
+            featureoutput_mi = self.regularization_on_feature_output(unlabeled_tf_logits, unlabeled_logits_tf,
+                                                                     seed, *args, **kwargs)
+        return cross_mi * self._cross_reg_weight + featureoutput_mi * self._output_reg_weight
+
+
+class FeatureOutputCrossIICUDAEpocher(_FeatureOutputIICEpocher, UDAIICEpocher):
+
+    def __init__(self, model: Union[Model, nn.Module], projectors_wrapper: ProjectorWrapper, optimizer: T_optim,
+                 labeled_loader: T_loader, unlabeled_loader: T_loader, sup_criterion: T_loss, reg_criterion: T_loss,
+                 IIDSegCriterion: T_loss, num_batches: int, cur_epoch: int = 0, device="cpu", feature_position=None,
+                 feature_importance=None, cons_weight=1, iic_weight=0.1, output_reg_weight=0.1) -> None:
+        super().__init__(model, projectors_wrapper, optimizer, labeled_loader, unlabeled_loader, sup_criterion,
+                         reg_criterion, IIDSegCriterion, num_batches, cur_epoch, device, feature_position,
+                         feature_importance, cons_weight, iic_weight)
+        self._output_reg_weight = output_reg_weight
+
+    def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, *args, **kwargs):
+        cross_udaiic = super().regularization(unlabeled_tf_logits, unlabeled_logits_tf, seed, *args, **kwargs)
+        output_iic = torch.tensor(0.0, device=unlabeled_logits_tf.device, dtype=torch.float)
+        if self._output_reg_weight > 0:
+            output_iic = self.regularization_on_feature_output(unlabeled_tf_logits, unlabeled_logits_tf, seed, *args,
+                                                               **kwargs)
+        return cross_udaiic + self._output_reg_weight * output_iic
