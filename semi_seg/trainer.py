@@ -2,7 +2,7 @@ import os
 from copy import deepcopy
 from itertools import chain
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Type
 
 import torch
 from torch import nn
@@ -37,6 +37,7 @@ class SemiTrainer(Trainer):
         self._val_loader = val_loader
         self._sup_criterion = sup_criterion
 
+    # initialization
     def init(self):
         self._init()
         self._init_optimizer()
@@ -72,15 +73,30 @@ class SemiTrainer(Trainer):
             **{k: v for k, v in optim_dict.items() if k != "name"}
         )
 
-    def _run_epoch(self, *args, **kwargs) -> EpochResultDict:
-        trainer = TrainEpocher(
-            self._model, self._optimizer, self._labeled_loader, self._unlabeled_loader,
-            self._sup_criterion, 0, self._num_batches, self._cur_epoch, self._device,
-            feature_position=self.feature_positions, feature_importance=self._feature_importance
+    # run epoch
+    def set_epocher_class(self, epocher_class: Type[TrainEpocher] = TrainEpocher):
+        self.epocher_class = epocher_class
+
+    def run_epoch(self, *args, **kwargs):
+        self.set_epocher_class()
+        trainer = self._run_init()
+        return self._run_epoch(trainer, *args, **kwargs)
+
+    def _run_init(self, ):
+        epocher = self.epocher_class(
+            model=self._model, optimizer=self._optimizer, labeled_loader=self._labeled_loader,
+            unlabeled_loader=self._unlabeled_loader, sup_criterion=self._sup_criterion, num_batches=self._num_batches,
+            cur_epoch=self._cur_epoch, device=self._device, feature_position=self.feature_positions,
+            feature_importance=self._feature_importance
         )
-        result = trainer.run()
+        return epocher
+
+    def _run_epoch(self, epocher: TrainEpocher, *args, **kwargs) -> EpochResultDict:
+        epocher.init(reg_weight=0.0)  # partial supervision without regularization
+        result = epocher.run()
         return result
 
+    # run eval
     def _eval_epoch(self, *args, **kwargs) -> Tuple[EpochResultDict, float]:
         evaler = EvalEpocher(self._model, val_loader=self._val_loader, sup_criterion=self._sup_criterion,
                              cur_epoch=self._cur_epoch, device=self._device)
@@ -122,7 +138,7 @@ class SemiTrainer(Trainer):
             self.load_state_dict_from_path(str(checkpoint), strict=True)
         evaler = InferenceEpocher(self._model, val_loader=self._val_loader, sup_criterion=self._sup_criterion,
                                   cur_epoch=self._cur_epoch, device=self._device)
-        evaler.set_save_dir(self._save_dir)
+        evaler.init(save_dir=self._save_dir)
         result, cur_score = evaler.run()
         return result, cur_score
 
@@ -139,12 +155,12 @@ class UDATrainer(SemiTrainer):
         self._reg_criterion = {"mse": nn.MSELoss(), "kl": KL_div()}[config["name"]]
         self._reg_weight = float(config["weight"])
 
-    def _run_epoch(self, *args, **kwargs) -> EpochResultDict:
-        trainer = UDATrainEpocher(self._model, self._optimizer, self._labeled_loader, self._unlabeled_loader,
-                                  self._sup_criterion, reg_weight=self._reg_weight, num_batches=self._num_batches,
-                                  cur_epoch=self._cur_epoch, device=self._device, reg_criterion=self._reg_criterion,
-                                  feature_position=self.feature_positions, feature_importance=self._feature_importance)
-        result = trainer.run()
+    def set_epocher_class(self, epocher_class: Type[TrainEpocher] = UDATrainEpocher):
+        super().set_epocher_class(epocher_class)
+
+    def _run_epoch(self, epocher: UDATrainEpocher, *args, **kwargs) -> EpochResultDict:
+        epocher.init(reg_weight=self._reg_weight, reg_criterion=self._reg_criterion)
+        result = epocher.run()
         return result
 
 
@@ -160,14 +176,13 @@ class MIDLTrainer(UDATrainer):
         )
         self._iic_weight = float(config["iic_weight"])
 
-    def _run_epoch(self, *args, **kwargs) -> EpochResultDict:
-        trainer = MIDLPaperEpocher(self._model, self._optimizer, self._labeled_loader, self._unlabeled_loader,
-                                   self._sup_criterion, num_batches=self._num_batches,
-                                   cur_epoch=self._cur_epoch, device=self._device, reg_criterion=self._reg_criterion,
-                                   feature_position=self.feature_positions, feature_importance=self._feature_importance,
-                                   iic_weight=self._iic_weight, uda_weight=self._uda_weight,
-                                   iic_segcriterion=self._iic_segcriterion)
-        result = trainer.run()
+    def set_epocher_class(self, epocher_class: Type[TrainEpocher] = MIDLPaperEpocher):
+        super().set_epocher_class(epocher_class)
+
+    def _run_epoch(self, epocher: MIDLPaperEpocher, *args, **kwargs) -> EpochResultDict:
+        epocher.init(iic_weight=self._iic_weight, uda_weight=self._uda_weight, iic_segcriterion=self._iic_segcriterion,
+                     reg_criterion=self._reg_criterion)
+        result = epocher.run()
         return result
 
 
@@ -189,16 +204,15 @@ class IICTrainer(SemiTrainer):
             **config["LossParams"]
         )
         self._reg_weight = float(config["weight"])
+        self._enforce_matching = config["enforce_matching"]
 
-    def _run_epoch(self, *args, **kwargs) -> EpochResultDict:
-        trainer = IICTrainEpocher(
-            self._model, self._projector_wrappers, self._optimizer, self._labeled_loader,
-            self._unlabeled_loader, self._sup_criterion, num_batches=self._num_batches,
-            cur_epoch=self._cur_epoch, device=self._device, reg_weight=self._reg_weight,
-            feature_position=self.feature_positions, feature_importance=self._feature_importance,
-            IIDSegCriterionWrapper=self._IIDSegWrapper
-        )
-        result = trainer.run()
+    def set_epocher_class(self, epocher_class: Type[TrainEpocher] = IICTrainEpocher):
+        super().set_epocher_class(epocher_class)
+
+    def _run_epoch(self, epocher: IICTrainEpocher, *args, **kwargs) -> EpochResultDict:
+        epocher.init(reg_weight=self._reg_weight, projectors_wrapper=self._projector_wrappers,
+                     IIDSegCriterionWrapper=self._IIDSegWrapper, enforce_matching=self._enforce_matching)
+        result = epocher.run()
         return result
 
     def _init_optimizer(self):
@@ -214,20 +228,18 @@ class UDAIICTrainer(IICTrainer):
     def _init(self):
         super(UDAIICTrainer, self)._init()
         self._iic_weight = deepcopy(self._reg_weight)
-        self._reg_weight = 1.0
         UDA_config = deepcopy(self._config["UDARegCriterion"])
         self._reg_criterion = {"mse": nn.MSELoss(), "kl": KL_div()}[UDA_config["name"]]
         self._uda_weight = float(UDA_config["weight"])
 
-    def _run_epoch(self, *args, **kwargs) -> EpochResultDict:
-        trainer = UDAIICEpocher(
-            self._model, self._projector_wrappers, self._optimizer, self._labeled_loader,
-            self._unlabeled_loader, self._sup_criterion, self._reg_criterion, self._IIDSegWrapper,
-            num_batches=self._num_batches, cur_epoch=self._cur_epoch, device=self._device,
-            feature_position=self.feature_positions, cons_weight=self._uda_weight,
-            iic_weight=self._iic_weight, feature_importance=self._feature_importance
-        )
-        result = trainer.run()
+    def set_epocher_class(self, epocher_class: Type[TrainEpocher] = UDAIICEpocher):
+        super().set_epocher_class(epocher_class)
+
+    def _run_epoch(self, epocher: UDAIICEpocher, *args, **kwargs) -> EpochResultDict:
+        epocher.init(iic_weight=self._iic_weight, uda_weight=self._uda_weight,
+                     projectors_wrapper=self._projector_wrappers, IIDSegCriterionWrapper=self._IIDSegWrapper,
+                     reg_criterion=self._reg_criterion, enforce_matching=self._enforce_matching)
+        result = epocher.run()
         return result
 
 
@@ -237,13 +249,12 @@ class EntropyMinTrainer(SemiTrainer):
         config = deepcopy(self._config["EntropyMinParameters"])
         self._reg_weight = float(config["weight"])
 
-    def _run_epoch(self, *args, **kwargs):
-        trainer = EntropyMinEpocher(self._model, self._optimizer, self._labeled_loader, self._unlabeled_loader,
-                                    self._sup_criterion, reg_weight=self._reg_weight, num_batches=self._num_batches,
-                                    cur_epoch=self._cur_epoch, device=self._device,
-                                    feature_position=self.feature_positions,
-                                    feature_importance=self._feature_importance)
-        result = trainer.run()
+    def set_epocher_class(self, epocher_class: Type[TrainEpocher] = EntropyMinEpocher):
+        super().set_epocher_class(epocher_class)
+
+    def _run_epoch(self, epocher: EntropyMinEpocher, *args, **kwargs) -> EpochResultDict:
+        epocher.init(reg_weight=self._reg_weight)
+        result = epocher.run()
         return result
 
 
@@ -259,15 +270,13 @@ class MeanTeacherTrainer(SemiTrainer):
         self._ema_updater = ema_updater(alpha=float(config["alpha"]), weight_decay=float(config["weight_decay"]))
         self._reg_weight = float(config["weight"])
 
-    def _run_epoch(self, *args, **kwargs) -> EpochResultDict:
-        trainer = MeanTeacherEpocher(self._model, self._teacher_model, self._optimizer, self._ema_updater,
-                                     self._labeled_loader, self._unlabeled_loader,
-                                     self._sup_criterion, reg_criterion=self._reg_criterion,
-                                     reg_weight=self._reg_weight, num_batches=self._num_batches,
-                                     cur_epoch=self._cur_epoch, device=self._device,
-                                     feature_position=self.feature_positions,
-                                     feature_importance=self._feature_importance)
-        result = trainer.run()
+    def set_epocher_class(self, epocher_class: Type[TrainEpocher] = MeanTeacherEpocher):
+        super().set_epocher_class(epocher_class)
+
+    def _run_epoch(self, epocher: MeanTeacherEpocher, *args, **kwargs) -> EpochResultDict:
+        epocher.init(reg_weight=self._reg_weight, teacher_model=self._teacher_model, reg_criterion=self._reg_criterion,
+                     ema_updater=self._ema_updater)
+        result = epocher.run()
         return result
 
     def _eval_epoch(self, *args, **kwargs) -> Tuple[EpochResultDict, float]:
@@ -291,15 +300,15 @@ class IICMeanTeacherTrainer(IICTrainer):
         self._ema_updater = ema_updater(alpha=float(config["alpha"]), weight_decay=float(config["weight_decay"]))
         self._mt_weight = float(config["weight"])
 
-    def _run_epoch(self, *args, **kwargs) -> EpochResultDict:
-        trainer = IICMeanTeacherEpocher(
-            self._model, self._teacher_model, self._projector_wrappers, self._optimizer, self._ema_updater,
-            self._labeled_loader, self._unlabeled_loader, self._sup_criterion, reg_criterion=self._reg_criterion,
-            num_batches=self._num_batches, cur_epoch=self._cur_epoch, device=self._device,
-            feature_position=self.feature_positions, feature_importance=self._feature_importance,
-            IIDSegCriterionWrapper=self._IIDSegWrapper, mt_weight=self._mt_weight, iic_weight=self._iic_weight
-        )
-        result = trainer.run()
+    def set_epocher_class(self, epocher_class: Type[TrainEpocher] = IICMeanTeacherEpocher):
+        super().set_epocher_class(epocher_class)
+
+    def _run_epoch(self, epocher: IICMeanTeacherEpocher, *args, **kwargs) -> EpochResultDict:
+        epocher.init(projectors_wrapper=self._projector_wrappers, IIDSegCriterionWrapper=self._IIDSegWrapper,
+                     reg_criterion=self._reg_criterion, teacher_model=self._teacher_model,
+                     ema_updater=self._ema_updater, mt_weight=self._mt_weight, iic_weight=self._iic_weight,
+                     enforce_matching=self._enforce_matching)
+        result = epocher.run()
         return result
 
     def _eval_epoch(self, *args, **kwargs) -> Tuple[EpochResultDict, float]:
