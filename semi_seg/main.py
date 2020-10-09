@@ -76,4 +76,3 @@ def main_worker(rank, ngpus_per_node, config, cmanager, port):
 # trainer.inference(checkpoint=checkpoint)
 if __name__ == '__main__':
     main()
-

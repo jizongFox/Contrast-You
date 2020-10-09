@@ -176,7 +176,6 @@ jobs = [
     f" python main.py {common_opts} Trainer.name=iicmeanteacher Trainer.save_dir={save_dir}/iicmeanteacher/15.0_0.05 "
     f" IICRegParameters.weight=0.05 MeanTeacherParameters.weight=15.0 ",
 
-
     # midl
     f" python main.py {common_opts} Trainer.name=midl Trainer.save_dir={save_dir}/midl/10_0.1 "
     f" MIDLPaperParameters.iic_weight=0.1  UDARegCriterion.weight=10",
@@ -210,11 +209,15 @@ jobs = [
 # CC things
 accounts = cycle(["def-chdesa", "def-mpederso", "rrg-mpederso"])
 
-jobsubmiter = JobSubmiter(project_path="./", on_local=True, time=args.time)
+jobsubmiter = JobSubmiter(project_path="../", on_local=False, time=args.time)
 for j in jobs:
-    jobsubmiter.prepare_env(["source ./venv/bin/activate ",
-                             "export OMP_NUM_THREADS=1",
-                             "export PYTHONOPTIMIZE=1"])
+    jobsubmiter.prepare_env(
+        [
+            "source ../venv/bin/activate ",
+            "export OMP_NUM_THREADS=1",
+            "export PYTHONOPTIMIZE=1"
+        ]
+    )
     jobsubmiter.account = next(accounts)
     jobsubmiter.run(j)
 

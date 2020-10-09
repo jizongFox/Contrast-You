@@ -2,6 +2,15 @@ import random
 from typing import Union, Tuple
 
 import torch
+from torch import Tensor
+from torch import nn
+from torch.utils.data import DataLoader
+
+from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
+from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
+from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
+from contrastyou.helper import average_iter, weighted_average_iter
+from contrastyou.trainer._utils import ClusterHead  # noqa
 from deepclustering2.augment.tensor_augment import TensorRandomFlip
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.epoch import _Epocher  # noqa
@@ -12,16 +21,6 @@ from deepclustering2.models import Model, ema_updater as EMA_Updater
 from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.type import T_loader, T_loss, T_optim
 from deepclustering2.utils import class2one_hot, ExceptionIgnorer
-from torch import Tensor
-from torch import nn
-from torch.utils.data import DataLoader
-
-from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
-from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
-from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
-from contrastyou.helper import average_iter, weighted_average_iter
-from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
-from contrastyou.trainer._utils import ClusterHead  # noqa
 from semi_seg._utils import FeatureExtractor, ProjectorWrapper, IICLossWrapper, _num_class_mixin
 
 
@@ -34,6 +33,9 @@ class EvalEpocher(_num_class_mixin, _Epocher):
         super().__init__(model, num_batches=len(val_loader), cur_epoch=cur_epoch, device=device)
         self._val_loader = val_loader
         self._sup_criterion = sup_criterion
+
+    def init(self, *args, **kwargs):
+        pass
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         C = self.num_classes
@@ -67,7 +69,7 @@ class EvalEpocher(_num_class_mixin, _Epocher):
 
 class InferenceEpocher(EvalEpocher):
 
-    def set_save_dir(self, save_dir):
+    def init(self, save_dir: str):
         self._save_dir = save_dir
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
@@ -80,6 +82,7 @@ class InferenceEpocher(EvalEpocher):
     def _run(self, *args, **kwargs) -> Tuple[EpochResultDict, float]:
         self._model.eval()
         assert self._model.training is False, self._model.training
+        report_dict = EpochResultDict()
         for i, val_data in zip(self._indicator, self._val_loader):
             val_img, val_target, file_path, _, group = self._unzip_data(val_data, self._device)
             val_logits = self._model(val_img)
@@ -102,20 +105,22 @@ class InferenceEpocher(EvalEpocher):
 class TrainEpocher(_num_class_mixin, _Epocher):
 
     def __init__(self, model: Union[Model, nn.Module], optimizer: T_optim, labeled_loader: T_loader,
-                 unlabeled_loader: T_loader, sup_criterion: T_loss, reg_weight: float, num_batches: int, cur_epoch=0,
+                 unlabeled_loader: T_loader, sup_criterion: T_loss, num_batches: int, cur_epoch=0,
                  device="cpu", feature_position=None, feature_importance=None) -> None:
         super().__init__(model, num_batches=num_batches, cur_epoch=cur_epoch, device=device)
         self._optimizer = optimizer
         self._labeled_loader = labeled_loader
         self._unlabeled_loader = unlabeled_loader
         self._sup_criterion = sup_criterion
-        self._reg_weight = reg_weight
         self._affine_transformer = TensorRandomFlip(axis=[1, 2], threshold=0.8)
         assert isinstance(feature_position, list) and isinstance(feature_position[0], str), feature_position
         assert isinstance(feature_importance, list) and isinstance(feature_importance[0],
                                                                    (int, float)), feature_importance
         self._feature_position = feature_position
         self._feature_importance = feature_importance
+
+    def init(self, reg_weight: float, *args, **kwargs):
+        self._reg_weight = reg_weight
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         C = self.num_classes
@@ -130,8 +135,8 @@ class TrainEpocher(_num_class_mixin, _Epocher):
         self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer)[0])
         self._model.train()
         assert self._model.training, self._model.training
-        report_dict = {}
-        with FeatureExtractor(self._model, self._feature_position) as self._fextractor:
+        report_dict = EpochResultDict()
+        with FeatureExtractor(self._model, self._feature_position) as self._fextractor:  # noqa
             for i, labeled_data, unlabeled_data in zip(self._indicator, self._labeled_loader, self._unlabeled_loader):
                 seed = random.randint(0, int(1e7))
                 labeled_image, labeled_target, labeled_filename, _, label_group = \
@@ -193,12 +198,8 @@ class TrainEpocher(_num_class_mixin, _Epocher):
 
 class UDATrainEpocher(TrainEpocher):
 
-    def __init__(self, model: Union[Model, nn.Module], optimizer: T_optim, labeled_loader: T_loader,
-                 unlabeled_loader: T_loader, sup_criterion: T_loss, reg_criterion: T_loss, reg_weight: float,
-                 num_batches: int, cur_epoch: int = 0, device="cpu", feature_position=None,
-                 feature_importance=None) -> None:
-        super().__init__(model, optimizer, labeled_loader, unlabeled_loader, sup_criterion, reg_weight, num_batches,
-                         cur_epoch, device, feature_position, feature_importance)
+    def init(self, reg_weight: float, reg_criterion: T_loss, *args, **kwargs):  # noqa
+        super().init(reg_weight, *args, **kwargs)
         self._reg_criterion = reg_criterion
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
@@ -222,13 +223,9 @@ class UDATrainEpocher(TrainEpocher):
 
 class MIDLPaperEpocher(UDATrainEpocher):
 
-    def __init__(self, model: Union[Model, nn.Module], optimizer: T_optim, labeled_loader: T_loader,
-                 unlabeled_loader: T_loader, sup_criterion: T_loss, reg_criterion: T_loss,
-                 iic_segcriterion: IIDSegmentationSmallPathLoss, uda_weight: float, iic_weight,
-                 num_batches: int, cur_epoch: int = 0, device="cpu", feature_position=None,
-                 feature_importance=None) -> None:
-        super().__init__(model, optimizer, labeled_loader, unlabeled_loader, sup_criterion, reg_criterion, 1.0,
-                         num_batches, cur_epoch, device, feature_position, feature_importance)
+    def init(self, iic_weight: float, uda_weight: float, iic_segcriterion: T_loss, reg_criterion: T_loss, *args,  # noqa
+             **kwargs):  # noqa
+        super().init(1.0, reg_criterion, *args, **kwargs)
         self._iic_segcriterion = iic_segcriterion
         self._iic_weight = iic_weight
         self._uda_weight = uda_weight
@@ -256,23 +253,19 @@ class MIDLPaperEpocher(UDATrainEpocher):
 
 class IICTrainEpocher(TrainEpocher):
 
+    def init(self, reg_weight: float, projectors_wrapper: ProjectorWrapper,  # noqa
+             IIDSegCriterionWrapper: IICLossWrapper, enforce_matching=False,  # noqa
+             *args, **kwargs):  # noqa
+        super().init(reg_weight, *args, **kwargs)
+        self._projectors_wrapper = projectors_wrapper
+        self._IIDSegCriterionWrapper = IIDSegCriterionWrapper
+        self._enforce_matching = enforce_matching
+
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super()._configure_meters(meters)
         meters.register_meter("mi", AverageValueMeter())
         meters.register_meter("individual_mis", MultipleAverageValueMeter())
         return meters
-
-    def __init__(self, model: Union[Model, nn.Module], projectors_wrapper: ProjectorWrapper, optimizer: T_optim,
-                 labeled_loader: T_loader, unlabeled_loader: T_loader, sup_criterion: T_loss,
-                 IIDSegCriterionWrapper: IICLossWrapper,
-                 reg_weight: float, num_batches: int, cur_epoch: int = 0, device="cpu", feature_position=None,
-                 feature_importance=None) -> None:
-        super().__init__(model, optimizer, labeled_loader, unlabeled_loader, sup_criterion, reg_weight, num_batches,
-                         cur_epoch, device, feature_position, feature_importance)
-        assert projectors_wrapper.feature_names == self._feature_position
-        self._projectors_wrapper = projectors_wrapper
-        assert IIDSegCriterionWrapper.feature_names == self._feature_position
-        self._IIDSegCriterionWrapper = IIDSegCriterionWrapper
 
     def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, *args, **kwargs):
         # todo: adding projectors here.
@@ -314,16 +307,13 @@ class IICTrainEpocher(TrainEpocher):
 
 class UDAIICEpocher(IICTrainEpocher):
 
-    def __init__(self, model: Union[Model, nn.Module], projectors_wrapper: ProjectorWrapper, optimizer: T_optim,
-                 labeled_loader: T_loader, unlabeled_loader: T_loader, sup_criterion: T_loss, reg_criterion: T_loss,
-                 IIDSegCriterion: T_loss, num_batches: int, cur_epoch: int = 0, device="cpu",
-                 feature_position=None, feature_importance=None, cons_weight=1,
-                 iic_weight=0.1) -> None:
-        super().__init__(model, projectors_wrapper, optimizer, labeled_loader, unlabeled_loader, sup_criterion,
-                         IIDSegCriterion, 1.0, num_batches, cur_epoch, device, feature_position,
-                         feature_importance)
-        self._cons_weight = cons_weight
+    def init(self, iic_weight: float, uda_weight: float, projectors_wrapper: ProjectorWrapper,  # noqa
+             IIDSegCriterionWrapper: IICLossWrapper, reg_criterion: T_loss, enforce_matching=False, *args,
+             **kwargs):  # noqa
+        super().init(1.0, projectors_wrapper, IIDSegCriterionWrapper, enforce_matching=enforce_matching, *args,
+                     **kwargs)
         self._iic_weight = iic_weight
+        self._cons_weight = uda_weight
         self._reg_criterion = reg_criterion
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
@@ -352,6 +342,11 @@ class UDAIICEpocher(IICTrainEpocher):
 
 
 class EntropyMinEpocher(TrainEpocher):
+
+    def init(self, reg_weight: float, *args, **kwargs):
+        super().init(reg_weight, *args, **kwargs)
+        self._entropy_criterion = Entropy()
+
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super(EntropyMinEpocher, self)._configure_meters(meters)
         meters.register_meter("entropy", AverageValueMeter())
@@ -363,21 +358,16 @@ class EntropyMinEpocher(TrainEpocher):
         unlabeled_logits_tf: Tensor,
         seed, *args, **kwargs
     ):
-        reg_loss = Entropy()(unlabeled_logits_tf.softmax(1))
+        reg_loss = self._entropy_criterion(unlabeled_logits_tf.softmax(1))
         self.meters["entropy"].add(reg_loss.item())
         return reg_loss
 
 
 class MeanTeacherEpocher(TrainEpocher):
 
-    def __init__(self, model: Union[Model, nn.Module], teacher_model: Union[Model, nn.Module], optimizer: T_optim,
-                 ema_updater: EMA_Updater,
-                 labeled_loader: T_loader, unlabeled_loader: T_loader, sup_criterion: T_loss, reg_criterion: T_loss,
-                 reg_weight: float, num_batches: int, cur_epoch=0,
-                 device="cpu", feature_position=None, feature_importance=None) -> None:
-        assert type(model) == type(teacher_model), (type(model), type(teacher_model))
-        super().__init__(model, optimizer, labeled_loader, unlabeled_loader, sup_criterion, reg_weight, num_batches,
-                         cur_epoch, device, feature_position, feature_importance)
+    def init(self, reg_weight: float, teacher_model: nn.Module, reg_criterion: T_loss, ema_updater: EMA_Updater,  # noqa
+             *args, **kwargs):  # noqa
+        super().init(reg_weight, *args, **kwargs)
         self._reg_criterion = reg_criterion
         self._teacher_model = teacher_model
         self._ema_updater = ema_updater
@@ -406,23 +396,20 @@ class MeanTeacherEpocher(TrainEpocher):
 
 
 class IICMeanTeacherEpocher(IICTrainEpocher):
-    def __init__(self, model: Union[Model, nn.Module], teacher_model: nn.Module, projectors_wrapper: ProjectorWrapper,
-                 optimizer: T_optim, ema_updater: EMA_Updater,
-                 labeled_loader: T_loader, unlabeled_loader: T_loader, sup_criterion: T_loss, reg_criterion: T_loss,
-                 IIDSegCriterionWrapper: IICLossWrapper, num_batches: int, cur_epoch: int = 0,
-                 device="cpu", feature_position=None, feature_importance=None, mt_weight=1,
-                 iic_weight=0.1) -> None:
-        super().__init__(model, projectors_wrapper, optimizer, labeled_loader, unlabeled_loader, sup_criterion,
-                         IIDSegCriterionWrapper, 1.0, num_batches, cur_epoch, device, feature_position,
-                         feature_importance)
+
+    def init(self, projectors_wrapper: ProjectorWrapper, IIDSegCriterionWrapper: IICLossWrapper, reg_criterion: T_loss,
+             teacher_model: nn.Module, ema_updater: EMA_Updater, mt_weight: float, iic_weight: float,
+             enforce_matching=False, *args, **kwargs):
+        super().init(1.0, projectors_wrapper, IIDSegCriterionWrapper, enforce_matching=enforce_matching, *args,
+                     **kwargs)
+        assert self._reg_weight == 1.0, self._reg_weight
         self._reg_criterion = reg_criterion
         self._teacher_model = teacher_model
         self._ema_updater = ema_updater
-        self._teacher_model.train()
-        self._model.train()
         self._mt_weight = float(mt_weight)
         self._iic_weight = float(iic_weight)
-        assert self._reg_weight == 1.0, self._reg_weight
+        self._teacher_model.train()
+        self._model.train()
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super(IICMeanTeacherEpocher, self)._configure_meters(meters)
@@ -430,7 +417,7 @@ class IICMeanTeacherEpocher(IICTrainEpocher):
         return meters
 
     def _run(self, *args, **kwargs) -> EpochResultDict:
-        with FeatureExtractor(self._teacher_model, self._feature_position) as self._teacher_fextractor:
+        with FeatureExtractor(self._teacher_model, self._feature_position) as self._teacher_fextractor:  # noqa
             return super(IICMeanTeacherEpocher, self)._run()
 
     def regularization(

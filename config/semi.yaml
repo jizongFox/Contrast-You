@@ -59,6 +59,7 @@ IICRegParameters:
     patch_sizes: 1024
 
   weight: 0.1
+  enforce_matching: false
 
 EntropyMinParameters:
   weight: 0.00001
