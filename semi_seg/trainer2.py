@@ -204,13 +204,14 @@ class IICTrainer(SemiTrainer):
             **config["LossParams"]
         )
         self._reg_weight = float(config["weight"])
+        self._enforce_matching = config["enforce_matching"]
 
     def set_epocher_class(self, epocher_class: Type[TrainEpocher] = IICTrainEpocher):
         super().set_epocher_class(epocher_class)
 
     def _run_epoch(self, epocher: IICTrainEpocher, *args, **kwargs) -> EpochResultDict:
         epocher.init(reg_weight=self._reg_weight, projectors_wrapper=self._projector_wrappers,
-                     IIDSegCriterionWrapper=self._IIDSegWrapper)
+                     IIDSegCriterionWrapper=self._IIDSegWrapper, enforce_matching=self._enforce_matching)
         result = epocher.run()
         return result
 
@@ -237,7 +238,7 @@ class UDAIICTrainer(IICTrainer):
     def _run_epoch(self, epocher: UDAIICEpocher, *args, **kwargs) -> EpochResultDict:
         epocher.init(iic_weight=self._iic_weight, uda_weight=self._uda_weight,
                      projectors_wrapper=self._projector_wrappers, IIDSegCriterionWrapper=self._IIDSegWrapper,
-                     reg_criterion=self._reg_criterion)
+                     reg_criterion=self._reg_criterion, enforce_matching=self._enforce_matching)
         result = epocher.run()
         return result
 
@@ -305,7 +306,8 @@ class IICMeanTeacherTrainer(IICTrainer):
     def _run_epoch(self, epocher: IICMeanTeacherEpocher, *args, **kwargs) -> EpochResultDict:
         epocher.init(projectors_wrapper=self._projector_wrappers, IIDSegCriterionWrapper=self._IIDSegWrapper,
                      reg_criterion=self._reg_criterion, teacher_model=self._teacher_model,
-                     ema_updater=self._ema_updater, mt_weight=self._mt_weight, iic_weight=self._iic_weight)
+                     ema_updater=self._ema_updater, mt_weight=self._mt_weight, iic_weight=self._iic_weight,
+                     enforce_matching=self._enforce_matching)
         result = epocher.run()
         return result
 

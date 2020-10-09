@@ -254,11 +254,12 @@ class MIDLPaperEpocher(UDATrainEpocher):
 class IICTrainEpocher(TrainEpocher):
 
     def init(self, reg_weight: float, projectors_wrapper: ProjectorWrapper,  # noqa
-             IIDSegCriterionWrapper: IICLossWrapper,  # noqa
+             IIDSegCriterionWrapper: IICLossWrapper, enforce_matching=False,  # noqa
              *args, **kwargs):  # noqa
         super().init(reg_weight, *args, **kwargs)
         self._projectors_wrapper = projectors_wrapper
         self._IIDSegCriterionWrapper = IIDSegCriterionWrapper
+        self._enforce_matching = enforce_matching
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super()._configure_meters(meters)
@@ -307,8 +308,10 @@ class IICTrainEpocher(TrainEpocher):
 class UDAIICEpocher(IICTrainEpocher):
 
     def init(self, iic_weight: float, uda_weight: float, projectors_wrapper: ProjectorWrapper,  # noqa
-             IIDSegCriterionWrapper: IICLossWrapper, reg_criterion: T_loss, *args, **kwargs):  # noqa
-        super().init(1.0, projectors_wrapper, IIDSegCriterionWrapper, *args, **kwargs)
+             IIDSegCriterionWrapper: IICLossWrapper, reg_criterion: T_loss, enforce_matching=False, *args,
+             **kwargs):  # noqa
+        super().init(1.0, projectors_wrapper, IIDSegCriterionWrapper, enforce_matching=enforce_matching, *args,
+                     **kwargs)
         self._iic_weight = iic_weight
         self._cons_weight = uda_weight
         self._reg_criterion = reg_criterion
@@ -395,8 +398,10 @@ class MeanTeacherEpocher(TrainEpocher):
 class IICMeanTeacherEpocher(IICTrainEpocher):
 
     def init(self, projectors_wrapper: ProjectorWrapper, IIDSegCriterionWrapper: IICLossWrapper, reg_criterion: T_loss,
-             teacher_model: nn.Module, ema_updater: EMA_Updater, mt_weight: float, iic_weight: float, *args, **kwargs):
-        super().init(1.0, projectors_wrapper, IIDSegCriterionWrapper, *args, **kwargs)
+             teacher_model: nn.Module, ema_updater: EMA_Updater, mt_weight: float, iic_weight: float,
+             enforce_matching=False, *args, **kwargs):
+        super().init(1.0, projectors_wrapper, IIDSegCriterionWrapper, enforce_matching=enforce_matching, *args,
+                     **kwargs)
         assert self._reg_weight == 1.0, self._reg_weight
         self._reg_criterion = reg_criterion
         self._teacher_model = teacher_model
