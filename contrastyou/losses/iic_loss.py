@@ -107,7 +107,7 @@ class IIDSegmentationLoss(nn.Module):
     def __call__(
         self, x_out: Tensor, x_tf_out: Tensor, mask: Tensor = None
     ) -> Tensor:
-        assert x_out.requires_grad and x_tf_out.requires_grad
+        # assert x_out.requires_grad and x_tf_out.requires_grad
         if mask is not None:
             assert not mask.requires_grad
         assert simplex(x_out)

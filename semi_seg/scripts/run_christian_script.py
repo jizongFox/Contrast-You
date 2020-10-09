@@ -51,6 +51,9 @@ jobs = [
     f" Data.labeled_data_ratio=1 Data.unlabeled_data_ratio=0",
 
     # iic
+    f" python main.py {common_opts} Trainer.name=iic Trainer.save_dir={save_dir}/iic/0.0 "
+    f" IICRegParameters.weight=0.000 ",
+
     f" python main.py {common_opts} Trainer.name=iic Trainer.save_dir={save_dir}/iic/0.001 "
     f" IICRegParameters.weight=0.001 ",
 
@@ -62,52 +65,49 @@ jobs = [
 
     # feature-output iic
     f" python main.py {common_opts} Trainer.name=featureoutputiic Trainer.save_dir={save_dir}/"
-    f"featureoutput_iic/cross_0.1_output_0.1 "
-    f" IICRegParameters.weight=0.1 FeatureOutputIICRegParameters.weight=0.1 ",
+    f"featureoutput_iic/cross_0.1_output_0.0 "
+    f" IICRegParameters.weight=0.1 FeatureOutputIICRegParameters.weight=0.0 ",
 
     f" python main.py {common_opts} Trainer.name=featureoutputiic Trainer.save_dir={save_dir}/"
     f"featureoutput_iic/cross_0.1_output_0.01 "
     f" IICRegParameters.weight=0.1 FeatureOutputIICRegParameters.weight=0.01 ",
 
     f" python main.py {common_opts} Trainer.name=featureoutputiic Trainer.save_dir={save_dir}/"
-    f"featureoutput_iic/cross_0.1_output_1 "
-    f" IICRegParameters.weight=0.1 FeatureOutputIICRegParameters.weight=1 ",
+    f"featureoutput_iic/cross_0.1_output_0.1 "
+    f" IICRegParameters.weight=0.1 FeatureOutputIICRegParameters.weight=0.1 ",
 
     # uda iic
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/5.0_0.0 "
+    f" IICRegParameters.weight=0.0 UDARegCriterion.weight=5.0 ",
+
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/0.0_0.1 "
+    f" IICRegParameters.weight=0.1 UDARegCriterion.weight=0.0 ",
+
     f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/5.0_0.1 "
     f" IICRegParameters.weight=0.1 UDARegCriterion.weight=5.0 ",
 
-    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/10.0_0.1 "
-    f" IICRegParameters.weight=0.1 UDARegCriterion.weight=10.0 ",
-
-    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/15.0_0.1 "
-    f" IICRegParameters.weight=0.1 UDARegCriterion.weight=15.0 ",
-
     # udaiic feature-ouptut
+    f" python main.py {common_opts} Trainer.name=featureoutputudaiic Trainer.save_dir={save_dir}/udaiic_feature_out/5.0_0.1_0.0 "
+    f" IICRegParameters.weight=0.1 UDARegCriterion.weight=5.0 FeatureOutputIICRegParameters.weight=0.0 ",
+
     f" python main.py {common_opts} Trainer.name=featureoutputudaiic Trainer.save_dir={save_dir}/udaiic_feature_out/5.0_0.1_0.1 "
     f" IICRegParameters.weight=0.1 UDARegCriterion.weight=5.0 FeatureOutputIICRegParameters.weight=0.1 ",
 
-    f" python main.py {common_opts} Trainer.name=featureoutputudaiic Trainer.save_dir={save_dir}/udaiic_feature_out/5.0_0.1_0.5 "
-    f" IICRegParameters.weight=0.1 UDARegCriterion.weight=5.0 FeatureOutputIICRegParameters.weight=0.5 ",
+    f" python main.py {common_opts} Trainer.name=featureoutputudaiic Trainer.save_dir={save_dir}/udaiic_feature_out/5.0_0.1_0.01 "
+    f" IICRegParameters.weight=0.1 UDARegCriterion.weight=5.0 FeatureOutputIICRegParameters.weight=0.01 ",
 
-    f" python main.py {common_opts} Trainer.name=featureoutputudaiic Trainer.save_dir={save_dir}/udaiic_feature_out/5.0_0.1_1.0 "
-    f" IICRegParameters.weight=0.1 UDARegCriterion.weight=5.0 FeatureOutputIICRegParameters.weight=1.0 ",
+    f" python main.py {common_opts} Trainer.name=featureoutputudaiic Trainer.save_dir={save_dir}/udaiic_feature_out/5.0_0.1_0.05 "
+    f" IICRegParameters.weight=0.1 UDARegCriterion.weight=5.0 FeatureOutputIICRegParameters.weight=0.05 ",
 
 ]
 
 # CC things
 accounts = cycle(["def-chdesa", "def-mpederso", "rrg-mpederso"])
 
-jobsubmiter = JobSubmiter(project_path="./", on_local=False, time=args.time)
+jobsubmiter = JobSubmiter(project_path="../", on_local=False, time=args.time)
 for j in jobs:
     jobsubmiter.prepare_env(["source ../venv/bin/activate ",
                              "export OMP_NUM_THREADS=1",
                              "export PYTHONOPTIMIZE=1"])
     jobsubmiter.account = next(accounts)
-    # print(j)
     jobsubmiter.run(j)
-
-# from gpu_queue import JobSubmitter
-#
-# jobsubmiter = JobSubmitter(jobs, [0, 1])
-# jobsubmiter.submit_jobs()
