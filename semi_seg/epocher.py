@@ -514,7 +514,7 @@ class _FeatureOutputIICEpocher:
         feature_names = self._fextractor._feature_names  # noqa
         unlabeled_length = len(unlabeled_tf_logits) * 2
         iic_losses_for_features = []
-        unlabeled_preds = self._output_extractor["DeConv_1x1"][- unlabeled_length:].softmax(1)
+        unlabeled_preds = self._output_extractor["DeConv_1x1"][- unlabeled_length:].softmax(1).detach()
         output_size = unlabeled_preds.shape[-2:]
         for i, (inter_feature, projector, criterion) \
             in enumerate(zip(self._fextractor, self._projectors_wrapper_output, self._IIDSegCriterionWrapper_output)):
