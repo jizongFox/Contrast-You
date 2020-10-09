@@ -78,6 +78,7 @@ class SemiTrainer(Trainer):
         self.epocher_class = epocher_class
 
     def run_epoch(self, *args, **kwargs):
+        self.set_epocher_class()
         trainer = self._run_init()
         return self._run_epoch(trainer, *args, **kwargs)
 
