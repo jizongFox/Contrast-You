@@ -63,7 +63,24 @@ jobs = [
     f" python main.py {common_opts} Trainer.name=iic Trainer.save_dir={save_dir}/iic/0.1 "
     f" IICRegParameters.weight=0.1 ",
 
+    # only feature-output
+    f" python main.py {common_opts} Trainer.name=featureoutputiic Trainer.save_dir={save_dir}/"
+    f"featureoutput/output_0.0 "
+    f" IICRegParameters.weight=0.0 FeatureOutputIICRegParameters.weight=0.0 ",
+
+    f" python main.py {common_opts} Trainer.name=featureoutputiic Trainer.save_dir={save_dir}/"
+    f"featureoutput/output_0.01 "
+    f" IICRegParameters.weight=0.0 FeatureOutputIICRegParameters.weight=0.01 ",
+
+    f" python main.py {common_opts} Trainer.name=featureoutputiic Trainer.save_dir={save_dir}/"
+    f"featureoutput/output_0.1 "
+    f" IICRegParameters.weight=0.0 FeatureOutputIICRegParameters.weight=0.1 ",
+
     # feature-output iic
+    f" python main.py {common_opts} Trainer.name=featureoutputiic Trainer.save_dir={save_dir}/"
+    f"featureoutput_iic/cross_0.0_output_0.1 "
+    f" IICRegParameters.weight=0.0 FeatureOutputIICRegParameters.weight=0.1 ",
+
     f" python main.py {common_opts} Trainer.name=featureoutputiic Trainer.save_dir={save_dir}/"
     f"featureoutput_iic/cross_0.1_output_0.0 "
     f" IICRegParameters.weight=0.1 FeatureOutputIICRegParameters.weight=0.0 ",

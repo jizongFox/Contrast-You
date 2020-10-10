@@ -11,7 +11,6 @@ from pathlib import Path
 from contrastyou import PROJECT_PATH
 from contrastyou.arch import UNet
 import torch.multiprocessing as mp
-from contrastyou.dataloader._seg_datset import ContrastBatchSampler  # noqa
 from deepclustering2.configparser import ConfigManger
 from deepclustering2.utils import gethash
 import torch
