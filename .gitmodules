@@ -10,3 +10,9 @@
 [submodule "references/OpenSelfSup"]
 	path = references/OpenSelfSup
 	url = https://github.com/open-mmlab/OpenSelfSup.git
+[submodule "references/Multi-View-Information-Bottleneck"]
+	path = references/Multi-View-Information-Bottleneck
+	url = https://github.com/jizongFox/Multi-View-Information-Bottleneck.git
+[submodule "references/PCL"]
+	path = references/PCL
+	url = https://github.com/ETS-Research-Repositories/PCL.git
