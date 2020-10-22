@@ -14,8 +14,8 @@ DIM = 3
 NUM_SAMPLES = 400
 INTER = 5
 OUT = 3
-CLASS_OUT = 5
-NUM_SUBHEAD = 20
+CLASS_OUT = 10
+NUM_SUBHEAD = 10
 
 ENABLE_CONTRAST = False
 ENABLE_IIC = True
@@ -122,7 +122,7 @@ with tqdm(range(10000)) as indicator:
         if ENABLE_CONTRAST:
             total_loss += contrast_loss
         if ENABLE_IIC:
-            total_loss += (loss_iic * 0.5)
+            total_loss += (loss_iic * -0.5)
         total_loss.backward()
         optimizer.step()
         indicator.set_postfix({"closs": contrast_loss.item(), "iic": loss_iic.item()})

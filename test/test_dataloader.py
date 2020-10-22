@@ -4,9 +4,9 @@ from torch.utils.data import DataLoader
 
 from contrastyou import DATA_PATH
 from contrastyou.augment import SequentialWrapperTwice, SequentialWrapper
-from contrastyou.dataloader._seg_datset import ContrastBatchSampler  # noqa
-from contrastyou.dataloader.acdc_dataset import ACDCDataset
-from contrastyou.dataloader.spleen_dataset import SpleenDataset
+from contrastyou.datasets._seg_datset import ContrastBatchSampler  # noqa
+from contrastyou.datasets.acdc_dataset import ACDCDataset
+from contrastyou.datasets.spleen_dataset import SpleenDataset
 from contrastyou.epocher._utils import preprocess_input_with_single_transformation, \
     preprocess_input_with_twice_transformation  # noqa
 from deepclustering2.augment import pil_augment

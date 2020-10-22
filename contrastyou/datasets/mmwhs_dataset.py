@@ -3,19 +3,19 @@ from typing import List, Tuple, Union
 
 from torch import Tensor
 
+from contrastyou import DATA_PATH
 from contrastyou.augment.sequential_wrapper import SequentialWrapper
-from contrastyou.dataloader._seg_datset import ContrastDataset
-from deepclustering2.dataset.segmentation import ProstateDataset as _ProstateDataset, \
-    ProstateSemiInterface as _ProstateSemiInterface
+from contrastyou.datasets._seg_datset import ContrastDataset
+from deepclustering2.dataset.segmentation.mmwhs_dataset import MMWHSDataset as _MMWHSDataset, \
+    MMWHSSemiInterface as _MMWHSSemiInterface
 
 
-class ProstateDataset(ContrastDataset, _ProstateDataset):
+class MMWHSDataset(ContrastDataset, _MMWHSDataset):
 
-    def __init__(self, root_dir: str, mode: str, transforms: SequentialWrapper = SequentialWrapper(),
-                 verbose=True, *args, **kwargs) -> None:
-        super().__init__(root_dir, mode, ["img", "gt"], transforms, verbose)
-        # self._acdc_info = np.load(os.path.join(self._root_dir, "acdc_info.npy"), allow_pickle=True).item()
-        # assert isinstance(self._acdc_info, dict) and len(self._acdc_info) == 200
+    def __init__(self, root_dir: str, modality: str, mode: str, transforms: SequentialWrapper = None,
+                 verbose=True) -> None:
+        subfolders = ["img", "gt"]
+        super().__init__(root_dir, modality, mode, subfolders, transforms, verbose)
         self._transform = transforms
 
     def __getitem__(self, index) -> Tuple[List[Tensor], str, str, str]:
@@ -48,9 +48,9 @@ class ProstateDataset(ContrastDataset, _ProstateDataset):
         return [self._get_group(f) for f in list(self._filenames.values())[0]]
 
 
-class ProstateSemiInterface(_ProstateSemiInterface):
+class MMWHSSemiInterface(_MMWHSSemiInterface):
 
-    def __init__(self, root_dir, labeled_data_ratio: float = 0.2, unlabeled_data_ratio: float = 0.8,
-                 seed: int = 0, verbose: bool = True) -> None:
-        super().__init__(root_dir, labeled_data_ratio, unlabeled_data_ratio, seed, verbose)
-        self.DataClass = ProstateDataset
+    def __init__(self, root_dir=DATA_PATH, modality="ct", labeled_data_ratio: float = 0.2,
+                 unlabeled_data_ratio: float = 0.8, seed: int = 0, verbose: bool = True) -> None:
+        super().__init__(root_dir, modality, labeled_data_ratio, unlabeled_data_ratio, seed, verbose)
+        self.DataClass = MMWHSDataset

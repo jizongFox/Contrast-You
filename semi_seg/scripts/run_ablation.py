@@ -16,8 +16,12 @@ parser.add_argument("--decoder_loss_padding_patchsize", nargs=2, type=int, defau
 parser.add_argument("--save_dir", default=None, type=str)
 parser.add_argument("--time", default=4, type=int)
 parser.add_argument("--job_array", choices=["numbers", "features"], required=True)
+parser.add_argument("--distributed", action="store_true", default=False, help="enable distributed training")
+parser.add_argument("--num_gpus", default=1, type=int, help="gpu numbers")
 
 args = parser.parse_args()
+
+assert (args.distributed and args.num_gpus>1), (args.distributed, args.num_gpus)
 
 num_batches = args.num_batches
 random_seed = args.random_seed
@@ -145,7 +149,7 @@ jobs_on_features = [
 # CC things
 accounts = cycle(["def-chdesa", "def-mpederso", "rrg-mpederso"])
 
-jobsubmiter = JobSubmiter(project_path="./", on_local=True, time=args.time)
+jobsubmiter = JobSubmiter(project_path="./", on_local=True, time=args.time, gres=f"gpu:{args.num_gpus}")
 
 job_array = jobs if args.job_array == "numbers" else jobs_on_features
 

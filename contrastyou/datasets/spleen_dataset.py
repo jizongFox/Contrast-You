@@ -1,20 +1,22 @@
+import os
+import re
 from pathlib import Path
 from typing import List, Tuple, Union
 
-from contrastyou import DATA_PATH
+import numpy as np
 from torch import Tensor
 
 from contrastyou.augment.sequential_wrapper import SequentialWrapper
-from contrastyou.dataloader._seg_datset import ContrastDataset
-from deepclustering2.dataset.segmentation.mmwhs_dataset import MMWHSDataset as _MMWHSDataset, \
-    MMWHSSemiInterface as _MMWHSSemiInterface
+from contrastyou.datasets._seg_datset import ContrastDataset
+from deepclustering2.dataset.segmentation.spleen_dataset import SpleenDataset as _SpleenDataset, \
+    SpleenSemiInterface as _SpleenSemiInterface
 
 
-class MMWHSDataset(ContrastDataset, _MMWHSDataset):
+class SpleenDataset(ContrastDataset, _SpleenDataset):
 
-    def __init__(self, root_dir: str, modality: str, mode: str, subfolders: List[str],
-                 transforms: SequentialWrapper = None, verbose=True) -> None:
-        super().__init__(root_dir, modality, mode, subfolders, transforms, verbose)
+    def __init__(self, root_dir: str, mode: str, transforms: SequentialWrapper = SequentialWrapper(),
+                 verbose=True, *args, **kwargs) -> None:
+        super().__init__(root_dir, mode, ["img", "gt"], transforms, verbose)
         self._transform = transforms
 
     def __getitem__(self, index) -> Tuple[List[Tensor], str, str, str]:
@@ -47,9 +49,9 @@ class MMWHSDataset(ContrastDataset, _MMWHSDataset):
         return [self._get_group(f) for f in list(self._filenames.values())[0]]
 
 
-class MMWHSSemiInterface(_MMWHSSemiInterface):
+class SpleenSemiInterface(_SpleenSemiInterface):
 
-    def __init__(self, root_dir=DATA_PATH, modality="ct", labeled_data_ratio: float = 0.2,
-                 unlabeled_data_ratio: float = 0.8, seed: int = 0, verbose: bool = True) -> None:
-        super().__init__(root_dir, modality, labeled_data_ratio, unlabeled_data_ratio, seed, verbose)
-        self.DataClass = MMWHSDataset
+    def __init__(self, root_dir, labeled_data_ratio: float = 0.2, unlabeled_data_ratio: float = 0.8,
+                 seed: int = 0, verbose: bool = True) -> None:
+        super().__init__(root_dir, labeled_data_ratio, unlabeled_data_ratio, seed, verbose)
+        self.DataClass = SpleenDataset

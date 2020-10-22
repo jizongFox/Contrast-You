@@ -1,12 +1,12 @@
 from copy import deepcopy
 
-from deepclustering2.dataloader.sampler import InfiniteRandomSampler
-from deepclustering2.dataloader.distributed import InfiniteDistributedSampler
-from deepclustering2.dataset import PatientSampler
 from torch.utils.data import DataLoader
 
 from contrastyou import DATA_PATH
-from contrastyou.dataloader import ACDCSemiInterface, SpleenSemiInterface, ProstateSemiInterface
+from contrastyou.datasets import ACDCSemiInterface, SpleenSemiInterface, ProstateSemiInterface
+from deepclustering2.dataloader.distributed import InfiniteDistributedSampler
+from deepclustering2.dataloader.sampler import InfiniteRandomSampler
+from deepclustering2.dataset import PatientSampler
 from semi_seg.augment import ACDCStrongTransforms, SpleenStrongTransforms, ProstateStrongTransforms
 
 dataset_zoos = {
@@ -55,7 +55,6 @@ def get_dataloaders(config, group_val_patient=True):
             unlabel_set,
             shuffle=config["UnlabeledData"]["shuffle"]
         )
-
 
     labeled_loader = DataLoader(
         label_set, sampler=labeled_sampler,

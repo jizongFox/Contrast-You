@@ -29,7 +29,7 @@ class IICPretrainEcoderEpoch(_PretrainEncoderEpoch):
         :param projection_head:
         :param projection_classifier: classification head
         :param optimizer:
-        :param pretrain_encoder_loader: infinite dataloader with `total freedom = True`
+        :param pretrain_encoder_loader: infinite datasets with `total freedom = True`
         :param contrastive_criterion:
         :param num_batches:
         :param cur_epoch:

@@ -30,7 +30,7 @@ class PretrainEncoderEpoch(_Epocher):
         :param model: nn.Module for a model
         :param projection_head: shallow projection head
         :param optimizer: optimizer for both network and shallow projection head.
-        :param pretrain_encoder_loader: dataloader for epocher
+        :param pretrain_encoder_loader: datasets for epocher
         :param contrastive_criterion: contrastive loss, can be any loss given the normalized norm.
         :param num_batches: num_batches to be used
         :param cur_epoch: current epoch
@@ -114,7 +114,7 @@ class PretrainEncoderEpoch(_Epocher):
 
 
 class PretrainDecoderEpoch(PretrainEncoderEpoch):
-    """using a pretrained network to train with a dataloader, for decoder part"""
+    """using a pretrained network to train with a datasets, for decoder part"""
 
     def __init__(self, model: nn.Module, projection_head: nn.Module, optimizer: optim.Optimizer,
                  pretrain_decoder_loader: T_loader, contrastive_criterion: T_loss, num_batches: int = 0, cur_epoch=0,

@@ -9,8 +9,8 @@ from torch.utils.data import DataLoader
 
 from contrastyou import DATA_PATH
 from contrastyou.augment import SequentialWrapperTwice
-from contrastyou.dataloader._seg_datset import ContrastBatchSampler
-from contrastyou.dataloader.acdc_dataset import ACDCDataset
+from contrastyou.datasets._seg_datset import ContrastBatchSampler
+from contrastyou.datasets.acdc_dataset import ACDCDataset
 from contrastyou.epocher.contrast_epocher import PretrainEncoderEpoch, PretrainDecoderEpoch
 from contrastyou.losses.contrast_loss import SupConLoss
 from deepclustering2.arch import get_arch

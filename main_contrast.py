@@ -6,8 +6,8 @@ from pathlib import Path
 from contrastyou import DATA_PATH, PROJECT_PATH
 from contrastyou.arch import UNet
 from contrastyou.augment import transform_dict
-from contrastyou.dataloader._seg_datset import ContrastBatchSampler  # noqa
-from contrastyou.dataloader.acdc_dataset import ACDCSemiInterface, ACDCDataset
+from contrastyou.datasets._seg_datset import ContrastBatchSampler  # noqa
+from contrastyou.datasets.acdc_dataset import ACDCSemiInterface, ACDCDataset
 from contrastyou.trainer import trainer_zoos
 from deepclustering2.configparser import ConfigManger
 from deepclustering2.dataloader.sampler import InfiniteRandomSampler
