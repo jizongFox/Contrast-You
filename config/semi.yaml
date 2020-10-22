@@ -90,7 +90,24 @@ MIDLPaperParameters:
   patch_size: 1024
 
 
+PICARegParameters:
+  EncoderParams:
+    num_clusters: 20
+    num_subheads: 5
+    head_types: linear
+    normalize: false
 
+  DecoderParams:
+    num_clusters: 20
+    num_subheads: 5
+    head_types: linear
+    normalize: false
+
+  LossParams:
+    paddings: [ 1, 3 ]
+
+  weight: 0.1
+  enforce_matching: false
 
 
 

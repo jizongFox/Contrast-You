@@ -5,9 +5,6 @@ from pathlib import Path
 from typing import Tuple, Type
 
 import torch
-from torch import nn
-from torch import optim
-
 from contrastyou import PROJECT_PATH
 from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
 from deepclustering2 import optim
@@ -18,11 +15,14 @@ from deepclustering2.models import ema_updater
 from deepclustering2.schedulers import GradualWarmupScheduler
 from deepclustering2.trainer2 import Trainer
 from deepclustering2.type import T_loader, T_loss
-from semi_seg._utils import ProjectorWrapper, IICLossWrapper
-from semi_seg.epocher import IICTrainEpocher, UDAIICEpocher
-from semi_seg.epocher import TrainEpocher, EvalEpocher, UDATrainEpocher, EntropyMinEpocher, MeanTeacherEpocher, \
+from semi_seg._utils import ProjectorWrapper, IICLossWrapper, PICALossWrapper
+from semi_seg.epochers import IICTrainEpocher, UDAIICEpocher
+from semi_seg.epochers import TrainEpocher, EvalEpocher, UDATrainEpocher, EntropyMinEpocher, MeanTeacherEpocher, \
     IICMeanTeacherEpocher, InferenceEpocher, MIDLPaperEpocher, FeatureOutputCrossIICUDAEpocher, \
     FeatureOutputCrossIICEpocher
+from semi_seg.epochers.protoepocher import ProtoTypeEpocher
+from torch import nn
+from torch import optim
 
 __all__ = ["trainer_zoos"]
 
@@ -401,6 +401,37 @@ class UDAIICFeatureOutputTrainer(UDAIICTrainer):
         return result
 
 
+class PICATrainer(SemiTrainer):
+
+    def _init(self):
+        super(PICATrainer, self)._init()
+        config = deepcopy(self._config["PICARegParameters"])
+        self._projector_wrappers = ProjectorWrapper()
+        self._projector_wrappers.init_encoder(
+            feature_names=self.feature_positions,
+            **config["EncoderParams"]
+        )
+        self._projector_wrappers.init_decoder(
+            feature_names=self.feature_positions,
+            **config["DecoderParams"]
+        )
+        self._PICASegWrapper = PICALossWrapper(
+            feature_names=self.feature_positions,
+            **config["LossParams"]
+        )
+        self._reg_weight = float(config["weight"])
+        self._enforce_matching = config["enforce_matching"]
+
+    def set_epocher_class(self, epocher_class: Type[TrainEpocher] = ProtoTypeEpocher):
+        super().set_epocher_class(epocher_class)
+
+    def _run_epoch(self, epocher: ProtoTypeEpocher, *args, **kwargs) -> EpochResultDict:
+        epocher.init(reg_weight=self._reg_weight, projectors_wrapper=self._projector_wrappers,
+                     PICASegCriterionWrapper=self._PICASegWrapper, enforce_matching=self._enforce_matching)
+        result = epocher.run()
+        return result
+
+
 trainer_zoos = {
     "partial": SemiTrainer,
     "uda": UDATrainer,
@@ -411,5 +442,6 @@ trainer_zoos = {
     "iicmeanteacher": IICMeanTeacherTrainer,
     "midl": MIDLTrainer,
     "featureoutputiic": IICFeatureOutputTrainer,
-    "featureoutputudaiic": UDAIICFeatureOutputTrainer
+    "featureoutputudaiic": UDAIICFeatureOutputTrainer,
+    "pica": PICATrainer
 }

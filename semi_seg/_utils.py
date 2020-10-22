@@ -7,12 +7,17 @@ from torch._six import container_abcs
 from contrastyou.arch import UNet
 from contrastyou.losses.iic_loss import IIDLoss as _IIDLoss, IIDSegmentationSmallPathLoss
 from contrastyou.trainer._utils import LocalClusterHead as _LocalClusterHead, ClusterHead as _EncoderClusterHead
-
+from contrastyou.losses.pica_loss import PUILoss, PUISegLoss
 
 def get_model(model):
     if isinstance(model, nn.parallel.DistributedDataParallel):
         return model.module
-    return model
+    elif isinstance(model, nn.parallel.DataParallel):
+        return model.module
+    elif isinstance(model, nn.Module):
+        return model
+    else:
+        raise NotImplementedError(type(model))
 
 
 class _num_class_mixin:
@@ -243,3 +248,38 @@ class IICLossWrapper(nn.Module):
     def feature_names(self):
         return self._encoder_features + self._decoder_features
 
+
+class PICALossWrapper(nn.Module):
+
+    def __init__(self,
+                 feature_names: Union[str, List[str]],
+                 paddings: Union[int, List[int]]) -> None:
+        super().__init__()
+        self._encoder_features = _filter_encodernames(feature_names)
+        self._decoder_features = _filter_decodernames(feature_names)
+        assert len(feature_names) == len(self._encoder_features) + len(self._decoder_features)
+        self._LossModuleDict = nn.ModuleDict()
+
+        if len(self._encoder_features) > 0:
+            for f in self._encoder_features:
+                self._LossModuleDict[f] = PUILoss()
+        if len(self._decoder_features) > 0:
+            paddings = _nlist(len(self._decoder_features))(paddings)
+            for f, p in zip(self._decoder_features, paddings):
+                self._LossModuleDict[f] = PUISegLoss(padding=p)
+
+    def __getitem__(self, item):
+        if item in self._LossModuleDict.keys():
+            return self._LossModuleDict[item]
+        raise IndexError(item)
+
+    def __iter__(self):
+        for k, v in self._LossModuleDict.items():
+            yield v
+
+    def items(self):
+        return self._LossModuleDict.items()
+
+    @property
+    def feature_names(self):
+        return self._encoder_features + self._decoder_features

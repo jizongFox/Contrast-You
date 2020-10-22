@@ -76,7 +76,7 @@ jobs = [
     f" python main.py {common_opts} Trainer.name=meanteacher Trainer.save_dir={save_dir}/mt/15 "
     f" MeanTeacherParameters.weight=15.0 ",
 
-    ## uda
+    # uda
     f" python main.py {common_opts} Trainer.name=uda Trainer.save_dir={save_dir}/uda/mse/1 "
     f" UDARegCriterion.name=mse UDARegCriterion.weight=1  ",
 
@@ -208,6 +208,28 @@ jobs = [
 
     f" python main.py {common_opts} Trainer.name=midl Trainer.save_dir={save_dir}/midl/15_0.01 "
     f" MIDLPaperParameters.iic_weight=0.01  UDARegCriterion.weight=15",
+
+    # pica
+
+    f" python main.py {common_opts} Trainer.name=pica Trainer.save_dir={save_dir}/pica/0.001 "
+    f" PICARegParameters.weight=0.001 Trainer.feature_names=[Conv5,] Trainer.feature_importance=[1,] ",
+
+    f" python main.py {common_opts} Trainer.name=pica Trainer.save_dir={save_dir}/pica/0.01 "
+    f" PICARegParameters.weight=0.01 Trainer.feature_names=[Conv5,] Trainer.feature_importance=[1,] ",
+
+    f" python main.py {common_opts} Trainer.name=pica Trainer.save_dir={save_dir}/pica/0.1 "
+    f" PICARegParameters.weight=0.1 Trainer.feature_names=[Conv5,] Trainer.feature_importance=[1,] ",
+
+
+    f" python main.py {common_opts} Trainer.name=iic Trainer.save_dir={save_dir}/iic/0.001 "
+    f" IICRegParameters.weight=0.001 Trainer.feature_names=[Conv5,] Trainer.feature_importance=[1,] ",
+
+    f" python main.py {common_opts} Trainer.name=iic Trainer.save_dir={save_dir}/iic/0.01 "
+    f" IICRegParameters.weight=0.01 Trainer.feature_names=[Conv5,] Trainer.feature_importance=[1,] ",
+
+    f" python main.py {common_opts} Trainer.name=iic Trainer.save_dir={save_dir}/iic/0.1 "
+    f" IICRegParameters.weight=0.1 Trainer.feature_names=[Conv5,] Trainer.feature_importance=[1,]",
+
 
 ]
 
