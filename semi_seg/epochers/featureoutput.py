@@ -8,13 +8,13 @@ from contrastyou.epocher._utils import preprocess_input_with_single_transformati
 from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
 from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
 from contrastyou.helper import average_iter, weighted_average_iter
-from contrastyou.trainer._utils import ClusterHead  # noqa
+from contrastyou.projectors.heads import ClusterHead  # noqa
 from deepclustering2.epoch import _Epocher  # noqa
 from deepclustering2.meters2 import AverageValueMeter, MultipleAverageValueMeter, \
     MeterInterface
 from deepclustering2.type import T_loss
 from deepclustering2.utils import F
-from semi_seg._utils import FeatureExtractor, ProjectorWrapper, IICLossWrapper, _filter_decodernames
+from semi_seg._utils import FeatureExtractor, ClusterProjectorWrapper, IICLossWrapper, _filter_decodernames
 from .miepocher import IICTrainEpocher, UDAIICEpocher
 
 
@@ -26,7 +26,7 @@ class _FeatureOutputIICEpocher:
     _feature_importance: List[float]
     _model: nn.Module
 
-    def init(self, *, projectors_wrapper_output: ProjectorWrapper, IIDSegCriterionWrapper_output: IICLossWrapper,
+    def init(self, *, projectors_wrapper_output: ClusterProjectorWrapper, IIDSegCriterionWrapper_output: IICLossWrapper,
              **kwargs) -> None:
         super(_FeatureOutputIICEpocher, self).init(**kwargs)  # noqa
         self._projectors_wrapper_output = projectors_wrapper_output  # noqa
@@ -75,7 +75,7 @@ class _FeatureOutputIICEpocher:
 
 class FeatureOutputCrossIICEpocher(_FeatureOutputIICEpocher, IICTrainEpocher):
 
-    def init(self, *, projectors_wrapper: ProjectorWrapper, projectors_wrapper_output: ProjectorWrapper,  # noqa
+    def init(self, *, projectors_wrapper: ClusterProjectorWrapper, projectors_wrapper_output: ClusterProjectorWrapper,  # noqa
              IIDSegCriterionWrapper: IICLossWrapper, IIDSegCriterionWrapper_output: IICLossWrapper,  # noqa
              cross_reg_weight: float, output_reg_weight: float,  # noqa
              enforce_matching=False, **kwargs):  # noqa
@@ -105,7 +105,7 @@ class FeatureOutputCrossIICEpocher(_FeatureOutputIICEpocher, IICTrainEpocher):
 class FeatureOutputCrossIICUDAEpocher(_FeatureOutputIICEpocher, UDAIICEpocher):
 
     def init(self, *, iic_weight: float, uda_weight: float, output_reg_weight: float,  # noqa
-             projectors_wrapper: ProjectorWrapper, IIDSegCriterionWrapper: IICLossWrapper,
+             projectors_wrapper: ClusterProjectorWrapper, IIDSegCriterionWrapper: IICLossWrapper,
              reg_criterion: T_loss, enforce_matching=False, **kwargs):  # noqa
         super().init(iic_weight=iic_weight, uda_weight=uda_weight, projectors_wrapper=projectors_wrapper,
                      IIDSegCriterionWrapper=IIDSegCriterionWrapper, reg_criterion=reg_criterion,

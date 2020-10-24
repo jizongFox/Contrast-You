@@ -8,7 +8,6 @@ from torch.utils.data import DataLoader
 from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
 from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
 from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
-from contrastyou.trainer._utils import ClusterHead  # noqa
 from deepclustering2.augment.tensor_augment import TensorRandomFlip
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.epoch import _Epocher  # noqa
@@ -63,7 +62,7 @@ class EvalEpocher(_num_class_mixin, _Epocher):
 class InferenceEpocher(EvalEpocher):
 
     def init(self, *, save_dir: str):
-        self._save_dir = save_dir
+        self._save_dir = save_dir  # noqa
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super()._configure_meters(meters)
@@ -111,6 +110,8 @@ class TrainEpocher(_num_class_mixin, _Epocher):
                                                                    (int, float)), feature_importance
         self._feature_position = feature_position
         self._feature_importance = feature_importance
+        assert len(self._feature_position) == len(self._feature_importance), \
+            (len(self._feature_position), len(self._feature_importance))
 
     def init(self, *, reg_weight: float, **kwargs):
         self._reg_weight = reg_weight  # noqa

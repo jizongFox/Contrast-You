@@ -9,7 +9,7 @@ from contrastyou.arch import UNetFeatureExtractor, UNet
 from contrastyou.epocher.IIC_epocher import IICPretrainEcoderEpoch, IICPretrainDecoderEpoch
 from contrastyou.losses.contrast_loss import SupConLoss
 from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
-from contrastyou.trainer._utils import ClusterHead, ProjectionHead, LocalProjectionHead, LocalClusterHead
+from contrastyou.projectors.heads import ClusterHead, ProjectionHead, LocalProjectionHead, LocalClusterHead
 from contrastyou.trainer.contrast_trainer import ContrastTrainer
 
 

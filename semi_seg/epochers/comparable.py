@@ -6,15 +6,16 @@ from contrastyou.epocher._utils import preprocess_input_with_single_transformati
 from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
 from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
 from contrastyou.helper import average_iter, weighted_average_iter
-from contrastyou.trainer._utils import ClusterHead  # noqa
+from contrastyou.projectors.heads import ClusterHead
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.epoch import _Epocher  # noqa
 from deepclustering2.loss import Entropy
 from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, MeterInterface
 from deepclustering2.models import ema_updater as EMA_Updater
 from deepclustering2.type import T_loss
-from semi_seg._utils import FeatureExtractor, ProjectorWrapper, IICLossWrapper
+from semi_seg._utils import FeatureExtractor, ClusterProjectorWrapper, IICLossWrapper
 from .base import TrainEpocher
+from .helper import unl_extractor
 from .miepocher import IICTrainEpocher, UDATrainEpocher
 
 
@@ -52,7 +53,7 @@ class MeanTeacherEpocher(TrainEpocher):
 
 class IICMeanTeacherEpocher(IICTrainEpocher):
 
-    def init(self, *, projectors_wrapper: ProjectorWrapper, IIDSegCriterionWrapper: IICLossWrapper,
+    def init(self, *, projectors_wrapper: ClusterProjectorWrapper, IIDSegCriterionWrapper: IICLossWrapper,
              enforce_matching=False, reg_criterion: T_loss = None, teacher_model: nn.Module = None,
              ema_updater: EMA_Updater = None, mt_weight: float = None, iic_weight: float = None, **kwargs):
         super().init(reg_weight=1.0, projectors_wrapper=projectors_wrapper,
@@ -91,8 +92,7 @@ class IICMeanTeacherEpocher(IICTrainEpocher):
         *args, **kwargs
     ):
         feature_names = self._fextractor._feature_names  # noqa
-        n_ls = len(unlabeled_tf_logits) * 2
-        iic_losses_for_features = []
+        n_uls = len(unlabeled_tf_logits) * 2
 
         with torch.no_grad():
             teacher_logits = self._teacher_model(unlabeled_image)
@@ -101,62 +101,31 @@ class IICMeanTeacherEpocher(IICTrainEpocher):
         assert teacher_logits_tf.shape == teacher_logits.shape, (teacher_logits_tf.shape, teacher_logits.shape)
 
         def generate_iic(student_f, teacher_f, projector, criterion):
-            pass
+            _, student_tf_features = torch.chunk(student_f, 2, dim=0)
+            with FixRandomSeed(seed):
+                teacher_f_tf = torch.stack([self._affine_transformer(x) for x in teacher_f], dim=0)
 
-        for i, (student_inter_feature, teacher_unlabled_features, projector, criterion) \
-            in enumerate(zip(
-            self._fextractor, self._teacher_fextractor,
-            self._projectors_wrapper, self._IIDSegCriterionWrapper
-        )):
-            _student_unlabeled_features = student_inter_feature[len(student_inter_feature) - n_ls:]
-            student_unlabeled_features, student_unlabeled_tf_features = torch.chunk(_student_unlabeled_features, 2,
-                                                                                    dim=0)
-            assert teacher_unlabled_features.shape == student_unlabeled_tf_features.shape, \
-                (teacher_unlabled_features.shape, student_unlabeled_tf_features.shape)
-
-            if isinstance(projector, ClusterHead):  # features from encoder
-                teacher_unlabeled_features_tf = teacher_unlabled_features
-            else:
-                with FixRandomSeed(seed):
-                    teacher_unlabeled_features_tf = torch.stack(
-                        [self._affine_transformer(x) for x in teacher_unlabled_features],
-                        dim=0)
-            assert teacher_unlabled_features.shape == teacher_unlabeled_features_tf.shape
+            assert teacher_f.shape == teacher_f_tf.shape, (teacher_f.shape, teacher_f_tf.shape)
             prob1, prob2 = list(
                 zip(*[torch.chunk(x, 2, 0) for x in projector(
-                    torch.cat([teacher_unlabeled_features_tf, student_unlabeled_tf_features], dim=0)
+                    torch.cat([teacher_f_tf, student_tf_features], dim=0)
                 )])
             )
-            _iic_loss_list = [criterion(x, y) for x, y in zip(prob1, prob2)]
-            _iic_loss = average_iter(_iic_loss_list)
+            loss = average_iter([criterion(x, y) for x, y in zip(prob1, prob2)])
+            return loss
 
-            _student_unlabeled_features = student_inter_feature[len(student_inter_feature) - n_ls:]
-            student_unlabeled_features, student_unlabeled_tf_features = torch.chunk(_student_unlabeled_features, 2,
-                                                                                    dim=0)
-            assert teacher_unlabled_features.shape == student_unlabeled_tf_features.shape, \
-                (teacher_unlabled_features.shape, student_unlabeled_tf_features.shape)
+        loss_list = [
+            generate_iic(s, t, p, c) for s, t, p, c in zip(
+                unl_extractor(self._fextractor, n_uls=n_uls),
+                self._teacher_fextractor, self._projectors_wrapper,
+                self._IIDSegCriterionWrapper)
+        ]
 
-            if isinstance(projector, ClusterHead):  # features from encoder
-                teacher_unlabeled_features_tf = teacher_unlabled_features
-            else:
-                with FixRandomSeed(seed):
-                    teacher_unlabeled_features_tf = torch.stack(
-                        [self._affine_transformer(x) for x in teacher_unlabled_features],
-                        dim=0)
-            assert teacher_unlabled_features.shape == teacher_unlabeled_features_tf.shape
-            prob1, prob2 = list(
-                zip(*[torch.chunk(x, 2, 0) for x in projector(
-                    torch.cat([teacher_unlabeled_features_tf, student_unlabeled_tf_features], dim=0)
-                )])
-            )
-            _iic_loss_list = [criterion(x, y) for x, y in zip(prob1, prob2)]
-            _iic_loss = average_iter(_iic_loss_list)
-            iic_losses_for_features.append(_iic_loss)
-        reg_loss = weighted_average_iter(iic_losses_for_features, self._feature_importance)
+        reg_loss = weighted_average_iter(loss_list, self._feature_importance)
         self.meters["mi"].add(-reg_loss.item())
         self.meters["individual_mis"].add(**dict(zip(
             self._feature_position,
-            [-x.item() for x in iic_losses_for_features]
+            [-x.item() for x in loss_list]
         )))
         uda_loss = UDATrainEpocher.regularization(
             self,  # noqa
@@ -226,7 +195,7 @@ class EntropyMinEpocher(TrainEpocher):
 # todo: to make it work
 class InfoNCEEpocher(TrainEpocher):
 
-    def init(self, *, reg_weight: float, projectors_wrapper: ProjectorWrapper = None,
+    def init(self, *, reg_weight: float, projectors_wrapper: ClusterProjectorWrapper = None,
              infoNCE_criterion: nn.Module = None, **kwargs):
         super().init(reg_weight=reg_weight, **kwargs)
         self._projectors_wrapper = projectors_wrapper

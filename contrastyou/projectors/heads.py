@@ -14,7 +14,7 @@ class Flatten(nn.Module):
 
 class SoftmaxWithT(nn.Softmax):
 
-    def __init__(self, dim, T: float = 0.1) -> None:
+    def __init__(self, dim, T: float = 1.0) -> None:
         super().__init__(dim)
         self._T = T
 
@@ -25,11 +25,12 @@ class SoftmaxWithT(nn.Softmax):
 
 class Normalize(nn.Module):
 
-    def __init__(self) -> None:
+    def __init__(self, dim=1) -> None:
         super().__init__()
+        self._dim = 1
 
     def forward(self, input):
-        return nn.functional.normalize(input, p=2, dim=1)
+        return nn.functional.normalize(input, p=2, dim=self._dim)
 
 
 class Identical(nn.Module):
@@ -41,11 +42,20 @@ class Identical(nn.Module):
         return input
 
 
-class ProjectionHead(nn.Module):
+def _check_head_type(head_type):
+    return head_type in ("mlp", "linear")
+
+
+class HeadBase(nn.Module):
+    pass
+
+
+# head for contrastive projection
+class ProjectionHead(HeadBase):
 
     def __init__(self, input_dim, output_dim, interm_dim=256, head_type="mlp") -> None:
         super().__init__()
-        assert head_type in ("mlp", "linear")
+        assert _check_head_type(head_type), head_type
         if head_type == "mlp":
             self._header = nn.Sequential(
                 nn.AdaptiveAvgPool2d((1, 1)),
@@ -65,14 +75,14 @@ class ProjectionHead(nn.Module):
         return self._header(features)
 
 
-class LocalProjectionHead(nn.Module):
+class LocalProjectionHead(HeadBase):
     """
     return a fixed feature size
     """
 
     def __init__(self, input_dim, head_type="mlp", output_size=(4, 4)) -> None:
         super().__init__()
-        assert head_type in ("mlp", "linear"), head_type
+        assert _check_head_type(head_type), head_type
         self._output_size = output_size
         if head_type == "mlp":
             self._projector = nn.Sequential(
@@ -93,10 +103,11 @@ class LocalProjectionHead(nn.Module):
         # return out
 
 
-class ClusterHead(nn.Module):
+# head for clustering
+class ClusterHead(HeadBase):
     def __init__(self, input_dim, num_clusters=5, num_subheads=10, head_type="linear", T=1, normalize=False) -> None:
         super().__init__()
-        assert head_type in ("linear", "mlp"), head_type
+        assert _check_head_type(head_type), head_type
         self._input_dim = input_dim
         self._num_clusters = num_clusters
         self._num_subheads = num_subheads
@@ -134,14 +145,15 @@ class ClusterHead(nn.Module):
         return [x(features) for x in self._headers]
 
 
-class LocalClusterHead(nn.Module):
+class LocalClusterHead(HeadBase):
     """
     this classification head uses the loss for IIC segmentation, which consists of multiple heads
     """
 
-    def __init__(self, input_dim, head_type="linear", num_clusters=10, num_subheads=10, T=1, interm_dim=64, normalize=False) -> None:
+    def __init__(self, input_dim, head_type="linear", num_clusters=10, num_subheads=10, T=1, interm_dim=64,
+                 normalize=False) -> None:
         super().__init__()
-        assert head_type in ("linear", "mlp"), head_type
+        assert _check_head_type(head_type), head_type
         self._T = T
         self._normalize = normalize
 

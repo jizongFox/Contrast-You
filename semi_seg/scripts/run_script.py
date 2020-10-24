@@ -3,7 +3,7 @@ from itertools import cycle
 
 from deepclustering2.cchelper import JobSubmiter
 
-parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)  # noqa
 
 parser.add_argument("-n", "--dataset_name", default="acdc", type=str)
 parser.add_argument("-l", "--label_ratio", default=0.05, type=float)

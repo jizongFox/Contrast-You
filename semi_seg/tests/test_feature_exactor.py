@@ -3,7 +3,7 @@ from unittest import TestCase
 import torch
 
 from contrastyou.arch import UNet
-from semi_seg._utils import FeatureExtractor, LocalClusterWrappaer, ProjectorWrapper, IICLossWrapper
+from semi_seg._utils import FeatureExtractor, LocalClusterWrappaer, ClusterProjectorWrapper, IICLossWrapper
 
 
 class TestFeatureExtractor(TestCase):
@@ -46,7 +46,7 @@ class TestLocalClusterWrapper(TestCase):
 class TestProjectorWrapper(TestCase):
     def test_init(self):
         feature_names = ["Conv3", "Conv5", "Up_conv5", "Up_conv3"]
-        projectors = ProjectorWrapper()
+        projectors = ClusterProjectorWrapper()
         projectors.init_encoder(feature_names=feature_names,
                                 )
         projectors.init_decoder(feature_names=feature_names)
@@ -56,7 +56,7 @@ class TestProjectorWrapper(TestCase):
 
     def test_init_2(self):
         feature_names = ["Up_conv5", "Up_conv3"]
-        projectors = ProjectorWrapper()
+        projectors = ClusterProjectorWrapper()
         projectors.init_encoder(feature_names=feature_names
                                 )
         projectors.init_decoder(feature_names=feature_names)
@@ -67,7 +67,7 @@ class TestProjectorWrapper(TestCase):
     def test_init_3(self):
         feature_names = ["Up_conv5", "Up_conv3"]
         header_type = ["linear", "mlp"]
-        projectors = ProjectorWrapper()
+        projectors = ClusterProjectorWrapper()
         projectors.init_encoder(feature_names=feature_names
                                 )
         projectors.init_decoder(feature_names=feature_names, head_types=header_type)
@@ -77,7 +77,7 @@ class TestProjectorWrapper(TestCase):
 
     def test_init_failed(self):
         feature_names = []
-        projectors = ProjectorWrapper()
+        projectors = ClusterProjectorWrapper()
         projectors.init_encoder(feature_names=feature_names,
                                 )
         projectors.init_decoder(feature_names=feature_names)
@@ -86,7 +86,7 @@ class TestProjectorWrapper(TestCase):
 
     def test_get(self):
         feature_names = ["Up_conv5", "Up_conv3"]
-        projectors = ProjectorWrapper()
+        projectors = ClusterProjectorWrapper()
         projectors.init_encoder(feature_names=feature_names,
                                 )
         projectors.init_decoder(feature_names=feature_names)

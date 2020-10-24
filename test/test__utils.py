@@ -1,9 +1,8 @@
 from unittest import TestCase
 
 import torch
-from torch.nn import functional as F
 
-from contrastyou.trainer._utils import LocalProjectionHead
+from contrastyou.projectors.heads import LocalProjectionHead
 
 
 class TestLocalProjectionHead(TestCase):
@@ -21,4 +20,3 @@ class TestLocalProjectionHead(TestCase):
         plt.subplot(122)
         plt.imshow(out.grad[0, 0])
         plt.show()
-

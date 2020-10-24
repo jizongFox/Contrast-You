@@ -5,13 +5,13 @@ from contrastyou.epocher._utils import preprocess_input_with_single_transformati
 from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
 from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
 from contrastyou.helper import average_iter, weighted_average_iter
-from contrastyou.trainer._utils import ClusterHead  # noqa
+from contrastyou.projectors.heads import ClusterHead  # noqa
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.epoch import _Epocher  # noqa
 from deepclustering2.meters2 import AverageValueMeter, MultipleAverageValueMeter, \
     MeterInterface
 from deepclustering2.type import T_loss
-from semi_seg._utils import ProjectorWrapper, IICLossWrapper
+from semi_seg._utils import ClusterProjectorWrapper, IICLossWrapper
 from .base import TrainEpocher
 from .helper import unl_extractor
 
@@ -45,7 +45,7 @@ class UDATrainEpocher(TrainEpocher):
 
 class IICTrainEpocher(TrainEpocher):
 
-    def init(self, *, reg_weight: float, projectors_wrapper: ProjectorWrapper,  # noqa
+    def init(self, *, reg_weight: float, projectors_wrapper: ClusterProjectorWrapper,  # noqa
              IIDSegCriterionWrapper: IICLossWrapper, enforce_matching=False,  # noqa
              **kwargs):  # noqa
         super().init(reg_weight=reg_weight, **kwargs)
@@ -98,7 +98,7 @@ class IICTrainEpocher(TrainEpocher):
 
 class UDAIICEpocher(IICTrainEpocher):
 
-    def init(self, *, iic_weight: float, uda_weight: float, projectors_wrapper: ProjectorWrapper,  # noqa
+    def init(self, *, iic_weight: float, uda_weight: float, projectors_wrapper: ClusterProjectorWrapper,  # noqa
              IIDSegCriterionWrapper: IICLossWrapper, reg_criterion: T_loss, enforce_matching=False, **kwargs):  # noqa
         super().init(reg_weight=1.0, projectors_wrapper=projectors_wrapper,
                      IIDSegCriterionWrapper=IIDSegCriterionWrapper, enforce_matching=enforce_matching, **kwargs)

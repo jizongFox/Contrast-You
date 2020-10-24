@@ -5,6 +5,9 @@ from pathlib import Path
 from typing import Tuple, Type
 
 import torch
+from torch import nn
+from torch import optim
+
 from contrastyou import PROJECT_PATH
 from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
 from deepclustering2 import optim
@@ -15,14 +18,12 @@ from deepclustering2.models import ema_updater
 from deepclustering2.schedulers import GradualWarmupScheduler
 from deepclustering2.trainer2 import Trainer
 from deepclustering2.type import T_loader, T_loss
-from semi_seg._utils import ProjectorWrapper, IICLossWrapper, PICALossWrapper
+from semi_seg._utils import ClusterProjectorWrapper, IICLossWrapper, PICALossWrapper
 from semi_seg.epochers import IICTrainEpocher, UDAIICEpocher
 from semi_seg.epochers import TrainEpocher, EvalEpocher, UDATrainEpocher, EntropyMinEpocher, MeanTeacherEpocher, \
     IICMeanTeacherEpocher, InferenceEpocher, MIDLPaperEpocher, FeatureOutputCrossIICUDAEpocher, \
     FeatureOutputCrossIICEpocher
-from semi_seg.epochers.protoepocher import ProtoTypeEpocher
-from torch import nn
-from torch import optim
+from semi_seg.epochers.protoepocher import PICAEpocher
 
 __all__ = ["trainer_zoos"]
 
@@ -194,7 +195,7 @@ class IICTrainer(SemiTrainer):
     def _init(self):
         super(IICTrainer, self)._init()
         config = deepcopy(self._config["IICRegParameters"])
-        self._projector_wrappers = ProjectorWrapper()
+        self._projector_wrappers = ClusterProjectorWrapper()
         self._projector_wrappers.init_encoder(
             feature_names=self.feature_positions,
             **config["EncoderParams"]
@@ -329,7 +330,7 @@ class IICFeatureOutputTrainer(IICTrainer):
         super(IICFeatureOutputTrainer, self)._init()
         self._cross_reg_weight = deepcopy(self._reg_weight)
         config = deepcopy(self._config["FeatureOutputIICRegParameters"])
-        self._projector_wrappers_output = ProjectorWrapper()
+        self._projector_wrappers_output = ClusterProjectorWrapper()
         self._projector_wrappers_output.init_encoder(
             feature_names=self.feature_positions,
         )
@@ -372,7 +373,7 @@ class UDAIICFeatureOutputTrainer(UDAIICTrainer):
     def _init(self):
         super()._init()
         config = deepcopy(self._config["FeatureOutputIICRegParameters"])
-        self._projector_wrappers_output = ProjectorWrapper()
+        self._projector_wrappers_output = ClusterProjectorWrapper()
         self._projector_wrappers_output.init_encoder(
             feature_names=self.feature_positions,
         )
@@ -406,7 +407,7 @@ class PICATrainer(SemiTrainer):
     def _init(self):
         super(PICATrainer, self)._init()
         config = deepcopy(self._config["PICARegParameters"])
-        self._projector_wrappers = ProjectorWrapper()
+        self._projector_wrappers = ClusterProjectorWrapper()
         self._projector_wrappers.init_encoder(
             feature_names=self.feature_positions,
             **config["EncoderParams"]
@@ -422,10 +423,10 @@ class PICATrainer(SemiTrainer):
         self._reg_weight = float(config["weight"])
         self._enforce_matching = config["enforce_matching"]
 
-    def set_epocher_class(self, epocher_class: Type[TrainEpocher] = ProtoTypeEpocher):
+    def set_epocher_class(self, epocher_class: Type[TrainEpocher] = PICAEpocher):
         super().set_epocher_class(epocher_class)
 
-    def _run_epoch(self, epocher: ProtoTypeEpocher, *args, **kwargs) -> EpochResultDict:
+    def _run_epoch(self, epocher: PICAEpocher, *args, **kwargs) -> EpochResultDict:
         epocher.init(reg_weight=self._reg_weight, projectors_wrapper=self._projector_wrappers,
                      PICASegCriterionWrapper=self._PICASegWrapper, enforce_matching=self._enforce_matching)
         result = epocher.run()

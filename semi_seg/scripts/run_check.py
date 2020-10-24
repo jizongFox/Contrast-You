@@ -3,7 +3,7 @@ from itertools import cycle
 
 from deepclustering2.cchelper import JobSubmiter
 
-parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)  # noqa
 
 parser.add_argument("-n", "--dataset_name", default="acdc", type=str)
 parser.add_argument("-l", "--label_ratio", default=0.05, type=float)
@@ -52,18 +52,20 @@ common_opts = f" Data.labeled_data_ratio={args.label_ratio} " \
               f" DistributedTrain={args.distributed}"
 
 jobs = [
+    # baseline
     f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/ps  ",
 
     f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/fs "
     f" Data.labeled_data_ratio=1 Data.unlabeled_data_ratio=0",
-    # baseline
+
     # mean teacher
+    f" python main.py {common_opts} Trainer.name=meanteacher Trainer.save_dir={save_dir}/mt/5 "
+    f" MeanTeacherParameters.weight=5.0 ",
 
     f" python main.py {common_opts} Trainer.name=meanteacher Trainer.save_dir={save_dir}/mt/10 "
     f" MeanTeacherParameters.weight=10.0 ",
 
     # uda
-
     f" python main.py {common_opts} Trainer.name=uda Trainer.save_dir={save_dir}/uda/mse/5 "
     f" UDARegCriterion.name=mse UDARegCriterion.weight=5  ",
 
@@ -73,6 +75,9 @@ jobs = [
 
     f" python main.py {common_opts} Trainer.name=iic Trainer.save_dir={save_dir}/iic/0.1 "
     f" IICRegParameters.weight=0.1 ",
+
+    f" python main.py {common_opts} Trainer.name=iic Trainer.save_dir={save_dir}/iic/0.05 "
+    f" IICRegParameters.weight=0.05 ",
 
     # uda iic
     f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/5.0_0.1 "
