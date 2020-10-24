@@ -16,3 +16,6 @@
 [submodule "references/PCL"]
 	path = references/PCL
 	url = https://github.com/ETS-Research-Repositories/PCL.git
+[submodule "references/DCCS"]
+	path = references/DCCS
+	url = https://github.com/ETS-Research-Repositories/DCCS.git

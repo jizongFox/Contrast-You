@@ -20,12 +20,12 @@ from .miepocher import IICTrainEpocher, UDATrainEpocher
 
 class MeanTeacherEpocher(TrainEpocher):
 
-    def init(self, reg_weight: float, teacher_model: nn.Module, reg_criterion: T_loss, ema_updater: EMA_Updater,  # noqa
-             *args, **kwargs):  # noqa
-        super().init(reg_weight, *args, **kwargs)
-        self._reg_criterion = reg_criterion
-        self._teacher_model = teacher_model
-        self._ema_updater = ema_updater
+    def init(self, *, reg_weight: float, teacher_model: nn.Module, reg_criterion: T_loss,  # noqa
+             ema_updater: EMA_Updater, **kwargs):  # noqa
+        super().init(reg_weight=reg_weight, **kwargs)
+        self._reg_criterion = reg_criterion  # noqa
+        self._teacher_model = teacher_model  # noqa
+        self._ema_updater = ema_updater  # noqa
         self._model.train()
         self._teacher_model.train()
 
@@ -41,8 +41,8 @@ class MeanTeacherEpocher(TrainEpocher):
             teacher_unlabeled_logit = self._teacher_model(unlabeled_image)
         with FixRandomSeed(seed):
             teacher_unlabeled_logit_tf = torch.stack(
-                [self._affine_transformer(x) for x in teacher_unlabeled_logit],
-                dim=0)
+                [self._affine_transformer(x) for x in teacher_unlabeled_logit], dim=0)
+
         # compare teacher_unlabeled_logit_tf and student unlabeled_tf_logits
         reg_loss = self._reg_criterion(unlabeled_tf_logits.softmax(1), teacher_unlabeled_logit_tf.softmax(1).detach())
         # update teacher model here.
@@ -52,17 +52,23 @@ class MeanTeacherEpocher(TrainEpocher):
 
 class IICMeanTeacherEpocher(IICTrainEpocher):
 
-    def init(self, projectors_wrapper: ProjectorWrapper, IIDSegCriterionWrapper: IICLossWrapper, reg_criterion: T_loss,
-             teacher_model: nn.Module, ema_updater: EMA_Updater, mt_weight: float, iic_weight: float,
-             enforce_matching=False, *args, **kwargs):
-        super().init(1.0, projectors_wrapper, IIDSegCriterionWrapper, enforce_matching=enforce_matching, *args,
-                     **kwargs)
+    def init(self, *, projectors_wrapper: ProjectorWrapper, IIDSegCriterionWrapper: IICLossWrapper,
+             enforce_matching=False, reg_criterion: T_loss = None, teacher_model: nn.Module = None,
+             ema_updater: EMA_Updater = None, mt_weight: float = None, iic_weight: float = None, **kwargs):
+        super().init(reg_weight=1.0, projectors_wrapper=projectors_wrapper,
+                     IIDSegCriterionWrapper=IIDSegCriterionWrapper, enforce_matching=enforce_matching, **kwargs)
         assert self._reg_weight == 1.0, self._reg_weight
-        self._reg_criterion = reg_criterion
-        self._teacher_model = teacher_model
-        self._ema_updater = ema_updater
-        self._mt_weight = float(mt_weight)
-        self._iic_weight = float(iic_weight)
+        assert reg_criterion is not None
+        assert teacher_model is not None
+        assert ema_updater is not None
+        assert mt_weight is not None
+        assert iic_weight is not None
+
+        self._reg_criterion = reg_criterion  # noqa
+        self._teacher_model = teacher_model  # noqa
+        self._ema_updater = ema_updater  # noqa
+        self._mt_weight = float(mt_weight)  # noqa
+        self._iic_weight = float(iic_weight)  # noqa
         self._teacher_model.train()
         self._model.train()
 
@@ -85,7 +91,7 @@ class IICMeanTeacherEpocher(IICTrainEpocher):
         *args, **kwargs
     ):
         feature_names = self._fextractor._feature_names  # noqa
-        unlabeled_length = len(unlabeled_tf_logits) * 2
+        n_ls = len(unlabeled_tf_logits) * 2
         iic_losses_for_features = []
 
         with torch.no_grad():
@@ -94,13 +100,37 @@ class IICMeanTeacherEpocher(IICTrainEpocher):
             teacher_logits_tf = torch.stack([self._affine_transformer(x) for x in teacher_logits], dim=0)
         assert teacher_logits_tf.shape == teacher_logits.shape, (teacher_logits_tf.shape, teacher_logits.shape)
 
+        def generate_iic(student_f, teacher_f, projector, criterion):
+            pass
+
         for i, (student_inter_feature, teacher_unlabled_features, projector, criterion) \
             in enumerate(zip(
             self._fextractor, self._teacher_fextractor,
             self._projectors_wrapper, self._IIDSegCriterionWrapper
         )):
+            _student_unlabeled_features = student_inter_feature[len(student_inter_feature) - n_ls:]
+            student_unlabeled_features, student_unlabeled_tf_features = torch.chunk(_student_unlabeled_features, 2,
+                                                                                    dim=0)
+            assert teacher_unlabled_features.shape == student_unlabeled_tf_features.shape, \
+                (teacher_unlabled_features.shape, student_unlabeled_tf_features.shape)
 
-            _student_unlabeled_features = student_inter_feature[len(student_inter_feature) - unlabeled_length:]
+            if isinstance(projector, ClusterHead):  # features from encoder
+                teacher_unlabeled_features_tf = teacher_unlabled_features
+            else:
+                with FixRandomSeed(seed):
+                    teacher_unlabeled_features_tf = torch.stack(
+                        [self._affine_transformer(x) for x in teacher_unlabled_features],
+                        dim=0)
+            assert teacher_unlabled_features.shape == teacher_unlabeled_features_tf.shape
+            prob1, prob2 = list(
+                zip(*[torch.chunk(x, 2, 0) for x in projector(
+                    torch.cat([teacher_unlabeled_features_tf, student_unlabeled_tf_features], dim=0)
+                )])
+            )
+            _iic_loss_list = [criterion(x, y) for x, y in zip(prob1, prob2)]
+            _iic_loss = average_iter(_iic_loss_list)
+
+            _student_unlabeled_features = student_inter_feature[len(student_inter_feature) - n_ls:]
             student_unlabeled_features, student_unlabeled_tf_features = torch.chunk(_student_unlabeled_features, 2,
                                                                                     dim=0)
             assert teacher_unlabled_features.shape == student_unlabeled_tf_features.shape, \
@@ -143,9 +173,9 @@ class IICMeanTeacherEpocher(IICTrainEpocher):
 
 class MIDLPaperEpocher(UDATrainEpocher):
 
-    def init(self, iic_weight: float, uda_weight: float, iic_segcriterion: T_loss, reg_criterion: T_loss, *args,  # noqa
+    def init(self, *, iic_weight: float, uda_weight: float, iic_segcriterion: T_loss, reg_criterion: T_loss,  # noqa
              **kwargs):  # noqa
-        super().init(1.0, reg_criterion, *args, **kwargs)
+        super().init(reg_weight=1.0, reg_criterion=reg_criterion, **kwargs)
         self._iic_segcriterion = iic_segcriterion
         self._iic_weight = iic_weight
         self._uda_weight = uda_weight
@@ -173,8 +203,8 @@ class MIDLPaperEpocher(UDATrainEpocher):
 
 class EntropyMinEpocher(TrainEpocher):
 
-    def init(self, reg_weight: float, *args, **kwargs):
-        super().init(reg_weight, *args, **kwargs)
+    def init(self, *, reg_weight: float, **kwargs):
+        super().init(reg_weight=reg_weight, **kwargs)
         self._entropy_criterion = Entropy()
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
@@ -190,4 +220,44 @@ class EntropyMinEpocher(TrainEpocher):
     ):
         reg_loss = self._entropy_criterion(unlabeled_logits_tf.softmax(1))
         self.meters["entropy"].add(reg_loss.item())
+        return reg_loss
+
+
+# todo: to make it work
+class InfoNCEEpocher(TrainEpocher):
+
+    def init(self, *, reg_weight: float, projectors_wrapper: ProjectorWrapper = None,
+             infoNCE_criterion: nn.Module = None, **kwargs):
+        super().init(reg_weight=reg_weight, **kwargs)
+        self._projectors_wrapper = projectors_wrapper
+        self._infonce_criterion = infoNCE_criterion
+
+    def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, *args, **kwargs):
+        feature_names = self._fextractor._feature_names  # noqa
+        unlabeled_length = len(unlabeled_tf_logits) * 2
+        iic_losses_for_features = []
+
+        for i, (inter_feature, projector) in enumerate(zip(self._fextractor, self._projectors_wrapper)):
+            unlabeled_features = inter_feature[len(inter_feature) - unlabeled_length:]
+            unlabeled_features, unlabeled_tf_features = torch.chunk(unlabeled_features, 2, dim=0)
+
+            with FixRandomSeed(seed):
+                unlabeled_features_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_features], dim=0)
+            assert unlabeled_tf_features.shape == unlabeled_tf_features.shape, \
+                (unlabeled_tf_features.shape, unlabeled_tf_features.shape)
+            # prob1, prob2 = list(
+            #     zip(*[torch.chunk(x, 2, 0) for x in projector(
+            #         torch.cat([unlabeled_features_tf, unlabeled_tf_features], dim=0)
+            #     )])
+            # )
+            # _iic_loss_list = [criterion(x, y) for x, y in zip(prob1, prob2)]
+            _iic_loss = average_iter(_iic_loss_list)
+            iic_losses_for_features.append(_iic_loss)
+        reg_loss = weighted_average_iter(iic_losses_for_features, self._feature_importance)
+        self.meters["mi"].add(-reg_loss.item())
+        self.meters["individual_mis"].add(**dict(zip(
+            self._feature_position,
+            [-x.item() for x in iic_losses_for_features]
+        )))
+
         return reg_loss

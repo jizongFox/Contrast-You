@@ -112,8 +112,8 @@ class TrainEpocher(_num_class_mixin, _Epocher):
         self._feature_position = feature_position
         self._feature_importance = feature_importance
 
-    def init(self, *, reg_weight: float,  **kwargs):
-        self._reg_weight = reg_weight
+    def init(self, *, reg_weight: float, **kwargs):
+        self._reg_weight = reg_weight  # noqa
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         C = self.num_classes
@@ -135,6 +135,8 @@ class TrainEpocher(_num_class_mixin, _Epocher):
                 labeled_image, labeled_target, labeled_filename, _, label_group = \
                     self._unzip_data(labeled_data, self._device)
                 unlabeled_image, unlabeled_target, *_ = self._unzip_data(unlabeled_data, self._device)
+                n_l, n_unl = len(labeled_image), len(unlabeled_image)
+
                 with FixRandomSeed(seed):
                     unlabeled_image_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_image], dim=0)
                 assert unlabeled_image_tf.shape == unlabeled_image.shape, \
@@ -142,16 +144,15 @@ class TrainEpocher(_num_class_mixin, _Epocher):
 
                 predict_logits = self._model(torch.cat([labeled_image, unlabeled_image, unlabeled_image_tf], dim=0))
 
-                label_logits, unlabel_logits, unlabel_tf_logits = \
-                    torch.split(
-                        predict_logits,
-                        [len(labeled_image), len(unlabeled_image), len(unlabeled_image_tf)],
-                        dim=0
-                    )
+                label_logits, unlabel_logits, unlabel_tf_logits = torch.split(
+                    predict_logits, [n_l, n_unl, n_unl], dim=0
+                )
+
                 with FixRandomSeed(seed):
                     unlabel_logits_tf = torch.stack([self._affine_transformer(x) for x in unlabel_logits], dim=0)
-                assert unlabel_logits_tf.shape == unlabel_tf_logits.shape, \
-                    (unlabel_logits_tf.shape, unlabel_tf_logits.shape)
+
+                assert unlabel_logits_tf.shape == unlabel_tf_logits.shape, (
+                    unlabel_logits_tf.shape, unlabel_tf_logits.shape)
                 # supervised part
                 onehot_target = class2one_hot(labeled_target.squeeze(1), self.num_classes)
                 sup_loss = self._sup_criterion(label_logits.softmax(1), onehot_target)

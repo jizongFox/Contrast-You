@@ -2,7 +2,7 @@ from itertools import repeat
 from typing import List
 
 import torch
-from torch import Tensor
+from torch import Tensor, nn
 
 from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
 from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
@@ -24,38 +24,39 @@ class _FeatureOutputIICEpocher:
     _fextractor: FeatureExtractor
     _feature_position: List[str]
     _feature_importance: List[float]
+    _model: nn.Module
 
     def init(self, *, projectors_wrapper_output: ProjectorWrapper, IIDSegCriterionWrapper_output: IICLossWrapper,
-             **kwargs
-             ) -> None:
-        super(_FeatureOutputIICEpocher, self).init(**kwargs)
-        self._projectors_wrapper_output = projectors_wrapper_output
-        self._IIDSegCriterionWrapper_output = IIDSegCriterionWrapper_output
+             **kwargs) -> None:
+        super(_FeatureOutputIICEpocher, self).init(**kwargs)  # noqa
+        self._projectors_wrapper_output = projectors_wrapper_output  # noqa
+        self._IIDSegCriterionWrapper_output = IIDSegCriterionWrapper_output  # noqa
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
-        meters = super()._configure_meters(meters)
+        meters = super()._configure_meters(meters)  # noqa
         meters.register_meter("foutmi", AverageValueMeter())
         meters.register_meter("foutindividual_mis", MultipleAverageValueMeter())
         return meters
 
+    # extend the feature extractor
     def _run(self, *args, **kwargs):
         with  FeatureExtractor(self._model, "DeConv_1x1") as self._output_extractor:  # noqa
-            return super(_FeatureOutputIICEpocher, self)._run(*args, **kwargs)
+            return super(_FeatureOutputIICEpocher, self)._run(*args, **kwargs)  # noqa
 
     # we extend a method in order not to kill all.
     def regularization_on_feature_output(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int,
                                          *args, **kwargs):
         feature_names = self._fextractor._feature_names  # noqa
-        unlabeled_length = len(unlabeled_tf_logits) * 2
+        n_uls = len(unlabeled_tf_logits) * 2
         iic_losses_for_features = []
-        unlabeled_preds = self._output_extractor["DeConv_1x1"][- unlabeled_length:].softmax(1).detach()
+        unlabeled_preds = self._output_extractor["DeConv_1x1"][- n_uls:].softmax(1).detach()
         output_size = unlabeled_preds.shape[-2:]
         for i, (inter_feature, projector, criterion) \
             in enumerate(zip(self._fextractor, self._projectors_wrapper_output, self._IIDSegCriterionWrapper_output)):
             if isinstance(projector, ClusterHead):  # features from encoder
                 continue
             # project unlabeled features to probabilities:
-            unlabeled_features = inter_feature[- unlabeled_length:]
+            unlabeled_features = inter_feature[- n_uls:]
             prob_list1 = [F.interpolate(x, size=output_size, mode="bilinear", align_corners=True) for x in
                           projector(unlabeled_features)]
 
@@ -74,12 +75,10 @@ class _FeatureOutputIICEpocher:
 
 class FeatureOutputCrossIICEpocher(_FeatureOutputIICEpocher, IICTrainEpocher):
 
-    def init(self, *, projectors_wrapper: ProjectorWrapper,
-             projectors_wrapper_output: ProjectorWrapper, IIDSegCriterionWrapper: IICLossWrapper,
-             IIDSegCriterionWrapper_output: IICLossWrapper,
-             cross_reg_weight: float,
-             output_reg_weight: float,
-             enforce_matching=False, **kwargs):
+    def init(self, *, projectors_wrapper: ProjectorWrapper, projectors_wrapper_output: ProjectorWrapper,  # noqa
+             IIDSegCriterionWrapper: IICLossWrapper, IIDSegCriterionWrapper_output: IICLossWrapper,  # noqa
+             cross_reg_weight: float, output_reg_weight: float,  # noqa
+             enforce_matching=False, **kwargs):  # noqa
         super().init(
             reg_weight=1.0, projectors_wrapper=projectors_wrapper,
             IIDSegCriterionWrapper=IIDSegCriterionWrapper, enforce_matching=enforce_matching,
@@ -87,8 +86,8 @@ class FeatureOutputCrossIICEpocher(_FeatureOutputIICEpocher, IICTrainEpocher):
             IIDSegCriterionWrapper_output=IIDSegCriterionWrapper_output,
             **kwargs
         )
-        self._cross_reg_weight = cross_reg_weight
-        self._output_reg_weight = output_reg_weight
+        self._cross_reg_weight = cross_reg_weight  # noqa
+        self._output_reg_weight = output_reg_weight  # noqa
 
     def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, *args, **kwargs):
         cross_mi = torch.tensor(0, dtype=torch.float, device=unlabeled_logits_tf.device)
@@ -105,13 +104,13 @@ class FeatureOutputCrossIICEpocher(_FeatureOutputIICEpocher, IICTrainEpocher):
 
 class FeatureOutputCrossIICUDAEpocher(_FeatureOutputIICEpocher, UDAIICEpocher):
 
-    def init(self, *, iic_weight: float, uda_weight: float, output_reg_weight: float,
-             projectors_wrapper: ProjectorWrapper, IIDSegCriterionWrapper: IICLossWrapper, reg_criterion: T_loss,
-             enforce_matching=False, **kwargs):
+    def init(self, *, iic_weight: float, uda_weight: float, output_reg_weight: float,  # noqa
+             projectors_wrapper: ProjectorWrapper, IIDSegCriterionWrapper: IICLossWrapper,
+             reg_criterion: T_loss, enforce_matching=False, **kwargs):  # noqa
         super().init(iic_weight=iic_weight, uda_weight=uda_weight, projectors_wrapper=projectors_wrapper,
                      IIDSegCriterionWrapper=IIDSegCriterionWrapper, reg_criterion=reg_criterion,
                      enforce_matching=enforce_matching, **kwargs, )
-        self._output_reg_weight = output_reg_weight
+        self._output_reg_weight = output_reg_weight  # noqa
 
     def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, *args, **kwargs):
         cross_udaiic = super().regularization(unlabeled_tf_logits, unlabeled_logits_tf, seed, *args, **kwargs)

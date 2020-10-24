@@ -283,3 +283,4 @@ class PICALossWrapper(nn.Module):
     @property
     def feature_names(self):
         return self._encoder_features + self._decoder_features
+

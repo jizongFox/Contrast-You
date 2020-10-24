@@ -9,6 +9,7 @@ from torch.nn import functional as F
 from tqdm import tqdm
 
 from contrastyou.losses.iic_loss import IIDLoss
+from contrastyou.losses.pica_loss import PUILoss
 
 DIM = 3
 NUM_SAMPLES = 400
@@ -19,6 +20,7 @@ NUM_SUBHEAD = 10
 
 ENABLE_CONTRAST = False
 ENABLE_IIC = True
+USE_IIC = False
 # Create a sphere
 r = 0.98
 pi = np.pi
@@ -78,6 +80,7 @@ optimizer = torch.optim.Adam(
     itertools.chain((samples,), head.parameters(), head2.parameters()),
     lr=1e-2, weight_decay=1e-5)
 iic_criterion = IIDLoss(lamb=1.0)
+pui_criterion = PUILoss()
 
 
 def average_iter(a_list):
@@ -89,6 +92,13 @@ def extract_iic(projected_classes):
                                    (projected_classes + 1 * torch.rand_like(projected_classes)).softmax(1))
     loss_iic, p_i_j = loss_iic_staff[0], loss_iic_staff[2]
     return loss_iic, p_i_j
+
+
+def extract_pui(projected_classes):
+    loss_iic_staff = pui_criterion(projected_classes.softmax(1),
+                                   (projected_classes + 1 * torch.rand_like(projected_classes)).softmax(1))
+    loss_iic = loss_iic_staff
+    return loss_iic, torch.eye(10)
 
 
 with tqdm(range(10000)) as indicator:
@@ -112,7 +122,10 @@ with tqdm(range(10000)) as indicator:
             iic_losses = []
             p_i_js = []
             for p_classes in projected_classes:
-                _iicloss, _pij = extract_iic(p_classes)
+                if USE_IIC:
+                    _iicloss, _pij = extract_iic(p_classes)
+                else:
+                    _iicloss, _pij = extract_pui(p_classes)
                 iic_losses.append(_iicloss)
                 p_i_js.append(_pij.detach())
             loss_iic = average_iter(iic_losses)
@@ -122,7 +135,7 @@ with tqdm(range(10000)) as indicator:
         if ENABLE_CONTRAST:
             total_loss += contrast_loss
         if ENABLE_IIC:
-            total_loss += (loss_iic * -0.5)
+            total_loss += (loss_iic * 0.5)
         total_loss.backward()
         optimizer.step()
         indicator.set_postfix({"closs": contrast_loss.item(), "iic": loss_iic.item()})
