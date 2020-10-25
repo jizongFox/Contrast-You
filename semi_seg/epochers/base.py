@@ -135,7 +135,7 @@ class TrainEpocher(_num_class_mixin, _Epocher):
                 seed = random.randint(0, int(1e7))
                 labeled_image, labeled_target, labeled_filename, _, label_group = \
                     self._unzip_data(labeled_data, self._device)
-                unlabeled_image, unlabeled_target, *_ = self._unzip_data(unlabeled_data, self._device)
+                unlabeled_image, unlabeled_target, _, unl_partition, unl_group = self._unzip_data(unlabeled_data, self._device)
                 n_l, n_unl = len(labeled_image), len(unlabeled_image)
 
                 with FixRandomSeed(seed):
@@ -164,6 +164,8 @@ class TrainEpocher(_num_class_mixin, _Epocher):
                     seed=seed,
                     unlabeled_image=unlabeled_image,
                     unlabeled_image_tf=unlabeled_image_tf,
+                    label_group=unl_group,
+                    partition_group=unl_partition
                 )
                 total_loss = sup_loss + self._reg_weight * reg_loss
                 # gradient backpropagation

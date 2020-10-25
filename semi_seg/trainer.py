@@ -23,7 +23,7 @@ from semi_seg.epochers import IICTrainEpocher, UDAIICEpocher
 from semi_seg.epochers import TrainEpocher, EvalEpocher, UDATrainEpocher, EntropyMinEpocher, MeanTeacherEpocher, \
     IICMeanTeacherEpocher, InferenceEpocher, MIDLPaperEpocher, FeatureOutputCrossIICUDAEpocher, \
     FeatureOutputCrossIICEpocher, InfoNCEEpocher
-from semi_seg.epochers.protoepocher import PICAEpocher
+from semi_seg.epochers.comparable import PICAEpocher
 
 __all__ = ["trainer_zoos"]
 
@@ -459,6 +459,13 @@ class InfoNCETrainer(SemiTrainer):
                      infoNCE_criterion=self._criterion)
         result = epocher.run()
         return result
+
+    def _init_optimizer(self):
+        config = deepcopy(self._config["Optim"])
+        self._optimizer = optim.__dict__[config["name"]](
+            params=chain(self._model.parameters(), self._projector.parameters()),
+            **{k: v for k, v in config.items() if k != "name"}
+        )
 
 
 trainer_zoos = {

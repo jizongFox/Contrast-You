@@ -90,21 +90,34 @@ jobs = [
     f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/5.0_1.0 "
     f" IICRegParameters.weight=1.0 UDARegCriterion.weight=5.0 ",
 
-    # feature output
-    f" python main.py {common_opts} Trainer.name=featureoutputiic Trainer.save_dir={save_dir}/"
-    f"featureoutput/output_0.1 "
-    f" IICRegParameters.weight=0.0 FeatureOutputIICRegParameters.weight=0.1 ",
-
-    f" python main.py {common_opts} Trainer.name=featureoutputudaiic Trainer.save_dir={save_dir}/udaiic_feature_out/5.0_0.1_0.05 "
-    f" IICRegParameters.weight=0.1 UDARegCriterion.weight=5.0 FeatureOutputIICRegParameters.weight=0.05 ",
-
     # infoNCE
-    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/0.5 "
+    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/1.0 "
+    f" InfoNCEParameters.weight=1.0 ",
+    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/0.5 "
     f" InfoNCEParameters.weight=0.5 ",
-    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/0.1 "
+    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/0.1 "
     f" InfoNCEParameters.weight=0.1 ",
-    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/0.05 "
+    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/1.0 "
+    f" InfoNCEParameters.weight=1.0 ",
+    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/5.0 "
+    f" InfoNCEParameters.weight=5.0 ",
+    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/0.05 "
     f" InfoNCEParameters.weight=0.05 ",
+
+    # ablation study on infoNCE
+    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/ablation/infonce/0.5_conv5 "
+    f" InfoNCEParameters.weight=0.5 Trainer.feature_names=[Conv5,] Trainer.feature_importance=[1.0,] ",
+
+    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/ablation/infonce/0.5_upConv3 "
+    f" InfoNCEParameters.weight=0.5 Trainer.feature_names=[Up_conv3,] Trainer.feature_importance=[1.0,] ",
+
+    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/ablation/infonce/0.5_upConv2 "
+    f" InfoNCEParameters.weight=0.5 Trainer.feature_names=[Up_conv2,] Trainer.feature_importance=[1.0,] ",
+
+    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/ablation/infonce/0.5_all "
+    f" InfoNCEParameters.weight=0.5 "
+    f"Trainer.feature_names=[Conv5,Up_conv3,Up_conv2,] Trainer.feature_importance=[1.0,1.0,1.0] ",
+
 ]
 
 # CC things
@@ -121,8 +134,3 @@ for j in jobs:
     )
     jobsubmiter.account = next(accounts)
     jobsubmiter.run(j)
-
-# from gpu_queue import JobSubmitter
-#
-# jobsubmiter = JobSubmitter(jobs, [0, 1])
-# jobsubmiter.submit_jobs()
