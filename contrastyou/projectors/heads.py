@@ -27,7 +27,7 @@ class Normalize(nn.Module):
 
     def __init__(self, dim=1) -> None:
         super().__init__()
-        self._dim = 1
+        self._dim = dim
 
     def forward(self, input):
         return nn.functional.normalize(input, p=2, dim=self._dim)

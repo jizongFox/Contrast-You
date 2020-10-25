@@ -68,6 +68,8 @@ jobs = [
     # uda
     f" python main.py {common_opts} Trainer.name=uda Trainer.save_dir={save_dir}/uda/mse/5 "
     f" UDARegCriterion.name=mse UDARegCriterion.weight=5  ",
+    f" python main.py {common_opts} Trainer.name=uda Trainer.save_dir={save_dir}/uda/mse/10 "
+    f" UDARegCriterion.name=mse UDARegCriterion.weight=10  ",
 
     # iic
     f" python main.py {common_opts} Trainer.name=iic Trainer.save_dir={save_dir}/iic/0.5 "
@@ -96,6 +98,13 @@ jobs = [
     f" python main.py {common_opts} Trainer.name=featureoutputudaiic Trainer.save_dir={save_dir}/udaiic_feature_out/5.0_0.1_0.05 "
     f" IICRegParameters.weight=0.1 UDARegCriterion.weight=5.0 FeatureOutputIICRegParameters.weight=0.05 ",
 
+    # infoNCE
+    f" python main.py {common_opts} Trainer.name=infoNCE Trainer.save_dir={save_dir}/infoNCE/0.5 "
+    f" InfoNCEParameters.weight=0.5 ",
+    f" python main.py {common_opts} Trainer.name=infoNCE Trainer.save_dir={save_dir}/infoNCE/0.1 "
+    f" InfoNCEParameters.weight=0.1 ",
+    f" python main.py {common_opts} Trainer.name=infoNCE Trainer.save_dir={save_dir}/infoNCE/0.05 "
+    f" InfoNCEParameters.weight=0.05 ",
 ]
 
 # CC things

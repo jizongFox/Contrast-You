@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 
 from contrastyou.arch import UNet
 from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
-from semi_seg._utils import LocalClusterWrappaer
+from semi_seg._utils import _LocalClusterWrappaer
 from semi_seg.epocher import TrainEpocher, EvalEpocher, UDATrainEpocher, IICTrainEpocher, UDAIICEpocher
 from semi_seg.tests._helper import create_dataset
 
@@ -63,7 +63,7 @@ class TestPartialEpocher(TestCase):
 
     def test_iic_epocher(self):
         iic_segment_criterion = IIDSegmentationSmallPathLoss(padding=1, patch_size=64)
-        projectors_wrapper = LocalClusterWrappaer(self._feature_position, num_subheads=3, num_clusters=20).to("cuda")
+        projectors_wrapper = _LocalClusterWrappaer(self._feature_position, num_subheads=3, num_clusters=20).to("cuda")
         iic_epocher = IICTrainEpocher(self.net, optimizer=self.optimizer, labeled_loader=self.labeled_loader,
                                       unlabeled_loader=self.unlabeled_loader, sup_criterion=KL_div(), reg_weight=0.1,
                                       num_batches=self._num_batches, cur_epoch=0, device="cuda",
@@ -75,7 +75,7 @@ class TestPartialEpocher(TestCase):
 
     def test_udaiic_epocher(self):
         iic_segment_criterion = IIDSegmentationSmallPathLoss(padding=1, patch_size=64)
-        projectors_wrapper = LocalClusterWrappaer(self._feature_position, num_subheads=10, num_clusters=10).to("cuda")
+        projectors_wrapper = _LocalClusterWrappaer(self._feature_position, num_subheads=10, num_clusters=10).to("cuda")
         udaiic_epocher = UDAIICEpocher(
             self.net, optimizer=self.optimizer, labeled_loader=self.labeled_loader,
             unlabeled_loader=self.unlabeled_loader, sup_criterion=KL_div(), iic_weight=0.1,

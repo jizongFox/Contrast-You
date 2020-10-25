@@ -18,11 +18,11 @@ from deepclustering2.models import ema_updater
 from deepclustering2.schedulers import GradualWarmupScheduler
 from deepclustering2.trainer2 import Trainer
 from deepclustering2.type import T_loader, T_loss
-from semi_seg._utils import ClusterProjectorWrapper, IICLossWrapper, PICALossWrapper
+from semi_seg._utils import ClusterProjectorWrapper, IICLossWrapper, PICALossWrapper, ContrastiveProjectorWrapper
 from semi_seg.epochers import IICTrainEpocher, UDAIICEpocher
 from semi_seg.epochers import TrainEpocher, EvalEpocher, UDATrainEpocher, EntropyMinEpocher, MeanTeacherEpocher, \
     IICMeanTeacherEpocher, InferenceEpocher, MIDLPaperEpocher, FeatureOutputCrossIICUDAEpocher, \
-    FeatureOutputCrossIICEpocher
+    FeatureOutputCrossIICEpocher, InfoNCEEpocher
 from semi_seg.epochers.protoepocher import PICAEpocher
 
 __all__ = ["trainer_zoos"]
@@ -433,6 +433,34 @@ class PICATrainer(SemiTrainer):
         return result
 
 
+class InfoNCETrainer(SemiTrainer):
+
+    def _init(self):
+        super()._init()
+        config = deepcopy(self._config["InfoNCEParameters"])
+        self._projector = ContrastiveProjectorWrapper()
+        self._projector.init_encoder(
+            feature_names=self.feature_positions,
+            **config["EncoderParams"]
+        )
+        self._projector.init_decoder(
+            feature_names=self.feature_positions,
+            **config["DecoderParams"]
+        )
+        from contrastyou.losses.contrast_loss import SupConLoss
+        self._criterion = SupConLoss(**config["LossParams"])
+        self._reg_weight = float(config["weight"])
+
+    def set_epocher_class(self, epocher_class: Type[TrainEpocher] = InfoNCEEpocher):
+        super().set_epocher_class(epocher_class)
+
+    def _run_epoch(self, epocher: InfoNCEEpocher, *args, **kwargs) -> EpochResultDict:
+        epocher.init(reg_weight=self._reg_weight, projectors_wrapper=self._projector,
+                     infoNCE_criterion=self._criterion)
+        result = epocher.run()
+        return result
+
+
 trainer_zoos = {
     "partial": SemiTrainer,
     "uda": UDATrainer,
@@ -444,5 +472,6 @@ trainer_zoos = {
     "midl": MIDLTrainer,
     "featureoutputiic": IICFeatureOutputTrainer,
     "featureoutputudaiic": UDAIICFeatureOutputTrainer,
-    "pica": PICATrainer
+    "pica": PICATrainer,
+    "infonce": InfoNCETrainer
 }

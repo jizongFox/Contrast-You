@@ -1,19 +1,19 @@
 import torch
 from torch import Tensor
 from torch import nn
+from torch.nn import functional as F
 
 from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
 from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
 from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
 from contrastyou.helper import average_iter, weighted_average_iter
-from contrastyou.projectors.heads import ClusterHead
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.epoch import _Epocher  # noqa
 from deepclustering2.loss import Entropy
-from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, MeterInterface
+from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, MeterInterface, MultipleAverageValueMeter
 from deepclustering2.models import ema_updater as EMA_Updater
 from deepclustering2.type import T_loss
-from semi_seg._utils import FeatureExtractor, ClusterProjectorWrapper, IICLossWrapper
+from semi_seg._utils import FeatureExtractor, ClusterProjectorWrapper, IICLossWrapper, ContrastiveProjectorWrapper
 from .base import TrainEpocher
 from .helper import unl_extractor
 from .miepocher import IICTrainEpocher, UDATrainEpocher
@@ -195,38 +195,43 @@ class EntropyMinEpocher(TrainEpocher):
 # todo: to make it work
 class InfoNCEEpocher(TrainEpocher):
 
-    def init(self, *, reg_weight: float, projectors_wrapper: ClusterProjectorWrapper = None,
-             infoNCE_criterion: nn.Module = None, **kwargs):
+    def init(self, *, reg_weight: float, projectors_wrapper: ContrastiveProjectorWrapper = None,
+             infoNCE_criterion: T_loss = None, **kwargs):
+        assert projectors_wrapper is not None and infoNCE_criterion is not None
         super().init(reg_weight=reg_weight, **kwargs)
-        self._projectors_wrapper = projectors_wrapper
-        self._infonce_criterion = infoNCE_criterion
+        self._projectors_wrapper: ContrastiveProjectorWrapper = projectors_wrapper  # noqa
+        self._infonce_criterion: T_loss = infoNCE_criterion  # noqa
+
+    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters = super()._configure_meters(meters)
+        meters.register_meter("mi", AverageValueMeter())
+        meters.register_meter("individual_mis", MultipleAverageValueMeter())
+        return meters
 
     def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, *args, **kwargs):
         feature_names = self._fextractor._feature_names  # noqa
-        unlabeled_length = len(unlabeled_tf_logits) * 2
-        iic_losses_for_features = []
+        n_uls = len(unlabeled_tf_logits) * 2
 
-        for i, (inter_feature, projector) in enumerate(zip(self._fextractor, self._projectors_wrapper)):
-            unlabeled_features = inter_feature[len(inter_feature) - unlabeled_length:]
-            unlabeled_features, unlabeled_tf_features = torch.chunk(unlabeled_features, 2, dim=0)
-
+        def generate_infonce(features, projector):
+            unlabeled_features, unlabeled_tf_features = torch.chunk(features, 2, dim=0)
             with FixRandomSeed(seed):
                 unlabeled_features_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_features], dim=0)
             assert unlabeled_tf_features.shape == unlabeled_tf_features.shape, \
                 (unlabeled_tf_features.shape, unlabeled_tf_features.shape)
-            # prob1, prob2 = list(
-            #     zip(*[torch.chunk(x, 2, 0) for x in projector(
-            #         torch.cat([unlabeled_features_tf, unlabeled_tf_features], dim=0)
-            #     )])
-            # )
-            # _iic_loss_list = [criterion(x, y) for x, y in zip(prob1, prob2)]
-            _iic_loss = average_iter(_iic_loss_list)
-            iic_losses_for_features.append(_iic_loss)
-        reg_loss = weighted_average_iter(iic_losses_for_features, self._feature_importance)
+            proj_tf_feature, proj_feature_tf = torch.chunk(projector(
+                torch.cat([unlabeled_tf_features, unlabeled_features_tf], dim=0)
+            ), 2, dim=0)
+            norm_tf_feature, norm_feature_tf = F.normalize(proj_tf_feature, p=2, dim=1), \
+                                               F.normalize(proj_feature_tf, p=2, dim=1)
+            return self._infonce_criterion(torch.stack([norm_feature_tf, norm_tf_feature], dim=1))
+
+        losses = [generate_infonce(f, p) for f, p in zip(unl_extractor(self._fextractor, n_uls=n_uls),
+                                                         self._projectors_wrapper)]
+
+        reg_loss = weighted_average_iter(losses, self._feature_importance)
         self.meters["mi"].add(-reg_loss.item())
         self.meters["individual_mis"].add(**dict(zip(
             self._feature_position,
-            [-x.item() for x in iic_losses_for_features]
+            [-x.item() for x in losses]
         )))
-
         return reg_loss
