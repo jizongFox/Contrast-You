@@ -267,13 +267,13 @@ class InfoNCEEpocher(TrainEpocher):
         )))
         return reg_loss
 
-    @property
+    @property  # noqa
     @lru_cache()
     def global_label_generator(self):
         from contrastyou.epocher._utils import GlobalLabelGenerator  # noqa
         return GlobalLabelGenerator()
 
-    @property
+    @property  # noqa
     @lru_cache()
     def local_label_generator(self):
         from contrastyou.epocher._utils import LocalLabelGenerator  # noqa

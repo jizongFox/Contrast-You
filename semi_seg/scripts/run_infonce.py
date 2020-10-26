@@ -58,38 +58,6 @@ jobs = [
     f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/fs "
     f" Data.labeled_data_ratio=1 Data.unlabeled_data_ratio=0",
 
-    # mean teacher
-    f" python main.py {common_opts} Trainer.name=meanteacher Trainer.save_dir={save_dir}/mt/5 "
-    f" MeanTeacherParameters.weight=5.0 ",
-
-    f" python main.py {common_opts} Trainer.name=meanteacher Trainer.save_dir={save_dir}/mt/10 "
-    f" MeanTeacherParameters.weight=10.0 ",
-
-    # uda
-    f" python main.py {common_opts} Trainer.name=uda Trainer.save_dir={save_dir}/uda/mse/5 "
-    f" UDARegCriterion.name=mse UDARegCriterion.weight=5  ",
-    f" python main.py {common_opts} Trainer.name=uda Trainer.save_dir={save_dir}/uda/mse/10 "
-    f" UDARegCriterion.name=mse UDARegCriterion.weight=10  ",
-
-    # iic
-    f" python main.py {common_opts} Trainer.name=iic Trainer.save_dir={save_dir}/iic/0.5 "
-    f" IICRegParameters.weight=0.5 ",
-
-    f" python main.py {common_opts} Trainer.name=iic Trainer.save_dir={save_dir}/iic/0.1 "
-    f" IICRegParameters.weight=0.1 ",
-
-    f" python main.py {common_opts} Trainer.name=iic Trainer.save_dir={save_dir}/iic/0.05 "
-    f" IICRegParameters.weight=0.05 ",
-
-    # uda iic
-    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/5.0_0.1 "
-    f" IICRegParameters.weight=0.1 UDARegCriterion.weight=5.0 ",
-
-    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/5.0_0.5 "
-    f" IICRegParameters.weight=0.5 UDARegCriterion.weight=5.0 ",
-    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/5.0_1.0 "
-    f" IICRegParameters.weight=1.0 UDARegCriterion.weight=5.0 ",
-
     # infoNCE
     f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/1.0 "
     f" InfoNCEParameters.weight=1.0 ",
@@ -117,6 +85,19 @@ jobs = [
     f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/ablation/infonce/0.5_all "
     f" InfoNCEParameters.weight=0.5 "
     f"Trainer.feature_names=[Conv5,Up_conv3,Up_conv2,] Trainer.feature_importance=[1.0,1.0,1.0] ",
+    
+    # pretrain+ partial
+    f" python main.py {common_opts} Trainer.name=partial Trainer.pretrain=true Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/0.5_conv5 "
+    f" Trainer.feature_names=[Conv5,] Trainer.feature_importance=[1.0,] ",
+
+    f" python main.py {common_opts} Trainer.name=partial Trainer.pretrain=true Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/0.5_upConv3 "
+    f" Trainer.feature_names=[Up_conv3,] Trainer.feature_importance=[1.0,] ",
+
+    f" python main.py {common_opts} Trainer.name=partial Trainer.pretrain=true Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/0.5_upConv2 "
+    f" Trainer.feature_names=[Up_conv2,] Trainer.feature_importance=[1.0,] ",
+
+    f" python main.py {common_opts} Trainer.name=partial Trainer.pretrain=true Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/0.5_all "
+    f" Trainer.feature_names=[Conv5,Up_conv3,Up_conv2,] Trainer.feature_importance=[1.0,1.0,1.0] ",
 
 ]
 

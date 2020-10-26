@@ -9,6 +9,7 @@ from torch import nn
 from torch import optim
 
 from contrastyou import PROJECT_PATH
+from contrastyou.helper import get_dataset
 from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
 from deepclustering2 import optim
 from deepclustering2.loss import KL_div
@@ -22,7 +23,7 @@ from semi_seg._utils import ClusterProjectorWrapper, IICLossWrapper, PICALossWra
 from semi_seg.epochers import IICTrainEpocher, UDAIICEpocher
 from semi_seg.epochers import TrainEpocher, EvalEpocher, UDATrainEpocher, EntropyMinEpocher, MeanTeacherEpocher, \
     IICMeanTeacherEpocher, InferenceEpocher, MIDLPaperEpocher, FeatureOutputCrossIICUDAEpocher, \
-    FeatureOutputCrossIICEpocher, InfoNCEEpocher
+    FeatureOutputCrossIICEpocher, InfoNCEEpocher, InfoNCEPretrainEpocher
 from semi_seg.epochers.comparable import PICAEpocher
 
 __all__ = ["trainer_zoos"]
@@ -468,6 +469,63 @@ class InfoNCETrainer(SemiTrainer):
         )
 
 
+class InfoNCEPretrainTrainer(InfoNCETrainer):
+    def _init(self):
+        super(InfoNCEPretrainTrainer, self)._init()
+        labeled_dataset = get_dataset(self._labeled_loader)
+        unlabeled_dataset = get_dataset(self._unlabeled_loader)
+        from torch.utils.data import DataLoader
+        from deepclustering2.dataloader.distributed import InfiniteDistributedSampler
+        from deepclustering2.dataloader.sampler import InfiniteRandomSampler
+        from contrastyou.helper.utils import ChainDataset
+        chaine_dataset = ChainDataset([labeled_dataset, unlabeled_dataset])
+        config = self._config
+
+        chaine_sampler = InfiniteRandomSampler(
+            chaine_dataset,
+            shuffle=config["UnlabeledData"]["shuffle"]
+        )
+        if config.get("DistributedTrain") is True:
+            chaine_sampler = InfiniteDistributedSampler(
+                chaine_dataset,
+                shuffle=config["UnlabeledData"]["shuffle"]
+            )
+        self._chaine_dataloader = DataLoader(
+            chaine_dataset, sampler=chaine_sampler,
+            batch_size=config["UnlabeledData"]["batch_size"] + config["LabeledData"]["batch_size"],
+            num_workers=config["UnlabeledData"]["num_workers"],
+            pin_memory=True
+        )
+        self._chaine_dataloader = iter(self._chaine_dataloader)
+
+    def _run_epoch(self, epocher: InfoNCEPretrainEpocher, *args, **kwargs) -> EpochResultDict:
+        epocher.init(chain_dataloader=self._chaine_dataloader, projectors_wrapper=self._projector,
+                     infoNCE_criterion=self._criterion)
+        result = epocher.run()
+        return result
+
+    def set_epocher_class(self, epocher_class: Type[TrainEpocher] = InfoNCEPretrainEpocher):
+        super(InfoNCEPretrainTrainer, self).set_epocher_class(epocher_class)
+
+    def _start_training(self):
+        for self._cur_epoch in range(self._start_epoch, self._max_epoch):
+            train_result: EpochResultDict
+            eval_result: EpochResultDict
+            cur_score: float
+            train_result = self.run_epoch()
+            # update lr_scheduler
+            if hasattr(self, "_scheduler"):
+                self._scheduler.step()
+            if self.on_master():
+                storage_per_epoch = StorageIncomeDict(pretrain=train_result)
+                self._storage.put_from_dict(storage_per_epoch, self._cur_epoch)
+                self._writer.add_scalar_with_StorageDict(storage_per_epoch, self._cur_epoch)
+                # save_checkpoint
+                self._save_to(self._save_dir, "last.pth")
+                # save storage result on csv file.
+                self._storage.to_csv(self._save_dir)
+
+
 trainer_zoos = {
     "partial": SemiTrainer,
     "uda": UDATrainer,
@@ -480,5 +538,6 @@ trainer_zoos = {
     "featureoutputiic": IICFeatureOutputTrainer,
     "featureoutputudaiic": UDAIICFeatureOutputTrainer,
     "pica": PICATrainer,
-    "infonce": InfoNCETrainer
+    "infonce": InfoNCETrainer,
+    "infoncepretrain": InfoNCEPretrainTrainer
 }

@@ -2,6 +2,7 @@
 import collections
 from typing import Union, Dict
 
+from torch.utils.data import Dataset
 from torch.utils.data.dataloader import DataLoader, _BaseDataLoaderIter
 
 
@@ -21,6 +22,30 @@ def toDataLoaderIterator(loader_or_iter: Union[DataLoader, _BaseDataLoaderIter])
         raise TypeError(f"{loader_or_iter} should an instance of DataLoader or _BaseDataLoaderIter, "
                         f"given {loader_or_iter.__class__.__name__}.")
     return loader_or_iter if isinstance(loader_or_iter, _BaseDataLoaderIter) else iter(loader_or_iter)
+
+
+def get_dataset(dataloader):
+    if isinstance(dataloader, _BaseDataLoaderIter):
+        return dataloader._dataset
+    elif isinstance(dataloader, DataLoader):
+        return dataloader.dataset
+    else:
+        raise NotImplementedError(type(dataloader))
+
+
+class ChainDataset(Dataset):
+    def __init__(self, datasets):
+        self._datasets = datasets
+
+    def __len__(self):
+        return sum(map(len, self._datasets))
+
+    def __getitem__(self, index: int):
+        for i in range(len(self._datasets)):
+            try:
+                return self._datasets[i][index]
+            except IndexError:
+                index = index - len(self._datasets[i])
 
 
 # make a flatten dictionary to be printablely nice.
@@ -52,5 +77,5 @@ def multiply_iter(iter_a, iter_b):
 
 
 def weighted_average_iter(a_list, weight_list):
-    sum_weight = sum(weight_list)+1e-16
+    sum_weight = sum(weight_list) + 1e-16
     return sum(multiply_iter(a_list, weight_list)) / sum_weight

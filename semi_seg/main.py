@@ -4,7 +4,7 @@ warnings.filterwarnings("ignore")
 from scipy.sparse import issparse  # noqa
 
 _ = issparse  # noqa
-
+import os
 from deepclustering2.loss import KL_div
 import random
 from pathlib import Path
@@ -15,7 +15,7 @@ from deepclustering2.configparser import ConfigManger
 from deepclustering2.utils import gethash
 import torch
 from deepclustering2.utils import set_benchmark
-from semi_seg.trainer import trainer_zoos
+from semi_seg.trainer import trainer_zoos, InfoNCEPretrainTrainer
 from semi_seg.dsutils import get_dataloaders
 from deepclustering2.ddp import initialize_ddp_environment, convert2syncBN
 
@@ -59,16 +59,36 @@ def main_worker(rank, ngpus_per_node, config, cmanager, port):
         model = convert2syncBN(model)
         model = torch.nn.parallel.DistributedDataParallel(model.to(rank), device_ids=[rank])
 
+    is_pretrain = config["Trainer"].get("pretrain", False)
+    checkpoint = config.get("Checkpoint", None)
+    if is_pretrain:
+        pretrainTrainer = InfoNCEPretrainTrainer(
+            model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
+            val_loader=val_loader, sup_criterion=KL_div(verbose=False),
+            configuration={**cmanager.config, **{"GITHASH": cur_githash}},
+            save_dir=os.path.join(config["Trainer"]["save_dir"], "pretrain"),
+            **{k: v for k, v in config["Trainer"].items() if k != "save_dir"}
+        )
+        pretrainTrainer.init()
+
+        if checkpoint is not None:
+            pretrainTrainer.load_state_dict_from_path(
+                os.path.join(checkpoint, "pretrain"),
+                strict=True
+            )
+        pretrainTrainer.start_training()
+
     trainer = Trainer(
         model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
         val_loader=val_loader, sup_criterion=KL_div(verbose=False),
         configuration={**cmanager.config, **{"GITHASH": cur_githash}},
-        **config["Trainer"]
+        save_dir=os.path.join(config["Trainer"]["save_dir"], "train"),
+        **{k: v for k, v in config["Trainer"].items() if k != "save_dir"}
     )
     trainer.init()
-    checkpoint = config.get("Checkpoint", None)
+
     if checkpoint is not None:
-        trainer.load_state_dict_from_path(checkpoint, strict=True)
+        trainer.load_state_dict_from_path(os.path.join(checkpoint, "train"), strict=True)
     trainer.start_training()
 
 
