@@ -11,7 +11,6 @@ from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.epoch import _Epocher, proxy_trainer  # noqa
 from deepclustering2.meters2 import EpochResultDict, MeterInterface, AverageValueMeter
 from deepclustering2.optim import get_lrs_from_optimizer
-from deepclustering2.tqdm import tqdm
 from deepclustering2.type import T_loader, T_loss
 from ._utils import preprocess_input_with_twice_transformation, unfold_position, GlobalLabelGenerator, \
     LocalLabelGenerator
@@ -32,19 +31,17 @@ class PretrainEncoderEpoch(_Epocher):
         :param optimizer: optimizer for both network and shallow projection head.
         :param pretrain_encoder_loader: datasets for epocher
         :param contrastive_criterion: contrastive loss, can be any loss given the normalized norm.
-        :param num_batches: num_batches to be used
         :param cur_epoch: current epoch
         :param device: device for images
         :param group_option: group option for contrastive loss
         :param feature_extractor: feature extractor defined in trainer
         """
-        super().__init__(model, cur_epoch, device)
+        assert isinstance(num_batches, int) and num_batches > 0, num_batches
+        super().__init__(model, num_batches, cur_epoch, device)
         self._projection_head = projection_head
         self._optimizer = optimizer
         self._pretrain_encoder_loader = pretrain_encoder_loader
         self._contrastive_criterion = contrastive_criterion
-        assert isinstance(num_batches, int) and num_batches > 0, num_batches
-        self._num_batches = num_batches
         assert isinstance(group_option, str) and group_option in ("partition", "patient", "both"), group_option
         self._group_option = group_option
         self._init_label_generator(self._group_option)
@@ -131,49 +128,47 @@ class PretrainDecoderEpoch(PretrainEncoderEpoch):
         assert self._model.training, self._model.training
         self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer)[0])
 
-        with tqdm(range(self._num_batches)).set_desc_from_epocher(self) as indicator:  # noqa
-            for i, data in zip(indicator, self._pretrain_decoder_loader):
-                (img, _), (img_ctf, _), filename, partition_list, group_list = self._preprocess_data(data, self._device)
-                seed = random.randint(0, int(1e5))
-                with FixRandomSeed(seed):
-                    img_gtf = torch.stack([self._transformer(x) for x in img], dim=0)
-                assert img_gtf.shape == img.shape, (img_gtf.shape, img.shape)
-                _, *features = self._model(torch.cat([img_gtf, img_ctf], dim=0), return_features=True)
-                dn = self._feature_extractor(features)[0]
-                dn_gtf, dn_ctf = torch.chunk(dn, chunks=2, dim=0)
-                with FixRandomSeed(seed):
-                    dn_ctf_gtf = torch.stack([self._transformer(x) for x in dn_ctf], dim=0)
-                assert dn_ctf_gtf.shape == dn_ctf.shape, (dn_ctf_gtf.shape, dn_ctf.shape)
-                dn_tf = torch.cat([dn_gtf, dn_ctf_gtf])
-                local_enc_tf, local_enc_tf_ctf = torch.chunk(self._projection_head(dn_tf), chunks=2, dim=0)
-                # todo: convert representation to distance
-                local_enc_unfold, _ = unfold_position(local_enc_tf, partition_num=(2, 2))
-                local_tf_enc_unfold, _fold_partition = unfold_position(local_enc_tf_ctf, partition_num=(2, 2))
-                b, *_ = local_enc_unfold.shape
-                local_enc_unfold_norm = F.normalize(local_enc_unfold.view(b, -1), p=2, dim=1)
-                local_tf_enc_unfold_norm = F.normalize(local_tf_enc_unfold.view(b, -1), p=2, dim=1)
+        for i, data in zip(self._indicator, self._pretrain_decoder_loader):
+            (img, _), (img_ctf, _), filename, partition_list, group_list = self._preprocess_data(data, self._device)
+            seed = random.randint(0, int(1e5))
+            with FixRandomSeed(seed):
+                img_gtf = torch.stack([self._transformer(x) for x in img], dim=0)
+            assert img_gtf.shape == img.shape, (img_gtf.shape, img.shape)
+            _, *features = self._model(torch.cat([img_gtf, img_ctf], dim=0), return_features=True)
+            dn = self._feature_extractor(features)[0]
+            dn_gtf, dn_ctf = torch.chunk(dn, chunks=2, dim=0)
+            with FixRandomSeed(seed):
+                dn_ctf_gtf = torch.stack([self._transformer(x) for x in dn_ctf], dim=0)
+            assert dn_ctf_gtf.shape == dn_ctf.shape, (dn_ctf_gtf.shape, dn_ctf.shape)
+            dn_tf = torch.cat([dn_gtf, dn_ctf_gtf])
+            local_enc_tf, local_enc_tf_ctf = torch.chunk(self._projection_head(dn_tf), chunks=2, dim=0)
+            # todo: convert representation to distance
+            local_enc_unfold, _ = unfold_position(local_enc_tf, partition_num=(2, 2))
+            local_tf_enc_unfold, _fold_partition = unfold_position(local_enc_tf_ctf, partition_num=(2, 2))
+            b, *_ = local_enc_unfold.shape
+            local_enc_unfold_norm = F.normalize(local_enc_unfold.view(b, -1), p=2, dim=1)
+            local_tf_enc_unfold_norm = F.normalize(local_tf_enc_unfold.view(b, -1), p=2, dim=1)
 
-                labels = self._label_generation(partition_list, group_list, _fold_partition)
-                contrastive_loss = self._contrastive_criterion(
-                    torch.stack([local_enc_unfold_norm, local_tf_enc_unfold_norm], dim=1),
-                    labels=labels
-                )
-                if torch.isnan(contrastive_loss):
-                    raise RuntimeError(contrastive_loss)
-                self._optimizer.zero_grad()
-                contrastive_loss.backward()
-                self._optimizer.step()
-                # todo: meter recording.
-                with torch.no_grad():
-                    self.meters["contrastive_loss"].add(contrastive_loss.item())
-                    report_dict = self.meters.tracking_status()
-                    indicator.set_postfix_dict(report_dict)
+            labels = self._label_generation(partition_list, group_list, _fold_partition)
+            contrastive_loss = self._contrastive_criterion(
+                torch.stack([local_enc_unfold_norm, local_tf_enc_unfold_norm], dim=1),
+                labels=labels
+            )
+            if torch.isnan(contrastive_loss):
+                raise RuntimeError(contrastive_loss)
+            self._optimizer.zero_grad()
+            contrastive_loss.backward()
+            self._optimizer.step()
+            # todo: meter recording.
+            with torch.no_grad():
+                self.meters["contrastive_loss"].add(contrastive_loss.item())
+                report_dict = self.meters.tracking_status()
+                self._indicator.set_postfix_dict(report_dict)
         return report_dict
 
     def _label_generation(self, partition_list: List[str], patient_list: List[str], location_list: List[str]):  # noqa
         return self._local_contrastive_label_generator(partition_list=partition_list, patient_list=patient_list,
                                                        location_list=location_list)
-
 
 
 """

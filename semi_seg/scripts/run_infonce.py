@@ -94,8 +94,7 @@ jobs = [
     f" python main.py {common_opts} Trainer.name=partial Trainer.pretrain=true Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/0.5_upConv2 "
     f" Trainer.feature_names=[Up_conv2,] Trainer.feature_importance=[1.0,] ",
 
-    f" python main.py {common_opts} Trainer.name=partial Trainer.pretrain=true Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/0.5_all "
-    f" Trainer.feature_names=[Conv5,Up_conv3,Up_conv2,] Trainer.feature_importance=[1.0,1.0,1.0] ",
+    f" python main.py {common_opts} Trainer.name=partial Trainer.pretrain=true Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/0.5_all ",
 
 ]
 

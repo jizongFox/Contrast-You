@@ -452,6 +452,8 @@ class InfoNCETrainer(SemiTrainer):
         self._criterion = SupConLoss(**config["LossParams"])
         self._reg_weight = float(config["weight"])
 
+        # todo: replace unlabeled dataloader with contrastBatchSampler
+
     def set_epocher_class(self, epocher_class: Type[TrainEpocher] = InfoNCEEpocher):
         super().set_epocher_class(epocher_class)
 

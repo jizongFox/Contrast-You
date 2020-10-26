@@ -111,9 +111,7 @@ class IICMeanTeacherEpocher(IICTrainEpocher):
 
             assert teacher_f.shape == teacher_f_tf.shape, (teacher_f.shape, teacher_f_tf.shape)
             prob1, prob2 = list(
-                zip(*[torch.chunk(x, 2, 0) for x in projector(
-                    torch.cat([teacher_f_tf, student_tf_features], dim=0)
-                )])
+                zip(*[torch.chunk(x, 2, 0) for x in projector(torch.cat([teacher_f_tf, student_tf_features], dim=0))])
             )
             loss = average_iter([criterion(x, y) for x, y in zip(prob1, prob2)])
             return loss
@@ -148,10 +146,10 @@ class MIDLPaperEpocher(UDATrainEpocher):
 
     def init(self, *, iic_weight: float, uda_weight: float, iic_segcriterion: T_loss, reg_criterion: T_loss,  # noqa
              **kwargs):  # noqa
-        super().init(reg_weight=1.0, reg_criterion=reg_criterion, **kwargs)
-        self._iic_segcriterion = iic_segcriterion
-        self._iic_weight = iic_weight
-        self._uda_weight = uda_weight
+        super().init(reg_weight=1.0, reg_criterion=reg_criterion)
+        self._iic_segcriterion = iic_segcriterion  # noqa
+        self._iic_weight = iic_weight  # noqa
+        self._uda_weight = uda_weight  # noqa
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super(MIDLPaperEpocher, self)._configure_meters(meters)
@@ -178,7 +176,7 @@ class EntropyMinEpocher(TrainEpocher):
 
     def init(self, *, reg_weight: float, **kwargs):
         super().init(reg_weight=reg_weight, **kwargs)
-        self._entropy_criterion = Entropy()
+        self._entropy_criterion = Entropy()  # noqa
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super(EntropyMinEpocher, self)._configure_meters(meters)

@@ -13,7 +13,7 @@ from deepclustering2.augment import pil_augment
 from deepclustering2.dataset import PatientSampler
 from deepclustering2.tqdm import tqdm
 from deepclustering2.type import to_float
-from contrastyou.augment import SpleenStrongTransforms
+
 
 single_transform = SequentialWrapper(
     comm_transform=pil_augment.Compose([

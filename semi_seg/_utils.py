@@ -1,6 +1,9 @@
 from itertools import repeat
 from typing import List, Union
 
+from torch import nn, Tensor
+from torch._six import container_abcs
+
 from contrastyou.arch import UNet
 from contrastyou.losses.iic_loss import IIDLoss as _IIDLoss, IIDSegmentationSmallPathLoss
 from contrastyou.losses.pica_loss import PUILoss, PUISegLoss
@@ -8,8 +11,6 @@ from contrastyou.losses.wrappers import LossWrapperBase
 from contrastyou.projectors.heads import LocalClusterHead as _LocalClusterHead, ClusterHead as _EncoderClusterHead, \
     ProjectionHead as _ProjectionHead, LocalProjectionHead as _LocalProjectionHead
 from contrastyou.projectors.wrappers import ProjectorWrapperBase, CombineWrapperBase
-from torch import nn, Tensor
-from torch._six import container_abcs
 
 
 def get_model(model):
@@ -208,7 +209,7 @@ class _ContrastiveEncodeProjectorWrapper(ProjectorWrapperBase):
 class _ContrastiveDecoderProjectorWrapper(_ContrastiveEncodeProjectorWrapper):
     @staticmethod
     def _create_head(input_dim, output_dim, head_type):
-        return _LocalProjectionHead(input_dim=input_dim, head_type=head_type)
+        return _LocalProjectionHead(input_dim=input_dim, head_type=head_type, output_size=(2, 2))
 
 
 class ContrastiveProjectorWrapper(CombineWrapperBase):
