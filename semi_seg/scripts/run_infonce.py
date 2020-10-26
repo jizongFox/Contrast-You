@@ -69,6 +69,10 @@ jobs = [
     f" InfoNCEParameters.weight=5.0 ",
     f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/0.05 "
     f" InfoNCEParameters.weight=0.05 ",
+    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/0.01 "
+    f" InfoNCEParameters.weight=0.01 ",
+    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/0.001 "
+    f" InfoNCEParameters.weight=0.001 ",
 
     # ablation study on infoNCE
     f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/ablation/infonce/0.5_conv5 "
@@ -85,16 +89,16 @@ jobs = [
     f"Trainer.feature_names=[Conv5,Up_conv3,Up_conv2,] Trainer.feature_importance=[1.0,1.0,1.0] ",
     
     # pretrain+ partial
-    f" python main.py {common_opts} Trainer.name=partial Trainer.pretrain=true Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/0.5_conv5 "
+    f" python main.py {common_opts} Trainer.name=partial Trainer.pretrain=true Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/conv5 "
     f" Trainer.feature_names=[Conv5,] Trainer.feature_importance=[1.0,] ",
 
-    f" python main.py {common_opts} Trainer.name=partial Trainer.pretrain=true Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/0.5_upConv3 "
+    f" python main.py {common_opts} Trainer.name=partial Trainer.pretrain=true Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/upConv3 "
     f" Trainer.feature_names=[Up_conv3,] Trainer.feature_importance=[1.0,] ",
 
-    f" python main.py {common_opts} Trainer.name=partial Trainer.pretrain=true Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/0.5_upConv2 "
+    f" python main.py {common_opts} Trainer.name=partial Trainer.pretrain=true Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/upConv2 "
     f" Trainer.feature_names=[Up_conv2,] Trainer.feature_importance=[1.0,] ",
 
-    f" python main.py {common_opts} Trainer.name=partial Trainer.pretrain=true Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/0.5_all ",
+    f" python main.py {common_opts} Trainer.name=partial Trainer.pretrain=true Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/all ",
 
 ]
 

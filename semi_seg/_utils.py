@@ -198,7 +198,7 @@ class _ContrastiveEncodeProjectorWrapper(ProjectorWrapperBase):
             self._projectors[f] = self._create_head(
                 input_dim=UNet.dimension_dict[f],
                 head_type=h,
-                output_dim=64,
+                output_dim=256,
             )
 
     @staticmethod
