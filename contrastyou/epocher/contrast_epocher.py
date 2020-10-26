@@ -82,25 +82,24 @@ class PretrainEncoderEpoch(_Epocher):
         assert self._model.training, self._model.training
         self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer)[0])
 
-        with tqdm(range(self._num_batches)).set_desc_from_epocher(self) as indicator:  # noqa
-            for i, data in zip(indicator, self._pretrain_encoder_loader):
-                (img, _), (img_tf, _), filename, partition_list, group_list = self._preprocess_data(data, self._device)
-                _, *features = self._model(torch.cat([img, img_tf], dim=0), return_features=True)
-                en = self._feature_extractor(features)[0]
-                global_enc, global_tf_enc = torch.chunk(F.normalize(self._projection_head(en), dim=1), chunks=2, dim=0)
-                labels = self._label_generation(partition_list, group_list)
-                contrastive_loss = self._contrastive_criterion(
-                    torch.stack([global_enc, global_tf_enc], dim=1),
-                    labels=labels
-                )
-                self._optimizer.zero_grad()
-                contrastive_loss.backward()
-                self._optimizer.step()
-                # todo: meter recording.
-                with torch.no_grad():
-                    self.meters["contrastive_loss"].add(contrastive_loss.item())
-                    report_dict = self.meters.tracking_status()
-                    indicator.set_postfix_dict(report_dict)
+        for i, data in zip(self._indicator, self._pretrain_encoder_loader):
+            (img, _), (img_tf, _), filename, partition_list, group_list = self._preprocess_data(data, self._device)
+            _, *features = self._model(torch.cat([img, img_tf], dim=0), return_features=True)
+            en = self._feature_extractor(features)[0]
+            global_enc, global_tf_enc = torch.chunk(F.normalize(self._projection_head(en), dim=1), chunks=2, dim=0)
+            labels = self._label_generation(partition_list, group_list)
+            contrastive_loss = self._contrastive_criterion(
+                torch.stack([global_enc, global_tf_enc], dim=1),
+                labels=labels
+            )
+            self._optimizer.zero_grad()
+            contrastive_loss.backward()
+            self._optimizer.step()
+            # todo: meter recording.
+            with torch.no_grad():
+                self.meters["contrastive_loss"].add(contrastive_loss.item())
+                report_dict = self.meters.tracking_status()
+                self._indicator.set_postfix_dict(report_dict)
         return report_dict
 
     @staticmethod

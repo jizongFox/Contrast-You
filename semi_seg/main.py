@@ -15,7 +15,7 @@ from deepclustering2.configparser import ConfigManger
 from deepclustering2.utils import gethash
 import torch
 from deepclustering2.utils import set_benchmark
-from semi_seg.trainer import trainer_zoos, InfoNCEPretrainTrainer
+from semi_seg.trainer import trainer_zoos, InfoNCEPretrainTrainer  # noqa
 from semi_seg.dsutils import get_dataloaders
 from deepclustering2.ddp import initialize_ddp_environment, convert2syncBN
 

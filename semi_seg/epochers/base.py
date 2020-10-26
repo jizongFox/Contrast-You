@@ -135,8 +135,8 @@ class TrainEpocher(_num_class_mixin, _Epocher):
                 seed = random.randint(0, int(1e7))
                 labeled_image, labeled_target, labeled_filename, _, label_group = \
                     self._unzip_data(labeled_data, self._device)
-                unlabeled_image, unlabeled_target, _, unl_partition, unl_group = self._unzip_data(unlabeled_data,
-                                                                                                  self._device)
+                unlabeled_image, unlabeled_target, unlabeled_filename, unl_partition, unl_group = self._unzip_data(
+                    unlabeled_data, self._device)
                 n_l, n_unl = len(labeled_image), len(unlabeled_image)
 
                 with FixRandomSeed(seed):
@@ -166,7 +166,8 @@ class TrainEpocher(_num_class_mixin, _Epocher):
                     unlabeled_image=unlabeled_image,
                     unlabeled_image_tf=unlabeled_image_tf,
                     label_group=unl_group,
-                    partition_group=unl_partition
+                    partition_group=unl_partition,
+                    unlabeled_filename=unlabeled_filename
                 )
                 total_loss = sup_loss + self._reg_weight * reg_loss
                 # gradient backpropagation
@@ -213,7 +214,7 @@ class PretrainEpocher(TrainEpocher):
         with FeatureExtractor(self._model, self._feature_position) as self._fextractor:  # noqa
             for i, data in zip(self._indicator, self._chain_dataloader):
                 seed = random.randint(0, int(1e7))
-                unlabeled_image, unlabeled_target, _, unl_partition, unl_group = \
+                unlabeled_image, unlabeled_target, unlabeled_filename, unl_partition, unl_group = \
                     self._unzip_data(data, self._device)
                 n_l, n_unl = 0, len(unlabeled_image)
 
@@ -242,7 +243,8 @@ class PretrainEpocher(TrainEpocher):
                     unlabeled_image=unlabeled_image,
                     unlabeled_image_tf=unlabeled_image_tf,
                     label_group=unl_group,
-                    partition_group=unl_partition
+                    partition_group=unl_partition,
+                    unlabeled_filename=unlabeled_filename
                 )
                 total_loss = self._reg_weight * reg_loss
                 # gradient backpropagation
@@ -256,5 +258,3 @@ class PretrainEpocher(TrainEpocher):
                         report_dict = self.meters.tracking_status()
                         self._indicator.set_postfix_dict(report_dict)
         return report_dict
-
-

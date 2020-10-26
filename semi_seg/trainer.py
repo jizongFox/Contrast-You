@@ -472,34 +472,32 @@ class InfoNCETrainer(SemiTrainer):
 class InfoNCEPretrainTrainer(InfoNCETrainer):
     def _init(self):
         super(InfoNCEPretrainTrainer, self)._init()
-        labeled_dataset = get_dataset(self._labeled_loader)
         unlabeled_dataset = get_dataset(self._unlabeled_loader)
+
+        dataset = type(unlabeled_dataset)(
+            str(Path(unlabeled_dataset._root_dir).parent),
+            unlabeled_dataset._mode, unlabeled_dataset._transform
+        )
+
         from torch.utils.data import DataLoader
-        from deepclustering2.dataloader.distributed import InfiniteDistributedSampler
-        from deepclustering2.dataloader.sampler import InfiniteRandomSampler
-        from contrastyou.helper.utils import ChainDataset
-        chaine_dataset = ChainDataset([labeled_dataset, unlabeled_dataset])
+        from contrastyou.datasets._seg_datset import ContrastBatchSampler  # noqa
+
         config = self._config
 
-        chaine_sampler = InfiniteRandomSampler(
-            chaine_dataset,
-            shuffle=config["UnlabeledData"]["shuffle"]
-        )
         if config.get("DistributedTrain") is True:
-            chaine_sampler = InfiniteDistributedSampler(
-                chaine_dataset,
-                shuffle=config["UnlabeledData"]["shuffle"]
-            )
-        self._chaine_dataloader = DataLoader(
-            chaine_dataset, sampler=chaine_sampler,
-            batch_size=config["UnlabeledData"]["batch_size"] + config["LabeledData"]["batch_size"],
+            raise NotImplementedError()
+
+        batch_sampler = ContrastBatchSampler(dataset, group_sample_num=6, partition_sample_num=1)
+
+        self._chain_dataloader = DataLoader(
+            dataset, batch_sampler=batch_sampler,
             num_workers=config["UnlabeledData"]["num_workers"],
             pin_memory=True
         )
-        self._chaine_dataloader = iter(self._chaine_dataloader)
+        self._chain_dataloader = iter(self._chain_dataloader)
 
     def _run_epoch(self, epocher: InfoNCEPretrainEpocher, *args, **kwargs) -> EpochResultDict:
-        epocher.init(chain_dataloader=self._chaine_dataloader, projectors_wrapper=self._projector,
+        epocher.init(chain_dataloader=self._chain_dataloader, projectors_wrapper=self._projector,
                      infoNCE_criterion=self._criterion)
         result = epocher.run()
         return result

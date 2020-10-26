@@ -53,14 +53,12 @@ common_opts = f" Data.labeled_data_ratio={args.label_ratio} " \
 
 jobs = [
     # baseline
-    f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/ps  ",
+    f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/infoNCE/ps  ",
 
-    f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/fs "
+    f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/infoNCE/fs "
     f" Data.labeled_data_ratio=1 Data.unlabeled_data_ratio=0",
 
     # infoNCE
-    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/1.0 "
-    f" InfoNCEParameters.weight=1.0 ",
     f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/0.5 "
     f" InfoNCEParameters.weight=0.5 ",
     f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/0.1 "
