@@ -1,16 +1,15 @@
 from functools import lru_cache
-from itertools import chain
 from typing import Tuple, Optional, Dict
 
 import torch
-from torch import Tensor, nn
+from torch import Tensor
 from torch.nn import functional as F
 
 from contrastyou.epocher._utils import unfold_position  # noqa
 from contrastyou.helper import weighted_average_iter
 from contrastyou.projectors.heads import ProjectionHead, LocalProjectionHead
 from deepclustering2.decorator import FixRandomSeed
-from deepclustering2.meters2 import MeterInterface
+from deepclustering2.type import T_loss
 from semi_seg._utils import ContrastiveProjectorWrapper as PrototypeProjectorWrapper
 from .base import TrainEpocher
 from .helper import unl_extractor
@@ -19,7 +18,7 @@ from .helper import unl_extractor
 class PrototypeEpocher(TrainEpocher):
 
     def init(self, *, reg_weight: float, prototype_projector: PrototypeProjectorWrapper = None, feature_buffers=None,
-             **kwargs):
+             infoNCE_criterion: T_loss = None, **kwargs):
         """
         :param reg_weight:  regularization weight
         :param prototype_projector: prototype projector to logits
@@ -28,10 +27,11 @@ class PrototypeEpocher(TrainEpocher):
         :return:
         """
         assert prototype_projector is not None, prototype_projector
+        assert infoNCE_criterion is not None, infoNCE_criterion
         super().init(reg_weight=reg_weight, **kwargs)
         self._projectors_wrapper = prototype_projector  # noqa
-        self.__feature_collection = nn.Module()  # noqa to be stored automatically
         self._feature_buffers: Optional[Dict[str, Dict[str, Tensor]]] = feature_buffers  # noqa
+        self._infonce_criterion = infoNCE_criterion
 
     def run_kmeans(self, feature_collection: Tensor) -> Tuple[Tensor, Tensor]:
         """
@@ -44,17 +44,15 @@ class PrototypeEpocher(TrainEpocher):
     def cluster_center(self):
         pass
 
-    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
-        pass
-
     def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group,
                        partition_group, unlabeled_filename, labeled_filename, *args, **kwargs):
 
         feature_names = self._fextractor._feature_names  # noqa
         n_uls = len(unlabeled_tf_logits) * 2
-        for feature_name, features in zip(feature_names, self._fextractor):
-            for filename, _feature in zip(chain(labeled_filename, unlabeled_filename), features):
-                self._feature_buffers[feature_name][filename] = _feature.detach().cpu()
+
+        # for feature_name, features in zip(feature_names, self._fextractor):
+        #     for filename, _feature in zip(chain(labeled_filename, unlabeled_filename), features):
+        #         self._feature_buffers[feature_name][filename] = _feature.detach().cpu()
 
         def generate_infonce(features, projector):
             unlabeled_features, unlabeled_tf_features = torch.chunk(features, 2, dim=0)

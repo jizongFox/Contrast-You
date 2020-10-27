@@ -29,7 +29,7 @@ class EvalEpoch(_Epocher):
         :param cur_epoch: current epoch to record
         :param device: cuda or cpu
         """
-        super().__init__(model, cur_epoch, device)
+        super().__init__(model, len(val_loader), cur_epoch, device)
         assert isinstance(val_loader, DataLoader), f"`val_loader` should be an instance of `DataLoader`, " \
                                                    f"given {val_loader.__class__.__name__}"
         assert callable(sup_criterion), f"sup_criterion must be callable, given {sup_criterion.__class__.__name__}"
@@ -71,12 +71,11 @@ class EvalEpoch(_Epocher):
 class SimpleFineTuneEpoch(_Epocher):
     def __init__(self, model: nn.Module, optimizer: T_optim, labeled_loader: T_loader, num_batches: int = 100,
                  sup_criterion: T_loss = None, cur_epoch=0, device="cpu") -> None:
-        super().__init__(model, cur_epoch, device)
+        super().__init__(model, num_batches, cur_epoch, device)
         assert isinstance(num_batches, int) and num_batches > 0, num_batches
         assert callable(sup_criterion), sup_criterion
         self._labeled_loader = labeled_loader
         self._sup_criterion = sup_criterion
-        self._num_batches = num_batches
         self._optimizer = optimizer
 
     @classmethod

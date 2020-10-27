@@ -244,11 +244,11 @@ class InfoNCEEpocher(TrainEpocher):
                 proj_tf_feature_unfold, _ = unfold_position(proj_tf_feature, partition_num=proj_tf_feature.shape[-2:])
 
                 __b = proj_tf_feature_unfold.size(0)
+                norm_feature_tf = F.normalize(proj_feature_tf_unfold.view(__b, -1), dim=1, p=2)
+                norm_tf_feature = F.normalize(proj_tf_feature_unfold.view(__b, -1), dim=1, p=2)
 
                 labels = self.local_label_generator(partition_list=partition_group, patient_list=label_group,
                                                     location_list=positional_label)
-                norm_feature_tf = F.normalize(proj_feature_tf_unfold.view(__b, -1), dim=1, p=2)
-                norm_tf_feature = F.normalize(proj_tf_feature_unfold.view(__b, -1), dim=1, p=2)
 
             else:
                 raise NotImplementedError(type(projector))
