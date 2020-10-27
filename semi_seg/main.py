@@ -51,23 +51,22 @@ def main_worker(rank, ngpus_per_node, config, cmanager, port):
 
     labeled_loader, unlabeled_loader, val_loader = get_dataloaders(config)
 
-    trainer_name = config["Trainer"].pop("name")
-    Trainer = trainer_zoos[trainer_name]
-
     model = UNet(**config["Arch"])
     if use_distributed_training:
         model = convert2syncBN(model)
         model = torch.nn.parallel.DistributedDataParallel(model.to(rank), device_ids=[rank])
 
-    is_pretrain = config["Trainer"].get("pretrain", False)
+    pretrain_cmanager = ConfigManger(Path(PROJECT_PATH) / "config/pretrain.yaml", verbose=False)
+    pretrain_config = pretrain_cmanager.config["PretrainConfig"]
+
+    is_pretrain = pretrain_config.get("use_pretrain", False)
     checkpoint = config.get("Checkpoint", None)
     if is_pretrain:
         pretrainTrainer = InfoNCEPretrainTrainer(
             model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
             val_loader=val_loader, sup_criterion=KL_div(verbose=False),
-            configuration={**cmanager.config, **{"GITHASH": cur_githash}},
-            save_dir=os.path.join(config["Trainer"]["save_dir"], "pretrain"),
-            **{k: v for k, v in config["Trainer"].items() if k != "save_dir"}
+            configuration=pretrain_config, save_dir=os.path.join(config["Trainer"]["save_dir"], "pretrain"),
+            **{k: v for k, v in pretrain_config["Trainer"].items() if k != "save_dir"}
         )
         pretrainTrainer.init()
 
@@ -77,6 +76,9 @@ def main_worker(rank, ngpus_per_node, config, cmanager, port):
                 strict=True
             )
         pretrainTrainer.start_training()
+
+    trainer_name = config["Trainer"].pop("name")
+    Trainer = trainer_zoos[trainer_name]
 
     trainer = Trainer(
         model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),

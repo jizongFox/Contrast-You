@@ -1,3 +1,5 @@
+from contrastyou.arch.unet import freeze_grad
+from deepclustering2.meters2 import EpochResultDict
 from deepclustering2.type import T_loss
 from .base import PretrainEpocher
 from .comparable import InfoNCEEpocher
@@ -10,3 +12,7 @@ class InfoNCEPretrainEpocher(PretrainEpocher, InfoNCEEpocher):
              infoNCE_criterion: T_loss = None, **kwargs):
         super(InfoNCEPretrainEpocher, self).init(projectors_wrapper=projectors_wrapper,
                                                  infoNCE_criterion=infoNCE_criterion, chain_dataloader=chain_dataloader)
+
+    def _run(self, *args, **kwargs) -> EpochResultDict:
+        with freeze_grad(self._model, self._feature_position) as self._model:
+            return super(InfoNCEPretrainEpocher, self)._run(*args, **kwargs)

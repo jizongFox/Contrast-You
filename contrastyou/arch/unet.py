@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from contextlib import contextmanager
 from typing import Union, List
 
 import torch
@@ -237,3 +238,13 @@ class FeatureExtractor:
                 return ", ".join(a_list)
 
         return f"{self.__class__.__name__} with features to be extracted at {list2string(self._feature_names)}."
+
+
+@contextmanager
+def freeze_grad(unet: UNet, feature_pos):
+    from_ = "Conv1"
+    utils = feature_pos[-1]
+    unet.disable_grad_all()
+    unet.enable_grad(from_, utils)
+    yield unet
+    unet.enable_grad_all()

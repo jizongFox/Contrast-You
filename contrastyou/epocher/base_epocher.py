@@ -2,6 +2,9 @@ import random
 from typing import Union, Tuple
 
 import torch
+from torch import nn
+from torch.utils.data import DataLoader
+
 from deepclustering2.augment.tensor_augment import TensorRandomFlip
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.epoch import _Epocher, proxy_trainer  # noqa
@@ -12,9 +15,6 @@ from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.tqdm import tqdm
 from deepclustering2.type import T_loss, T_optim, T_loader
 from deepclustering2.utils import class2one_hot
-from torch import nn
-from torch.utils.data import DataLoader
-
 from ._utils import preprocess_input_with_single_transformation, preprocess_input_with_twice_transformation
 
 
@@ -97,26 +97,26 @@ class SimpleFineTuneEpoch(_Epocher):
         assert self._model.training, self._model.training
         report_dict: EpochResultDict
         self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer)[0])
-        with tqdm(range(self._num_batches)).set_desc_from_epocher(self) as indicator:
-            for i, label_data in zip(indicator, self._labeled_loader):
-                (labelimage, labeltarget), _, filename, partition_list, group_list \
-                    = self._preprocess_data(label_data, self._device)
-                predict_logits = self._model(labelimage)
-                assert not simplex(predict_logits), predict_logits
 
-                onehot_ltarget = class2one_hot(labeltarget.squeeze(1), 4)
-                sup_loss = self._sup_criterion(predict_logits.softmax(1), onehot_ltarget)
+        for i, label_data in zip(self._indicator, self._labeled_loader):
+            (labelimage, labeltarget), _, filename, partition_list, group_list \
+                = self._preprocess_data(label_data, self._device)
+            predict_logits = self._model(labelimage)
+            assert not simplex(predict_logits), predict_logits
 
-                self._optimizer.zero_grad()
-                sup_loss.backward()
-                self._optimizer.step()
+            onehot_ltarget = class2one_hot(labeltarget.squeeze(1), 4)
+            sup_loss = self._sup_criterion(predict_logits.softmax(1), onehot_ltarget)
 
-                with torch.no_grad():
-                    self.meters["sup_loss"].add(sup_loss.item())
-                    self.meters["ds"].add(predict_logits.max(1)[1], labeltarget.squeeze(1),
-                                          group_name=list(group_list))
-                    report_dict = self.meters.tracking_status()
-                    indicator.set_postfix_dict(report_dict)
+            self._optimizer.zero_grad()
+            sup_loss.backward()
+            self._optimizer.step()
+
+            with torch.no_grad():
+                self.meters["sup_loss"].add(sup_loss.item())
+                self.meters["ds"].add(predict_logits.max(1)[1], labeltarget.squeeze(1),
+                                      group_name=list(group_list))
+                report_dict = self.meters.tracking_status()
+                self._indicator.set_postfix_dict(report_dict)
             report_dict = self.meters.tracking_status()
         return report_dict
 
@@ -166,50 +166,49 @@ class MeanTeacherEpocher(SimpleFineTuneEpoch):
         self.meters["reg_weight"].add(self._reg_weight)
         report_dict: EpochResultDict
 
-        with tqdm(range(self._num_batches)).set_desc_from_epocher(self) as indicator:
-            for i, label_data, all_data in zip(indicator, self._labeled_loader, self._tra_loader):
-                (labelimage, labeltarget), _, filename, partition_list, group_list \
-                    = self._preprocess_data(label_data, self._device)
-                (unlabelimage, _), *_ = self._preprocess_data(label_data, self._device)
+        for i, label_data, all_data in zip(self._indicator, self._labeled_loader, self._tra_loader):
+            (labelimage, labeltarget), _, filename, partition_list, group_list \
+                = self._preprocess_data(label_data, self._device)
+            (unlabelimage, _), *_ = self._preprocess_data(label_data, self._device)
 
-                seed = random.randint(0, int(1e6))
-                with FixRandomSeed(seed):
-                    unlabelimage_tf = torch.stack([self._transformer(x) for x in unlabelimage], dim=0)
-                assert unlabelimage_tf.shape == unlabelimage.shape
+            seed = random.randint(0, int(1e6))
+            with FixRandomSeed(seed):
+                unlabelimage_tf = torch.stack([self._transformer(x) for x in unlabelimage], dim=0)
+            assert unlabelimage_tf.shape == unlabelimage.shape
 
-                student_logits = self._model(torch.cat([labelimage, unlabelimage_tf], dim=0))
-                if simplex(student_logits):
-                    raise RuntimeError("output of the model should be logits, instead of simplex")
-                student_sup_logits, student_unlabel_logits_tf = student_logits[:len(labelimage)], \
-                                                                student_logits[len(labelimage):]
+            student_logits = self._model(torch.cat([labelimage, unlabelimage_tf], dim=0))
+            if simplex(student_logits):
+                raise RuntimeError("output of the model should be logits, instead of simplex")
+            student_sup_logits, student_unlabel_logits_tf = student_logits[:len(labelimage)], \
+                                                            student_logits[len(labelimage):]
 
-                with torch.no_grad():
-                    teacher_unlabel_logits = self._teacher_model(unlabelimage)
-                with FixRandomSeed(seed):
-                    teacher_unlabel_logits_tf = torch.stack([self._transformer(x) for x in teacher_unlabel_logits])
-                assert teacher_unlabel_logits.shape == teacher_unlabel_logits_tf.shape
+            with torch.no_grad():
+                teacher_unlabel_logits = self._teacher_model(unlabelimage)
+            with FixRandomSeed(seed):
+                teacher_unlabel_logits_tf = torch.stack([self._transformer(x) for x in teacher_unlabel_logits])
+            assert teacher_unlabel_logits.shape == teacher_unlabel_logits_tf.shape
 
-                # calcul the loss
-                onehot_ltarget = class2one_hot(labeltarget.squeeze(1), 4)
-                sup_loss = self._sup_criterion(student_sup_logits.softmax(1), onehot_ltarget)
+            # calcul the loss
+            onehot_ltarget = class2one_hot(labeltarget.squeeze(1), 4)
+            sup_loss = self._sup_criterion(student_sup_logits.softmax(1), onehot_ltarget)
 
-                reg_loss = self._reg_criterion(student_unlabel_logits_tf.softmax(1),
-                                               teacher_unlabel_logits_tf.detach().softmax(1))
-                total_loss = sup_loss + self._reg_weight * reg_loss
+            reg_loss = self._reg_criterion(student_unlabel_logits_tf.softmax(1),
+                                           teacher_unlabel_logits_tf.detach().softmax(1))
+            total_loss = sup_loss + self._reg_weight * reg_loss
 
-                self._optimizer.zero_grad()
-                total_loss.backward()
-                self._optimizer.step()
+            self._optimizer.zero_grad()
+            total_loss.backward()
+            self._optimizer.step()
 
-                # update ema
-                self._ema_updater(ema_model=self._teacher_model, student_model=self._model)
+            # update ema
+            self._ema_updater(ema_model=self._teacher_model, student_model=self._model)
 
-                with torch.no_grad():
-                    self.meters["sup_loss"].add(sup_loss.item())
-                    self.meters["reg_loss"].add(reg_loss.item())
-                    self.meters["ds"].add(student_sup_logits.max(1)[1], labeltarget.squeeze(1),
-                                          group_name=list(group_list))
-                    report_dict = self.meters.tracking_status()
-                    indicator.set_postfix_dict(report_dict)
-            report_dict = self.meters.tracking_status()
+            with torch.no_grad():
+                self.meters["sup_loss"].add(sup_loss.item())
+                self.meters["reg_loss"].add(reg_loss.item())
+                self.meters["ds"].add(student_sup_logits.max(1)[1], labeltarget.squeeze(1),
+                                      group_name=list(group_list))
+                report_dict = self.meters.tracking_status()
+                self._indicator.set_postfix_dict(report_dict)
+        report_dict = self.meters.tracking_status()
         return report_dict

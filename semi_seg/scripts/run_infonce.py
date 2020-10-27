@@ -58,48 +58,52 @@ jobs = [
     f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/infoNCE/fs "
     f" Data.labeled_data_ratio=1 Data.unlabeled_data_ratio=0",
 
-    # infoNCE
-    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/0.5 "
-    f" InfoNCEParameters.weight=0.5 ",
-    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/0.1 "
-    f" InfoNCEParameters.weight=0.1 ",
-    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/1.0 "
-    f" InfoNCEParameters.weight=1.0 ",
-    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/5.0 "
-    f" InfoNCEParameters.weight=5.0 ",
-    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/0.05 "
-    f" InfoNCEParameters.weight=0.05 ",
-    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/0.01 "
-    f" InfoNCEParameters.weight=0.01 ",
-    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/0.001 "
-    f" InfoNCEParameters.weight=0.001 ",
-
-    # ablation study on infoNCE
-    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/ablation/infonce/0.5_conv5 "
-    f" InfoNCEParameters.weight=0.5 Trainer.feature_names=[Conv5,] Trainer.feature_importance=[1.0,] ",
-
-    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/ablation/infonce/0.5_upConv3 "
-    f" InfoNCEParameters.weight=0.5 Trainer.feature_names=[Up_conv3,] Trainer.feature_importance=[1.0,] ",
-
-    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/ablation/infonce/0.5_upConv2 "
-    f" InfoNCEParameters.weight=0.5 Trainer.feature_names=[Up_conv2,] Trainer.feature_importance=[1.0,] ",
-
-    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/ablation/infonce/0.5_all "
-    f" InfoNCEParameters.weight=0.5 "
-    f"Trainer.feature_names=[Conv5,Up_conv3,Up_conv2,] Trainer.feature_importance=[1.0,1.0,1.0] ",
-    
+    # # infoNCE
+    # f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/0.5 "
+    # f" InfoNCEParameters.weight=0.5 ",
+    # f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/0.1 "
+    # f" InfoNCEParameters.weight=0.1 ",
+    # f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/1.0 "
+    # f" InfoNCEParameters.weight=1.0 ",
+    # f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/5.0 "
+    # f" InfoNCEParameters.weight=5.0 ",
+    # f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/0.05 "
+    # f" InfoNCEParameters.weight=0.05 ",
+    # f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/0.01 "
+    # f" InfoNCEParameters.weight=0.01 ",
+    # f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/0.001 "
+    # f" InfoNCEParameters.weight=0.001 ",
+    #
+    # # ablation study on infoNCE
+    # f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/ablation/infonce/0.5_conv5 "
+    # f" InfoNCEParameters.weight=0.5 Trainer.feature_names=[Conv5,] Trainer.feature_importance=[1.0,] ",
+    #
+    # f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/ablation/infonce/0.5_upConv3 "
+    # f" InfoNCEParameters.weight=0.5 Trainer.feature_names=[Up_conv3,] Trainer.feature_importance=[1.0,] ",
+    #
+    # f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/ablation/infonce/0.5_upConv2 "
+    # f" InfoNCEParameters.weight=0.5 Trainer.feature_names=[Up_conv2,] Trainer.feature_importance=[1.0,] ",
+    #
+    # f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/ablation/infonce/0.5_all "
+    # f" InfoNCEParameters.weight=0.5 "
+    # f"Trainer.feature_names=[Conv5,Up_conv3,Up_conv2,] Trainer.feature_importance=[1.0,1.0,1.0] ",
+    #
     # pretrain+ partial
     f" python main.py {common_opts} Trainer.name=partial Trainer.pretrain=true Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/conv5 "
-    f" Trainer.feature_names=[Conv5,] Trainer.feature_importance=[1.0,] ",
+    f" PretrainConfig.Trainer.feature_names=[Conv5,] PretrainConfig.Trainer.feature_importance=[1.0,] "
+    f" PretrainConfig.use_pretrain=true ",
 
     f" python main.py {common_opts} Trainer.name=partial Trainer.pretrain=true Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/upConv3 "
-    f" Trainer.feature_names=[Up_conv3,] Trainer.feature_importance=[1.0,] ",
+    f" PretrainConfig.Trainer.feature_names=[Up_conv3,] PretrainConfig.Trainer.feature_importance=[1.0,] "
+    f" PretrainConfig.use_pretrain=true ",
 
     f" python main.py {common_opts} Trainer.name=partial Trainer.pretrain=true Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/upConv2 "
-    f" Trainer.feature_names=[Up_conv2,] Trainer.feature_importance=[1.0,] ",
+    f" PretrainConfig.Trainer.feature_names=[Up_conv2,] PretrainConfig.Trainer.feature_importance=[1.0,] "
+    f" PretrainConfig.use_pretrain=true ",
 
-    f" python main.py {common_opts} Trainer.name=partial Trainer.pretrain=true Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/all ",
-
+    f" python main.py {common_opts} Trainer.name=partial Trainer.pretrain=true Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/all "
+        f" PretrainConfig.Trainer.feature_names=[Conv5,Up_conv2,Up_conv2] PretrainConfig.Trainer.feature_importance=[1.0,1.0,1.0] "
+    f" PretrainConfig.use_pretrain=true ",
 ]
 
 # CC things

@@ -32,8 +32,6 @@ __all__ = ["trainer_zoos"]
 class SemiTrainer(Trainer):
     RUN_PATH = str(Path(PROJECT_PATH) / "semi_seg" / "runs")  # noqa
 
-    feature_positions = ["Up_conv4", "Up_conv3"]
-
     def __init__(self, model: nn.Module, labeled_loader: T_loader, unlabeled_loader: T_loader,
                  val_loader: T_loader, sup_criterion: T_loss, save_dir: str = "base", max_epoch: int = 100,
                  num_batches: int = 100, device: str = "cpu", configuration=None, **kwargs):
@@ -148,9 +146,8 @@ class SemiTrainer(Trainer):
         result, cur_score = evaler.run()
         return result, cur_score
 
-    @classmethod
-    def set_feature_positions(cls, feature_positions):
-        cls.feature_positions = feature_positions
+    def set_feature_positions(self, feature_positions):
+        self.feature_positions = feature_positions
 
 
 class UDATrainer(SemiTrainer):
@@ -452,8 +449,6 @@ class InfoNCETrainer(SemiTrainer):
         self._criterion = SupConLoss(**config["LossParams"])
         self._reg_weight = float(config["weight"])
 
-        # todo: replace unlabeled dataloader with contrastBatchSampler
-
     def set_epocher_class(self, epocher_class: Type[TrainEpocher] = InfoNCEEpocher):
         super().set_epocher_class(epocher_class)
 
@@ -473,6 +468,7 @@ class InfoNCETrainer(SemiTrainer):
 
 class InfoNCEPretrainTrainer(InfoNCETrainer):
     def _init(self):
+        self._config["InfoNCEParameters"]["weight"] = 1.0
         super(InfoNCEPretrainTrainer, self)._init()
         unlabeled_dataset = get_dataset(self._unlabeled_loader)
 
@@ -489,17 +485,21 @@ class InfoNCEPretrainTrainer(InfoNCETrainer):
         if config.get("DistributedTrain") is True:
             raise NotImplementedError()
 
-        batch_sampler = ContrastBatchSampler(dataset, group_sample_num=6, partition_sample_num=1)
+        batch_sampler = ContrastBatchSampler(
+            dataset=dataset,
+            group_sample_num=config["ContrastData"]["group_sample_num"],
+            partition_sample_num=config["ContrastData"]["partition_sample_num"]
+        )
 
-        self._chain_dataloader = DataLoader(
+        self._contrastive_loader = DataLoader(
             dataset, batch_sampler=batch_sampler,
-            num_workers=config["UnlabeledData"]["num_workers"],
+            num_workers=config["ContrastData"]["num_workers"],
             pin_memory=True
         )
-        self._chain_dataloader = iter(self._chain_dataloader)
+        self._contrastive_loader = iter(self._contrastive_loader)
 
     def _run_epoch(self, epocher: InfoNCEPretrainEpocher, *args, **kwargs) -> EpochResultDict:
-        epocher.init(chain_dataloader=self._chain_dataloader, projectors_wrapper=self._projector,
+        epocher.init(chain_dataloader=self._contrastive_loader, projectors_wrapper=self._projector,
                      infoNCE_criterion=self._criterion)
         result = epocher.run()
         return result
@@ -524,6 +524,10 @@ class InfoNCEPretrainTrainer(InfoNCETrainer):
                 self._save_to(self._save_dir, "last.pth")
                 # save storage result on csv file.
                 self._storage.to_csv(self._save_dir)
+
+
+class PrototypeTrainer(SemiTrainer):
+    pass
 
 
 trainer_zoos = {
