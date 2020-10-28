@@ -229,6 +229,7 @@ class InfoNCEEpocher(TrainEpocher):
                 unlabeled_features_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_features], dim=0)
             assert unlabeled_tf_features.shape == unlabeled_tf_features.shape, \
                 (unlabeled_tf_features.shape, unlabeled_tf_features.shape)
+
             proj_tf_feature, proj_feature_tf = torch.chunk(
                 projector(torch.cat([unlabeled_tf_features, unlabeled_features_tf], dim=0)), 2, dim=0
             )

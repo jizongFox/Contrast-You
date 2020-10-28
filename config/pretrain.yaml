@@ -8,18 +8,18 @@ PretrainConfig:
     max_epoch: 100
 
   ContrastData:
-    group_sample_num: 3
+    group_sample_num: 8
     partition_sample_num: 1
-    num_workers: 6
+    num_workers: 2
     shuffle: false
 
   Optim:
     name: Adam
-    lr: 0.0000001
+    lr: 0.000001
     weight_decay: 0.00001
 
   Scheduler:
-    multiplier: 400
+    multiplier: 300
     warmup_max: 10
 
   InfoNCEParameters:

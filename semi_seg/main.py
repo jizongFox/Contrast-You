@@ -18,6 +18,7 @@ from deepclustering2.utils import set_benchmark
 from semi_seg.trainer import trainer_zoos, InfoNCEPretrainTrainer  # noqa
 from semi_seg.dsutils import get_dataloaders
 from deepclustering2.ddp import initialize_ddp_environment, convert2syncBN
+from termcolor import colored
 
 cur_githash = gethash(__file__)
 
@@ -29,13 +30,13 @@ def main():
     use_distributed_training = config.get("DistributedTrain")
     if use_distributed_training is True:
         ngpus_per_node = torch.cuda.device_count()
-        print(f"Found {ngpus_per_node} per node")
-        mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, config, cmanager, port))
+        print(colored(f"Found {ngpus_per_node} per node", "red"))
+        mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, config, cmanager, port))  # noqa
     else:
         main_worker(0, 1, config, cmanager, port)
 
 
-def main_worker(rank, ngpus_per_node, config, cmanager, port):
+def main_worker(rank, ngpus_per_node, config, cmanager, port):  # noqa
     use_distributed_training = config.get("DistributedTrain")
 
     def set_distributed_training():

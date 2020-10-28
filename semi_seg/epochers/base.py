@@ -168,7 +168,7 @@ class TrainEpocher(_num_class_mixin, _Epocher):
                     label_group=unl_group,
                     partition_group=unl_partition,
                     unlabeled_filename=unlabeled_filename,
-                    labeled_filename = labeled_filename
+                    labeled_filename=labeled_filename
                 )
                 total_loss = sup_loss + self._reg_weight * reg_loss
                 # gradient backpropagation

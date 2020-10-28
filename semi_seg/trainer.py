@@ -147,7 +147,7 @@ class SemiTrainer(Trainer):
         return result, cur_score
 
     def set_feature_positions(self, feature_positions):
-        self.feature_positions = feature_positions
+        self.feature_positions = feature_positions  # noqa
 
 
 class UDATrainer(SemiTrainer):
@@ -496,6 +496,7 @@ class InfoNCEPretrainTrainer(InfoNCETrainer):
             num_workers=config["ContrastData"]["num_workers"],
             pin_memory=True
         )
+
         self._contrastive_loader = iter(self._contrastive_loader)
 
     def _run_epoch(self, epocher: InfoNCEPretrainEpocher, *args, **kwargs) -> EpochResultDict:
