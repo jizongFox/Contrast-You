@@ -95,7 +95,7 @@ class InferenceEpocher(EvalEpocher):
 
 
 class TrainEpocher(_num_class_mixin, _Epocher):
-    only_with_labeled_data = True
+    only_with_labeled_data = False  # highlight: this is the tricky part of the experiments
 
     def __init__(self, *, model: Union[Model, nn.Module], optimizer: T_optim, labeled_loader: T_loader,
                  unlabeled_loader: T_loader, sup_criterion: T_loss, num_batches: int, cur_epoch=0,
