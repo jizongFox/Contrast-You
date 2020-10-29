@@ -6,7 +6,6 @@ from contrastyou.arch.unet import freeze_grad
 from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
 from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
 from contrastyou.helper import get_dataset
-from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.epoch import _Epocher  # noqa
 from deepclustering2.meters2 import EpochResultDict
 from deepclustering2.optim import get_lrs_from_optimizer
@@ -39,25 +38,25 @@ class _InfoNCEPretrainEpocher(PretrainEpocher):
                     self._unzip_data(data, self._device)
                 n_l, n_unl = 0, len(image)
 
-                with FixRandomSeed(seed):
-                    image_tf2 = torch.stack([self._affine_transformer(x) for x in image], dim=0)
+                # with FixRandomSeed(seed):
+                #     image_tf2 = torch.stack([self._affine_transformer(x) for x in image], dim=0)
 
-                predict_logits = self._model(torch.cat([image_tf, image_tf2], dim=0))
+                predict_logits = self._model(torch.cat([image, image_tf], dim=0))
 
                 unlabel_logits, unlabel_tf_logits = torch.split(
                     predict_logits, [n_unl, n_unl], dim=0
                 )
 
-                with FixRandomSeed(seed):
-                    unlabel_logits_tf = torch.stack([self._affine_transformer(x) for x in unlabel_logits], dim=0)
+                # with FixRandomSeed(seed):
+                #     unlabel_logits_tf = torch.stack([self._affine_transformer(x) for x in unlabel_logits], dim=0)
 
-                assert unlabel_logits_tf.shape == unlabel_tf_logits.shape, (
-                    unlabel_logits_tf.shape, unlabel_tf_logits.shape)
+                # assert unlabel_logits_tf.shape == unlabel_tf_logits.shape, (
+                #     unlabel_logits_tf.shape, unlabel_tf_logits.shape)
 
                 # regularized part
                 reg_loss = self.regularization(
                     unlabeled_tf_logits=unlabel_tf_logits,
-                    unlabeled_logits_tf=unlabel_logits_tf,
+                    unlabeled_logits_tf=unlabel_tf_logits,
                     seed=seed,
                     unlabeled_image=image,
                     unlabeled_image_tf=image_tf,
@@ -85,7 +84,7 @@ class _InfoNCEPretrainEpocher(PretrainEpocher):
         return image, image_tf, filename, partition, group
 
 
-class InfoNCEPretrainEpocher(_InfoNCEPretrainEpocher, InfoNCEEpocher):
+class InfoNCEPretrainEpocher(PretrainEpocher, InfoNCEEpocher):
 
     def init(self, *, chain_dataloader=None, projectors_wrapper: ContrastiveProjectorWrapper = None,
              infoNCE_criterion: T_loss = None, **kwargs):

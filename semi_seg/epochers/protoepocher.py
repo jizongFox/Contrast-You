@@ -16,6 +16,7 @@ from .helper import unl_extractor
 
 
 class PrototypeEpocher(TrainEpocher):
+    only_with_labeled_data = False
 
     def init(self, *, reg_weight: float, prototype_projector: PrototypeProjectorWrapper = None, feature_buffers=None,
              infoNCE_criterion: T_loss = None, **kwargs):
