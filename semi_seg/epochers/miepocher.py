@@ -18,6 +18,7 @@ from .helper import unl_extractor
 
 # noinspection Mypy
 class UDATrainEpocher(TrainEpocher):
+    only_with_labeled_data = False
 
     def init(self, *, reg_weight: float, reg_criterion: T_loss, ):  # noqa
         super().init(reg_weight=reg_weight)
@@ -44,6 +45,7 @@ class UDATrainEpocher(TrainEpocher):
 
 
 class IICTrainEpocher(TrainEpocher):
+    only_with_labeled_data = False
 
     def init(self, *, reg_weight: float, projectors_wrapper: ClusterProjectorWrapper,  # noqa
              IIDSegCriterionWrapper: IICLossWrapper, enforce_matching=False,  # noqa

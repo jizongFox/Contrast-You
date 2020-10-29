@@ -150,6 +150,14 @@ class SemiTrainer(Trainer):
         self.feature_positions = feature_positions  # noqa
 
 
+class FineTuneTrainer(SemiTrainer):
+
+    def set_epocher_class(self, epocher_class: Type[TrainEpocher] = TrainEpocher):
+        TrainEpocher.only_with_labeled_data = True
+        print(f"Using only labeled data")
+        super().set_epocher_class(epocher_class)
+
+
 class UDATrainer(SemiTrainer):
 
     def _init(self):

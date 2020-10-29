@@ -24,6 +24,7 @@ from .miepocher import IICTrainEpocher, UDATrainEpocher
 
 
 class MeanTeacherEpocher(TrainEpocher):
+    only_with_labeled_data = False
 
     def init(self, *, reg_weight: float, teacher_model: nn.Module, reg_criterion: T_loss,  # noqa
              ema_updater: EMA_Updater, **kwargs):  # noqa
@@ -173,6 +174,7 @@ class MIDLPaperEpocher(UDATrainEpocher):
 
 
 class EntropyMinEpocher(TrainEpocher):
+    only_with_labeled_data = False
 
     def init(self, *, reg_weight: float, **kwargs):
         super().init(reg_weight=reg_weight, **kwargs)
@@ -204,6 +206,7 @@ class PICAEpocher(IICTrainEpocher):
 
 
 class InfoNCEEpocher(TrainEpocher):
+    only_with_labeled_data = False
 
     def init(self, *, reg_weight: float, projectors_wrapper: ContrastiveProjectorWrapper = None,
              infoNCE_criterion: T_loss = None, **kwargs):

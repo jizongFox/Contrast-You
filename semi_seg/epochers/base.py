@@ -95,6 +95,7 @@ class InferenceEpocher(EvalEpocher):
 
 
 class TrainEpocher(_num_class_mixin, _Epocher):
+    only_with_labeled_data = True
 
     def __init__(self, *, model: Union[Model, nn.Module], optimizer: T_optim, labeled_loader: T_loader,
                  unlabeled_loader: T_loader, sup_criterion: T_loss, num_batches: int, cur_epoch=0,
@@ -121,21 +122,27 @@ class TrainEpocher(_num_class_mixin, _Epocher):
         report_axis = list(range(1, C))
         meters.register_meter("lr", AverageValueMeter())
         meters.register_meter("sup_loss", AverageValueMeter())
-        meters.register_meter("reg_loss", AverageValueMeter())
+        if not self.only_with_labeled_data:
+            meters.register_meter("reg_loss", AverageValueMeter())
         meters.register_meter("sup_dice", UniversalDice(C, report_axises=report_axis, ))
         return meters
 
-    def _run(self, *args, **kwargs) -> EpochResultDict:
+    def _run(self, *args, **kwargs):
         self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer)[0])
         self._model.train()
         assert self._model.training, self._model.training
+        if self.only_with_labeled_data:
+            return self._run_only_label(*args, **kwargs)
+        return self._run_semi(*args, **kwargs)
+
+    def _run_semi(self, *args, **kwargs) -> EpochResultDict:
         report_dict = EpochResultDict()
         with FeatureExtractor(self._model, self._feature_position) as self._fextractor:  # noqa
             for i, labeled_data, unlabeled_data in zip(self._indicator, self._labeled_loader, self._unlabeled_loader):
                 seed = random.randint(0, int(1e7))
                 labeled_image, labeled_target, labeled_filename, _, label_group = \
                     self._unzip_data(labeled_data, self._device)
-                unlabeled_image, unlabeled_target, unlabeled_filename, unl_partition, unl_group = self._unzip_data(
+                unlabeled_image, _, unlabeled_filename, unl_partition, unl_group = self._unzip_data(
                     unlabeled_data, self._device)
                 n_l, n_unl = len(labeled_image), len(unlabeled_image)
 
@@ -184,6 +191,34 @@ class TrainEpocher(_num_class_mixin, _Epocher):
                         self.meters["reg_loss"].add(reg_loss.item())
                         report_dict = self.meters.tracking_status()
                         self._indicator.set_postfix_dict(report_dict)
+        return report_dict
+
+    def _run_only_label(self, *args, **kwargs) -> EpochResultDict:
+        report_dict = EpochResultDict()
+        for i, labeled_data in zip(self._indicator, self._labeled_loader):
+            labeled_image, labeled_target, labeled_filename, _, label_group = \
+                self._unzip_data(labeled_data, self._device)
+
+            label_logits = self._model(labeled_image)
+
+            # supervised part
+            onehot_target = class2one_hot(labeled_target.squeeze(1), self.num_classes)
+            sup_loss = self._sup_criterion(label_logits.softmax(1), onehot_target)
+
+            total_loss = sup_loss
+            # gradient backpropagation
+            self._optimizer.zero_grad()
+            total_loss.backward()
+            self._optimizer.step()
+            # recording can be here or in the regularization method
+            if self.on_master():
+                with torch.no_grad():
+                    self.meters["sup_loss"].add(sup_loss.item())
+                    self.meters["sup_dice"].add(label_logits.max(1)[1], labeled_target.squeeze(1),
+                                                group_name=label_group)
+                    report_dict = self.meters.tracking_status()
+                    self._indicator.set_postfix_dict(report_dict)
+
         return report_dict
 
     @staticmethod
