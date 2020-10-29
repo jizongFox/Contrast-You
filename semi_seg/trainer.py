@@ -5,12 +5,6 @@ from pathlib import Path
 from typing import Tuple, Type
 
 import torch
-from torch import nn
-from torch import optim
-
-from contrastyou import PROJECT_PATH
-from contrastyou.helper import get_dataset
-from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
 from deepclustering2 import optim
 from deepclustering2.loss import KL_div
 from deepclustering2.meters2 import EpochResultDict
@@ -19,6 +13,12 @@ from deepclustering2.models import ema_updater
 from deepclustering2.schedulers import GradualWarmupScheduler
 from deepclustering2.trainer2 import Trainer
 from deepclustering2.type import T_loader, T_loss
+from torch import nn
+from torch import optim
+
+from contrastyou import PROJECT_PATH
+from contrastyou.helper import get_dataset
+from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
 from semi_seg._utils import ClusterProjectorWrapper, IICLossWrapper, PICALossWrapper, ContrastiveProjectorWrapper
 from semi_seg.epochers import IICTrainEpocher, UDAIICEpocher
 from semi_seg.epochers import TrainEpocher, EvalEpocher, UDATrainEpocher, EntropyMinEpocher, MeanTeacherEpocher, \
@@ -31,6 +31,7 @@ __all__ = ["trainer_zoos"]
 
 class SemiTrainer(Trainer):
     RUN_PATH = str(Path(PROJECT_PATH) / "semi_seg" / "runs")  # noqa
+    _only_labeled_data = False
 
     def __init__(self, model: nn.Module, labeled_loader: T_loader, unlabeled_loader: T_loader,
                  val_loader: T_loader, sup_criterion: T_loss, save_dir: str = "base", max_epoch: int = 100,
@@ -93,6 +94,8 @@ class SemiTrainer(Trainer):
             cur_epoch=self._cur_epoch, device=self._device, feature_position=self.feature_positions,
             feature_importance=self._feature_importance
         )
+        if self._only_labeled_data:
+            epocher.only_with_labeled_data = True
         return epocher
 
     def _run_epoch(self, epocher: TrainEpocher, *args, **kwargs) -> EpochResultDict:
@@ -148,6 +151,9 @@ class SemiTrainer(Trainer):
 
     def set_feature_positions(self, feature_positions):
         self.feature_positions = feature_positions  # noqa
+
+    def set_only_labeled_data(self, enable=True):
+        self._only_labeled_data = enable  # noqa
 
 
 class FineTuneTrainer(SemiTrainer):

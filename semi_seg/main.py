@@ -89,11 +89,13 @@ def main_worker(rank, ngpus_per_node, config, cmanager, port):  # noqa
         **{k: v for k, v in config["Trainer"].items() if k != "save_dir"}
     )
     trainer.init()
-    if is_pretrain:
-        trainer.only_with_labeled_data = True
 
     if checkpoint is not None:
         trainer.load_state_dict_from_path(os.path.join(checkpoint, "train"), strict=True)
+
+    if is_pretrain:
+        trainer.set_only_labeled_data(enable=True)  # the trick to make the pretrain-finetune framework working.
+
     trainer.start_training()
 
 
