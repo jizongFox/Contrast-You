@@ -92,5 +92,5 @@ class InfoNCEPretrainEpocher(PretrainEpocher, InfoNCEEpocher):
                                                  infoNCE_criterion=infoNCE_criterion, chain_dataloader=chain_dataloader)
 
     def _run(self, *args, **kwargs) -> EpochResultDict:
-        with freeze_grad(self._model, self._feature_position) as self._model:
+        with freeze_grad(self._model, self._feature_position) as self._model:  # noqa
             return super(InfoNCEPretrainEpocher, self)._run(*args, **kwargs)

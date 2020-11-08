@@ -1,15 +1,18 @@
 from functools import lru_cache
+from itertools import chain
 from typing import Tuple, Optional, Dict
 
 import torch
+from deepclustering2.decorator import FixRandomSeed
+from deepclustering2.meters2 import MeterInterface, AverageValueMeter
+from deepclustering2.type import T_loss
+from sklearn.cluster import KMeans
 from torch import Tensor
 from torch.nn import functional as F
 
 from contrastyou.epocher._utils import unfold_position  # noqa
 from contrastyou.helper import weighted_average_iter
 from contrastyou.projectors.heads import ProjectionHead, LocalProjectionHead
-from deepclustering2.decorator import FixRandomSeed
-from deepclustering2.type import T_loss
 from semi_seg._utils import ContrastiveProjectorWrapper as PrototypeProjectorWrapper
 from .base import TrainEpocher
 from .helper import unl_extractor
@@ -32,18 +35,40 @@ class PrototypeEpocher(TrainEpocher):
         super().init(reg_weight=reg_weight, **kwargs)
         self._projectors_wrapper = prototype_projector  # noqa
         self._feature_buffers: Optional[Dict[str, Dict[str, Tensor]]] = feature_buffers  # noqa
-        self._infonce_criterion = infoNCE_criterion
+        self._infonce_criterion = infoNCE_criterion  # noqa
+        self._kmeans_collection = dict()  # noqa
+
+    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters = super()._configure_meters(meters)
+        meters.register_meter("mi", AverageValueMeter())
+        return meters
 
     def run_kmeans(self, feature_collection: Tensor) -> Tuple[Tensor, Tensor]:
         """
         :arg feature_collection: input feature collection
         :return: Center and labels
         """
-        pass
+        if len(feature_collection) == 0:
+            raise NotImplementedError()
+        for feature_position, sub_feature_collection in feature_collection.items():
+            _kmeans = KMeans(n_clusters=100, n_jobs=10)
+            self._kmeans_collection[feature_position] = _kmeans
+            _features = list(sub_feature_collection.values())
+            _processed_features = torch.cat(list(map(lambda x: x.view(x.size(0), -1).transpose(1, 0), _features)),
+                                            dim=0)
+            perm = torch.randperm(_processed_features.size(0))
+            idx = perm[:100000]
+            samples = _processed_features[idx]
+            _kmeans.fit(samples)
 
     @property
     def cluster_center(self):
-        pass
+        if len(self._kmeans_collection) == 0:
+            return None
+        return {k: v.cluster_centers_ for k, v in self._kmeans_collection.items()}
+
+    def get_kmeans(self, feature_position):
+        return self._kmeans_collection[feature_position]
 
     def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group,
                        partition_group, unlabeled_filename, labeled_filename, *args, **kwargs):
@@ -51,9 +76,11 @@ class PrototypeEpocher(TrainEpocher):
         feature_names = self._fextractor._feature_names  # noqa
         n_uls = len(unlabeled_tf_logits) * 2
 
-        # for feature_name, features in zip(feature_names, self._fextractor):
-        #     for filename, _feature in zip(chain(labeled_filename, unlabeled_filename), features):
-        #         self._feature_buffers[feature_name][filename] = _feature.detach().cpu()
+        for feature_name, features in zip(feature_names, self._fextractor):
+            for filename, _feature in zip(chain(labeled_filename, unlabeled_filename), features):
+                if feature_name not in self._feature_buffers:
+                    self._feature_buffers[feature_name] = dict()
+                self._feature_buffers[feature_name][filename] = _feature.detach().cpu()
 
         def generate_infonce(features, projector):
             unlabeled_features, unlabeled_tf_features = torch.chunk(features, 2, dim=0)
@@ -92,11 +119,11 @@ class PrototypeEpocher(TrainEpocher):
                   ]
 
         reg_loss = weighted_average_iter(losses, self._feature_importance)
-        self.meters["mi"].add(-reg_loss.item())
-        self.meters["individual_mis"].add(**dict(zip(
-            self._feature_position,
-            [-x.item() for x in losses]
-        )))
+        # self.meters["mi"].add(-reg_loss.item())
+        # self.meters["individual_mis"].add(**dict(zip(
+        #     self._feature_position,
+        #     [-x.item() for x in losses]
+        # )))
         return reg_loss
 
     @property  # noqa

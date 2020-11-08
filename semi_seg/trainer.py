@@ -18,9 +18,10 @@ from torch import optim
 
 from contrastyou import PROJECT_PATH
 from contrastyou.helper import get_dataset
+from contrastyou.losses.contrast_loss import SupConLoss
 from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
 from semi_seg._utils import ClusterProjectorWrapper, IICLossWrapper, PICALossWrapper, ContrastiveProjectorWrapper
-from semi_seg.epochers import IICTrainEpocher, UDAIICEpocher
+from semi_seg.epochers import IICTrainEpocher, UDAIICEpocher, PrototypeEpocher
 from semi_seg.epochers import TrainEpocher, EvalEpocher, UDATrainEpocher, EntropyMinEpocher, MeanTeacherEpocher, \
     IICMeanTeacherEpocher, InferenceEpocher, MIDLPaperEpocher, FeatureOutputCrossIICUDAEpocher, \
     FeatureOutputCrossIICEpocher, InfoNCEEpocher, InfoNCEPretrainEpocher
@@ -459,7 +460,6 @@ class InfoNCETrainer(SemiTrainer):
             feature_names=self.feature_positions,
             **config["DecoderParams"]
         )
-        from contrastyou.losses.contrast_loss import SupConLoss
         self._criterion = SupConLoss(**config["LossParams"])
         self._reg_weight = float(config["weight"])
 
@@ -542,7 +542,28 @@ class InfoNCEPretrainTrainer(InfoNCETrainer):
 
 
 class PrototypeTrainer(SemiTrainer):
-    pass
+
+    def _init(self):
+        super()._init()
+        config = deepcopy(self._config)["PrototypeParameters"]
+        self._projector = ContrastiveProjectorWrapper()
+        self._projector.init_encoder(feature_names=self.feature_positions, **config["EncoderParams"])
+        self._projector.init_decoder(feature_names=self.feature_positions, **config["DecoderParams"])
+
+        self._register_buffer("memory_bank", dict())
+        self._infonce_criterion = SupConLoss(**config["LossParams"])
+        self._reg_weight = float(config["weight"])
+
+    def set_epocher_class(self, epocher_class: Type[TrainEpocher] = PrototypeEpocher):
+        super(PrototypeTrainer, self).set_epocher_class(epocher_class)
+
+    def _run_epoch(self, epocher: PrototypeEpocher, *args, **kwargs) -> EpochResultDict:
+        epocher.init(reg_weight=self._reg_weight, prototype_projector=self._projector,
+                     feature_buffers=self.memory_bank,
+                     infoNCE_criterion=self._infonce_criterion)
+        result = epocher.run()
+        epocher.run_kmeans(self.memory_bank)
+        return result
 
 
 trainer_zoos = {
@@ -558,5 +579,6 @@ trainer_zoos = {
     "featureoutputudaiic": UDAIICFeatureOutputTrainer,
     "pica": PICATrainer,
     "infonce": InfoNCETrainer,
-    "infoncepretrain": InfoNCEPretrainTrainer
+    "infoncepretrain": InfoNCEPretrainTrainer,
+    "prototype": PrototypeTrainer
 }
