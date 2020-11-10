@@ -36,6 +36,7 @@ Trainer:
   device: cuda
   num_batches: 500
   max_epoch: 100
+  only_labeled_data: false
 
 UDARegCriterion:
   name: mse # kl

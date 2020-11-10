@@ -62,6 +62,8 @@ def main_worker(rank, ngpus_per_node, config, cmanager, port):  # noqa
 
     is_pretrain = pretrain_config.get("use_pretrain", False)
     checkpoint = config.get("Checkpoint", None)
+    use_only_labeled_data = config["Trainer"].pop("only_labeled_data")
+
     if is_pretrain:
         pretrainTrainer = InfoNCEPretrainTrainer(
             model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
@@ -70,6 +72,7 @@ def main_worker(rank, ngpus_per_node, config, cmanager, port):  # noqa
             **{k: v for k, v in pretrain_config["Trainer"].items() if k != "save_dir"}
         )
         pretrainTrainer.init()
+        use_only_labeled_data = True
 
         if checkpoint is not None:
             pretrainTrainer.load_state_dict_from_path(
@@ -93,7 +96,7 @@ def main_worker(rank, ngpus_per_node, config, cmanager, port):  # noqa
     if checkpoint is not None:
         trainer.load_state_dict_from_path(os.path.join(checkpoint, "train"), strict=True)
 
-    if is_pretrain:
+    if use_only_labeled_data:
         trainer.set_only_labeled_data(enable=True)  # the trick to make the pretrain-finetune framework working.
 
     trainer.start_training()

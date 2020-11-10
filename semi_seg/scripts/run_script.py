@@ -49,11 +49,19 @@ common_opts = f" Data.labeled_data_ratio={args.label_ratio} " \
               f" DistributedTrain={args.distributed}"
 
 jobs = [
+    # baseline
     f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/ps  ",
 
     f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/fs "
     f" Data.labeled_data_ratio=1 Data.unlabeled_data_ratio=0",
-    # baseline
+
+    # only labeled data
+    f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/ps_only_label "
+    f" Trainer.only_labeled_data=true ",
+
+    f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/fs_only_label "
+    f" Data.labeled_data_ratio=1 Data.unlabeled_data_ratio=0 Trainer.only_labeled_data=true",
+
     # entropy
     f" python main.py {common_opts} Trainer.name=entropy Trainer.save_dir={save_dir}/entropy/0.00001 "
     f" EntropyMinParameters.weight=0.00001",
