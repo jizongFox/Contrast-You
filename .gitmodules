@@ -19,3 +19,6 @@
 [submodule "references/DCCS"]
 	path = references/DCCS
 	url = https://github.com/ETS-Research-Repositories/DCCS.git
+[submodule "references/clusterGAN"]
+	path = references/clusterGAN
+	url = https://github.com/ETS-Research-Repositories/clusterGAN.git
