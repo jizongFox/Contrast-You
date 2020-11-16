@@ -1,18 +1,20 @@
+import warnings
 from functools import lru_cache
 from itertools import chain
 from typing import Tuple, Optional, Dict
 
 import torch
-from deepclustering2.decorator import FixRandomSeed
-from deepclustering2.meters2 import MeterInterface, AverageValueMeter
-from deepclustering2.type import T_loss
 from sklearn.cluster import KMeans
 from torch import Tensor
 from torch.nn import functional as F
 
+from contrastyou.arch.unet import UNet
 from contrastyou.epocher._utils import unfold_position  # noqa
 from contrastyou.helper import weighted_average_iter
 from contrastyou.projectors.heads import ProjectionHead, LocalProjectionHead
+from deepclustering2.decorator import FixRandomSeed
+from deepclustering2.meters2 import MeterInterface, AverageValueMeter
+from deepclustering2.type import T_loss
 from semi_seg._utils import ContrastiveProjectorWrapper as PrototypeProjectorWrapper
 from .base import TrainEpocher
 from .helper import unl_extractor
@@ -37,6 +39,12 @@ class PrototypeEpocher(TrainEpocher):
         self._feature_buffers: Optional[Dict[str, Dict[str, Tensor]]] = feature_buffers  # noqa
         self._infonce_criterion = infoNCE_criterion  # noqa
         self._kmeans_collection = dict()  # noqa
+        warnings.warn(
+            f"{self.__class__.__name__} now only support Conv5 for Encoder Descriptor, for simplification",
+            category=RuntimeWarning
+        )
+        self._feature_position = ["Conv5"]
+        self._feature_importance = [1.0, ]
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super()._configure_meters(meters)
@@ -137,3 +145,33 @@ class PrototypeEpocher(TrainEpocher):
     def local_label_generator(self):
         from contrastyou.epocher._utils import LocalLabelGenerator  # noqa
         return LocalLabelGenerator()
+
+
+class DifferentiablePrototypeEpocher(TrainEpocher):
+    """This Epocher is only for updating the encoder descriptor, using different ways"""
+
+    def init(self, *, reg_weight: float, prototype_vectors: Tensor = None, prototype_nums=100, **kwargs):
+        super().init(reg_weight=reg_weight, **kwargs)
+        assert self._feature_position == [
+            "Conv5"], f"Only support Conv5 for current simplification, given {','.join(self._feature_position)}"
+        dim = UNet.dimension_dict[self._feature_position[0]]
+        if prototype_vectors is None:
+            self._prototype_vectors = torch.randn(prototype_nums, dim)  # noqa
+        assert self._prototype_vectors.shape[1] == dim, self._prototype_vectors.shape
+
+        assert self._prototype_vectors.requires_grad, self._prototype_vectors.requires_grad
+        self._prototype_optimizer = torch.optim.Adam(  # noqa
+            (self._prototype_vectors,), lr=1e-3, weight_decay=1e-4)  # todo: change parameter latter
+
+    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters = super(DifferentiablePrototypeEpocher, self)._configure_meters(meters)
+        meters.add("prototype_mi", AverageValueMeter())
+        return meters
+
+    def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group,
+                       partition_group, unlabeled_filename, labeled_filename, *args, **kwargs):
+        for n_feature, feature in enumerate(self._fextractor):
+            pass
+
+    def pairwise_distance(self, feature_map: Tensor):
+        pass

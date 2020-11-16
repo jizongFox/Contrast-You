@@ -1,4 +1,8 @@
+from contextlib import contextmanager
+from typing import Union
+
 import torch
+from torch import Tensor, nn
 
 from semi_seg._utils import FeatureExtractor
 
@@ -32,3 +36,28 @@ def pairwise_distances(x, y=None):
 
     dist = x_norm + y_norm - 2.0 * torch.mm(x, torch.transpose(y, 0, 1))
     return dist
+
+
+@contextmanager
+def set_grad_tensor(tensor: Tensor, is_enable: bool):
+    prev_flag = tensor.requires_grad
+    tensor.requires_grad = is_enable
+    yield
+    tensor.requires_grad = prev_flag
+
+
+@contextmanager
+def set_grad_module(module: nn.Module, is_enable: bool):
+    prev_flags = {k: v.requires_grad for k, v in module.named_parameters()}
+    for k, v in module.named_parameters():
+        v.requires_grad = is_enable
+    yield
+    for k, v in module.named_parameters():
+        v.requires_grad = prev_flags[k]
+
+
+def set_grad(tensor_or_module: Union[Tensor, nn.Module], is_enable):
+    assert isinstance(tensor_or_module, (Tensor, nn.Module))
+    if isinstance(tensor_or_module, Tensor):
+        return set_grad_tensor(tensor_or_module, is_enable)
+    return set_grad_module(tensor_or_module, is_enable)
