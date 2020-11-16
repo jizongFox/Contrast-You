@@ -1,9 +1,12 @@
 # dictionary helper functions
 import collections
+from contextlib import contextmanager
 from typing import Union, Dict
 
+import matplotlib.pyplot as plt
+import torch
 from torch.utils.data import Dataset
-from torch.utils.data.dataloader import DataLoader, _BaseDataLoaderIter
+from torch.utils.data.dataloader import DataLoader, _BaseDataLoaderIter  # noqa
 
 
 def flatten_dict(d, parent_key="", sep="_"):
@@ -79,3 +82,29 @@ def multiply_iter(iter_a, iter_b):
 def weighted_average_iter(a_list, weight_list):
     sum_weight = sum(weight_list) + 1e-16
     return sum(multiply_iter(a_list, weight_list)) / sum_weight
+
+
+def pairwise_distances(x, y=None):
+    '''
+    Input: x is a Nxd matrix
+           y is an optional Mxd matirx
+    Output: dist is a NxM matrix where dist[i,j] is the square norm between x[i,:] and y[j,:]
+            if y is not given then use 'y=x'.
+    i.e. dist[i,j] = ||x[i,:]-y[j,:]||^2
+    '''
+    x_norm = (x ** 2).sum(1).view(-1, 1)
+    if y is not None:
+        y_norm = (y ** 2).sum(1).view(1, -1)
+    else:
+        y = x
+        y_norm = x_norm.view(1, -1)
+
+    dist = x_norm + y_norm - 2.0 * torch.mm(x, torch.transpose(y, 0, 1))
+    return dist
+
+
+@contextmanager
+def plt_interactive():
+    plt.ion()
+    yield
+    plt.ioff()

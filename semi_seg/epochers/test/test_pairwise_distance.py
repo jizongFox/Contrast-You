@@ -1,25 +1,29 @@
 import random
 from contextlib import contextmanager
-from itertools import chain
 from unittest import TestCase
 
 import matplotlib.pyplot as plt
 import torch
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
 from torch import Tensor
 from tqdm import tqdm
 
+from contrastyou.helper import pairwise_distances, plt_interactive
 
-class TestPairwiseDistianceOptimization(TestCase):
+
+class TestPairwiseDistanceOptimization(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self._random_vectors = torch.randn(1000, 2, requires_grad=True, device="cuda")  # 3 dimensional features
+        dim = 3
+        self._random_vectors = torch.randn(500, dim, requires_grad=True, device="cuda")  # 3 dimensional features
 
-        self._prototype_vectors = torch.randn(10, 2, requires_grad=True, device="cuda")  # 10 prototypes
+        self._prototype_vectors = torch.randn(10, dim, requires_grad=True, device="cuda")  # 10 prototypes
 
-        self._optimizer = torch.optim.Adam(chain((self._random_vectors,), (self._prototype_vectors,)), lr=1e-3)
+        self._optimizer = torch.optim.Adam((self._random_vectors,), lr=5e-3)
+        self._optimizer.add_param_group({"params": (self._prototype_vectors,), "lr": 5e-3, "weight_decay": 1e-4})
 
     def test_pairwise_loss(self, mapping_func=lambda x: x):
-        distance = self._distance_fun(self._random_vectors, self._prototype_vectors)
+        distance = pairwise_distances(self._random_vectors, self._prototype_vectors)
         distance = mapping_func(distance)
         for _ in range(100):
             i, j = random.randint(0, int(len(self._random_vectors))) - 1, \
@@ -33,53 +37,48 @@ class TestPairwiseDistianceOptimization(TestCase):
 
     def test_visualizing_clustering(self):
         indicator = tqdm(range(10000))
-        plt.ion()
-        for i in indicator:
-            self._optimizer.zero_grad()
-            with self.disable_grad(self._prototype_vectors):
-                distance = self._distance_fun(self._random_vectors, self._prototype_vectors)
-                distance = torch.exp(-distance)
-                loss1 = -distance.mean()
+        with plt_interactive():
+            for i in indicator:
+                self._optimizer.zero_grad()
 
-            distance_prototype = self._distance_fun(self._prototype_vectors, self._prototype_vectors)
-            distance2 = torch.exp(-distance_prototype)
-            loss2 = distance2.mean()
+                # cluster features
+                with self.disable_grad(self._prototype_vectors):
+                    distance = pairwise_distances(self._random_vectors, self._prototype_vectors)
+                    distance = torch.exp(-distance)
+                    loss1 = -distance.mean()
 
-            loss = loss1 + loss2
-            loss.backward()
-            self._optimizer.step()
-            indicator.set_postfix({"loss": loss.item()})
-            if i % 10 == 0:
-                self.plot_features(self._random_vectors, self._prototype_vectors)
-        plt.ioff()
+                # scatter prototypes
+                distance_prototype = pairwise_distances(self._prototype_vectors, self._prototype_vectors)
+
+                distance2 = torch.exp(-distance_prototype)
+                loss2 = distance2.mean()
+
+                # normalized prototypes:
+                loss3 = (self._prototype_vectors.norm(p=2, dim=1) - 1).pow(2).mean()
+
+                loss = loss1 + loss2 + loss3 * 0.01
+
+                loss.backward()
+                self._optimizer.step()
+                indicator.set_postfix({"loss": loss.item()})
+
+                if i % 10 == 0:
+                    self.plot_features(self._random_vectors, self._prototype_vectors)
 
     def plot_features(self, features, prototypes):
         features, prototypes = features.detach().cpu(), prototypes.detach().cpu()
+        fig = plt.figure(0)
         plt.clf()
-        plt.scatter(features[:, 0], features[:, 1])
-        plt.scatter(prototypes[:, 0], prototypes[:, 1], c="r")
+        ax = fig.add_subplot(111, projection='3d')
+        ax.scatter(*features.transpose(1, 0), alpha=0.5, label="feature")
+        ax.scatter(*prototypes.transpose(1, 0), label="prototype")
+        plt.legend()
         plt.show()
         plt.pause(0.0001)
 
     @contextmanager
-    def disable_grad(self, vector:Tensor):
+    def disable_grad(self, vector: Tensor):
         prev_flag = vector.requires_grad
-        vector.requires_grad=False
+        vector.requires_grad = False
         yield
-        vector.requires_grad= prev_flag
-
-    @staticmethod
-    def _distance_fun(x, y):
-        """
-        ∥Ai−Bj∥22=⟨Ai−Bj,Ai−Bj⟩=∥Ai∥22+∥Bj∥22−2⟨Ai,Bj⟩
-        :param x:
-        :param y:
-        :return:
-        """
-        assert x.shape[1] == y.shape[1], (x.shape, y.shape)
-        x, y = x.unsqueeze(1), y.unsqueeze(1)
-        x_norm = (x ** 2).sum(2).view(x.shape[0], 1)
-        y_norm = (y ** 2).sum(2).view(y.shape[0], 1).transpose(1, 0)
-        dist = x_norm + y_norm - 2.0 * torch.mm(x.squeeze(), y.squeeze().transpose(1, 0))
-        # dist[dist != dist] = 0  # replace nan values with 0
-        return dist
+        vector.requires_grad = prev_flag
