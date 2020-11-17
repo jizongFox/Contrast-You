@@ -31,7 +31,7 @@ jobs = [
     # f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder/cluster_num_5 "
     # f" IICRegParameters.EncoderParams.num_clusters=5 Trainer.feature_importance=[1,0,0] ",
     #
-    # # decoder
+    # encoder decoder
     f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder_decoder/10_10 "
     f" IICRegParameters.EncoderParams.num_clusters=10 IICRegParameters.DecoderParams.num_clusters=10 ",
 
@@ -41,7 +41,7 @@ jobs = [
     f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder_decoder/10_20 "
     f" IICRegParameters.EncoderParams.num_clusters=10 IICRegParameters.DecoderParams.num_clusters=20 ",
 
-    # decoder
+    # encoder decoder
     f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder_decoder/5_10 "
     f" IICRegParameters.EncoderParams.num_clusters=5 IICRegParameters.DecoderParams.num_clusters=10 ",
 

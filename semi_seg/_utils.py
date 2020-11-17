@@ -101,12 +101,13 @@ class FeatureExtractor(nn.Module):
 
 class _LocalClusterWrappaer(ProjectorWrapperBase):
     def __init__(
-        self,
-        feature_names: Union[str, List[str]],
-        head_types: Union[str, List[str]] = "linear",
-        num_subheads: Union[int, List[int]] = 5,
-        num_clusters: Union[int, List[int]] = 10,
-        normalize: Union[bool, List[bool]] = False
+            self,
+            feature_names: Union[str, List[str]],
+            head_types: Union[str, List[str]] = "linear",
+            num_subheads: Union[int, List[int]] = 5,
+            num_clusters: Union[int, List[int]] = 10,
+            normalize: Union[bool, List[bool]] = False,
+            temperature: Union[float, List[float]] = 1.0,
     ) -> None:
         super(_LocalClusterWrappaer, self).__init__()
         if isinstance(feature_names, str):
@@ -119,15 +120,17 @@ class _LocalClusterWrappaer(ProjectorWrapperBase):
         self._num_subheads = n_pair(num_subheads)
         self._num_clusters = n_pair(num_clusters)
         self._normalize = n_pair(normalize)
+        self._temperature = n_pair(temperature)
 
-        for f, h, c, s, n in zip(self._feature_names, self._head_types, self._num_clusters, self._num_subheads,
-                                 self._normalize):
+        for f, h, c, s, n, t in zip(self._feature_names, self._head_types, self._num_clusters, self._num_subheads,
+                                    self._normalize, self._temperature):
             self._projectors[f] = self._create_clusterheads(
                 input_dim=UNet.dimension_dict[f],
                 head_type=h,
                 num_clusters=c,
                 num_subheads=s,
-                normalize=n
+                normalize=n,
+                T=t
             )
 
     @staticmethod
@@ -149,17 +152,18 @@ class ClusterProjectorWrapper(CombineWrapperBase):
         self._decoder_names = []
 
     def init_encoder(
-        self,
-        feature_names: Union[str, List[str]],
-        head_types: Union[str, List[str]] = "linear",
-        num_subheads: Union[int, List[int]] = 5,
-        num_clusters: Union[int, List[int]] = 10,
-        normalize: Union[bool, List[bool]] = False
+            self,
+            feature_names: Union[str, List[str]],
+            head_types: Union[str, List[str]] = "linear",
+            num_subheads: Union[int, List[int]] = 5,
+            num_clusters: Union[int, List[int]] = 10,
+            normalize: Union[bool, List[bool]] = False,
+            temperature: Union[float, List[float]] = 1.0
     ):
         self._encoder_names = _filter_encodernames(feature_names)
         encoder_projectors = _EncoderClusterWrapper(
             self._encoder_names, head_types, num_subheads,
-            num_clusters, normalize)
+            num_clusters, normalize, temperature)
         self._projector_list.append(encoder_projectors)
 
     def init_decoder(self,
@@ -167,12 +171,13 @@ class ClusterProjectorWrapper(CombineWrapperBase):
                      head_types: Union[str, List[str]] = "linear",
                      num_subheads: Union[int, List[int]] = 5,
                      num_clusters: Union[int, List[int]] = 10,
-                     normalize: Union[bool, List[bool]] = False
+                     normalize: Union[bool, List[bool]] = False,
+                     temperature: Union[float, List[float]] = 1.0
                      ):
         self._decoder_names = _filter_decodernames(feature_names)
         decoder_projectors = _LocalClusterWrappaer(
             self._decoder_names, head_types, num_subheads,
-            num_clusters, normalize)
+            num_clusters, normalize, temperature)
         self._projector_list.append(decoder_projectors)
 
     @property
@@ -183,10 +188,10 @@ class ClusterProjectorWrapper(CombineWrapperBase):
 class _ContrastiveEncodeProjectorWrapper(ProjectorWrapperBase):
 
     def __init__(
-        self,
-        feature_names: Union[str, List[str]],
-        head_types: Union[str, List[str]],
-        normalize: Union[bool, List[bool]] = True,
+            self,
+            feature_names: Union[str, List[str]],
+            head_types: Union[str, List[str]],
+            normalize: Union[bool, List[bool]] = True,
     ):
         super().__init__()
         if isinstance(feature_names, str):
@@ -223,10 +228,10 @@ class ContrastiveProjectorWrapper(CombineWrapperBase):
         self._decoder_names = []
 
     def init_encoder(
-        self,
-        feature_names: Union[str, List[str]],
-        head_types: Union[str, List[str]] = "mlp",
-        normalize: Union[bool, List[bool]] = True,
+            self,
+            feature_names: Union[str, List[str]],
+            head_types: Union[str, List[str]] = "mlp",
+            normalize: Union[bool, List[bool]] = True,
     ):
         self._encoder_names = _filter_encodernames(feature_names)
         encoder_projectors = _ContrastiveEncodeProjectorWrapper(
@@ -234,10 +239,10 @@ class ContrastiveProjectorWrapper(CombineWrapperBase):
         self._projector_list.append(encoder_projectors)
 
     def init_decoder(
-        self,
-        feature_names: Union[str, List[str]],
-        head_types: Union[str, List[str]] = "mlp",
-        normalize: Union[bool, List[bool]] = True,
+            self,
+            feature_names: Union[str, List[str]],
+            head_types: Union[str, List[str]] = "mlp",
+            normalize: Union[bool, List[bool]] = True,
     ):
         self._decoder_names = _filter_decodernames(feature_names)
         decoder_projectors = _ContrastiveDecoderProjectorWrapper(

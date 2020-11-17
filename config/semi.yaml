@@ -48,12 +48,14 @@ IICRegParameters:
     num_subheads: 5
     head_types: linear
     normalize: false
+    temperature: 1.0
 
   DecoderParams:
     num_clusters: 20
     num_subheads: 5
     head_types: linear
     normalize: false
+    temperature: 1.0
 
   LossParams:
     paddings: [ 1, 3 ]
