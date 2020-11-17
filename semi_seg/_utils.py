@@ -186,6 +186,7 @@ class _ContrastiveEncodeProjectorWrapper(ProjectorWrapperBase):
         self,
         feature_names: Union[str, List[str]],
         head_types: Union[str, List[str]],
+        normalize: Union[bool, List[bool]] = True,
     ):
         super().__init__()
         if isinstance(feature_names, str):
@@ -194,22 +195,24 @@ class _ContrastiveEncodeProjectorWrapper(ProjectorWrapperBase):
         n = len(self._feature_names)
         n_pair = _nlist(n)
         self._head_types = n_pair(head_types)
-        for f, h in zip(self._feature_names, self._head_types):
+        self._normalize = n_pair(normalize)
+        for f, h, n in zip(self._feature_names, self._head_types, self._normalize):
             self._projectors[f] = self._create_head(
                 input_dim=UNet.dimension_dict[f],
                 head_type=h,
                 output_dim=256,
+                normalize=n
             )
 
     @staticmethod
-    def _create_head(input_dim, output_dim, head_type):
-        return _ProjectionHead(input_dim=input_dim, output_dim=output_dim, head_type=head_type)
+    def _create_head(input_dim, output_dim, head_type, normalize):
+        return _ProjectionHead(input_dim=input_dim, output_dim=output_dim, head_type=head_type, normalize=normalize)
 
 
 class _ContrastiveDecoderProjectorWrapper(_ContrastiveEncodeProjectorWrapper):
     @staticmethod
-    def _create_head(input_dim, output_dim, head_type):
-        return _LocalProjectionHead(input_dim=input_dim, head_type=head_type, output_size=(2, 2))
+    def _create_head(input_dim, output_dim, head_type, normalize):
+        return _LocalProjectionHead(input_dim=input_dim, head_type=head_type, output_size=(2, 2), normalize=normalize)
 
 
 class ContrastiveProjectorWrapper(CombineWrapperBase):
@@ -223,20 +226,22 @@ class ContrastiveProjectorWrapper(CombineWrapperBase):
         self,
         feature_names: Union[str, List[str]],
         head_types: Union[str, List[str]] = "mlp",
+        normalize: Union[bool, List[bool]] = True,
     ):
         self._encoder_names = _filter_encodernames(feature_names)
         encoder_projectors = _ContrastiveEncodeProjectorWrapper(
-            feature_names=self._encoder_names, head_types=head_types)
+            feature_names=self._encoder_names, head_types=head_types, normalize=normalize)
         self._projector_list.append(encoder_projectors)
 
     def init_decoder(
         self,
         feature_names: Union[str, List[str]],
         head_types: Union[str, List[str]] = "mlp",
+        normalize: Union[bool, List[bool]] = True,
     ):
         self._decoder_names = _filter_decodernames(feature_names)
         decoder_projectors = _ContrastiveDecoderProjectorWrapper(
-            self._decoder_names, head_types)
+            self._decoder_names, head_types, normalize=normalize)
         self._projector_list.append(decoder_projectors)
 
     @property

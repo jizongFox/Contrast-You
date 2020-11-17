@@ -11,6 +11,7 @@ import torch.nn as nn
 class SupConLoss(nn.Module):
     """Supervised Contrastive Learning: https://arxiv.org/pdf/2004.11362.pdf.
     It also supports the unsupervised contrastive loss in SimCLR"""
+
     def __init__(self, temperature=0.07, contrast_mode='all',
                  base_temperature=0.07):
         super(SupConLoss, self).__init__()
@@ -45,7 +46,7 @@ class SupConLoss(nn.Module):
         if labels is not None and mask is not None:
             raise ValueError('Cannot define both `labels` and `mask`')
         elif labels is None and mask is None:
-            mask = torch.eye(batch_size, dtype=torch.float32).to(device) # SIMCLR
+            mask = torch.eye(batch_size, dtype=torch.float32).to(device)  # SIMCLR
         elif labels is not None:
             if isinstance(labels, list):
                 labels = torch.Tensor(labels).long()
@@ -57,7 +58,7 @@ class SupConLoss(nn.Module):
             mask = mask.float().to(device)
 
         contrast_count = features.shape[1]
-        contrast_feature = torch.cat(torch.unbind(features, dim=1), dim=0) # 32 128
+        contrast_feature = torch.cat(torch.unbind(features, dim=1), dim=0)  # 32 128
         if self.contrast_mode == 'one':
             anchor_feature = features[:, 0]
             anchor_count = 1
@@ -88,7 +89,7 @@ class SupConLoss(nn.Module):
 
         # compute log_prob
         exp_logits = torch.exp(logits) * logits_mask
-        log_prob = logits - torch.log(exp_logits.sum(1, keepdim=True)+1e-16)
+        log_prob = logits - torch.log(exp_logits.sum(1, keepdim=True) + 1e-16)
 
         # compute mean of log-likelihood over positive
         mean_log_prob_pos = (mask * log_prob).sum(1) / mask.sum(1)

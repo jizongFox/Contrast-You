@@ -3,7 +3,6 @@ from functools import lru_cache
 import torch
 from torch import Tensor
 from torch import nn
-from torch.nn import functional as F
 
 from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
 from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
@@ -238,8 +237,7 @@ class InfoNCEEpocher(TrainEpocher):
             )
             # normalization and label generation goes differently here.
             if isinstance(projector, ProjectionHead):
-                norm_tf_feature, norm_feature_tf = F.normalize(proj_tf_feature, p=2, dim=1), \
-                                                   F.normalize(proj_feature_tf, p=2, dim=1)
+                norm_tf_feature, norm_feature_tf = proj_tf_feature, proj_feature_tf
                 assert len(norm_tf_feature.shape) == 2, norm_tf_feature.shape
                 labels = self.global_label_generator(partition_list=partition_group, patient_list=label_group)
             elif isinstance(projector, LocalProjectionHead):
@@ -248,8 +246,8 @@ class InfoNCEEpocher(TrainEpocher):
                 proj_tf_feature_unfold, _ = unfold_position(proj_tf_feature, partition_num=proj_tf_feature.shape[-2:])
 
                 __b = proj_tf_feature_unfold.size(0)
-                norm_feature_tf = F.normalize(proj_feature_tf_unfold.view(__b, -1), dim=1, p=2)
-                norm_tf_feature = F.normalize(proj_tf_feature_unfold.view(__b, -1), dim=1, p=2)
+                norm_feature_tf = proj_feature_tf_unfold.view(__b, -1)
+                norm_tf_feature = proj_tf_feature_unfold.view(__b, -1)
 
                 labels = self.local_label_generator(partition_list=partition_group, patient_list=label_group,
                                                     location_list=positional_label)

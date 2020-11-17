@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 from torch import nn, Tensor
 from torch.nn import functional as F
 
@@ -53,9 +55,10 @@ class HeadBase(nn.Module):
 # head for contrastive projection
 class ProjectionHead(HeadBase):
 
-    def __init__(self, input_dim, output_dim, interm_dim=256, head_type="mlp") -> None:
+    def __init__(self, input_dim, output_dim, interm_dim=256, head_type="mlp", normalize=True) -> None:
         super().__init__()
         assert _check_head_type(head_type), head_type
+        self._normalize = normalize
         if head_type == "mlp":
             self._header = nn.Sequential(
                 nn.AdaptiveAvgPool2d((1, 1)),
@@ -63,12 +66,14 @@ class ProjectionHead(HeadBase):
                 nn.Linear(input_dim, interm_dim),
                 nn.LeakyReLU(0.01, inplace=True),
                 nn.Linear(interm_dim, output_dim),
+                Normalize() if self._normalize else Identical()
             )
         else:
             self._header = nn.Sequential(
                 nn.AdaptiveAvgPool2d((1, 1)),
                 Flatten(),
                 nn.Linear(input_dim, output_dim),
+                Normalize() if self._normalize else Identical()
             )
 
     def forward(self, features):
@@ -80,10 +85,11 @@ class LocalProjectionHead(HeadBase):
     return a fixed feature size
     """
 
-    def __init__(self, input_dim, head_type="mlp", output_size=(4, 4)) -> None:
+    def __init__(self, input_dim, head_type="mlp", output_size=(4, 4), normalize=True) -> None:
         super().__init__()
         assert _check_head_type(head_type), head_type
         self._output_size = output_size
+        self._normalize = normalize
         if head_type == "mlp":
             self._projector = nn.Sequential(
                 nn.Conv2d(input_dim, 64, 3, 1, 1),
@@ -99,8 +105,15 @@ class LocalProjectionHead(HeadBase):
         b, c, h, w = features.shape
         out = self._projector(features)
         # fixme: Upsampling and interpolate don't pass the gradient correctly.
-        return F.adaptive_max_pool2d(out, output_size=self._output_size)
-        # return out
+        out = F.adaptive_max_pool2d(out, output_size=self._output_size)
+        if self._normalize:
+            return self._normalize_func(out)
+        return out
+
+    @property
+    @lru_cache()
+    def _normalize_func(self):
+        return Normalize()
 
 
 # head for clustering

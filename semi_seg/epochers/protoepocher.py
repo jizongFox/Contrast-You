@@ -29,6 +29,7 @@ class PrototypeEpocher(TrainEpocher):
         :param reg_weight:  regularization weight
         :param prototype_projector: prototype projector to logits
         :param feature_buffers: buffered feature maps for each feature position and each slides
+        :param infoNCE_criterion: T_loss for infoNCE.
         :param kwargs:
         :return:
         """
