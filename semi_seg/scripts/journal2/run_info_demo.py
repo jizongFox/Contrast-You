@@ -74,7 +74,8 @@ jobs = [
 
     f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/innormal/conv5 "
     f" PretrainConfig.Trainer.feature_names=[Conv5,] PretrainConfig.Trainer.feature_importance=[1.0,] "
-    f" PretrainConfig.EncoderParams.normalize=false  PretrainConfig.DecoderParams.normalize=false "
+    f" PretrainConfig.InfoNCEParameters.EncoderParams.normalize=false "
+    f" PretrainConfig.InfoNCEParameters.DecoderParams.normalize=false "
     f" PretrainConfig.use_pretrain=true ",
 
     # infoNCE with normalize

@@ -240,6 +240,7 @@ class InfoNCEEpocher(TrainEpocher):
                 norm_tf_feature, norm_feature_tf = proj_tf_feature, proj_feature_tf
                 assert len(norm_tf_feature.shape) == 2, norm_tf_feature.shape
                 labels = self.global_label_generator(partition_list=partition_group, patient_list=label_group)
+
             elif isinstance(projector, LocalProjectionHead):
                 proj_feature_tf_unfold, positional_label = unfold_position(proj_feature_tf,
                                                                            partition_num=proj_feature_tf.shape[-2:])
