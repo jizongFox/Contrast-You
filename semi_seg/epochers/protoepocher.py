@@ -1,4 +1,5 @@
 import warnings
+from contextlib import contextmanager
 from functools import lru_cache
 from itertools import chain
 from typing import Tuple, Optional, Dict
@@ -9,7 +10,6 @@ from torch import Tensor
 from torch import nn
 from torch.nn import functional as F
 
-from contrastyou.arch.unet import UNet
 from contrastyou.epocher._utils import unfold_position  # noqa
 from contrastyou.helper import weighted_average_iter, pairwise_distances as _pairwise_distance
 from contrastyou.projectors.heads import ProjectionHead, LocalProjectionHead
@@ -22,6 +22,7 @@ from .helper import unl_extractor
 from .miepocher import UDATrainEpocher
 
 
+# I think this only works for pretrain-finetune framework
 class PrototypeEpocher(TrainEpocher):
     only_with_labeled_data = False
 
@@ -161,14 +162,10 @@ class DifferentiablePrototypeEpocher(UDATrainEpocher):
         super(DifferentiablePrototypeEpocher, self).init(reg_weight=1.0, reg_criterion=nn.MSELoss())
         assert self._feature_position == [
             "Conv5"], f"Only support Conv5 for current simplification, given {','.join(self._feature_position)}"
-        dim = UNet.dimension_dict[self._feature_position[0]]
-        if prototype_vectors is None:
-            self._prototype_vectors = torch.randn(prototype_nums, dim, requires_grad=True, device=self.device)  # noqa
-            self._optimizer.add_param_group({"params": (self._prototype_vectors,), "lr": 1e-4, "weight_decay": 1e-4})
-        assert self._prototype_vectors.shape[1] == dim, self._prototype_vectors.shape
 
         self._uda_weight = uda_weight
         self._cluster_weight = cluster_weight
+        self._prototype_vectors = prototype_vectors
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super(DifferentiablePrototypeEpocher, self)._configure_meters(meters)
@@ -184,9 +181,10 @@ class DifferentiablePrototypeEpocher(UDATrainEpocher):
 
         def get_loss(feature):
             flatten_feature = self._flatten2nc(tensor=feature)
-            feature_distance = self._pairwise_distance(flatten_feature, self._prototype_vectors)
+            with self.set_grad(self._prototype_vectors, enable=False):
+                feature_distance = self._pairwise_distance(flatten_feature, self._prototype_vectors)
             prototype_distance = self._pairwise_distance(self._prototype_vectors, self._prototype_vectors)
-            return -feature_distance.mean() + prototype_distance.mean() * 0.01
+            return -feature_distance.mean() + prototype_distance.mean() * 0.1
 
         losses = [get_loss(x) for x in self._fextractor]
 
@@ -201,3 +199,10 @@ class DifferentiablePrototypeEpocher(UDATrainEpocher):
         b, c, h, w = tensor.shape
         tensor = torch.transpose(tensor, 1, 0)
         return tensor.resize(c, b * h * w).transpose(1, 0)
+
+    @contextmanager
+    def set_grad(self, vector: Tensor, enable=False):
+        prev_flag = vector.requires_grad
+        vector.requires_grad = enable
+        yield
+        vector.requires_grad = prev_flag

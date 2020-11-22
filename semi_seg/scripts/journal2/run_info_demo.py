@@ -98,6 +98,11 @@ jobs = [
     f" python main.py {common_opts + semi_group_opt} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/0.001 "
     f" InfoNCEParameters.weight=0.001 ",
 
+    # infoNCE with normalize and dynamic rangning
+
+    f" python main.py {common_opts + semi_group_opt} Trainer.name=infonce_demo Trainer.save_dir={save_dir}/infoNCE/normal/dynamic "
+    f" InfoNCEParameters.weight=1 ",
+
     # infoNCE without normalize
     f" python main.py {common_opts + semi_group_opt + no_normalize_opt} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/innormal/0.5 "
     f" InfoNCEParameters.weight=0.5  ",
@@ -118,6 +123,10 @@ jobs = [
     f" python main.py {common_opts + semi_group_opt + no_normalize_opt} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/innormal/0.001 "
     f" InfoNCEParameters.weight=0.001 ",
 
+    # infoNCE without normalize and dynamic rangning
+
+    f" python main.py {common_opts + semi_group_opt + no_normalize_opt} Trainer.name=infonce_demo Trainer.save_dir={save_dir}/infoNCE/innormal/dynamic "
+    f" InfoNCEParameters.weight=1 ",
 ]
 
 # CC things

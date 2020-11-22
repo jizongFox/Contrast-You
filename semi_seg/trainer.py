@@ -18,6 +18,7 @@ from deepclustering2.meters2 import EpochResultDict
 from deepclustering2.meters2 import StorageIncomeDict
 from deepclustering2.models import ema_updater
 from deepclustering2.schedulers import GradualWarmupScheduler
+from deepclustering2.schedulers.customized_scheduler import RampScheduler, WeightScheduler
 from deepclustering2.trainer2 import Trainer
 from deepclustering2.type import T_loader, T_loss
 from semi_seg._utils import ClusterProjectorWrapper, IICLossWrapper, PICALossWrapper, ContrastiveProjectorWrapper
@@ -481,6 +482,37 @@ class InfoNCETrainer(SemiTrainer):
         )
 
 
+class InfoNCETrainerDemo(InfoNCETrainer):
+    """This training class is going to balance the supervised loss and reg_loss for infonce dynamically to find if
+    supervised_regularization framework works."""
+
+    def _init(self):
+        # override the InfoNCETrainer
+        super(InfoNCETrainer, self)._init()
+        config = deepcopy(self._config["InfoNCEParameters"])
+        self._projector = ContrastiveProjectorWrapper()
+        self._projector.init_encoder(
+            feature_names=self.feature_positions,
+            **config["EncoderParams"]
+        )
+        self._projector.init_decoder(
+            feature_names=self.feature_positions,
+            **config["DecoderParams"]
+        )
+        self._criterion = SupConLoss(**config["LossParams"])
+
+        self._reg_weight = RampScheduler(
+            begin_epoch=0, max_epoch=(self._max_epoch // 3) * 2, min_value=float(config["weight"]), max_value=0,
+            ramp_mult=-1
+        )
+
+    def _run_epoch(self, epocher: InfoNCEEpocher, *args, **kwargs) -> EpochResultDict:
+        result = super()._run_epoch(epocher, *args, **kwargs)
+        if isinstance(self._reg_weight, WeightScheduler):
+            self._reg_weight.step()
+        return result
+
+
 class InfoNCEPretrainTrainer(InfoNCETrainer):
     def _init(self):
         self._config["InfoNCEParameters"]["weight"] = 1.0
@@ -575,14 +607,24 @@ class DifferentiablePrototypeTrainer(SemiTrainer):
         self._uda_weight = config["uda_weight"]
         self._cluster_weight = config["cluster_weight"]
         self._prototype_nums = config["prototype_nums"]
+        from contrastyou.arch import UNet
+        dim = UNet.dimension_dict[self.feature_positions[0]]
+        self._prototype_vectors = torch.randn(self._prototype_nums, dim, requires_grad=True, device=self._device)  # noqa
+
+    def _init_optimizer(self):
+        optim_dict = self._config["Optim"]
+        self._optimizer = optim.__dict__[optim_dict["name"]](
+            params=chain(self._model.parameters(), (self._prototype_vectors,)),
+            **{k: v for k, v in optim_dict.items() if k != "name"}
+        )
 
     def set_epocher_class(self, epocher_class: Type[TrainEpocher] = DifferentiablePrototypeEpocher):
-        super().set_epocher_class(epocher_class)
+        super(DifferentiablePrototypeTrainer, self).set_epocher_class(epocher_class)
 
     def _run_epoch(self, epocher: DifferentiablePrototypeEpocher, *args, **kwargs) -> EpochResultDict:
         epocher.init(
             prototype_nums=self._prototype_nums,
-            prototype_vectors=None,
+            prototype_vectors=self._prototype_vectors,
             cluster_weight=self._cluster_weight,
             uda_weight=self._uda_weight
         )
@@ -603,6 +645,7 @@ trainer_zoos = {
     "featureoutputudaiic": UDAIICFeatureOutputTrainer,
     "pica": PICATrainer,
     "infonce": InfoNCETrainer,
+    "infonce_demo": InfoNCETrainerDemo,
     "infoncepretrain": InfoNCEPretrainTrainer,
     "prototype": PrototypeTrainer,
     "dp": DifferentiablePrototypeTrainer

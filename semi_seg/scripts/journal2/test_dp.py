@@ -101,6 +101,16 @@ jobs = [
     f" python main.py {common_opts + semi_group_opt} Trainer.name=dp Trainer.save_dir={save_dir}/dp/num_c_800 "
     f" DPrototypeParameters.prototype_nums=800 ",
 
+    # dp without uda
+    f" python main.py {common_opts + semi_group_opt} Trainer.name=dp Trainer.save_dir={save_dir}/dp_wo_uda/num_c_100 "
+    f" DPrototypeParameters.prototype_nums=100 DPrototypeParameters.uda_weight=0.0 ",
+
+    f" python main.py {common_opts + semi_group_opt} Trainer.name=dp Trainer.save_dir={save_dir}/dp_wo_uda/num_c_400 "
+    f" DPrototypeParameters.prototype_nums=400 DPrototypeParameters.uda_weight=0.0 ",
+
+    f" python main.py {common_opts + semi_group_opt} Trainer.name=dp Trainer.save_dir={save_dir}/dp_wo_uda/num_c_800 "
+    f" DPrototypeParameters.prototype_nums=800 DPrototypeParameters.uda_weight=0.0 ",
+
 ]
 
 # CC things
