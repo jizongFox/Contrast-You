@@ -5,6 +5,13 @@ from pathlib import Path
 from typing import Tuple, Type
 
 import torch
+from torch import nn
+from torch import optim
+
+from contrastyou import PROJECT_PATH
+from contrastyou.helper import get_dataset
+from contrastyou.losses.contrast_loss import SupConLoss
+from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
 from deepclustering2 import optim
 from deepclustering2.loss import KL_div
 from deepclustering2.meters2 import EpochResultDict
@@ -13,18 +20,11 @@ from deepclustering2.models import ema_updater
 from deepclustering2.schedulers import GradualWarmupScheduler
 from deepclustering2.trainer2 import Trainer
 from deepclustering2.type import T_loader, T_loss
-from torch import nn
-from torch import optim
-
-from contrastyou import PROJECT_PATH
-from contrastyou.helper import get_dataset
-from contrastyou.losses.contrast_loss import SupConLoss
-from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
 from semi_seg._utils import ClusterProjectorWrapper, IICLossWrapper, PICALossWrapper, ContrastiveProjectorWrapper
 from semi_seg.epochers import IICTrainEpocher, UDAIICEpocher, PrototypeEpocher
 from semi_seg.epochers import TrainEpocher, EvalEpocher, UDATrainEpocher, EntropyMinEpocher, MeanTeacherEpocher, \
     IICMeanTeacherEpocher, InferenceEpocher, MIDLPaperEpocher, FeatureOutputCrossIICUDAEpocher, \
-    FeatureOutputCrossIICEpocher, InfoNCEEpocher, InfoNCEPretrainEpocher
+    FeatureOutputCrossIICEpocher, InfoNCEEpocher, InfoNCEPretrainEpocher, DifferentiablePrototypeEpocher
 from semi_seg.epochers.comparable import PICAEpocher
 
 __all__ = ["trainer_zoos"]
@@ -55,7 +55,8 @@ class SemiTrainer(Trainer):
         assert isinstance(feature_importance, list), type(feature_importance)
         feature_importance = [float(x) for x in feature_importance]
         self._feature_importance = [x / sum(feature_importance) for x in feature_importance]
-        assert len(self._feature_importance) == len(self.feature_positions)
+        assert len(self._feature_importance) == len(self.feature_positions), \
+            (self._feature_importance, self.feature_positions)
 
     def _init_scheduler(self, optimizer):
         scheduler_dict = self._config.get("Scheduler", None)
@@ -81,12 +82,12 @@ class SemiTrainer(Trainer):
 
     # run epoch
     def set_epocher_class(self, epocher_class: Type[TrainEpocher] = TrainEpocher):
-        self.epocher_class = epocher_class
+        self.epocher_class = epocher_class  # noqa
 
     def run_epoch(self, *args, **kwargs):
         self.set_epocher_class()
-        trainer = self._run_init()
-        return self._run_epoch(trainer, *args, **kwargs)
+        epocher = self._run_init()
+        return self._run_epoch(epocher, *args, **kwargs)
 
     def _run_init(self, ):
         epocher = self.epocher_class(
@@ -566,6 +567,29 @@ class PrototypeTrainer(SemiTrainer):
         return result
 
 
+class DifferentiablePrototypeTrainer(SemiTrainer):
+
+    def _init(self):
+        super(DifferentiablePrototypeTrainer, self)._init()
+        config = deepcopy(self._config)["DPrototypeParameters"]
+        self._uda_weight = config["uda_weight"]
+        self._cluster_weight = config["cluster_weight"]
+        self._prototype_nums = config["prototype_nums"]
+
+    def set_epocher_class(self, epocher_class: Type[TrainEpocher] = DifferentiablePrototypeEpocher):
+        super().set_epocher_class(epocher_class)
+
+    def _run_epoch(self, epocher: DifferentiablePrototypeEpocher, *args, **kwargs) -> EpochResultDict:
+        epocher.init(
+            prototype_nums=self._prototype_nums,
+            prototype_vectors=None,
+            cluster_weight=self._cluster_weight,
+            uda_weight=self._uda_weight
+        )
+        result = epocher.run()
+        return result
+
+
 trainer_zoos = {
     "partial": SemiTrainer,
     "uda": UDATrainer,
@@ -580,5 +604,6 @@ trainer_zoos = {
     "pica": PICATrainer,
     "infonce": InfoNCETrainer,
     "infoncepretrain": InfoNCEPretrainTrainer,
-    "prototype": PrototypeTrainer
+    "prototype": PrototypeTrainer,
+    "dp": DifferentiablePrototypeTrainer
 }

@@ -6,18 +6,20 @@ from typing import Tuple, Optional, Dict
 import torch
 from sklearn.cluster import KMeans
 from torch import Tensor
+from torch import nn
 from torch.nn import functional as F
 
 from contrastyou.arch.unet import UNet
 from contrastyou.epocher._utils import unfold_position  # noqa
-from contrastyou.helper import weighted_average_iter
+from contrastyou.helper import weighted_average_iter, pairwise_distances as _pairwise_distance
 from contrastyou.projectors.heads import ProjectionHead, LocalProjectionHead
 from deepclustering2.decorator import FixRandomSeed
-from deepclustering2.meters2 import MeterInterface, AverageValueMeter
+from deepclustering2.meters2 import MeterInterface, AverageValueMeter, MultipleAverageValueMeter
 from deepclustering2.type import T_loss
 from semi_seg._utils import ContrastiveProjectorWrapper as PrototypeProjectorWrapper
 from .base import TrainEpocher
 from .helper import unl_extractor
+from .miepocher import UDATrainEpocher
 
 
 class PrototypeEpocher(TrainEpocher):
@@ -148,31 +150,54 @@ class PrototypeEpocher(TrainEpocher):
         return LocalLabelGenerator()
 
 
-class DifferentiablePrototypeEpocher(TrainEpocher):
-    """This Epocher is only for updating the encoder descriptor, using different ways"""
+class DifferentiablePrototypeEpocher(UDATrainEpocher):
+    """
+    This Epocher is only for updating the encoder descriptor, using different ways
+    https://arxiv.org/abs/2005.04966
+    """
 
-    def init(self, *, reg_weight: float, prototype_vectors: Tensor = None, prototype_nums=100, **kwargs):
-        super().init(reg_weight=reg_weight, **kwargs)
+    def init(self, *, uda_weight: float, cluster_weight: float, prototype_vectors: Tensor = None,
+             prototype_nums=100, **kwargs):
+        super(DifferentiablePrototypeEpocher, self).init(reg_weight=1.0, reg_criterion=nn.MSELoss())
         assert self._feature_position == [
             "Conv5"], f"Only support Conv5 for current simplification, given {','.join(self._feature_position)}"
         dim = UNet.dimension_dict[self._feature_position[0]]
         if prototype_vectors is None:
-            self._prototype_vectors = torch.randn(prototype_nums, dim)  # noqa
+            self._prototype_vectors = torch.randn(prototype_nums, dim, requires_grad=True, device=self.device)  # noqa
+            self._optimizer.add_param_group({"params": (self._prototype_vectors,), "lr": 1e-4, "weight_decay": 1e-4})
         assert self._prototype_vectors.shape[1] == dim, self._prototype_vectors.shape
 
-        assert self._prototype_vectors.requires_grad, self._prototype_vectors.requires_grad
-        self._prototype_optimizer = torch.optim.Adam(  # noqa
-            (self._prototype_vectors,), lr=1e-3, weight_decay=1e-4)  # todo: change parameter latter
+        self._uda_weight = uda_weight
+        self._cluster_weight = cluster_weight
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super(DifferentiablePrototypeEpocher, self)._configure_meters(meters)
-        meters.add("prototype_mi", AverageValueMeter())
+        meters.register_meter("prototype_feature", MultipleAverageValueMeter())
+        meters.register_meter("prototype_vector", MultipleAverageValueMeter())
         return meters
 
-    def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group,
-                       partition_group, unlabeled_filename, labeled_filename, *args, **kwargs):
-        for n_feature, feature in enumerate(self._fextractor):
-            pass
+    def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group=None,
+                       partition_group=None, unlabeled_filename=None, labeled_filename=None, *args, **kwargs):
+        uda_loss = super(DifferentiablePrototypeEpocher, self).regularization(
+            unlabeled_tf_logits, unlabeled_logits_tf, seed
+        )
 
-    def pairwise_distance(self, feature_map: Tensor):
-        pass
+        def get_loss(feature):
+            flatten_feature = self._flatten2nc(tensor=feature)
+            feature_distance = self._pairwise_distance(flatten_feature, self._prototype_vectors)
+            prototype_distance = self._pairwise_distance(self._prototype_vectors, self._prototype_vectors)
+            return -feature_distance.mean() + prototype_distance.mean() * 0.01
+
+        losses = [get_loss(x) for x in self._fextractor]
+
+        return weighted_average_iter(losses, self._feature_importance) + uda_loss * 5
+
+    @staticmethod
+    def _pairwise_distance(feature_map1: Tensor, feature_map2: Tensor) -> Tensor:
+        return _pairwise_distance(feature_map1, feature_map2, recall_func=lambda x: torch.exp(-x))
+
+    @staticmethod
+    def _flatten2nc(tensor: Tensor):
+        b, c, h, w = tensor.shape
+        tensor = torch.transpose(tensor, 1, 0)
+        return tensor.resize(c, b * h * w).transpose(1, 0)

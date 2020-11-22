@@ -1,16 +1,16 @@
 from unittest import TestCase
 
 import torch
-from deepclustering2.dataloader.sampler import InfiniteRandomSampler
-from deepclustering2.loss import KL_div
-from deepclustering2.utils import set_benchmark
 from torch import nn
 from torch.utils.data import DataLoader
 
 from contrastyou.arch import UNet
 from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
-from semi_seg._utils import _LocalClusterWrappaer
-from semi_seg.epocher import TrainEpocher, EvalEpocher, UDATrainEpocher, IICTrainEpocher, UDAIICEpocher
+from deepclustering2.dataloader.sampler import InfiniteRandomSampler
+from deepclustering2.loss import KL_div
+from deepclustering2.utils import set_benchmark
+from semi_seg._utils import ClusterProjectorWrapper, IICLossWrapper
+from semi_seg.epochers import TrainEpocher, EvalEpocher, UDATrainEpocher, IICTrainEpocher, UDAIICEpocher
 from semi_seg.tests._helper import create_dataset
 
 
@@ -19,7 +19,7 @@ class TestPartialEpocher(TestCase):
     def setUp(self) -> None:
         super().setUp()
 
-        self.label_set, self.unlabel_set, self.val_set = create_dataset(0.1)
+        self.label_set, self.unlabel_set, self.val_set = create_dataset("acdc", 0.1)
 
         self.labeled_loader = DataLoader(
             self.label_set, batch_size=2,
@@ -33,7 +33,7 @@ class TestPartialEpocher(TestCase):
         self.net = UNet(input_dim=1, num_classes=4)
         self.optimizer = torch.optim.Adam(self.net.parameters())
         self._num_batches = 10
-        self._feature_position = ["Up_conv3", "Up_conv2"]
+        self._feature_position = ["Conv5", "Up_conv3", "Up_conv2"]
         self._feature_importance = [1, 1, 1]
 
         set_benchmark(1)
@@ -62,14 +62,19 @@ class TestPartialEpocher(TestCase):
         print(uda_result)
 
     def test_iic_epocher(self):
-        iic_segment_criterion = IIDSegmentationSmallPathLoss(padding=1, patch_size=64)
-        projectors_wrapper = _LocalClusterWrappaer(self._feature_position, num_subheads=3, num_clusters=20).to("cuda")
-        iic_epocher = IICTrainEpocher(self.net, optimizer=self.optimizer, labeled_loader=self.labeled_loader,
-                                      unlabeled_loader=self.unlabeled_loader, sup_criterion=KL_div(), reg_weight=0.1,
+        iic_segment_criterion = IICLossWrapper(self._feature_position, paddings=[1, 1], patch_sizes=2048)
+
+        projector_wrapper = ClusterProjectorWrapper()
+        projector_wrapper.init_encoder(self._feature_position, )
+        projector_wrapper.init_decoder(self._feature_position, )
+
+        iic_epocher = IICTrainEpocher(model=self.net, optimizer=self.optimizer, labeled_loader=self.labeled_loader,
+                                      unlabeled_loader=self.unlabeled_loader, sup_criterion=KL_div(),
                                       num_batches=self._num_batches, cur_epoch=0, device="cuda",
                                       feature_position=self._feature_position,
-                                      feature_importance=self._feature_importance,
-                                      IIDSegCriterion=iic_segment_criterion, projectors_wrapper=projectors_wrapper)
+                                      feature_importance=self._feature_importance)
+        iic_epocher.init(reg_weight=1.0, projectors_wrapper=projector_wrapper,
+                         IIDSegCriterionWrapper=iic_segment_criterion)
         result_dict = iic_epocher.run()
         print(result_dict)
 

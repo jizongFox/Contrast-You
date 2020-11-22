@@ -15,11 +15,11 @@ class TestPairwiseDistanceOptimization(TestCase):
     def setUp(self) -> None:
         super().setUp()
         dim = 3
-        self._random_vectors = torch.randn(500, dim, requires_grad=True, device="cuda")  # 3 dimensional features
+        self._random_vectors = torch.randn(2000, dim, requires_grad=True, device="cuda")  # 3 dimensional features
 
-        self._prototype_vectors = torch.randn(10, dim, requires_grad=True, device="cuda")  # 10 prototypes
+        self._prototype_vectors = torch.randn(20, dim, requires_grad=True, device="cuda")  # 10 prototypes
 
-        self._optimizer = torch.optim.Adam((self._random_vectors,), lr=5e-3)
+        self._optimizer = torch.optim.Adam((self._random_vectors,), lr=5e-2)
         self._optimizer.add_param_group({"params": (self._prototype_vectors,), "lr": 5e-3, "weight_decay": 1e-4})
 
     def test_pairwise_loss(self, mapping_func=lambda x: x):
@@ -44,7 +44,7 @@ class TestPairwiseDistanceOptimization(TestCase):
                 # cluster features
                 with self.disable_grad(self._prototype_vectors):
                     distance = pairwise_distances(self._random_vectors, self._prototype_vectors)
-                    distance = torch.exp(-distance)
+                    distance = torch.exp(-distance*1)
                     loss1 = -distance.mean()
 
                 # scatter prototypes
@@ -53,10 +53,16 @@ class TestPairwiseDistanceOptimization(TestCase):
                 distance2 = torch.exp(-distance_prototype)
                 loss2 = distance2.mean()
 
-                # normalized prototypes:
-                loss3 = (self._prototype_vectors.norm(p=2, dim=1) - 1).pow(2).mean()
+                # scatter features
+                distance_features = pairwise_distances(self._random_vectors, self._random_vectors)
 
-                loss = loss1 + loss2 + loss3 * 0.01
+                distance3 = torch.exp(-distance_features)
+                loss3 = distance3.mean()
+
+                # normalized prototypes:
+                loss4 = (self._prototype_vectors.norm(p=2, dim=1) - 1).pow(2).mean()
+
+                loss = loss1 + loss2 + loss3 * 0.05 + loss4 *0.01
 
                 loss.backward()
                 self._optimizer.step()

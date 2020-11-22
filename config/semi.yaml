@@ -134,4 +134,11 @@ PrototypeParameters:
     base_temperature: 0.07
   weight: 0.1
 
+DPrototypeParameters:
+  uda_weight: 5.0
+  cluster_weight: 0.1
+  prototytpe_nums: 100
+
+
+
 #Checkpoint: runs/test_pipeline
