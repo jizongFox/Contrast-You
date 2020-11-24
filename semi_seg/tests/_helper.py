@@ -1,12 +1,11 @@
 from contrastyou import DATA_PATH
 from contrastyou.datasets.acdc_dataset import ACDCSemiInterface
-from contrastyou.datasets.mmwhs_dataset import MMWHSSemiInterface
-from semi_seg.augment import ACDCStrongTransforms, MMWHMStrongTransforms
+from semi_seg.augment import ACDCStrongTransforms
 
 datainterface_zoos = {"acdc": ACDCSemiInterface,
-                      "mmwhm": MMWHSSemiInterface}
+                      }
 augment_zoos = {"acdc": ACDCStrongTransforms,
-                "mmwhm": MMWHMStrongTransforms}
+                }
 
 
 def create_dataset(name="acdc", labeled_ratio=0.1, **kwargs):

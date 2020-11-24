@@ -84,10 +84,11 @@ def weighted_average_iter(a_list, weight_list):
     return sum(multiply_iter(a_list, weight_list)) / sum_weight
 
 
-def pairwise_distances(x, y=None):
+def pairwise_distances(x, y=None, recall_func=None):
     '''
     Input: x is a Nxd matrix
            y is an optional Mxd matirx
+           recall function is a function to manipulate the distance.
     Output: dist is a NxM matrix where dist[i,j] is the square norm between x[i,:] and y[j,:]
             if y is not given then use 'y=x'.
     i.e. dist[i,j] = ||x[i,:]-y[j,:]||^2
@@ -100,6 +101,8 @@ def pairwise_distances(x, y=None):
         y_norm = x_norm.view(1, -1)
 
     dist = x_norm + y_norm - 2.0 * torch.mm(x, torch.transpose(y, 0, 1))
+    if recall_func:
+        return recall_func(dist)
     return dist
 
 

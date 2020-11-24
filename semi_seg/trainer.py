@@ -5,14 +5,6 @@ from pathlib import Path
 from typing import Tuple, Type
 
 import torch
-from deepclustering2 import optim
-from deepclustering2.loss import KL_div
-from deepclustering2.meters2 import EpochResultDict
-from deepclustering2.meters2 import StorageIncomeDict
-from deepclustering2.models import ema_updater
-from deepclustering2.schedulers import GradualWarmupScheduler
-from deepclustering2.trainer2 import Trainer
-from deepclustering2.type import T_loader, T_loss
 from torch import nn
 from torch import optim
 
@@ -20,11 +12,20 @@ from contrastyou import PROJECT_PATH
 from contrastyou.helper import get_dataset
 from contrastyou.losses.contrast_loss import SupConLoss
 from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
+from deepclustering2 import optim
+from deepclustering2.loss import KL_div
+from deepclustering2.meters2 import EpochResultDict
+from deepclustering2.meters2 import StorageIncomeDict
+from deepclustering2.models import ema_updater
+from deepclustering2.schedulers import GradualWarmupScheduler
+from deepclustering2.schedulers.customized_scheduler import RampScheduler, WeightScheduler
+from deepclustering2.trainer2 import Trainer
+from deepclustering2.type import T_loader, T_loss
 from semi_seg._utils import ClusterProjectorWrapper, IICLossWrapper, PICALossWrapper, ContrastiveProjectorWrapper
 from semi_seg.epochers import IICTrainEpocher, UDAIICEpocher, PrototypeEpocher
 from semi_seg.epochers import TrainEpocher, EvalEpocher, UDATrainEpocher, EntropyMinEpocher, MeanTeacherEpocher, \
     IICMeanTeacherEpocher, InferenceEpocher, MIDLPaperEpocher, FeatureOutputCrossIICUDAEpocher, \
-    FeatureOutputCrossIICEpocher, InfoNCEEpocher, InfoNCEPretrainEpocher
+    FeatureOutputCrossIICEpocher, InfoNCEEpocher, InfoNCEPretrainEpocher, DifferentiablePrototypeEpocher
 from semi_seg.epochers.comparable import PICAEpocher
 
 __all__ = ["trainer_zoos"]
@@ -55,7 +56,8 @@ class SemiTrainer(Trainer):
         assert isinstance(feature_importance, list), type(feature_importance)
         feature_importance = [float(x) for x in feature_importance]
         self._feature_importance = [x / sum(feature_importance) for x in feature_importance]
-        assert len(self._feature_importance) == len(self.feature_positions)
+        assert len(self._feature_importance) == len(self.feature_positions), \
+            (self._feature_importance, self.feature_positions)
 
     def _init_scheduler(self, optimizer):
         scheduler_dict = self._config.get("Scheduler", None)
@@ -81,12 +83,12 @@ class SemiTrainer(Trainer):
 
     # run epoch
     def set_epocher_class(self, epocher_class: Type[TrainEpocher] = TrainEpocher):
-        self.epocher_class = epocher_class
+        self.epocher_class = epocher_class  # noqa
 
     def run_epoch(self, *args, **kwargs):
         self.set_epocher_class()
-        trainer = self._run_init()
-        return self._run_epoch(trainer, *args, **kwargs)
+        epocher = self._run_init()
+        return self._run_epoch(epocher, *args, **kwargs)
 
     def _run_init(self, ):
         epocher = self.epocher_class(
@@ -480,6 +482,37 @@ class InfoNCETrainer(SemiTrainer):
         )
 
 
+class InfoNCETrainerDemo(InfoNCETrainer):
+    """This training class is going to balance the supervised loss and reg_loss for infonce dynamically to find if
+    supervised_regularization framework works."""
+
+    def _init(self):
+        # override the InfoNCETrainer
+        super(InfoNCETrainer, self)._init()
+        config = deepcopy(self._config["InfoNCEParameters"])
+        self._projector = ContrastiveProjectorWrapper()
+        self._projector.init_encoder(
+            feature_names=self.feature_positions,
+            **config["EncoderParams"]
+        )
+        self._projector.init_decoder(
+            feature_names=self.feature_positions,
+            **config["DecoderParams"]
+        )
+        self._criterion = SupConLoss(**config["LossParams"])
+
+        self._reg_weight = RampScheduler(
+            begin_epoch=0, max_epoch=(self._max_epoch // 3) * 2, min_value=float(config["weight"]), max_value=0,
+            ramp_mult=-1
+        )
+
+    def _run_epoch(self, epocher: InfoNCEEpocher, *args, **kwargs) -> EpochResultDict:
+        result = super()._run_epoch(epocher, *args, **kwargs)
+        if isinstance(self._reg_weight, WeightScheduler):
+            self._reg_weight.step()
+        return result
+
+
 class InfoNCEPretrainTrainer(InfoNCETrainer):
     def _init(self):
         self._config["InfoNCEParameters"]["weight"] = 1.0
@@ -566,6 +599,39 @@ class PrototypeTrainer(SemiTrainer):
         return result
 
 
+class DifferentiablePrototypeTrainer(SemiTrainer):
+
+    def _init(self):
+        super(DifferentiablePrototypeTrainer, self)._init()
+        config = deepcopy(self._config)["DPrototypeParameters"]
+        self._uda_weight = config["uda_weight"]
+        self._cluster_weight = config["cluster_weight"]
+        self._prototype_nums = config["prototype_nums"]
+        from contrastyou.arch import UNet
+        dim = UNet.dimension_dict[self.feature_positions[0]]
+        self._prototype_vectors = torch.randn(self._prototype_nums, dim, requires_grad=True, device=self._device)  # noqa
+
+    def _init_optimizer(self):
+        optim_dict = self._config["Optim"]
+        self._optimizer = optim.__dict__[optim_dict["name"]](
+            params=chain(self._model.parameters(), (self._prototype_vectors,)),
+            **{k: v for k, v in optim_dict.items() if k != "name"}
+        )
+
+    def set_epocher_class(self, epocher_class: Type[TrainEpocher] = DifferentiablePrototypeEpocher):
+        super(DifferentiablePrototypeTrainer, self).set_epocher_class(epocher_class)
+
+    def _run_epoch(self, epocher: DifferentiablePrototypeEpocher, *args, **kwargs) -> EpochResultDict:
+        epocher.init(
+            prototype_nums=self._prototype_nums,
+            prototype_vectors=self._prototype_vectors,
+            cluster_weight=self._cluster_weight,
+            uda_weight=self._uda_weight
+        )
+        result = epocher.run()
+        return result
+
+
 trainer_zoos = {
     "partial": SemiTrainer,
     "uda": UDATrainer,
@@ -579,6 +645,8 @@ trainer_zoos = {
     "featureoutputudaiic": UDAIICFeatureOutputTrainer,
     "pica": PICATrainer,
     "infonce": InfoNCETrainer,
+    "infonce_demo": InfoNCETrainerDemo,
     "infoncepretrain": InfoNCEPretrainTrainer,
-    "prototype": PrototypeTrainer
+    "prototype": PrototypeTrainer,
+    "dp": DifferentiablePrototypeTrainer
 }

@@ -14,6 +14,7 @@ from deepclustering2.epoch import _Epocher  # noqa
 from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, UniversalDice, MeterInterface, SurfaceMeter
 from deepclustering2.models import Model
 from deepclustering2.optim import get_lrs_from_optimizer
+from deepclustering2.schedulers.customized_scheduler import WeightScheduler
 from deepclustering2.type import T_loader, T_loss, T_optim
 from deepclustering2.utils import class2one_hot, ExceptionIgnorer
 from semi_seg._utils import FeatureExtractor, _num_class_mixin
@@ -121,6 +122,7 @@ class TrainEpocher(_num_class_mixin, _Epocher):
         C = self.num_classes
         report_axis = list(range(1, C))
         meters.register_meter("lr", AverageValueMeter())
+        meters.register_meter("reg_weight", AverageValueMeter())
         meters.register_meter("sup_loss", AverageValueMeter())
         if not self.only_with_labeled_data:
             meters.register_meter("reg_loss", AverageValueMeter())
@@ -177,7 +179,13 @@ class TrainEpocher(_num_class_mixin, _Epocher):
                     unlabeled_filename=unlabeled_filename,
                     labeled_filename=labeled_filename
                 )
-                total_loss = sup_loss + self._reg_weight * reg_loss
+
+                _reg_weight = self._reg_weight
+                if isinstance(self._reg_weight, WeightScheduler):
+                    _reg_weight = self._reg_weight.value
+                self.meters["reg_weight"].add(_reg_weight)
+
+                total_loss = sup_loss + _reg_weight * reg_loss
                 # gradient backpropagation
                 self._optimizer.zero_grad()
                 total_loss.backward()

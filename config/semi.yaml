@@ -20,12 +20,12 @@ Data:
 
 LabeledData:
   shuffle: true
-  batch_size: 4
+  batch_size: 5
   num_workers: 3
 
 UnlabeledData:
   shuffle: true
-  batch_size: 10
+  batch_size: 5
   num_workers: 5
 
 Trainer:
@@ -133,5 +133,12 @@ PrototypeParameters:
     temperature: 0.07
     base_temperature: 0.07
   weight: 0.1
+
+DPrototypeParameters:
+  uda_weight: 5.0
+  cluster_weight: 0.1
+  prototytpe_nums: 100
+
+
 
 #Checkpoint: runs/test_pipeline
