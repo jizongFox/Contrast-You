@@ -1,6 +1,7 @@
 PretrainConfig:
   use_pretrain: false
   Trainer:
+    name: null
     feature_names: [ "Conv5", ]
     feature_importance: [ 1, ]
     device: cuda
@@ -23,14 +24,15 @@ PretrainConfig:
     warmup_max: 10
 
   InfoNCEParameters:
-
     EncoderParams:
       head_types: mlp
       normalize: true
     DecoderParams:
       head_types: mlp
       normalize: true
-
     LossParams:
       temperature: 0.07
       base_temperature: 0.07
+
+  ClusterParameters:
+    null
