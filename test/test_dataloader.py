@@ -14,7 +14,6 @@ from deepclustering2.dataset import PatientSampler
 from deepclustering2.tqdm import tqdm
 from deepclustering2.type import to_float
 
-
 single_transform = SequentialWrapper(
     comm_transform=pil_augment.Compose([
         pil_augment.RandomCrop(224),

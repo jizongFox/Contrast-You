@@ -67,13 +67,15 @@ def plot_prototype(data, centers, labels, figure_num=1):
         ax.scatter(sub_data[:, 0], sub_data[:, 1], sub_data[:, 2], color=next(colors), s=20)
     return fig
 
+
 def train(data, optimizer, criterion, device, ):
     with tqdm(range(10000)) as indicator:
         for i in indicator:
             cluster_centers, cluster_labels = get_clusters(data, num_clusters=20)
             fig = plot(data, )
             plot_prototype(data, cluster_centers, cluster_labels)
-            plt.show()
+            plt.show(block=False)
+            plt.pause(0.001)
 
             # p_x_given_c =
 

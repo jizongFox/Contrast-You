@@ -190,7 +190,8 @@ class DifferentiablePrototypeEpocher(UDATrainEpocher):
 
         losses = [get_loss(x) for x in self._fextractor]
 
-        return weighted_average_iter(losses, self._feature_importance) + uda_loss * 5
+        return weighted_average_iter(losses, self._feature_importance) * self._cluster_weight \
+               + uda_loss * self._uda_weight
 
     @staticmethod
     def _pairwise_distance(feature_map1: Tensor, feature_map2: Tensor) -> Tensor:
