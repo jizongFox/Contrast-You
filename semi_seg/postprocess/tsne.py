@@ -5,7 +5,6 @@ import os
 import numpy as np
 from MulticoreTSNE import MulticoreTSNE as TSNE
 
-tsne = TSNE(n_jobs=8, n_components=2, verbose=1, perplexity=40, n_iter=300)
 import matplotlib.pyplot as plt
 
 ps_data = np.load("./features/ps.pth.npy").transpose(1, 0, 2, 3).reshape(16, -1).transpose()
@@ -15,10 +14,11 @@ proposed_data = np.load("./features/udaiic.pth.npy").transpose(1, 0, 2, 3).resha
 target = np.load("./features/target.pth.npy").squeeze(1).reshape(-1)
 
 input_target = target[::70]
-
+# input_target = None
 
 def draw_pictures(input_data, input_target, save_name, show_legend=False):
-    tsne_results = tsne.fit_transform(input_data, input_target)
+    tsne = TSNE(n_jobs=8, n_components=2, verbose=1, perplexity=40, n_iter=300)
+    tsne_results = tsne.fit_transform(input_data, None)
     label = ["Background", "LV", "Myo", "RV"]
     colors = ["tab:gray", 'tab:blue', 'tab:orange', 'tab:green', ]
     plt.figure(figsize=(4, 4))
@@ -27,8 +27,9 @@ def draw_pictures(input_data, input_target, save_name, show_legend=False):
         plt.scatter(*tsne_results[index].transpose(), c=c, label=l, linewidth=0)
     if show_legend:
         plt.legend()
-    plt.savefig(os.path.join("features",save_name), bbox_inches="tight", dpi=180)
+    plt.savefig(os.path.join("features", save_name), bbox_inches="tight", dpi=180)
     plt.close()
+
 
 input_data = ps_data[::70]
 draw_pictures(input_data, input_target, "ps.png")

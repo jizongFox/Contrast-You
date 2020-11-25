@@ -14,7 +14,7 @@ from contrastyou.epocher._utils import unfold_position  # noqa
 from contrastyou.helper import weighted_average_iter, pairwise_distances as _pairwise_distance
 from contrastyou.projectors.heads import ProjectionHead, LocalProjectionHead
 from deepclustering2.decorator import FixRandomSeed
-from deepclustering2.meters2 import MeterInterface, AverageValueMeter, MultipleAverageValueMeter
+from deepclustering2.meters2 import MeterInterface, AverageValueMeter
 from deepclustering2.type import T_loss
 from semi_seg._utils import ContrastiveProjectorWrapper as PrototypeProjectorWrapper
 from .base import TrainEpocher
@@ -169,8 +169,8 @@ class DifferentiablePrototypeEpocher(UDATrainEpocher):
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super(DifferentiablePrototypeEpocher, self)._configure_meters(meters)
-        meters.register_meter("prototype_feature", MultipleAverageValueMeter())
-        meters.register_meter("prototype_vector", MultipleAverageValueMeter())
+        meters.register_meter("prototype_feature", AverageValueMeter())
+        meters.register_meter("prototype_prototype", AverageValueMeter())
         return meters
 
     def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group=None,
@@ -184,6 +184,8 @@ class DifferentiablePrototypeEpocher(UDATrainEpocher):
             with self.set_grad(self._prototype_vectors, enable=False):
                 feature_distance = self._pairwise_distance(flatten_feature, self._prototype_vectors)
             prototype_distance = self._pairwise_distance(self._prototype_vectors, self._prototype_vectors)
+            self.meters["prototype_feature"].add(feature_distance.mean().item())
+            self.meters["prototype_prototype"].add(prototype_distance.mean().item())
             return -feature_distance.mean() + prototype_distance.mean() * 0.1
 
         losses = [get_loss(x) for x in self._fextractor]
