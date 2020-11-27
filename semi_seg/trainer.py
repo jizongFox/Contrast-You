@@ -30,6 +30,8 @@ from semi_seg.epochers.comparable import PICAEpocher
 
 __all__ = ["trainer_zoos"]
 
+from semi_seg.epochers.epocher_pre import UCMeanTeacherEpocher
+
 
 class SemiTrainer(Trainer):
     RUN_PATH = str(Path(PROJECT_PATH) / "semi_seg" / "runs")  # noqa
@@ -304,6 +306,23 @@ class MeanTeacherTrainer(SemiTrainer):
                              cur_epoch=self._cur_epoch, device=self._device)
         result, cur_score = evaler.run()
         return result, cur_score
+
+
+class UCMeanTeacherTrainer(MeanTeacherTrainer):
+
+    def _init(self):
+        super()._init()
+        self._threshold = RampScheduler(begin_epoch=0, max_epoch=int(self._config["Trainer"]["max_epoch"])//3 * 2, max_value=1, min_value=0.75)
+
+    def set_epocher_class(self, epocher_class: Type[TrainEpocher] = UCMeanTeacherEpocher):
+        super().set_epocher_class(epocher_class)
+
+    def _run_epoch(self, epocher: UCMeanTeacherEpocher, *args, **kwargs) -> EpochResultDict:
+        epocher.init(reg_weight=self._reg_weight, teacher_model=self._teacher_model, reg_criterion=self._reg_criterion,
+                     ema_updater=self._ema_updater, threshold=self._threshold)
+        result = epocher.run()
+        self._threshold.step()
+        return result
 
 
 class IICMeanTeacherTrainer(IICTrainer):
@@ -609,7 +628,8 @@ class DifferentiablePrototypeTrainer(SemiTrainer):
         self._prototype_nums = config["prototype_nums"]
         from contrastyou.arch import UNet
         dim = UNet.dimension_dict[self.feature_positions[0]]
-        self._prototype_vectors = torch.randn(self._prototype_nums, dim, requires_grad=True, device=self._device)  # noqa
+        self._prototype_vectors = torch.randn(self._prototype_nums, dim, requires_grad=True,
+                                              device=self._device)  # noqa
 
     def _init_optimizer(self):
         optim_dict = self._config["Optim"]
@@ -639,6 +659,7 @@ trainer_zoos = {
     "udaiic": UDAIICTrainer,
     "entropy": EntropyMinTrainer,
     "meanteacher": MeanTeacherTrainer,
+    "ucmeanteacher": UCMeanTeacherTrainer,
     "iicmeanteacher": IICMeanTeacherTrainer,
     "midl": MIDLTrainer,
     "featureoutputiic": IICFeatureOutputTrainer,
