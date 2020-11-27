@@ -42,27 +42,27 @@ class TestPairwiseDistanceOptimization(TestCase):
                 self._optimizer.zero_grad()
 
                 # cluster features
-                with self.disable_grad(self._prototype_vectors):
-                    distance = pairwise_distances(self._random_vectors, self._prototype_vectors)
-                    distance = torch.exp(-distance * 1)
-                    loss1 = -distance.mean()
+                # with self.disable_grad(self._prototype_vectors):
+                distance = pairwise_distances(self._random_vectors, self._prototype_vectors.detach())
+                distance = torch.exp(-distance * 1)
+                loss1 = -distance.mean().log()
 
                 # scatter prototypes
                 distance_prototype = pairwise_distances(self._prototype_vectors, self._prototype_vectors)
 
                 distance2 = torch.exp(-distance_prototype)
-                loss2 = distance2.mean()
+                loss2 = distance2.mean().log()
 
                 # scatter features
                 distance_features = pairwise_distances(self._random_vectors, self._random_vectors)
 
                 distance3 = torch.exp(-distance_features)
-                loss3 = distance3.mean()
+                loss3 = distance3.mean().log()
 
                 # normalized prototypes:
-                loss4 = (self._prototype_vectors.norm(p=2, dim=1) - 1).pow(2).mean()
+                # loss4 = (self._prototype_vectors.norm(p=2, dim=1) - 1).pow(2).mean()
 
-                loss = loss1 + loss2 + loss3 * 0.1
+                loss = loss1*2 + loss2 + loss3 * 0.5
 
                 loss.backward()
                 self._optimizer.step()
