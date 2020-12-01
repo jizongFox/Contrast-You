@@ -36,6 +36,7 @@ from semi_seg.epochers.epocher_pre import UCMeanTeacherEpocher
 class SemiTrainer(Trainer):
     RUN_PATH = str(Path(PROJECT_PATH) / "semi_seg" / "runs")  # noqa
     _only_labeled_data = False
+    _train_with_two_stage = False
 
     def __init__(self, model: nn.Module, labeled_loader: T_loader, unlabeled_loader: T_loader,
                  val_loader: T_loader, sup_criterion: T_loss, save_dir: str = "base", max_epoch: int = 100,
@@ -101,6 +102,8 @@ class SemiTrainer(Trainer):
         )
         if self._only_labeled_data:
             epocher.only_with_labeled_data = True
+        if self._train_with_two_stage:
+            epocher.train_with_two_stage = True
         return epocher
 
     def _run_epoch(self, epocher: TrainEpocher, *args, **kwargs) -> EpochResultDict:
@@ -157,8 +160,11 @@ class SemiTrainer(Trainer):
     def set_feature_positions(self, feature_positions):
         self.feature_positions = feature_positions  # noqa
 
-    def set_only_labeled_data(self, enable=True):
+    def set_only_labeled_data(self, enable:bool):
         self._only_labeled_data = enable  # noqa
+
+    def set_train_with_two_stage(self, enable:bool):
+        self._train_with_two_stage = enable
 
 
 class FineTuneTrainer(SemiTrainer):
@@ -312,7 +318,8 @@ class UCMeanTeacherTrainer(MeanTeacherTrainer):
 
     def _init(self):
         super()._init()
-        self._threshold = RampScheduler(begin_epoch=0, max_epoch=int(self._config["Trainer"]["max_epoch"])//3 * 2, max_value=1, min_value=0.75)
+        self._threshold = RampScheduler(begin_epoch=0, max_epoch=int(self._config["Trainer"]["max_epoch"]) // 3 * 2,
+                                        max_value=1, min_value=0.75)
 
     def set_epocher_class(self, epocher_class: Type[TrainEpocher] = UCMeanTeacherEpocher):
         super().set_epocher_class(epocher_class)
@@ -533,6 +540,8 @@ class InfoNCETrainerDemo(InfoNCETrainer):
 
 
 class InfoNCEPretrainTrainer(InfoNCETrainer):
+    _only_labeled_data = True
+
     def _init(self):
         self._config["InfoNCEParameters"]["weight"] = 1.0
         super(InfoNCEPretrainTrainer, self)._init()

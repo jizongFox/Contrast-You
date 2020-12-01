@@ -1,6 +1,7 @@
 from itertools import repeat
 from typing import List, Union
 
+import torch
 from torch import nn, Tensor
 from torch._six import container_abcs
 
@@ -55,10 +56,31 @@ def _nlist(n):
     return parse
 
 
+class _FeatureCollector:
+    def __call__(self, _, input, result):
+        self.feature = result
+
+    def clear(self):
+        pass
+
+
+class _FeatureCollectorWithIndex:
+
+    def __init__(self) -> None:
+        self.__n = 0
+        self.feature = dict()
+
+    def __call__(self, _, input, result):
+        self.feature[self.__n] = result
+        self.__n += 1
+
+    def clear(self):
+        self.__n = 0
+        del self.feature
+        self.feature = dict()
+
+
 class FeatureExtractor(nn.Module):
-    class _FeatureExtractor:
-        def __call__(self, _, input, result):
-            self.feature = result
 
     def __init__(self, net: UNet, feature_names: Union[List[str], str]) -> None:
         super().__init__()
@@ -74,7 +96,7 @@ class FeatureExtractor(nn.Module):
         self._hook_handlers = {}
         net = get_model(self._net)
         for f in self._feature_names:
-            extractor = self._FeatureExtractor()
+            extractor = self._create_collector()
             handler = getattr(net, f).register_forward_hook(extractor)
             self._feature_exactors[f] = extractor
             self._hook_handlers[f] = handler
@@ -97,6 +119,29 @@ class FeatureExtractor(nn.Module):
     def __iter__(self):
         for k, v in self._feature_exactors.items():
             yield v.feature
+
+    def _create_collector(self):
+        return _FeatureCollector()
+
+    def clear(self):
+        pass
+
+
+class FeatureExtractorWithIndex(FeatureExtractor):
+    """
+    This module enhance the FeatureExtractor to provide multiple forward record with `clear` method
+    """
+
+    def _create_collector(self):
+        return _FeatureCollectorWithIndex()
+
+    def clear(self):
+        for k, v in self._feature_exactors.items():
+            v.clear()
+
+    def __iter__(self):
+        for k, v in self._feature_exactors.items():
+            yield torch.cat(list(v.feature.values()), dim=0)
 
 
 class _LocalClusterWrappaer(ProjectorWrapperBase):

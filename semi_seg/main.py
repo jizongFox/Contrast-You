@@ -88,6 +88,7 @@ def main_worker(rank, ngpus_per_node, config, pretrain_config, cmanager, port): 
     use_pretrain = pretrain_config["PretrainConfig"].get("use_pretrain", False)
     checkpoint = config.get("Checkpoint", None)
     use_only_labeled_data = config["Trainer"].pop("only_labeled_data")
+    two_stage_training = config["Trainer"].pop("two_stage_training")
     relative_main_dir = config["Trainer"]["save_dir"]
 
     ########################## pretraining launch part ################################################
@@ -143,6 +144,9 @@ def main_worker(rank, ngpus_per_node, config, pretrain_config, cmanager, port): 
 
     if use_only_labeled_data:
         trainer.set_only_labeled_data(enable=True)  # the trick to make the pretrain-finetune framework working.
+
+    if two_stage_training:
+        trainer.set_train_with_two_stage(enable=True)
 
     trainer.start_training()
 
