@@ -235,15 +235,6 @@ jobs = [
     f" python main.py {common_opts} Trainer.name=pica Trainer.save_dir={save_dir}/pica/0.1 "
     f" PICARegParameters.weight=0.1 Trainer.feature_names=[Conv5,] Trainer.feature_importance=[1,] ",
 
-    f" python main.py {common_opts} Trainer.name=iic Trainer.save_dir={save_dir}/iic/0.001 "
-    f" IICRegParameters.weight=0.001 Trainer.feature_names=[Conv5,] Trainer.feature_importance=[1,] ",
-
-    f" python main.py {common_opts} Trainer.name=iic Trainer.save_dir={save_dir}/iic/0.01 "
-    f" IICRegParameters.weight=0.01 Trainer.feature_names=[Conv5,] Trainer.feature_importance=[1,] ",
-
-    f" python main.py {common_opts} Trainer.name=iic Trainer.save_dir={save_dir}/iic/0.1 "
-    f" IICRegParameters.weight=0.1 Trainer.feature_names=[Conv5,] Trainer.feature_importance=[1,]",
-
 ]
 
 # CC things
