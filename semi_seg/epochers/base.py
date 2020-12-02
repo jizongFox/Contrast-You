@@ -17,7 +17,7 @@ from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.schedulers.customized_scheduler import WeightScheduler
 from deepclustering2.type import T_loader, T_loss, T_optim
 from deepclustering2.utils import class2one_hot, ExceptionIgnorer
-from semi_seg._utils import FeatureExtractor, _num_class_mixin
+from semi_seg._utils import _num_class_mixin, FeatureExtractorWithIndex as FeatureExtractor
 
 
 class EvalEpocher(_num_class_mixin, _Epocher):
@@ -97,6 +97,9 @@ class InferenceEpocher(EvalEpocher):
 
 class TrainEpocher(_num_class_mixin, _Epocher):
     only_with_labeled_data = False  # highlight: this is the tricky part of the experiments
+    train_with_two_stage = False  # highlight: this is the parameter to use two stage training
+
+    # (without mixing supervised and unsupervised)
 
     def __init__(self, *, model: Union[Model, nn.Module], optimizer: T_optim, labeled_loader: T_loader,
                  unlabeled_loader: T_loader, sup_criterion: T_loss, num_batches: int, cur_epoch=0,
@@ -135,70 +138,81 @@ class TrainEpocher(_num_class_mixin, _Epocher):
         assert self._model.training, self._model.training
         if self.only_with_labeled_data:
             return self._run_only_label(*args, **kwargs)
-        return self._run_semi(*args, **kwargs)
+        with FeatureExtractor(self._model, self._feature_position) as self._fextractor:  # noqa
+            return self._run_semi(*args, **kwargs)
 
     def _run_semi(self, *args, **kwargs) -> EpochResultDict:
         report_dict = EpochResultDict()
-        with FeatureExtractor(self._model, self._feature_position) as self._fextractor:  # noqa
-            for i, labeled_data, unlabeled_data in zip(self._indicator, self._labeled_loader, self._unlabeled_loader):
-                seed = random.randint(0, int(1e7))
-                labeled_image, labeled_target, labeled_filename, _, label_group = \
-                    self._unzip_data(labeled_data, self._device)
-                unlabeled_image, _, unlabeled_filename, unl_partition, unl_group = self._unzip_data(
-                    unlabeled_data, self._device)
-                n_l, n_unl = len(labeled_image), len(unlabeled_image)
+        for i, labeled_data, unlabeled_data in zip(self._indicator, self._labeled_loader, self._unlabeled_loader):
+            seed = random.randint(0, int(1e7))
+            labeled_image, labeled_target, labeled_filename, _, label_group = \
+                self._unzip_data(labeled_data, self._device)
+            unlabeled_image, _, unlabeled_filename, unl_partition, unl_group = self._unzip_data(
+                unlabeled_data, self._device)
+            n_l, n_unl = len(labeled_image), len(unlabeled_image)
 
-                with FixRandomSeed(seed):
-                    unlabeled_image_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_image], dim=0)
-                assert unlabeled_image_tf.shape == unlabeled_image.shape, \
-                    (unlabeled_image_tf.shape, unlabeled_image.shape)
+            with FixRandomSeed(seed):
+                unlabeled_image_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_image], dim=0)
+            assert unlabeled_image_tf.shape == unlabeled_image.shape, \
+                (unlabeled_image_tf.shape, unlabeled_image.shape)
 
+            # clear the cached features
+            self._fextractor.clear()
+            # if train with only single stage
+            if self.train_with_two_stage is False:
                 predict_logits = self._model(torch.cat([labeled_image, unlabeled_image, unlabeled_image_tf], dim=0))
 
-                label_logits, unlabel_logits, unlabel_tf_logits = torch.split(
-                    predict_logits, [n_l, n_unl, n_unl], dim=0
+                label_logits, unlabel_logits, unlabel_tf_logits = torch.split(predict_logits,
+                                                                              [n_l, n_unl, n_unl], dim=0)
+            # train with two stages, while their feature extractions are the same
+            else:
+                label_logits = self._model(labeled_image)
+                unlabel_logits, unlabel_tf_logits = torch.split(
+                    self._model(torch.cat([unlabeled_image, unlabeled_image_tf], dim=0)),
+                    [n_unl, n_unl],
+                    dim=0
                 )
 
-                with FixRandomSeed(seed):
-                    unlabel_logits_tf = torch.stack([self._affine_transformer(x) for x in unlabel_logits], dim=0)
+            with FixRandomSeed(seed):
+                unlabel_logits_tf = torch.stack([self._affine_transformer(x) for x in unlabel_logits], dim=0)
 
-                assert unlabel_logits_tf.shape == unlabel_tf_logits.shape, (
-                    unlabel_logits_tf.shape, unlabel_tf_logits.shape)
-                # supervised part
-                onehot_target = class2one_hot(labeled_target.squeeze(1), self.num_classes)
-                sup_loss = self._sup_criterion(label_logits.softmax(1), onehot_target)
-                # regularized part
-                reg_loss = self.regularization(
-                    unlabeled_tf_logits=unlabel_tf_logits,
-                    unlabeled_logits_tf=unlabel_logits_tf,
-                    seed=seed,
-                    unlabeled_image=unlabeled_image,
-                    unlabeled_image_tf=unlabeled_image_tf,
-                    label_group=unl_group,
-                    partition_group=unl_partition,
-                    unlabeled_filename=unlabeled_filename,
-                    labeled_filename=labeled_filename
-                )
+            assert unlabel_logits_tf.shape == unlabel_tf_logits.shape, (
+                unlabel_logits_tf.shape, unlabel_tf_logits.shape)
+            # supervised part
+            onehot_target = class2one_hot(labeled_target.squeeze(1), self.num_classes)
+            sup_loss = self._sup_criterion(label_logits.softmax(1), onehot_target)
+            # regularized part
+            reg_loss = self.regularization(
+                unlabeled_tf_logits=unlabel_tf_logits,
+                unlabeled_logits_tf=unlabel_logits_tf,
+                seed=seed,
+                unlabeled_image=unlabeled_image,
+                unlabeled_image_tf=unlabeled_image_tf,
+                label_group=unl_group,
+                partition_group=unl_partition,
+                unlabeled_filename=unlabeled_filename,
+                labeled_filename=labeled_filename
+            )
 
-                _reg_weight = self._reg_weight
-                if isinstance(self._reg_weight, WeightScheduler):
-                    _reg_weight = self._reg_weight.value
-                self.meters["reg_weight"].add(_reg_weight)
+            _reg_weight = self._reg_weight
+            if isinstance(self._reg_weight, WeightScheduler):
+                _reg_weight = self._reg_weight.value
+            self.meters["reg_weight"].add(_reg_weight)
 
-                total_loss = sup_loss + _reg_weight * reg_loss
-                # gradient backpropagation
-                self._optimizer.zero_grad()
-                total_loss.backward()
-                self._optimizer.step()
-                # recording can be here or in the regularization method
-                if self.on_master():
-                    with torch.no_grad():
-                        self.meters["sup_loss"].add(sup_loss.item())
-                        self.meters["sup_dice"].add(label_logits.max(1)[1], labeled_target.squeeze(1),
-                                                    group_name=label_group)
-                        self.meters["reg_loss"].add(reg_loss.item())
-                        report_dict = self.meters.tracking_status()
-                        self._indicator.set_postfix_dict(report_dict)
+            total_loss = sup_loss + _reg_weight * reg_loss
+            # gradient backpropagation
+            self._optimizer.zero_grad()
+            total_loss.backward()
+            self._optimizer.step()
+            # recording can be here or in the regularization method
+            if self.on_master():
+                with torch.no_grad():
+                    self.meters["sup_loss"].add(sup_loss.item())
+                    self.meters["sup_dice"].add(label_logits.max(1)[1], labeled_target.squeeze(1),
+                                                group_name=label_group)
+                    self.meters["reg_loss"].add(reg_loss.item())
+                    report_dict = self.meters.tracking_status()
+                    self._indicator.set_postfix_dict(report_dict)
         return report_dict
 
     def _run_only_label(self, *args, **kwargs) -> EpochResultDict:
@@ -254,51 +268,56 @@ class PretrainEpocher(TrainEpocher):
         self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer)[0])
         self._model.train()
         assert self._model.training, self._model.training
-        report_dict = EpochResultDict()
+
         with FeatureExtractor(self._model, self._feature_position) as self._fextractor:  # noqa
-            for i, data in zip(self._indicator, self._chain_dataloader):
-                seed = random.randint(0, int(1e7))
-                unlabeled_image, unlabeled_target, unlabeled_filename, unl_partition, unl_group = \
-                    self._unzip_data(data, self._device)
-                n_l, n_unl = 0, len(unlabeled_image)
+            return self._run_pretrain(*args, **kwargs)
 
-                with FixRandomSeed(seed):
-                    unlabeled_image_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_image], dim=0)
-                assert unlabeled_image_tf.shape == unlabeled_image.shape, \
-                    (unlabeled_image_tf.shape, unlabeled_image.shape)
+    def _run_pretrain(self, *args, **kwargs):
+        report_dict = EpochResultDict()
+        for i, data in zip(self._indicator, self._chain_dataloader):
+            seed = random.randint(0, int(1e7))
+            unlabeled_image, unlabeled_target, unlabeled_filename, unl_partition, unl_group = \
+                self._unzip_data(data, self._device)
+            n_l, n_unl = 0, len(unlabeled_image)
 
-                predict_logits = self._model(torch.cat([unlabeled_image, unlabeled_image_tf], dim=0))
+            with FixRandomSeed(seed):
+                unlabeled_image_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_image], dim=0)
+            assert unlabeled_image_tf.shape == unlabeled_image.shape, \
+                (unlabeled_image_tf.shape, unlabeled_image.shape)
 
-                unlabel_logits, unlabel_tf_logits = torch.split(
-                    predict_logits, [n_unl, n_unl], dim=0
-                )
+            # clear feature cache
+            self._fextractor.clear()
 
-                with FixRandomSeed(seed):
-                    unlabel_logits_tf = torch.stack([self._affine_transformer(x) for x in unlabel_logits], dim=0)
+            predict_logits = self._model(torch.cat([unlabeled_image, unlabeled_image_tf], dim=0))
 
-                assert unlabel_logits_tf.shape == unlabel_tf_logits.shape, (
-                    unlabel_logits_tf.shape, unlabel_tf_logits.shape)
+            unlabel_logits, unlabel_tf_logits = torch.split(predict_logits, [n_unl, n_unl], dim=0)
 
-                # regularized part
-                reg_loss = self.regularization(
-                    unlabeled_tf_logits=unlabel_tf_logits,
-                    unlabeled_logits_tf=unlabel_logits_tf,
-                    seed=seed,
-                    unlabeled_image=unlabeled_image,
-                    unlabeled_image_tf=unlabeled_image_tf,
-                    label_group=unl_group,
-                    partition_group=unl_partition,
-                    unlabeled_filename=unlabeled_filename,
-                )
-                total_loss = self._reg_weight * reg_loss
-                # gradient backpropagation
-                self._optimizer.zero_grad()
-                total_loss.backward()
-                self._optimizer.step()
-                # recording can be here or in the regularization method
-                if self.on_master():
-                    with torch.no_grad():
-                        self.meters["reg_loss"].add(reg_loss.item())
-                        report_dict = self.meters.tracking_status()
-                        self._indicator.set_postfix_dict(report_dict)
+            with FixRandomSeed(seed):
+                unlabel_logits_tf = torch.stack([self._affine_transformer(x) for x in unlabel_logits], dim=0)
+
+            assert unlabel_logits_tf.shape == unlabel_tf_logits.shape, (
+                unlabel_logits_tf.shape, unlabel_tf_logits.shape)
+
+            # regularized part
+            reg_loss = self.regularization(
+                unlabeled_tf_logits=unlabel_tf_logits,
+                unlabeled_logits_tf=unlabel_logits_tf,
+                seed=seed,
+                unlabeled_image=unlabeled_image,
+                unlabeled_image_tf=unlabeled_image_tf,
+                label_group=unl_group,
+                partition_group=unl_partition,
+                unlabeled_filename=unlabeled_filename,
+            )
+            total_loss = self._reg_weight * reg_loss
+            # gradient backpropagation
+            self._optimizer.zero_grad()
+            total_loss.backward()
+            self._optimizer.step()
+            # recording can be here or in the regularization method
+            if self.on_master():
+                with torch.no_grad():
+                    self.meters["reg_loss"].add(reg_loss.item())
+                    report_dict = self.meters.tracking_status()
+                    self._indicator.set_postfix_dict(report_dict)
         return report_dict

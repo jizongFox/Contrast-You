@@ -25,7 +25,8 @@ from semi_seg._utils import ClusterProjectorWrapper, IICLossWrapper, PICALossWra
 from semi_seg.epochers import IICTrainEpocher, UDAIICEpocher, PrototypeEpocher
 from semi_seg.epochers import TrainEpocher, EvalEpocher, UDATrainEpocher, EntropyMinEpocher, MeanTeacherEpocher, \
     IICMeanTeacherEpocher, InferenceEpocher, MIDLPaperEpocher, FeatureOutputCrossIICUDAEpocher, \
-    FeatureOutputCrossIICEpocher, InfoNCEEpocher, InfoNCEPretrainEpocher, DifferentiablePrototypeEpocher
+    FeatureOutputCrossIICEpocher, InfoNCEEpocher, InfoNCEPretrainEpocher, DifferentiablePrototypeEpocher, \
+    UCMeanTeacherEpocher
 from semi_seg.epochers.comparable import PICAEpocher
 
 __all__ = ["trainer_zoos"]
@@ -34,6 +35,7 @@ __all__ = ["trainer_zoos"]
 class SemiTrainer(Trainer):
     RUN_PATH = str(Path(PROJECT_PATH) / "semi_seg" / "runs")  # noqa
     _only_labeled_data = False
+    _train_with_two_stage = False
 
     def __init__(self, model: nn.Module, labeled_loader: T_loader, unlabeled_loader: T_loader,
                  val_loader: T_loader, sup_criterion: T_loss, save_dir: str = "base", max_epoch: int = 100,
@@ -99,6 +101,8 @@ class SemiTrainer(Trainer):
         )
         if self._only_labeled_data:
             epocher.only_with_labeled_data = True
+        if self._train_with_two_stage:
+            epocher.train_with_two_stage = True
         return epocher
 
     def _run_epoch(self, epocher: TrainEpocher, *args, **kwargs) -> EpochResultDict:
@@ -155,14 +159,17 @@ class SemiTrainer(Trainer):
     def set_feature_positions(self, feature_positions):
         self.feature_positions = feature_positions  # noqa
 
-    def set_only_labeled_data(self, enable=True):
+    def set_only_labeled_data(self, enable: bool):
         self._only_labeled_data = enable  # noqa
+
+    def set_train_with_two_stage(self, enable: bool):
+        self._train_with_two_stage = enable
 
 
 class FineTuneTrainer(SemiTrainer):
 
     def set_epocher_class(self, epocher_class: Type[TrainEpocher] = TrainEpocher):
-        TrainEpocher.only_with_labeled_data = True
+        epocher_class.only_with_labeled_data = True
         print(f"Using only labeled data")
         super().set_epocher_class(epocher_class)
 
@@ -304,6 +311,24 @@ class MeanTeacherTrainer(SemiTrainer):
                              cur_epoch=self._cur_epoch, device=self._device)
         result, cur_score = evaler.run()
         return result, cur_score
+
+
+class UCMeanTeacherTrainer(MeanTeacherTrainer):
+
+    def _init(self):
+        super()._init()
+        self._threshold = RampScheduler(begin_epoch=0, max_epoch=int(self._config["Trainer"]["max_epoch"]) // 3 * 2,
+                                        max_value=1, min_value=0.75)
+
+    def set_epocher_class(self, epocher_class: Type[TrainEpocher] = UCMeanTeacherEpocher):
+        super().set_epocher_class(epocher_class)
+
+    def _run_epoch(self, epocher: UCMeanTeacherEpocher, *args, **kwargs) -> EpochResultDict:
+        epocher.init(reg_weight=self._reg_weight, teacher_model=self._teacher_model, reg_criterion=self._reg_criterion,
+                     ema_updater=self._ema_updater, threshold=self._threshold)
+        result = epocher.run()
+        self._threshold.step()
+        return result
 
 
 class IICMeanTeacherTrainer(IICTrainer):
@@ -514,6 +539,8 @@ class InfoNCETrainerDemo(InfoNCETrainer):
 
 
 class InfoNCEPretrainTrainer(InfoNCETrainer):
+    _only_labeled_data = True
+
     def _init(self):
         self._config["InfoNCEParameters"]["weight"] = 1.0
         super(InfoNCEPretrainTrainer, self)._init()
@@ -609,7 +636,8 @@ class DifferentiablePrototypeTrainer(SemiTrainer):
         self._prototype_nums = config["prototype_nums"]
         from contrastyou.arch import UNet
         dim = UNet.dimension_dict[self.feature_positions[0]]
-        self._prototype_vectors = torch.randn(self._prototype_nums, dim, requires_grad=True, device=self._device)  # noqa
+        self._prototype_vectors = torch.randn(self._prototype_nums, dim, requires_grad=True,
+                                              device=self._device)  # noqa
 
     def _init_optimizer(self):
         optim_dict = self._config["Optim"]
@@ -639,6 +667,7 @@ trainer_zoos = {
     "udaiic": UDAIICTrainer,
     "entropy": EntropyMinTrainer,
     "meanteacher": MeanTeacherTrainer,
+    "ucmeanteacher": UCMeanTeacherTrainer,
     "iicmeanteacher": IICMeanTeacherTrainer,
     "midl": MIDLTrainer,
     "featureoutputiic": IICFeatureOutputTrainer,
