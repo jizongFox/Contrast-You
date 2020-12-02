@@ -25,12 +25,11 @@ from semi_seg._utils import ClusterProjectorWrapper, IICLossWrapper, PICALossWra
 from semi_seg.epochers import IICTrainEpocher, UDAIICEpocher, PrototypeEpocher
 from semi_seg.epochers import TrainEpocher, EvalEpocher, UDATrainEpocher, EntropyMinEpocher, MeanTeacherEpocher, \
     IICMeanTeacherEpocher, InferenceEpocher, MIDLPaperEpocher, FeatureOutputCrossIICUDAEpocher, \
-    FeatureOutputCrossIICEpocher, InfoNCEEpocher, InfoNCEPretrainEpocher, DifferentiablePrototypeEpocher
+    FeatureOutputCrossIICEpocher, InfoNCEEpocher, InfoNCEPretrainEpocher, DifferentiablePrototypeEpocher, \
+    UCMeanTeacherEpocher
 from semi_seg.epochers.comparable import PICAEpocher
 
 __all__ = ["trainer_zoos"]
-
-from semi_seg.epochers.epocher_pre import UCMeanTeacherEpocher
 
 
 class SemiTrainer(Trainer):
@@ -160,17 +159,17 @@ class SemiTrainer(Trainer):
     def set_feature_positions(self, feature_positions):
         self.feature_positions = feature_positions  # noqa
 
-    def set_only_labeled_data(self, enable:bool):
+    def set_only_labeled_data(self, enable: bool):
         self._only_labeled_data = enable  # noqa
 
-    def set_train_with_two_stage(self, enable:bool):
+    def set_train_with_two_stage(self, enable: bool):
         self._train_with_two_stage = enable
 
 
 class FineTuneTrainer(SemiTrainer):
 
     def set_epocher_class(self, epocher_class: Type[TrainEpocher] = TrainEpocher):
-        TrainEpocher.only_with_labeled_data = True
+        epocher_class.only_with_labeled_data = True
         print(f"Using only labeled data")
         super().set_epocher_class(epocher_class)
 
