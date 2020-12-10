@@ -10,6 +10,7 @@ from contrastyou.epocher._utils import preprocess_input_with_twice_transformatio
 from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
 from deepclustering2.augment.tensor_augment import TensorRandomFlip
 from deepclustering2.decorator import FixRandomSeed
+from deepclustering2.decorator.decorator import _disable_tracking_bn_stats as disable_bn
 from deepclustering2.epoch import _Epocher  # noqa
 from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, UniversalDice, MeterInterface, SurfaceMeter
 from deepclustering2.models import Model
@@ -37,9 +38,12 @@ class EvalEpocher(_num_class_mixin, _Epocher):
         meters.register_meter("dice", UniversalDice(C, report_axises=report_axis, ))
         return meters
 
+    def run(self):
+        self._model.eval()
+        return super(EvalEpocher, self).run()
+
     @torch.no_grad()
     def _run(self, *args, **kwargs) -> Tuple[EpochResultDict, float]:
-        self._model.eval()
         report_dict = EpochResultDict()
         for i, val_data in zip(self._indicator, self._val_loader):
             val_img, val_target, file_path, _, group = self._unzip_data(val_data, self._device)
@@ -58,6 +62,14 @@ class EvalEpocher(_num_class_mixin, _Epocher):
     def _unzip_data(data, device):
         image, target, filename, partition, group = preprocess_input_with_single_transformation(data, device)
         return image, target, filename, partition, group
+
+
+class EvalEpocherWOEval(EvalEpocher):
+
+    def run(self):
+        self._model.train()  # setting to train
+        with disable_bn(self._model):  # disable bn accumulation
+            return super(EvalEpocher, self).run()
 
 
 class InferenceEpocher(EvalEpocher):
