@@ -17,14 +17,16 @@ class UnderstandPSTrainer(SemiTrainer):
             train_result = self.run_epoch()
             if self.on_master():
                 with torch.no_grad():
-                    eval_on_train, cur_score_on_train = self._eval_on_train_epoch()
+                    eval_on_labeled, _ = self._eval_on_labeled_epoch()
+                    eval_on_unlabeled, _ = self._eval_on_unlabeled_epoch()
                     eval_result, cur_score = self.eval_epoch()
 
             # update lr_scheduler
             if hasattr(self, "_scheduler"):
                 self._scheduler.step()
             if self.on_master():
-                storage_per_epoch = StorageIncomeDict(tra=train_result, val=eval_result, val_on_tra=eval_on_train)
+                storage_per_epoch = StorageIncomeDict(tra=train_result, val=eval_result, val_on_label=eval_on_labeled,
+                                                      val_on_unlabeled=eval_on_unlabeled)
                 self._storage.put_from_dict(storage_per_epoch, self._cur_epoch)
                 self._writer.add_scalar_with_StorageDict(storage_per_epoch, self._cur_epoch)
                 # save_checkpoint
@@ -32,8 +34,19 @@ class UnderstandPSTrainer(SemiTrainer):
                 # save storage result on csv file.
                 self._storage.to_csv(self._save_dir)
 
-    def _eval_on_train_epoch(self, *args, **kwargs) -> Tuple[EpochResultDict, float]:
+    def _eval_on_labeled_epoch(self, *args, **kwargs) -> Tuple[EpochResultDict, float]:
         train_set = deepcopy(self._labeled_loader._dataset)
+        val_set = self._val_loader.dataset
+        train_set._transform = val_set.transform
+        from torch.utils.data import DataLoader
+        train_dataloader = DataLoader(train_set, batch_size=4, shuffle=False)
+        evaler = EvalEpocher(self._model, val_loader=train_dataloader, sup_criterion=self._sup_criterion,
+                             cur_epoch=self._cur_epoch, device=self._device)
+        result, cur_score = evaler.run()
+        return result, cur_score
+
+    def _eval_on_unlabeled_epoch(self, *args, **kwargs) -> Tuple[EpochResultDict, float]:
+        train_set = deepcopy(self._unlabeled_loader._dataset)
         val_set = self._val_loader.dataset
         train_set._transform = val_set.transform
         from torch.utils.data import DataLoader
