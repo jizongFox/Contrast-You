@@ -8,7 +8,7 @@ parser.add_argument("-s", "--seed", required=True, type=int, help="random seed")
 seed = parser.parse_args().seed
 
 labeled_data_ratio = 0.05
-save_dir = f"0901/abalation_cluster_number/seed_{seed}"
+save_dir = f"1201/abalation_cluster_number/seed_{seed}"
 num_batches = 300
 max_epoch = 100
 time = 4
@@ -60,17 +60,42 @@ jobs = [
 
     f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder_decoder/20_20 "
     f" IICRegParameters.EncoderParams.num_clusters=20 IICRegParameters.DecoderParams.num_clusters=20 ",
+
+    #
+
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder_decoder/2_2 "
+    f" IICRegParameters.EncoderParams.num_clusters=2 IICRegParameters.DecoderParams.num_clusters=2 ",
+
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder_decoder/2_5 "
+    f" IICRegParameters.EncoderParams.num_clusters=2 IICRegParameters.DecoderParams.num_clusters=5 ",
+
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder_decoder/2_10 "
+    f" IICRegParameters.EncoderParams.num_clusters=2 IICRegParameters.DecoderParams.num_clusters=10 ",
+
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder_decoder/2_20 "
+    f" IICRegParameters.EncoderParams.num_clusters=2 IICRegParameters.DecoderParams.num_clusters=20 ",
+
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder_decoder/5_2 "
+    f" IICRegParameters.EncoderParams.num_clusters=5 IICRegParameters.DecoderParams.num_clusters=2 ",
+
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder_decoder/10_2 "
+    f" IICRegParameters.EncoderParams.num_clusters=10 IICRegParameters.DecoderParams.num_clusters=2 ",
+
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/encoder_decoder/20_2 "
+    f" IICRegParameters.EncoderParams.num_clusters=20 IICRegParameters.DecoderParams.num_clusters=2 ",
 ]
 
 # CC things
 accounts = cycle(["def-chdesa", "def-mpederso", "rrg-mpederso"])
-
-jobsubmiter = JobSubmiter(project_path="./", on_local=False, time=time)
-
+jobsubmiter = JobSubmiter(project_path="../", on_local=False, time=time, gres=f"gpu:1")
 for j in jobs:
-    jobsubmiter.prepare_env(["source ./venv/bin/activate ",
-                             "export OMP_NUM_THREADS=1",
-                             "export PYTHONOPTIMIZE=1"])
+    jobsubmiter.prepare_env(
+        [
+            "source ../venv/bin/activate ",
+            "export OMP_NUM_THREADS=1",
+            "export PYTHONOPTIMIZE=1"
+        ]
+    )
     jobsubmiter.account = next(accounts)
     jobsubmiter.run(j)
 

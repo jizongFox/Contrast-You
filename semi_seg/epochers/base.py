@@ -21,6 +21,7 @@ from deepclustering2.utils import class2one_hot, ExceptionIgnorer
 from semi_seg._utils import _num_class_mixin, FeatureExtractorWithIndex as FeatureExtractor
 
 
+# ======== validation epochers =============
 class EvalEpocher(_num_class_mixin, _Epocher):
 
     def __init__(self, model: Union[Model, nn.Module], val_loader: T_loader, sup_criterion: T_loss, cur_epoch=0,
@@ -38,9 +39,8 @@ class EvalEpocher(_num_class_mixin, _Epocher):
         meters.register_meter("dice", UniversalDice(C, report_axises=report_axis, ))
         return meters
 
-    def run(self):
-        self._model.eval()
-        return super(EvalEpocher, self).run()
+    def _set_model_state(self, model) -> None:
+        model.eval()
 
     @torch.no_grad()
     def _run(self, *args, **kwargs) -> Tuple[EpochResultDict, float]:
@@ -65,11 +65,18 @@ class EvalEpocher(_num_class_mixin, _Epocher):
 
 
 class EvalEpocherWOEval(EvalEpocher):
+    """
+    This epocher is set to using the current estimation of batch and without accumulating the statistic
+    network in train mode while BN is in disable accumulation mode.
+    Usually improves performance with some domain gap
+    """
 
-    def run(self):
-        self._model.train()  # setting to train
+    def _run(self, *args, **kwargs):
         with disable_bn(self._model):  # disable bn accumulation
-            return super(EvalEpocher, self).run()
+            return super(EvalEpocherWOEval, self)._run(*args, **kwargs)
+
+    def _set_model_state(self, model) -> None:
+        model.train()
 
 
 class InferenceEpocher(EvalEpocher):
@@ -107,6 +114,7 @@ class InferenceEpocher(EvalEpocher):
         return report_dict, self.meters["dice"].summary()["DSC_mean"]
 
 
+# ========= base training epoches ===============
 class TrainEpocher(_num_class_mixin, _Epocher):
     only_with_labeled_data = False  # highlight: this is the tricky part of the experiments
     train_with_two_stage = False  # highlight: this is the parameter to use two stage training
@@ -146,12 +154,14 @@ class TrainEpocher(_num_class_mixin, _Epocher):
 
     def _run(self, *args, **kwargs):
         self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer)[0])
-        self._model.train()
         assert self._model.training, self._model.training
         if self.only_with_labeled_data:
             return self._run_only_label(*args, **kwargs)
         with FeatureExtractor(self._model, self._feature_position) as self._fextractor:  # noqa
             return self._run_semi(*args, **kwargs)
+
+    def _set_model_state(self, model) -> None:
+        model.train()
 
     def _run_semi(self, *args, **kwargs) -> EpochResultDict:
         report_dict = EpochResultDict()
@@ -265,7 +275,13 @@ class TrainEpocher(_num_class_mixin, _Epocher):
         return torch.tensor(0, dtype=torch.float, device=self._device)
 
 
+# ======== base pretrain epoches ================
 class PretrainEpocher(TrainEpocher):
+    """
+    PretrainEpocher makes all images goes to regularization, permitting to use the other classes to create more pretrain
+    models
+    """
+
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meter = super()._configure_meters(meters)
         meter.delete_meters(["sup_loss", "sup_dice"])
@@ -278,7 +294,6 @@ class PretrainEpocher(TrainEpocher):
 
     def _run(self, *args, **kwargs) -> EpochResultDict:
         self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer)[0])
-        self._model.train()
         assert self._model.training, self._model.training
 
         with FeatureExtractor(self._model, self._feature_position) as self._fextractor:  # noqa
@@ -321,7 +336,7 @@ class PretrainEpocher(TrainEpocher):
                 partition_group=unl_partition,
                 unlabeled_filename=unlabeled_filename,
             )
-            total_loss = self._reg_weight * reg_loss
+            total_loss = reg_loss
             # gradient backpropagation
             self._optimizer.zero_grad()
             total_loss.backward()
