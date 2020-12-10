@@ -1,3 +1,4 @@
+import math
 from functools import lru_cache
 
 import torch
@@ -15,6 +16,7 @@ from deepclustering2.epoch import _Epocher  # noqa
 from deepclustering2.loss import Entropy
 from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, MeterInterface, MultipleAverageValueMeter
 from deepclustering2.models import ema_updater as EMA_Updater
+from deepclustering2.schedulers.customized_scheduler import RampScheduler
 from deepclustering2.type import T_loss
 from semi_seg._utils import ClusterProjectorWrapper, PICALossWrapper, FeatureExtractor, IICLossWrapper, \
     ContrastiveProjectorWrapper

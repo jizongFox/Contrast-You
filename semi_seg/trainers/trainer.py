@@ -29,8 +29,6 @@ from semi_seg.epochers import TrainEpocher, EvalEpocher, UDATrainEpocher, Entrop
     UCMeanTeacherEpocher
 from semi_seg.epochers.comparable import PICAEpocher
 
-__all__ = ["trainer_zoos"]
-
 
 class SemiTrainer(Trainer):
     RUN_PATH = str(Path(PROJECT_PATH) / "semi_seg" / "runs")  # noqa
@@ -658,24 +656,3 @@ class DifferentiablePrototypeTrainer(SemiTrainer):
         )
         result = epocher.run()
         return result
-
-
-trainer_zoos = {
-    "partial": SemiTrainer,
-    "uda": UDATrainer,
-    "iic": IICTrainer,
-    "udaiic": UDAIICTrainer,
-    "entropy": EntropyMinTrainer,
-    "meanteacher": MeanTeacherTrainer,
-    "ucmeanteacher": UCMeanTeacherTrainer,
-    "iicmeanteacher": IICMeanTeacherTrainer,
-    "midl": MIDLTrainer,
-    "featureoutputiic": IICFeatureOutputTrainer,
-    "featureoutputudaiic": UDAIICFeatureOutputTrainer,
-    "pica": PICATrainer,
-    "infonce": InfoNCETrainer,
-    "infonce_demo": InfoNCETrainerDemo,
-    "infoncepretrain": InfoNCEPretrainTrainer,
-    "prototype": PrototypeTrainer,
-    "dp": DifferentiablePrototypeTrainer
-}

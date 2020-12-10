@@ -62,7 +62,7 @@ class TestPairwiseDistanceOptimization(TestCase):
                 # normalized prototypes:
                 # loss4 = (self._prototype_vectors.norm(p=2, dim=1) - 1).pow(2).mean()
 
-                loss = loss1*2 + loss2 + loss3 * 0.5
+                loss = loss1 * 2 + loss2 + loss3 * 0.5
 
                 loss.backward()
                 self._optimizer.step()
