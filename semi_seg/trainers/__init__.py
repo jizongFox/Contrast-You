@@ -1,7 +1,8 @@
+from .base import *
+from .pretrain import *
 from .trainer import *
 
-
-trainer_zoos = {
+base_trainer_zoos = {
     "partial": SemiTrainer,
     "uda": UDATrainer,
     "iic": IICTrainer,
@@ -16,8 +17,14 @@ trainer_zoos = {
     "pica": PICATrainer,
     "infonce": InfoNCETrainer,
     "infonce_demo": InfoNCETrainerDemo,
-    "infoncepretrain": InfoNCEPretrainTrainer,
     "prototype": PrototypeTrainer,
     "dp": DifferentiablePrototypeTrainer,
 
 }
+pre_trainer_zoos = {
+    "udaiicpretrain": PretrainUDAIICTrainer,
+    "iicpretrain": PretrainIICTrainer,
+    "infoncepretrain": PretrainInfoNCETrainer
+}
+
+trainer_zoos = {**base_trainer_zoos, **pre_trainer_zoos}

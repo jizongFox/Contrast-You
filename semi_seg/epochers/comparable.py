@@ -265,7 +265,7 @@ class InfoNCEEpocher(TrainEpocher):
 
     def init(self, *, reg_weight: float, projectors_wrapper: ContrastiveProjectorWrapper = None,
              infoNCE_criterion: T_loss = None, **kwargs):
-        assert projectors_wrapper is not None and infoNCE_criterion is not None
+        assert projectors_wrapper is not None and infoNCE_criterion is not None, (projectors_wrapper, infoNCE_criterion)
         super().init(reg_weight=reg_weight, **kwargs)
         self._projectors_wrapper: ContrastiveProjectorWrapper = projectors_wrapper  # noqa
         self._infonce_criterion: T_loss = infoNCE_criterion  # noqa

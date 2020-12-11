@@ -15,7 +15,7 @@ from deepclustering2.configparser import ConfigManger
 from deepclustering2.utils import gethash, path2Path, yaml_write
 import torch
 from deepclustering2.utils import set_benchmark, load_yaml, merge_dict
-from semi_seg.trainers import trainer_zoos, InfoNCEPretrainTrainer
+from semi_seg.trainers import base_trainer_zoos, pre_trainer_zoos
 from semi_seg.innovate import trainer_zoos as trainer_zoos2
 from semi_seg.dsutils import get_dataloaders
 from deepclustering2.ddp import initialize_ddp_environment, convert2syncBN
@@ -23,7 +23,7 @@ from termcolor import colored
 
 cur_githash = gethash(__file__)
 
-trainer_zoos = {**trainer_zoos, **trainer_zoos2}
+trainer_zoos = {**base_trainer_zoos, **trainer_zoos2}
 
 
 def main():
@@ -33,7 +33,6 @@ def main():
     def load_pretrain_dict(cmanager):
         """
         PretrainConfig:
-            use_pretrain: bool
             InfoNCEParameters:
                 a:b
         """
@@ -88,16 +87,16 @@ def main_worker(rank, ngpus_per_node, config, pretrain_config, cmanager, port): 
         model = convert2syncBN(model)
         model = torch.nn.parallel.DistributedDataParallel(model.to(rank), device_ids=[rank])
 
-    use_pretrain = pretrain_config["PretrainConfig"].get("use_pretrain", False)
+    pretrain_classname = pretrain_config["PretrainConfig"]["Trainer"].get("name")
     checkpoint = config.get("Checkpoint", None)
     use_only_labeled_data = config["Trainer"].pop("only_labeled_data")
     two_stage_training = config["Trainer"].pop("two_stage_training")
     relative_main_dir = config["Trainer"]["save_dir"]
 
     ########################## pretraining launch part ################################################
-    if use_pretrain:
+    if pretrain_classname:
         # save pretrain config
-        pretrainTrainer = InfoNCEPretrainTrainer(
+        pretrainTrainer = pre_trainer_zoos[pretrain_classname](
             model=model,
             labeled_loader=iter(labeled_loader),
             unlabeled_loader=iter(unlabeled_loader),
@@ -129,7 +128,7 @@ def main_worker(rank, ngpus_per_node, config, pretrain_config, cmanager, port): 
         model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
         val_loader=val_loader, sup_criterion=KL_div(verbose=False),
         configuration={**cmanager.config, **{"GITHASH": cur_githash}},
-        save_dir=relative_main_dir if not use_pretrain else os.path.join(relative_main_dir, "train"),
+        save_dir=relative_main_dir if not pretrain_classname else os.path.join(relative_main_dir, "train"),
         **{k: v for k, v in config["Trainer"].items() if k != "save_dir"}
     )
     # save config yaml

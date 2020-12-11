@@ -10,6 +10,10 @@ from .epocher import EvalEpocherWOEval
 
 
 class UnderstandPSTrainer(SemiTrainer):
+    """
+    This Trainer class is to understand the behavior of BN 
+    """
+
     def _start_training(self):
         for self._cur_epoch in range(self._start_epoch, self._max_epoch):
             train_result: EpochResultDict
