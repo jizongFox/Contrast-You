@@ -4,8 +4,9 @@ from typing import Tuple
 import torch
 
 from deepclustering2.meters2 import EpochResultDict, StorageIncomeDict
-from .trainer import SemiTrainer
-from ..epochers import EvalEpocher, EvalEpocherWOEval
+from semi_seg.epochers.base import EvalEpocher
+from semi_seg.trainers.trainer import SemiTrainer
+from .epocher import EvalEpocherWOEval
 
 
 class UnderstandPSTrainer(SemiTrainer):

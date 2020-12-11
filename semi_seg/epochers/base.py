@@ -10,7 +10,6 @@ from contrastyou.epocher._utils import preprocess_input_with_twice_transformatio
 from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
 from deepclustering2.augment.tensor_augment import TensorRandomFlip
 from deepclustering2.decorator import FixRandomSeed
-from deepclustering2.decorator.decorator import _disable_tracking_bn_stats as disable_bn
 from deepclustering2.epoch import _Epocher  # noqa
 from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, UniversalDice, MeterInterface, SurfaceMeter
 from deepclustering2.models import Model
@@ -64,21 +63,6 @@ class EvalEpocher(_num_class_mixin, _Epocher):
         return image, target, filename, partition, group
 
 
-class EvalEpocherWOEval(EvalEpocher):
-    """
-    This epocher is set to using the current estimation of batch and without accumulating the statistic
-    network in train mode while BN is in disable accumulation mode.
-    Usually improves performance with some domain gap
-    """
-
-    def _run(self, *args, **kwargs):
-        with disable_bn(self._model):  # disable bn accumulation
-            return super(EvalEpocherWOEval, self)._run(*args, **kwargs)
-
-    def _set_model_state(self, model) -> None:
-        model.train()
-
-
 class InferenceEpocher(EvalEpocher):
 
     def init(self, *, save_dir: str):
@@ -114,7 +98,7 @@ class InferenceEpocher(EvalEpocher):
         return report_dict, self.meters["dice"].summary()["DSC_mean"]
 
 
-# ========= base training epoches ===============
+# ========= base training epochers ===============
 class TrainEpocher(_num_class_mixin, _Epocher):
     only_with_labeled_data = False  # highlight: this is the tricky part of the experiments
     train_with_two_stage = False  # highlight: this is the parameter to use two stage training
@@ -275,7 +259,7 @@ class TrainEpocher(_num_class_mixin, _Epocher):
         return torch.tensor(0, dtype=torch.float, device=self._device)
 
 
-# ======== base pretrain epoches ================
+# ======== base pretrain epochers ================
 class PretrainEpocher(TrainEpocher):
     """
     PretrainEpocher makes all images goes to regularization, permitting to use the other classes to create more pretrain

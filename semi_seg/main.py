@@ -16,11 +16,14 @@ from deepclustering2.utils import gethash, path2Path, yaml_write
 import torch
 from deepclustering2.utils import set_benchmark, load_yaml, merge_dict
 from semi_seg.trainers import trainer_zoos, InfoNCEPretrainTrainer
+from semi_seg.innovate import trainer_zoos as trainer_zoos2
 from semi_seg.dsutils import get_dataloaders
 from deepclustering2.ddp import initialize_ddp_environment, convert2syncBN
 from termcolor import colored
 
 cur_githash = gethash(__file__)
+
+trainer_zoos = {**trainer_zoos, **trainer_zoos2}
 
 
 def main():

@@ -1,5 +1,5 @@
 from .trainer import *
-from .trainer_pre import *
+
 
 trainer_zoos = {
     "partial": SemiTrainer,
@@ -20,5 +20,4 @@ trainer_zoos = {
     "prototype": PrototypeTrainer,
     "dp": DifferentiablePrototypeTrainer,
 
-    "understandps": UnderstandPSTrainer
 }
