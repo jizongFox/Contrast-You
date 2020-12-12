@@ -11,7 +11,7 @@ parser.add_argument("-b", "--num_batches", default=500, type=int, help="num batc
 parser.add_argument("-e", "--max_epoch", default=100, type=int, help="max epoch")
 parser.add_argument("-s", "--random_seed", default=1, type=int, help="random seed")
 parser.add_argument("--save_dir", default=None, type=str, help="save_dir")
-parser.add_argument("--time", default=4, type=int, help="demanded time")
+parser.add_argument("--time", default=8, type=int, help="demanded time")
 parser.add_argument("--distributed", action="store_true", default=False, help="enable distributed training")
 parser.add_argument("--num_gpus", default=1, type=int, help="gpu numbers")
 parser.add_argument("--two_stage_training", default=False, action="store_true", help="two_stage_training")
@@ -68,8 +68,11 @@ pretrain_opts = f" PretrainConfig.Trainer.feature_names={feature_position} " \
 
 jobs = [
     # without pretrain
-    f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/ps "
-    f" PretrainConfig.Trainer.name=null",
+    f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/ps ",
+
+    f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/ps_only_labeled "
+    f" Trainer.only_labeled_data=true ",
+
 
     # pretrain using infonce and train with partial
     f" python main.py {common_opts + pretrain_opts} Trainer.name=partial Trainer.save_dir={save_dir}/pretrain/infonce "
