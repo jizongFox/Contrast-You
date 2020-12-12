@@ -67,6 +67,10 @@ pretrain_opts = f" PretrainConfig.Trainer.feature_names={feature_position} " \
                 f" PretrainConfig.Trainer.feature_importance={feature_importance} "
 
 jobs = [
+    # without pretrain
+    f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/ps "
+    f" PretrainConfig.Trainer.name=null",
+
     # pretrain using infonce and train with partial
     f" python main.py {common_opts + pretrain_opts} Trainer.name=partial Trainer.save_dir={save_dir}/pretrain/infonce "
     f" PretrainConfig.Trainer.name=infoncepretrain",
@@ -76,8 +80,35 @@ jobs = [
     f" PretrainConfig.Trainer.name=iicpretrain",
 
     # pretrain using iicuda and train with partial
-    f" python main.py {common_opts + pretrain_opts} Trainer.name=partial Trainer.save_dir={save_dir}/pretrain/udaiic "
-    f" PretrainConfig.Trainer.name=udaiicpretrain",
+    f" python main.py {common_opts + pretrain_opts} Trainer.name=partial Trainer.save_dir={save_dir}/pretrain/udaiic/10_0.1 "
+    f" PretrainConfig.Trainer.name=udaiicpretrain PretrainConfig.IICRegParameters.weight=0.1 PretrainConfig.UDARegCriterion.weight=10",
+
+    f" python main.py {common_opts + pretrain_opts} Trainer.name=partial Trainer.save_dir={save_dir}/pretrain/udaiic/5_0.1 "
+    f" PretrainConfig.Trainer.name=udaiicpretrain PretrainConfig.IICRegParameters.weight=0.1 PretrainConfig.UDARegCriterion.weight=5",
+
+    f" python main.py {common_opts + pretrain_opts} Trainer.name=partial Trainer.save_dir={save_dir}/pretrain/udaiic/1_0.1 "
+    f" PretrainConfig.Trainer.name=udaiicpretrain PretrainConfig.IICRegParameters.weight=0.1 PretrainConfig.UDARegCriterion.weight=1",
+
+    f" python main.py {common_opts + pretrain_opts} Trainer.name=partial Trainer.save_dir={save_dir}/pretrain/udaiic/0.1_0.1 "
+    f" PretrainConfig.Trainer.name=udaiicpretrain PretrainConfig.IICRegParameters.weight=0.1 PretrainConfig.UDARegCriterion.weight=0.1",
+
+    f" python main.py {common_opts + pretrain_opts} Trainer.name=partial Trainer.save_dir={save_dir}/pretrain/udaiic/10_0.1 "
+    f" PretrainConfig.Trainer.name=udaiicpretrain PretrainConfig.IICRegParameters.weight=0.1 PretrainConfig.UDARegCriterion.weight=10",
+    
+    # repeat udaiic
+    f" python main.py {common_opts + pretrain_opts} Trainer.name=partial Trainer.save_dir={save_dir}/pretrain/udaiic/5_1 "
+    f" PretrainConfig.Trainer.name=udaiicpretrain PretrainConfig.IICRegParameters.weight=1 PretrainConfig.UDARegCriterion.weight=5",
+
+    f" python main.py {common_opts + pretrain_opts} Trainer.name=partial Trainer.save_dir={save_dir}/pretrain/udaiic/1_1 "
+    f" PretrainConfig.Trainer.name=udaiicpretrain PretrainConfig.IICRegParameters.weight=1 PretrainConfig.UDARegCriterion.weight=1",
+
+    f" python main.py {common_opts + pretrain_opts} Trainer.name=partial Trainer.save_dir={save_dir}/pretrain/udaiic/0.1_1 "
+    f" PretrainConfig.Trainer.name=udaiicpretrain PretrainConfig.IICRegParameters.weight=1 PretrainConfig.UDARegCriterion.weight=0.1",
+    
+    f" python main.py {common_opts + pretrain_opts} Trainer.name=partial Trainer.save_dir={save_dir}/pretrain/udaiic/10_1 "
+    f" PretrainConfig.Trainer.name=udaiicpretrain PretrainConfig.IICRegParameters.weight=1 PretrainConfig.UDARegCriterion.weight=10",
+    
+    
 
     # train normally
     f"python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/normal/udaiic/5_0.1 "
