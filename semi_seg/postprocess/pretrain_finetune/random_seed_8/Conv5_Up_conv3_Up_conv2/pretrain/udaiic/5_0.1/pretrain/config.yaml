@@ -1,0 +1,60 @@
+ContrastData:
+  group_sample_num: 8
+  num_workers: 2
+  partition_sample_num: 1
+  shuffle: false
+IICRegParameters:
+  DecoderParams:
+    head_types: linear
+    normalize: false
+    num_clusters: 20
+    num_subheads: 5
+    temperature: 1.0
+  EncoderParams:
+    head_types: linear
+    normalize: false
+    num_clusters: 20
+    num_subheads: 5
+    temperature: 1.0
+  LossParams:
+    paddings:
+    - 1
+    - 3
+    patch_sizes: 1024
+  enforce_matching: false
+  weight: 0.1
+InfoNCEParameters:
+  DecoderParams:
+    head_types: mlp
+    normalize: true
+  EncoderParams:
+    head_types: mlp
+    normalize: true
+  LossParams:
+    base_temperature: 0.07
+    temperature: 0.07
+  weight: 1.0
+Optim:
+  lr: 1.0e-06
+  name: Adam
+  weight_decay: 1.0e-05
+Scheduler:
+  multiplier: 300
+  warmup_max: 10
+Trainer:
+  device: cuda
+  feature_importance:
+  - 1
+  - 1
+  - 1
+  feature_names:
+  - Conv5
+  - Up_conv3
+  - Up_conv2
+  max_epoch: 100
+  name: udaiicpretrain
+  num_batches: 300
+UDARegCriterion:
+  name: mse
+  weight: 5
+use_pretrain: false
