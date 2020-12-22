@@ -3,7 +3,7 @@ from copy import deepcopy
 from torch.utils.data import DataLoader
 
 from contrastyou import DATA_PATH
-from contrastyou.datasets import ACDCSemiInterface, SpleenSemiInterface, ProstateSemiInterface
+from contrastyou.datasets import ACDCSemiInterface, SpleenSemiInterface, ProstateSemiInterface, MMWHSSemiInterface
 from deepclustering2.dataloader.distributed import InfiniteDistributedSampler
 from deepclustering2.dataloader.sampler import InfiniteRandomSampler
 from deepclustering2.dataset import PatientSampler
@@ -12,12 +12,14 @@ from semi_seg.augment import ACDCStrongTransforms, SpleenStrongTransforms, Prost
 dataset_zoos = {
     "acdc": ACDCSemiInterface,
     "spleen": SpleenSemiInterface,
-    "prostate": ProstateSemiInterface
+    "prostate": ProstateSemiInterface,
+    "mmwhs": MMWHSSemiInterface,
 }
 augment_zoos = {
     "acdc": ACDCStrongTransforms,
     "spleen": SpleenStrongTransforms,
-    "prostate": ProstateStrongTransforms
+    "prostate": ProstateStrongTransforms,
+    "mmwhs": ACDCStrongTransforms
 }
 
 

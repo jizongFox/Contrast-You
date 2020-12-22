@@ -252,6 +252,7 @@ class EntropyMinEpocher(TrainEpocher):
 
 
 class PICAEpocher(IICTrainEpocher):
+    only_with_labeled_data = False
 
     def init(self, *, reg_weight: float, projectors_wrapper: ClusterProjectorWrapper,
              PICASegCriterionWrapper: PICALossWrapper, enforce_matching=False, **kwargs):

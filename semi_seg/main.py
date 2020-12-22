@@ -20,6 +20,7 @@ from semi_seg.innovate import trainer_zoos as trainer_zoos2
 from semi_seg.dsutils import get_dataloaders
 from deepclustering2.ddp import initialize_ddp_environment, convert2syncBN
 from termcolor import colored
+from loguru import logger
 
 cur_githash = gethash(__file__)
 
@@ -66,6 +67,7 @@ def main():
         main_worker(0, 1, config, pretrain_config, cmanager, port)
 
 
+@logger.catch(reraise=True)
 def main_worker(rank, ngpus_per_node, config, pretrain_config, cmanager, port):  # noqa
     use_distributed_train = config.get("DistributedTrain")
 
