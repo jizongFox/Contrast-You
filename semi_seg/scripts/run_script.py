@@ -38,7 +38,7 @@ dataset_name2class_numbers = {
 lr_zooms = {"acdc": 0.0000001,
             "prostate": 0.000001,
             "spleen": 0.000001,
-            "mmwhs":0.0000001}
+            "mmwhs":0.000001}
 
 save_dir_main = args.save_dir if args.save_dir else "main_result_folder"
 save_dir = f"{save_dir_main}/{args.dataset_name}/" \

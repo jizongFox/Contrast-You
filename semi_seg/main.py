@@ -22,7 +22,7 @@ from deepclustering2.ddp import initialize_ddp_environment, convert2syncBN
 from termcolor import colored
 from loguru import logger
 
-cur_githash = gethash(__file__)
+cur_githash = gethash(__file__)  # noqa
 
 trainer_zoos = {**base_trainer_zoos, **trainer_zoos2}
 
@@ -95,7 +95,7 @@ def main_worker(rank, ngpus_per_node, config, pretrain_config, cmanager, port): 
     two_stage_training = config["Trainer"].pop("two_stage_training")
     relative_main_dir = config["Trainer"]["save_dir"]
 
-    ########################## pretraining launch part ################################################
+    ############################# pretraining launch part ###############################################
     if pretrain_classname:
         # save pretrain config
         pretrainTrainer = pre_trainer_zoos[pretrain_classname](
@@ -155,6 +155,5 @@ def main_worker(rank, ngpus_per_node, config, pretrain_config, cmanager, port): 
     trainer.start_training()
 
 
-# trainer.inference(checkpoint=checkpoint)
 if __name__ == '__main__':
     main()
