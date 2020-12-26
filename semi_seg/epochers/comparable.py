@@ -202,7 +202,7 @@ class MIDLPaperEpocher(UDATrainEpocher):
 
     def init(self, *, iic_weight: float, uda_weight: float, iic_segcriterion: T_loss, reg_criterion: T_loss,  # noqa
              **kwargs):  # noqa
-        super().init(reg_weight=1.0, reg_criterion=reg_criterion)
+        super().init(reg_weight=1.0, reg_criterion=reg_criterion, **kwargs)
         self._iic_segcriterion = iic_segcriterion  # noqa
         self._iic_weight = iic_weight  # noqa
         self._uda_weight = uda_weight  # noqa
@@ -223,7 +223,7 @@ class MIDLPaperEpocher(UDATrainEpocher):
             unlabeled_logits_tf=unlabeled_logits_tf,
             seed=seed, *args, **kwargs
         )
-        iic_loss = self._iic_segcriterion(unlabeled_tf_logits, unlabeled_logits_tf.detach())
+        iic_loss = self._iic_segcriterion(unlabeled_tf_logits.softmax(1), unlabeled_logits_tf.softmax(1).detach())
         self.meters["iic_mi"].add(iic_loss.item())
         return uda_loss * self._uda_weight + iic_loss * self._iic_weight
 

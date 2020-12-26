@@ -20,8 +20,8 @@ from .helper import unl_extractor
 class UDATrainEpocher(TrainEpocher):
     only_with_labeled_data = False
 
-    def init(self, *, reg_weight: float, reg_criterion: T_loss, ):  # noqa
-        super().init(reg_weight=reg_weight)
+    def init(self, *, reg_weight: float, reg_criterion: T_loss, **kwargs):  # noqa
+        super().init(reg_weight=reg_weight, **kwargs)
         self._reg_criterion = reg_criterion  # noqa
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
