@@ -12,9 +12,8 @@ from deepclustering2.dataset.segmentation.mmwhs_dataset import MMWHSDataset as _
 
 class MMWHSDataset(ContrastDataset, _MMWHSDataset):
 
-    def __init__(self, root_dir: str, modality: str, mode: str, transforms: SequentialWrapper = None,
-                 verbose=True) -> None:
-        subfolders = ["img", "gt"]
+    def __init__(self, root_dir: str, modality: str, mode: str, subfolders=["img", "gt"],
+                 transforms: SequentialWrapper = None, verbose=True) -> None:
         super().__init__(root_dir, modality, mode, subfolders, transforms, verbose)
         self._transform = transforms
 

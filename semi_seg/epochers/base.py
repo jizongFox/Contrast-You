@@ -20,6 +20,7 @@ from deepclustering2.utils import class2one_hot, ExceptionIgnorer
 from semi_seg._utils import _num_class_mixin, FeatureExtractorWithIndex as FeatureExtractor
 
 
+# ======== validation epochers =============
 class EvalEpocher(_num_class_mixin, _Epocher):
 
     def __init__(self, model: Union[Model, nn.Module], val_loader: T_loader, sup_criterion: T_loss, cur_epoch=0,
@@ -37,9 +38,11 @@ class EvalEpocher(_num_class_mixin, _Epocher):
         meters.register_meter("dice", UniversalDice(C, report_axises=report_axis, ))
         return meters
 
+    def _set_model_state(self, model) -> None:
+        model.eval()
+
     @torch.no_grad()
     def _run(self, *args, **kwargs) -> Tuple[EpochResultDict, float]:
-        self._model.eval()
         report_dict = EpochResultDict()
         for i, val_data in zip(self._indicator, self._val_loader):
             val_img, val_target, file_path, _, group = self._unzip_data(val_data, self._device)
@@ -95,6 +98,7 @@ class InferenceEpocher(EvalEpocher):
         return report_dict, self.meters["dice"].summary()["DSC_mean"]
 
 
+# ========= base training epochers ===============
 class TrainEpocher(_num_class_mixin, _Epocher):
     only_with_labeled_data = False  # highlight: this is the tricky part of the experiments
     train_with_two_stage = False  # highlight: this is the parameter to use two stage training
@@ -134,12 +138,14 @@ class TrainEpocher(_num_class_mixin, _Epocher):
 
     def _run(self, *args, **kwargs):
         self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer)[0])
-        self._model.train()
         assert self._model.training, self._model.training
         if self.only_with_labeled_data:
             return self._run_only_label(*args, **kwargs)
         with FeatureExtractor(self._model, self._feature_position) as self._fextractor:  # noqa
             return self._run_semi(*args, **kwargs)
+
+    def _set_model_state(self, model) -> None:
+        model.train()
 
     def _run_semi(self, *args, **kwargs) -> EpochResultDict:
         report_dict = EpochResultDict()
@@ -253,71 +259,4 @@ class TrainEpocher(_num_class_mixin, _Epocher):
         return torch.tensor(0, dtype=torch.float, device=self._device)
 
 
-class PretrainEpocher(TrainEpocher):
-    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
-        meter = super()._configure_meters(meters)
-        meter.delete_meters(["sup_loss", "sup_dice"])
-        return meter
 
-    def init(self, *, chain_dataloader=None, **kwargs):
-        assert chain_dataloader is not None, chain_dataloader
-        super().init(reg_weight=1.0, **kwargs)
-        self._chain_dataloader = chain_dataloader  # noqa
-
-    def _run(self, *args, **kwargs) -> EpochResultDict:
-        self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer)[0])
-        self._model.train()
-        assert self._model.training, self._model.training
-
-        with FeatureExtractor(self._model, self._feature_position) as self._fextractor:  # noqa
-            return self._run_pretrain(*args, **kwargs)
-
-    def _run_pretrain(self, *args, **kwargs):
-        report_dict = EpochResultDict()
-        for i, data in zip(self._indicator, self._chain_dataloader):
-            seed = random.randint(0, int(1e7))
-            unlabeled_image, unlabeled_target, unlabeled_filename, unl_partition, unl_group = \
-                self._unzip_data(data, self._device)
-            n_l, n_unl = 0, len(unlabeled_image)
-
-            with FixRandomSeed(seed):
-                unlabeled_image_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_image], dim=0)
-            assert unlabeled_image_tf.shape == unlabeled_image.shape, \
-                (unlabeled_image_tf.shape, unlabeled_image.shape)
-
-            # clear feature cache
-            self._fextractor.clear()
-
-            predict_logits = self._model(torch.cat([unlabeled_image, unlabeled_image_tf], dim=0))
-
-            unlabel_logits, unlabel_tf_logits = torch.split(predict_logits, [n_unl, n_unl], dim=0)
-
-            with FixRandomSeed(seed):
-                unlabel_logits_tf = torch.stack([self._affine_transformer(x) for x in unlabel_logits], dim=0)
-
-            assert unlabel_logits_tf.shape == unlabel_tf_logits.shape, (
-                unlabel_logits_tf.shape, unlabel_tf_logits.shape)
-
-            # regularized part
-            reg_loss = self.regularization(
-                unlabeled_tf_logits=unlabel_tf_logits,
-                unlabeled_logits_tf=unlabel_logits_tf,
-                seed=seed,
-                unlabeled_image=unlabeled_image,
-                unlabeled_image_tf=unlabeled_image_tf,
-                label_group=unl_group,
-                partition_group=unl_partition,
-                unlabeled_filename=unlabeled_filename,
-            )
-            total_loss = self._reg_weight * reg_loss
-            # gradient backpropagation
-            self._optimizer.zero_grad()
-            total_loss.backward()
-            self._optimizer.step()
-            # recording can be here or in the regularization method
-            if self.on_master():
-                with torch.no_grad():
-                    self.meters["reg_loss"].add(reg_loss.item())
-                    report_dict = self.meters.tracking_status()
-                    self._indicator.set_postfix_dict(report_dict)
-        return report_dict

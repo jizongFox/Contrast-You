@@ -33,10 +33,12 @@ dataset_name2class_numbers = {
     "acdc": 4,
     "prostate": 2,
     "spleen": 2,
+    "mmwhs":5,
 }
 lr_zooms = {"acdc": 0.0000001,
             "prostate": 0.000001,
-            "spleen": 0.000001}
+            "spleen": 0.000001,
+            "mmwhs":0.000001}
 
 save_dir_main = args.save_dir if args.save_dir else "main_result_folder"
 save_dir = f"{save_dir_main}/{args.dataset_name}/" \
@@ -116,6 +118,11 @@ jobs = [
     f" IICRegParameters.weight=0.1 ",
 
     # uda iic
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/1.0_1.0 "
+    f" IICRegParameters.weight=1.0 UDARegCriterion.weight=1.0 ",
+
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/1.0_0.5 "
+    f" IICRegParameters.weight=0.5 UDARegCriterion.weight=1.0 ",
 
     f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/1.0_0.1 "
     f" IICRegParameters.weight=0.1 UDARegCriterion.weight=1.0 ",
@@ -127,6 +134,13 @@ jobs = [
     f" IICRegParameters.weight=0.05 UDARegCriterion.weight=1.0 ",
 
     # repeat
+
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/5.0_1.0 "
+    f" IICRegParameters.weight=1.0 UDARegCriterion.weight=5.0 ",
+
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/5.0_0.5 "
+    f" IICRegParameters.weight=0.5 UDARegCriterion.weight=5.0 ",
+
     f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/5.0_0.1 "
     f" IICRegParameters.weight=0.1 UDARegCriterion.weight=5.0 ",
 
@@ -137,6 +151,12 @@ jobs = [
     f" IICRegParameters.weight=0.05 UDARegCriterion.weight=5.0 ",
 
     # repeat
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/10.0_1.0 "
+    f" IICRegParameters.weight=1.0 UDARegCriterion.weight=10.0 ",
+
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/10.0_0.5 "
+    f" IICRegParameters.weight=0.5 UDARegCriterion.weight=10.0 ",
+
     f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/10.0_0.1 "
     f" IICRegParameters.weight=0.1 UDARegCriterion.weight=10.0 ",
 
@@ -147,6 +167,12 @@ jobs = [
     f" IICRegParameters.weight=0.05 UDARegCriterion.weight=10.0 ",
 
     # repeat
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/15.0_1.0 "
+    f" IICRegParameters.weight=1.0 UDARegCriterion.weight=15.0 ",
+
+    f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/15.0_0.5 "
+    f" IICRegParameters.weight=0.5 UDARegCriterion.weight=15.0 ",
+
     f" python main.py {common_opts} Trainer.name=udaiic Trainer.save_dir={save_dir}/udaiic/15.0_0.1 "
     f" IICRegParameters.weight=0.1 UDARegCriterion.weight=15.0 ",
 

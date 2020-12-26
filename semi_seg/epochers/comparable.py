@@ -1,3 +1,4 @@
+import math
 from functools import lru_cache
 
 import torch
@@ -15,6 +16,7 @@ from deepclustering2.epoch import _Epocher  # noqa
 from deepclustering2.loss import Entropy
 from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, MeterInterface, MultipleAverageValueMeter
 from deepclustering2.models import ema_updater as EMA_Updater
+from deepclustering2.schedulers.customized_scheduler import RampScheduler
 from deepclustering2.type import T_loss
 from semi_seg._utils import ClusterProjectorWrapper, PICALossWrapper, FeatureExtractor, IICLossWrapper, \
     ContrastiveProjectorWrapper
@@ -250,6 +252,7 @@ class EntropyMinEpocher(TrainEpocher):
 
 
 class PICAEpocher(IICTrainEpocher):
+    only_with_labeled_data = False
 
     def init(self, *, reg_weight: float, projectors_wrapper: ClusterProjectorWrapper,
              PICASegCriterionWrapper: PICALossWrapper, enforce_matching=False, **kwargs):
@@ -263,7 +266,7 @@ class InfoNCEEpocher(TrainEpocher):
 
     def init(self, *, reg_weight: float, projectors_wrapper: ContrastiveProjectorWrapper = None,
              infoNCE_criterion: T_loss = None, **kwargs):
-        assert projectors_wrapper is not None and infoNCE_criterion is not None
+        assert projectors_wrapper is not None and infoNCE_criterion is not None, (projectors_wrapper, infoNCE_criterion)
         super().init(reg_weight=reg_weight, **kwargs)
         self._projectors_wrapper: ContrastiveProjectorWrapper = projectors_wrapper  # noqa
         self._infonce_criterion: T_loss = infoNCE_criterion  # noqa
