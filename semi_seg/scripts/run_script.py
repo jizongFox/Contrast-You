@@ -15,6 +15,7 @@ parser.add_argument("--time", default=4, type=int, help="demanded time")
 parser.add_argument("--distributed", action="store_true", default=False, help="enable distributed training")
 parser.add_argument("--num_gpus", default=1, type=int, help="gpu numbers")
 parser.add_argument("--two_stage_training", default=False, action="store_true", help="two_stage_training")
+parser.add_argument("--disable_bn", default=False, action="store_true", help="disable_bn")
 
 args = parser.parse_args()
 
@@ -23,27 +24,32 @@ if args.distributed:
 else:
     args.num_gpus = 1
 
+if args.disable_bn:
+    assert args.two_stage_training
+
 num_batches = args.num_batches
 random_seed = args.random_seed
 
 labeled_data_ratio = args.label_ratio
 two_stage_training = args.two_stage_training
+disable_bn = args.disable_bn
 
 dataset_name2class_numbers = {
     "acdc": 4,
     "prostate": 2,
     "spleen": 2,
-    "mmwhs":5,
+    "mmwhs": 5,
 }
 lr_zooms = {"acdc": 0.0000001,
             "prostate": 0.000001,
             "spleen": 0.000001,
-            "mmwhs":0.000001}
+            "mmwhs": 0.000001}
 
 save_dir_main = args.save_dir if args.save_dir else "main_result_folder"
 save_dir = f"{save_dir_main}/{args.dataset_name}/" \
            f"label_data_ration_{labeled_data_ratio}/" \
            f"{'two' if two_stage_training else 'single'}_stage_training/" \
+           f"bn_track_{str(disable_bn)}/" \
            f"random_seed_{random_seed}"
 
 common_opts = f" Data.labeled_data_ratio={args.label_ratio} " \
@@ -55,7 +61,8 @@ common_opts = f" Data.labeled_data_ratio={args.label_ratio} " \
               f" Optim.lr={lr_zooms[args.dataset_name]:.10f} " \
               f" RandomSeed={random_seed} " \
               f" DistributedTrain={args.distributed}" \
-              f" Trainer.two_stage_training={two_stage_training} "
+              f" Trainer.two_stage_training={two_stage_training} " \
+              f" Trainer.Trainer.disable_bn_track_for_unlabeled_data={disable_bn} "
 
 jobs = [
     # baseline

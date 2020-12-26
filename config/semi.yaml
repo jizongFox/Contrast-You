@@ -38,6 +38,7 @@ Trainer:
   max_epoch: 100
   only_labeled_data: false
   two_stage_training: false
+  disable_bn_track_for_unlabeled_data: false
 
 UDARegCriterion:
   name: mse # kl

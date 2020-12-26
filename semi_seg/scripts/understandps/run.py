@@ -67,6 +67,9 @@ jobs = [
     f" python main.py {common_opts} Trainer.name=understandps Trainer.save_dir={save_dir}/infoNCE/ps_two_stage_train  "
     f" Trainer.only_labeled_data=False Trainer.two_stage_training=True ",
 
+    f" python main.py {common_opts} Trainer.name=understandps Trainer.save_dir={save_dir}/infoNCE/ps_two_stage_train_bn_off  "
+    f" Trainer.only_labeled_data=False Trainer.two_stage_training=True Trainer.disable_bn_track_for_unlabeled_data=true ",
+
     f" python main.py {common_opts} Trainer.name=understandps Trainer.save_dir={save_dir}/infoNCE/fs "
     f" Data.labeled_data_ratio=1 Data.unlabeled_data_ratio=0",
 

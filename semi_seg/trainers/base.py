@@ -47,6 +47,7 @@ class SemiTrainer(Trainer):
         self._feature_importance = [x / sum(feature_importance) for x in feature_importance]
         assert len(self._feature_importance) == len(self.feature_positions), \
             (self._feature_importance, self.feature_positions)
+        self._disable_bn = self._config["Trainer"].get("disable_bn_track_for_unlabeled_data", False)
 
     def _init_scheduler(self, optimizer):
         scheduler_dict = self._config.get("Scheduler", None)
@@ -90,10 +91,12 @@ class SemiTrainer(Trainer):
             epocher.only_with_labeled_data = True
         if self._train_with_two_stage:
             epocher.train_with_two_stage = True
+        # manually hack the setting of disable_bn option
+        epocher.init = partial(epocher.init, disable_bn_track_for_unlabeled_data=self._disable_bn)
         return epocher
 
     def _run_epoch(self, epocher: TrainEpocher, *args, **kwargs) -> EpochResultDict:
-        epocher.init(reg_weight=0.0)  # partial supervision without regularization
+        epocher.init(reg_weight=0.0, disable_bn_track_for_unlabeled_data=self._disable_bn)  # partial supervision without regularization
         result = epocher.run()
         return result
 

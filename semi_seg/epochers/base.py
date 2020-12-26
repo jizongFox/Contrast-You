@@ -1,4 +1,5 @@
 import random
+from contextlib import nullcontext
 from typing import Union, Tuple
 
 import torch
@@ -10,6 +11,7 @@ from contrastyou.epocher._utils import preprocess_input_with_twice_transformatio
 from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
 from deepclustering2.augment.tensor_augment import TensorRandomFlip
 from deepclustering2.decorator import FixRandomSeed
+from deepclustering2.decorator.decorator import _disable_tracking_bn_stats
 from deepclustering2.epoch import _Epocher  # noqa
 from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, UniversalDice, MeterInterface, SurfaceMeter
 from deepclustering2.models import Model
@@ -122,8 +124,9 @@ class TrainEpocher(_num_class_mixin, _Epocher):
         assert len(self._feature_position) == len(self._feature_importance), \
             (len(self._feature_position), len(self._feature_importance))
 
-    def init(self, *, reg_weight: float, **kwargs):
+    def init(self, *, reg_weight: float, disable_bn_track_for_unlabeled_data: bool, **kwargs):
         self._reg_weight = reg_weight  # noqa
+        self._disable_bn = disable_bn_track_for_unlabeled_data
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         C = self.num_classes
@@ -148,6 +151,7 @@ class TrainEpocher(_num_class_mixin, _Epocher):
         model.train()
 
     def _run_semi(self, *args, **kwargs) -> EpochResultDict:
+        bn_context = _disable_tracking_bn_stats if self._disable_bn else nullcontext
         report_dict = EpochResultDict()
         for i, labeled_data, unlabeled_data in zip(self._indicator, self._labeled_loader, self._unlabeled_loader):
             seed = random.randint(0, int(1e7))
@@ -173,11 +177,12 @@ class TrainEpocher(_num_class_mixin, _Epocher):
             # train with two stages, while their feature extractions are the same
             else:
                 label_logits = self._model(labeled_image)
-                unlabel_logits, unlabel_tf_logits = torch.split(
-                    self._model(torch.cat([unlabeled_image, unlabeled_image_tf], dim=0)),
-                    [n_unl, n_unl],
-                    dim=0
-                )
+                with bn_context(self._model):
+                    unlabel_logits, unlabel_tf_logits = torch.split(
+                        self._model(torch.cat([unlabeled_image, unlabeled_image_tf], dim=0)),
+                        [n_unl, n_unl],
+                        dim=0
+                    )
 
             with FixRandomSeed(seed):
                 unlabel_logits_tf = torch.stack([self._affine_transformer(x) for x in unlabel_logits], dim=0)
@@ -257,6 +262,3 @@ class TrainEpocher(_num_class_mixin, _Epocher):
 
     def regularization(self, *args, **kwargs):
         return torch.tensor(0, dtype=torch.float, device=self._device)
-
-
-
