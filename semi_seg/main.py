@@ -89,7 +89,7 @@ def main_worker(rank, ngpus_per_node, config, pretrain_config, cmanager, port): 
         model = convert2syncBN(model)
         model = torch.nn.parallel.DistributedDataParallel(model.to(rank), device_ids=[rank])
 
-    pretrain_classname = pretrain_config["PretrainConfig"]["Trainer"].get("name")
+    pretrain_classname = pretrain_config["PretrainConfig"].get("Trainer", {}).get("name")
     checkpoint = config.get("Checkpoint", None)
     use_only_labeled_data = config["Trainer"].pop("only_labeled_data")
     two_stage_training = config["Trainer"].pop("two_stage_training")
@@ -152,7 +152,8 @@ def main_worker(rank, ngpus_per_node, config, pretrain_config, cmanager, port): 
     if two_stage_training:
         trainer.set_train_with_two_stage(enable=True)
 
-    trainer.start_training()
+    # trainer.start_training()
+    trainer.inference()
 
 
 if __name__ == '__main__':

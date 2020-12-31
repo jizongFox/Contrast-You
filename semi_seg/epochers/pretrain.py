@@ -5,10 +5,10 @@ import torch
 from torch import nn
 
 from contrastyou.arch.unet import freeze_grad
+from contrastyou.featextractor.unet import FeatureExtractorWithIndex as FeatureExtractor
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.meters2 import EpochResultDict, MeterInterface
 from deepclustering2.optim import get_lrs_from_optimizer
-from semi_seg._utils import FeatureExtractorWithIndex as FeatureExtractor
 from .comparable import InfoNCEEpocher
 from .miepocher import IICTrainEpocher, UDAIICEpocher
 

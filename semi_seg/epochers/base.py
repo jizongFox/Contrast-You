@@ -3,12 +3,10 @@ from contextlib import nullcontext
 from typing import Union, Tuple
 
 import torch
-from torch import nn
-from torch.utils.data import DataLoader
-
 from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
 from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
 from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
+from contrastyou.featextractor.unet import FeatureExtractorWithIndex as FeatureExtractor
 from deepclustering2.augment.tensor_augment import TensorRandomFlip
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.decorator.decorator import _disable_tracking_bn_stats
@@ -18,8 +16,10 @@ from deepclustering2.models import Model
 from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.schedulers.customized_scheduler import WeightScheduler
 from deepclustering2.type import T_loader, T_loss, T_optim
-from deepclustering2.utils import class2one_hot, ExceptionIgnorer
-from semi_seg._utils import _num_class_mixin, FeatureExtractorWithIndex as FeatureExtractor
+from deepclustering2.utils import class2one_hot, ExceptionIgnorer, warn_on_unused_kwargs
+from semi_seg._utils import _num_class_mixin
+from torch import nn
+from torch.utils.data import DataLoader
 
 
 # ======== validation epochers =============
@@ -127,6 +127,7 @@ class TrainEpocher(_num_class_mixin, _Epocher):
     def init(self, *, reg_weight: float, disable_bn_track_for_unlabeled_data: bool, **kwargs):
         self._reg_weight = reg_weight  # noqa
         self._disable_bn = disable_bn_track_for_unlabeled_data
+        warn_on_unused_kwargs(kwargs)
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         C = self.num_classes
@@ -157,7 +158,7 @@ class TrainEpocher(_num_class_mixin, _Epocher):
             seed = random.randint(0, int(1e7))
             labeled_image, labeled_target, labeled_filename, _, label_group = \
                 self._unzip_data(labeled_data, self._device)
-            unlabeled_image, _, unlabeled_filename, unl_partition, unl_group = self._unzip_data(
+            unlabeled_image, _unlabeled_target, unlabeled_filename, unl_partition, unl_group = self._unzip_data(
                 unlabeled_data, self._device)
             n_l, n_unl = len(labeled_image), len(unlabeled_image)
 

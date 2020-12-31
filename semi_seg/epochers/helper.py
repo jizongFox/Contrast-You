@@ -1,10 +1,9 @@
 from contextlib import contextmanager
 from typing import Union
 
-import torch
 from torch import Tensor, nn
 
-from semi_seg._utils import FeatureExtractor
+from contrastyou.featextractor.unet import FeatureExtractor
 
 
 class unl_extractor:

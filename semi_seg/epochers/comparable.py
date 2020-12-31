@@ -8,6 +8,7 @@ from torch import nn
 from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
 from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
 from contrastyou.epocher._utils import write_predict, write_img_target, unfold_position  # noqa
+from contrastyou.featextractor.unet import FeatureExtractor
 from contrastyou.helper import average_iter, weighted_average_iter
 from contrastyou.projectors.heads import ProjectionHead, LocalProjectionHead
 from deepclustering2.decorator import FixRandomSeed
@@ -18,7 +19,7 @@ from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, MeterInt
 from deepclustering2.models import ema_updater as EMA_Updater
 from deepclustering2.schedulers.customized_scheduler import RampScheduler
 from deepclustering2.type import T_loss
-from semi_seg._utils import ClusterProjectorWrapper, PICALossWrapper, FeatureExtractor, IICLossWrapper, \
+from semi_seg._utils import ClusterProjectorWrapper, PICALossWrapper, IICLossWrapper, \
     ContrastiveProjectorWrapper
 from .base import TrainEpocher
 from .helper import unl_extractor
@@ -154,6 +155,7 @@ class IICMeanTeacherEpocher(IICTrainEpocher):
         feature_names = self._fextractor._feature_names  # noqa
         n_uls = len(unlabeled_tf_logits) * 2
 
+        self._teacher_fextractor.clear()
         with torch.no_grad():
             teacher_logits = self._teacher_model(unlabeled_image)
         with FixRandomSeed(seed):

@@ -1,55 +1,13 @@
 from functools import lru_cache
 
-from torch import nn, Tensor
+from torch import nn
 from torch.nn import functional as F
 
-
-class Flatten(nn.Module):
-
-    def __init__(self) -> None:
-        super().__init__()
-
-    def forward(self, features):
-        b, *_ = features.shape
-        return features.view(b, -1)
-
-
-class SoftmaxWithT(nn.Softmax):
-
-    def __init__(self, dim, T: float = 1.0) -> None:
-        super().__init__(dim)
-        self._T = T
-
-    def forward(self, input: Tensor) -> Tensor:
-        input /= self._T
-        return super().forward(input)
-
-
-class Normalize(nn.Module):
-
-    def __init__(self, dim=1) -> None:
-        super().__init__()
-        self._dim = dim
-
-    def forward(self, input):
-        return nn.functional.normalize(input, p=2, dim=self._dim)
-
-
-class Identical(nn.Module):
-
-    def __init__(self) -> None:
-        super().__init__()
-
-    def forward(self, input):
-        return input
+from .nn import HeadBase, Flatten, Normalize, Identical, SoftmaxWithT
 
 
 def _check_head_type(head_type):
     return head_type in ("mlp", "linear")
-
-
-class HeadBase(nn.Module):
-    pass
 
 
 # head for contrastive projection
@@ -79,7 +37,7 @@ class ProjectionHead(HeadBase):
     def forward(self, features):
         return self._header(features)
 
-
+# head for contrastive pixel-wise projection
 class LocalProjectionHead(HeadBase):
     """
     return a fixed feature size
@@ -116,7 +74,7 @@ class LocalProjectionHead(HeadBase):
         return Normalize()
 
 
-# head for clustering
+# head for IIC clustering
 class ClusterHead(HeadBase):
     def __init__(self, input_dim, num_clusters=5, num_subheads=10, head_type="linear", T=1, normalize=False) -> None:
         super().__init__()
@@ -157,7 +115,7 @@ class ClusterHead(HeadBase):
     def forward(self, features):
         return [x(features) for x in self._headers]
 
-
+# head for IIC segmentaiton clustering
 class LocalClusterHead(HeadBase):
     """
     this classification head uses the loss for IIC segmentation, which consists of multiple heads

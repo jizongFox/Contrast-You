@@ -1,7 +1,6 @@
 from itertools import repeat
 from typing import List, Union
 
-import torch
 from torch import nn, Tensor
 from torch._six import container_abcs
 
@@ -20,20 +19,6 @@ def get_model(model):
     elif isinstance(model, nn.Module):
         return model
     raise TypeError(type(model))
-
-
-class _num_class_mixin:
-    _model: nn.Module
-
-    @property
-    def num_classes(self):
-        return get_model(self._model).num_classes
-
-
-class IIDLoss(_IIDLoss):
-
-    def forward(self, x_out: Tensor, x_tf_out: Tensor):
-        return super().forward(x_out, x_tf_out)[0]
 
 
 def _filter_encodernames(feature_list):
@@ -56,103 +41,31 @@ def _nlist(n):
     return parse
 
 
-class _FeatureCollector:
-    def __call__(self, _, input, result):
-        self.feature = result
+class _num_class_mixin:
+    _model: nn.Module
 
-    def clear(self):
-        pass
-
-
-class _FeatureCollectorWithIndex:
-
-    def __init__(self) -> None:
-        self.__n = 0
-        self.feature = dict()
-
-    def __call__(self, _, input, result):
-        self.feature[self.__n] = result
-        self.__n += 1
-
-    def clear(self):
-        self.__n = 0
-        del self.feature
-        self.feature = dict()
+    @property
+    def num_classes(self):
+        return get_model(self._model).num_classes
 
 
-class FeatureExtractor(nn.Module):
+# loss function
+class IIDLoss(_IIDLoss):
 
-    def __init__(self, net: UNet, feature_names: Union[List[str], str]) -> None:
-        super().__init__()
-        self._net = net
-        if isinstance(feature_names, str):
-            feature_names = [feature_names, ]
-        self._feature_names = feature_names
-        for f in self._feature_names:
-            assert f in UNet().component_names, f
-
-    def __enter__(self):
-        self._feature_exactors = {}
-        self._hook_handlers = {}
-        net = get_model(self._net)
-        for f in self._feature_names:
-            extractor = self._create_collector()
-            handler = getattr(net, f).register_forward_hook(extractor)
-            self._feature_exactors[f] = extractor
-            self._hook_handlers[f] = handler
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        for k, v in self._hook_handlers.items():
-            v.remove()
-        del self._feature_exactors, self._hook_handlers
-
-    def __getitem__(self, item):
-        if item in self._feature_exactors:
-            return self._feature_exactors[item].feature
-        return super().__getitem__(item)
-
-    def get_feature_from_num(self, num):
-        feature = self._feature_names[num]
-        return self[feature]
-
-    def __iter__(self):
-        for k, v in self._feature_exactors.items():
-            yield v.feature
-
-    def _create_collector(self):
-        return _FeatureCollector()
-
-    def clear(self):
-        pass
+    def forward(self, x_out: Tensor, x_tf_out: Tensor):
+        return super().forward(x_out, x_tf_out)[0]
 
 
-class FeatureExtractorWithIndex(FeatureExtractor):
-    """
-    This module enhance the FeatureExtractor to provide multiple forward record with `clear` method
-    """
-
-    def _create_collector(self):
-        return _FeatureCollectorWithIndex()
-
-    def clear(self):
-        for k, v in self._feature_exactors.items():
-            v.clear()
-
-    def __iter__(self):
-        for k, v in self._feature_exactors.items():
-            yield torch.cat(list(v.feature.values()), dim=0)
-
-
+# decoder IIC projectors
 class _LocalClusterWrappaer(ProjectorWrapperBase):
     def __init__(
-            self,
-            feature_names: Union[str, List[str]],
-            head_types: Union[str, List[str]] = "linear",
-            num_subheads: Union[int, List[int]] = 5,
-            num_clusters: Union[int, List[int]] = 10,
-            normalize: Union[bool, List[bool]] = False,
-            temperature: Union[float, List[float]] = 1.0,
+        self,
+        feature_names: Union[str, List[str]],
+        head_types: Union[str, List[str]] = "linear",
+        num_subheads: Union[int, List[int]] = 5,
+        num_clusters: Union[int, List[int]] = 10,
+        normalize: Union[bool, List[bool]] = False,
+        temperature: Union[float, List[float]] = 1.0,
     ) -> None:
         super(_LocalClusterWrappaer, self).__init__()
         if isinstance(feature_names, str):
@@ -183,12 +96,14 @@ class _LocalClusterWrappaer(ProjectorWrapperBase):
         return _LocalClusterHead(*args, **kwargs)
 
 
+# encoder IIC projectors
 class _EncoderClusterWrapper(_LocalClusterWrappaer):
     @staticmethod
     def _create_clusterheads(*args, **kwargs):
         return _EncoderClusterHead(*args, **kwargs)
 
 
+# encoder and decoder projectors for IIC
 class ClusterProjectorWrapper(CombineWrapperBase):
 
     def __init__(self):
@@ -197,13 +112,13 @@ class ClusterProjectorWrapper(CombineWrapperBase):
         self._decoder_names = []
 
     def init_encoder(
-            self,
-            feature_names: Union[str, List[str]],
-            head_types: Union[str, List[str]] = "linear",
-            num_subheads: Union[int, List[int]] = 5,
-            num_clusters: Union[int, List[int]] = 10,
-            normalize: Union[bool, List[bool]] = False,
-            temperature: Union[float, List[float]] = 1.0
+        self,
+        feature_names: Union[str, List[str]],
+        head_types: Union[str, List[str]] = "linear",
+        num_subheads: Union[int, List[int]] = 5,
+        num_clusters: Union[int, List[int]] = 10,
+        normalize: Union[bool, List[bool]] = False,
+        temperature: Union[float, List[float]] = 1.0
     ):
         self._encoder_names = _filter_encodernames(feature_names)
         encoder_projectors = _EncoderClusterWrapper(
@@ -230,13 +145,14 @@ class ClusterProjectorWrapper(CombineWrapperBase):
         return self._encoder_names + self._decoder_names
 
 
+# encoder contrastive projector
 class _ContrastiveEncodeProjectorWrapper(ProjectorWrapperBase):
 
     def __init__(
-            self,
-            feature_names: Union[str, List[str]],
-            head_types: Union[str, List[str]],
-            normalize: Union[bool, List[bool]] = True,
+        self,
+        feature_names: Union[str, List[str]],
+        head_types: Union[str, List[str]],
+        normalize: Union[bool, List[bool]] = True,
     ):
         super().__init__()
         if isinstance(feature_names, str):
@@ -259,12 +175,14 @@ class _ContrastiveEncodeProjectorWrapper(ProjectorWrapperBase):
         return _ProjectionHead(input_dim=input_dim, output_dim=output_dim, head_type=head_type, normalize=normalize)
 
 
+# decoder contrastive projector
 class _ContrastiveDecoderProjectorWrapper(_ContrastiveEncodeProjectorWrapper):
     @staticmethod
     def _create_head(input_dim, output_dim, head_type, normalize):
         return _LocalProjectionHead(input_dim=input_dim, head_type=head_type, output_size=(2, 2), normalize=normalize)
 
 
+# encoder and decoder contrastive projector
 class ContrastiveProjectorWrapper(CombineWrapperBase):
 
     def __init__(self):
@@ -273,10 +191,10 @@ class ContrastiveProjectorWrapper(CombineWrapperBase):
         self._decoder_names = []
 
     def init_encoder(
-            self,
-            feature_names: Union[str, List[str]],
-            head_types: Union[str, List[str]] = "mlp",
-            normalize: Union[bool, List[bool]] = True,
+        self,
+        feature_names: Union[str, List[str]],
+        head_types: Union[str, List[str]] = "mlp",
+        normalize: Union[bool, List[bool]] = True,
     ):
         self._encoder_names = _filter_encodernames(feature_names)
         encoder_projectors = _ContrastiveEncodeProjectorWrapper(
@@ -284,10 +202,10 @@ class ContrastiveProjectorWrapper(CombineWrapperBase):
         self._projector_list.append(encoder_projectors)
 
     def init_decoder(
-            self,
-            feature_names: Union[str, List[str]],
-            head_types: Union[str, List[str]] = "mlp",
-            normalize: Union[bool, List[bool]] = True,
+        self,
+        feature_names: Union[str, List[str]],
+        head_types: Union[str, List[str]] = "mlp",
+        normalize: Union[bool, List[bool]] = True,
     ):
         self._decoder_names = _filter_decodernames(feature_names)
         decoder_projectors = _ContrastiveDecoderProjectorWrapper(
@@ -299,6 +217,7 @@ class ContrastiveProjectorWrapper(CombineWrapperBase):
         return self._encoder_names + self._decoder_names
 
 
+# IIC loss for encoder and decoder
 class IICLossWrapper(LossWrapperBase):
 
     def __init__(self,
@@ -324,6 +243,7 @@ class IICLossWrapper(LossWrapperBase):
         return self._encoder_features + self._decoder_features
 
 
+# PICA loss for encoder and decoder
 class PICALossWrapper(LossWrapperBase):
 
     def __init__(self,

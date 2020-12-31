@@ -8,7 +8,6 @@ from torch import nn
 from torch import optim
 
 from contrastyou import PROJECT_PATH
-from contrastyou.helper import get_dataset
 from deepclustering2 import optim
 from deepclustering2.meters2 import EpochResultDict
 from deepclustering2.meters2 import StorageIncomeDict
@@ -16,7 +15,7 @@ from deepclustering2.schedulers import GradualWarmupScheduler
 from deepclustering2.trainer2 import Trainer
 from deepclustering2.type import T_loader, T_loss
 from semi_seg.epochers import InferenceEpocher
-from semi_seg.epochers import TrainEpocher, EvalEpocher, InfoNCEPretrainEpocher
+from semi_seg.epochers import TrainEpocher, EvalEpocher
 
 
 class SemiTrainer(Trainer):
@@ -96,7 +95,7 @@ class SemiTrainer(Trainer):
         return epocher
 
     def _run_epoch(self, epocher: TrainEpocher, *args, **kwargs) -> EpochResultDict:
-        epocher.init(reg_weight=0.0, disable_bn_track_for_unlabeled_data=self._disable_bn)  # partial supervision without regularization
+        epocher.init(reg_weight=0.0)  # partial supervision without regularization
         result = epocher.run()
         return result
 
@@ -164,7 +163,3 @@ class SemiTrainer(Trainer):
 class FineTuneTrainer(SemiTrainer):
     _only_labeled_data = True
     pass
-
-
-
-

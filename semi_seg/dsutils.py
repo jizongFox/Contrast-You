@@ -70,7 +70,7 @@ def get_dataloaders(config, group_val_patient=True):
         num_workers=config["UnlabeledData"]["num_workers"],
         pin_memory=True
     )
-    group_val_patient = group_val_patient if not dataset_name == "spleen" else False
+    group_val_patient = group_val_patient if dataset_name not in ("spleen", "mmwhs") else False
     val_loader = DataLoader(
         val_set,
         batch_size=1 if group_val_patient else 4,

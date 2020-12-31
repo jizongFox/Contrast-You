@@ -7,6 +7,7 @@ from torch import Tensor, nn
 from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
 from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
 from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
+from contrastyou.featextractor.unet import FeatureExtractor
 from contrastyou.helper import average_iter, weighted_average_iter
 from contrastyou.projectors.heads import ClusterHead  # noqa
 from deepclustering2.epoch import _Epocher  # noqa
@@ -14,7 +15,7 @@ from deepclustering2.meters2 import AverageValueMeter, MultipleAverageValueMeter
     MeterInterface
 from deepclustering2.type import T_loss
 from deepclustering2.utils import F
-from semi_seg._utils import FeatureExtractor, ClusterProjectorWrapper, IICLossWrapper, _filter_decodernames
+from semi_seg._utils import ClusterProjectorWrapper, IICLossWrapper, _filter_decodernames
 from .miepocher import IICTrainEpocher, UDAIICEpocher
 
 
@@ -75,7 +76,8 @@ class _FeatureOutputIICEpocher:
 
 class FeatureOutputCrossIICEpocher(_FeatureOutputIICEpocher, IICTrainEpocher):
 
-    def init(self, *, projectors_wrapper: ClusterProjectorWrapper, projectors_wrapper_output: ClusterProjectorWrapper,  # noqa
+    def init(self, *, projectors_wrapper: ClusterProjectorWrapper, projectors_wrapper_output: ClusterProjectorWrapper,
+             # noqa
              IIDSegCriterionWrapper: IICLossWrapper, IIDSegCriterionWrapper_output: IICLossWrapper,  # noqa
              cross_reg_weight: float, output_reg_weight: float,  # noqa
              enforce_matching=False, **kwargs):  # noqa
