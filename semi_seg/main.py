@@ -152,8 +152,8 @@ def main_worker(rank, ngpus_per_node, config, pretrain_config, cmanager, port): 
     if two_stage_training:
         trainer.set_train_with_two_stage(enable=True)
 
-    # trainer.start_training()
-    trainer.inference()
+    trainer.start_training()
+    # trainer.inference()
 
 
 if __name__ == '__main__':
