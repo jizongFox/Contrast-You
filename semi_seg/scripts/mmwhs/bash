@@ -1,2 +1,14 @@
 #!/bin/bash
+run() {
+  python run_script.py -n mmwhs -s 10 --lr "${1}" --save_dir=0101 -l 0.1
+  python run_script.py -n mmwhs -s 10 --lr "${1}" --save_dir=0101 -l 0.15
+  python run_script.py -n mmwhs -s 10 --lr "${1}" --save_dir=0101 -l 0.2
+}
 
+run 0.0000001
+
+run 0.000001
+
+run 0.00001
+
+run 0.0001

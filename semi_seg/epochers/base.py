@@ -169,14 +169,14 @@ class TrainEpocher(_num_class_mixin, _Epocher):
 
             # clear the cached features
             self._fextractor.clear()
-            # if train with only single stage
-            if self.train_with_two_stage is False:
-                predict_logits = self._model(torch.cat([labeled_image, unlabeled_image, unlabeled_image_tf], dim=0))
 
+            if not self.train_with_two_stage:
+                # if train with only single stage
+                predict_logits = self._model(torch.cat([labeled_image, unlabeled_image, unlabeled_image_tf], dim=0))
                 label_logits, unlabel_logits, unlabel_tf_logits = torch.split(predict_logits,
                                                                               [n_l, n_unl, n_unl], dim=0)
-            # train with two stages, while their feature extractions are the same
             else:
+                # train with two stages, while their feature extractions are the same
                 label_logits = self._model(labeled_image)
                 with bn_context(self._model):
                     unlabel_logits, unlabel_tf_logits = torch.split(

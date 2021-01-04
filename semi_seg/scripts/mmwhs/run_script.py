@@ -53,7 +53,7 @@ lr: str = args.lr or f"{lr_zooms[args.dataset_name]:.10f}"
 save_dir = f"{save_dir_main}/{args.dataset_name}/" \
            f"label_data_ration_{labeled_data_ratio}/" \
            f"{'two' if two_stage_training else 'single'}_stage_training/" \
-           f"bn_track_{str(disable_bn)}/" \
+           f"bn_track_{str(not disable_bn)}/" \
            f"random_seed_{random_seed}/" \
            f"lr_{lr}"
 
@@ -67,7 +67,7 @@ common_opts = f" Data.labeled_data_ratio={args.label_ratio} " \
               f" RandomSeed={random_seed} " \
               f" DistributedTrain={args.distributed}" \
               f" Trainer.two_stage_training={two_stage_training} " \
-              f" Trainer.Trainer.disable_bn_track_for_unlabeled_data={disable_bn} "
+              f" Trainer.disable_bn_track_for_unlabeled_data={disable_bn} "
 
 jobs = [
     # baseline
