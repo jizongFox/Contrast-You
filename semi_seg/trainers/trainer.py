@@ -3,9 +3,6 @@ from itertools import chain
 from typing import Tuple, Type
 
 import torch
-from torch import nn
-from torch import optim
-
 from contrastyou.losses.contrast_loss import SupConLoss
 from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
 from deepclustering2 import optim
@@ -14,12 +11,16 @@ from deepclustering2.meters2 import EpochResultDict
 from deepclustering2.models import ema_updater
 from deepclustering2.schedulers.customized_scheduler import RampScheduler, WeightScheduler
 from semi_seg._utils import ClusterProjectorWrapper, IICLossWrapper, PICALossWrapper, ContrastiveProjectorWrapper
-from semi_seg.epochers import IICTrainEpocher, UDAIICEpocher, PrototypeEpocher
-from semi_seg.epochers import TrainEpocher, EvalEpocher, UDATrainEpocher, EntropyMinEpocher, MeanTeacherEpocher, \
-    IICMeanTeacherEpocher, MIDLPaperEpocher, FeatureOutputCrossIICUDAEpocher, \
-    FeatureOutputCrossIICEpocher, InfoNCEEpocher, DifferentiablePrototypeEpocher, \
+from semi_seg.epochers import MITrainEpocher, ConsistencyMIEpocher, PrototypeEpocher
+from semi_seg.epochers import TrainEpocher, EvalEpocher, ConsistencyTrainEpocher, EntropyMinEpocher, MeanTeacherEpocher, \
+    MIMeanTeacherEpocher, MIDLPaperEpocher, FeatureOutputCrossIICUDAEpocher, \
+    FeatureOutputCrossMIEpocher, InfoNCEEpocher, DifferentiablePrototypeEpocher, \
     UCMeanTeacherEpocher
 from semi_seg.epochers.comparable import PICAEpocher
+from semi_seg.miestimator.iicestimator import IICEstimatorArray
+from torch import nn
+from torch import optim
+
 from .base import SemiTrainer
 
 
@@ -31,10 +32,10 @@ class UDATrainer(SemiTrainer):
         self._reg_criterion = {"mse": nn.MSELoss(), "kl": KL_div()}[config["name"]]
         self._reg_weight = float(config["weight"])
 
-    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = UDATrainEpocher):
+    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = ConsistencyTrainEpocher):
         super()._set_epocher_class(epocher_class)
 
-    def _run_epoch(self, epocher: UDATrainEpocher, *args, **kwargs) -> EpochResultDict:
+    def _run_epoch(self, epocher: ConsistencyTrainEpocher, *args, **kwargs) -> EpochResultDict:
         epocher.init(reg_weight=self._reg_weight, reg_criterion=self._reg_criterion)
         result = epocher.run()
         return result
@@ -56,7 +57,8 @@ class MIDLTrainer(UDATrainer):
         super()._set_epocher_class(epocher_class)
 
     def _run_epoch(self, epocher: MIDLPaperEpocher, *args, **kwargs) -> EpochResultDict:
-        epocher.init(iic_weight=self._iic_weight, uda_weight=self._uda_weight, iic_segcriterion=self._iic_segcriterion,
+        epocher.init(mi_weight=self._iic_weight, consistency_weight=self._uda_weight,
+                     iic_segcriterion=self._iic_segcriterion,
                      reg_criterion=self._reg_criterion)
         result = epocher.run()
         return result
@@ -66,37 +68,42 @@ class IICTrainer(SemiTrainer):
     def _init(self):
         super(IICTrainer, self)._init()
         config = deepcopy(self._config["IICRegParameters"])
-        self._projector_wrappers = ClusterProjectorWrapper()
-        self._projector_wrappers.init_encoder(
-            feature_names=self.feature_positions,
-            **config["EncoderParams"]
-        )
-        self._projector_wrappers.init_decoder(
-            feature_names=self.feature_positions,
-            **config["DecoderParams"]
-        )
-        self._IIDSegWrapper = IICLossWrapper(
-            feature_names=self.feature_positions,
-            **config["LossParams"]
-        )
+        self._mi_estimator_array = IICEstimatorArray()
+        self._mi_estimator_array.add_encoder_interface(feature_names=self.feature_positions,
+                                                       **config["EncoderParams"])
+        self._mi_estimator_array.add_decoder_interface(feature_names=self.feature_positions,
+                                                       **config["DecoderParams"], **config["LossParams"])
+
         self._reg_weight = float(config["weight"])
         self._enforce_matching = config["enforce_matching"]
 
-    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = IICTrainEpocher):
+    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = MITrainEpocher):
         super()._set_epocher_class(epocher_class)
 
-    def _run_epoch(self, epocher: IICTrainEpocher, *args, **kwargs) -> EpochResultDict:
-        epocher.init(reg_weight=self._reg_weight, projectors_wrapper=self._projector_wrappers,
-                     IIDSegCriterionWrapper=self._IIDSegWrapper, enforce_matching=self._enforce_matching)
+    def _run_epoch(self, epocher: MITrainEpocher, *args, **kwargs) -> EpochResultDict:
+        epocher.init(reg_weight=self._reg_weight, mi_estimator_array=self._mi_estimator_array,
+                     enforce_matching=self._enforce_matching)
         result = epocher.run()
         return result
 
     def _init_optimizer(self):
         config = deepcopy(self._config["Optim"])
         self._optimizer = optim.__dict__[config["name"]](
-            params=chain(self._model.parameters(), self._projector_wrappers.parameters()),
+            params=chain(self._model.parameters(), self._mi_estimator_array.parameters()),
             **{k: v for k, v in config.items() if k != "name"}
         )
+
+
+class MineTrainer(IICTrainer):
+    def _init(self):
+        super(IICTrainer, self)._init()
+        config = deepcopy(self._config["IICRegParameters"])
+        from semi_seg.miestimator.mineestimator import MineEstimatorArray
+        self._mi_estimator_array = MineEstimatorArray()
+        self._mi_estimator_array.add_interface(self.feature_positions)
+
+        self._reg_weight = float(config["weight"])
+        self._enforce_matching = config["enforce_matching"]
 
 
 class UDAIICTrainer(IICTrainer):
@@ -108,12 +115,12 @@ class UDAIICTrainer(IICTrainer):
         self._reg_criterion = {"mse": nn.MSELoss(), "kl": KL_div()}[UDA_config["name"]]
         self._uda_weight = float(UDA_config["weight"])
 
-    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = UDAIICEpocher):
+    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = ConsistencyMIEpocher):
         super()._set_epocher_class(epocher_class)
 
-    def _run_epoch(self, epocher: UDAIICEpocher, *args, **kwargs) -> EpochResultDict:
-        epocher.init(iic_weight=self._iic_weight, uda_weight=self._uda_weight,
-                     projectors_wrapper=self._projector_wrappers, IIDSegCriterionWrapper=self._IIDSegWrapper,
+    def _run_epoch(self, epocher: ConsistencyMIEpocher, *args, **kwargs) -> EpochResultDict:
+        epocher.init(mi_weight=self._iic_weight, consistency_weight=self._uda_weight,
+                     mi_estimator_array=self._mi_estimator_array,
                      reg_criterion=self._reg_criterion, enforce_matching=self._enforce_matching)
         result = epocher.run()
         return result
@@ -194,10 +201,10 @@ class IICMeanTeacherTrainer(IICTrainer):
         self._ema_updater = ema_updater(alpha=float(config["alpha"]), weight_decay=float(config["weight_decay"]))
         self._mt_weight = float(config["weight"])
 
-    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = IICMeanTeacherEpocher):
+    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = MIMeanTeacherEpocher):
         super()._set_epocher_class(epocher_class)
 
-    def _run_epoch(self, epocher: IICMeanTeacherEpocher, *args, **kwargs) -> EpochResultDict:
+    def _run_epoch(self, epocher: MIMeanTeacherEpocher, *args, **kwargs) -> EpochResultDict:
         epocher.init(projectors_wrapper=self._projector_wrappers, IIDSegCriterionWrapper=self._IIDSegWrapper,
                      reg_criterion=self._reg_criterion, teacher_model=self._teacher_model,
                      ema_updater=self._ema_updater, mt_weight=self._mt_weight, iic_weight=self._iic_weight,
@@ -233,10 +240,10 @@ class IICFeatureOutputTrainer(IICTrainer):
         )
         self._output_reg_weight = float(config["weight"])
 
-    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = FeatureOutputCrossIICEpocher):
+    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = FeatureOutputCrossMIEpocher):
         super()._set_epocher_class(epocher_class)
 
-    def _run_epoch(self, epocher: FeatureOutputCrossIICEpocher, *args, **kwargs) -> EpochResultDict:
+    def _run_epoch(self, epocher: FeatureOutputCrossMIEpocher, *args, **kwargs) -> EpochResultDict:
         epocher.init(projectors_wrapper=self._projector_wrappers,
                      projectors_wrapper_output=self._projector_wrappers_output,
                      IIDSegCriterionWrapper=self._IIDSegWrapper,
@@ -280,7 +287,7 @@ class UDAIICFeatureOutputTrainer(UDAIICTrainer):
         super()._set_epocher_class(epocher_class)
 
     def _run_epoch(self, epocher: FeatureOutputCrossIICUDAEpocher, *args, **kwargs) -> EpochResultDict:
-        epocher.init(iic_weight=self._iic_weight, uda_weight=self._uda_weight,
+        epocher.init(mi_weight=self._iic_weight, consistency_weight=self._uda_weight,
                      output_reg_weight=self._output_reg_weight,
                      projectors_wrapper=self._projector_wrappers,
                      projectors_wrapper_output=self._projector_wrappers_output,

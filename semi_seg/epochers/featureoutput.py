@@ -16,7 +16,7 @@ from deepclustering2.meters2 import AverageValueMeter, MultipleAverageValueMeter
 from deepclustering2.type import T_loss
 from deepclustering2.utils import F
 from semi_seg._utils import ClusterProjectorWrapper, IICLossWrapper, _filter_decodernames
-from .miepocher import IICTrainEpocher, UDAIICEpocher
+from .miepocher import MITrainEpocher, ConsistencyMIEpocher
 
 
 class _FeatureOutputIICEpocher:
@@ -74,7 +74,7 @@ class _FeatureOutputIICEpocher:
         return reg_loss
 
 
-class FeatureOutputCrossIICEpocher(_FeatureOutputIICEpocher, IICTrainEpocher):
+class FeatureOutputCrossMIEpocher(_FeatureOutputIICEpocher, MITrainEpocher):
 
     def init(self, *, projectors_wrapper: ClusterProjectorWrapper, projectors_wrapper_output: ClusterProjectorWrapper,
              # noqa
@@ -94,9 +94,9 @@ class FeatureOutputCrossIICEpocher(_FeatureOutputIICEpocher, IICTrainEpocher):
     def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, *args, **kwargs):
         cross_mi = torch.tensor(0, dtype=torch.float, device=unlabeled_logits_tf.device)
         if self._cross_reg_weight > 0:
-            cross_mi = super(FeatureOutputCrossIICEpocher, self).regularization(unlabeled_tf_logits,
-                                                                                unlabeled_logits_tf,
-                                                                                seed, *args, **kwargs)
+            cross_mi = super(FeatureOutputCrossMIEpocher, self).regularization(unlabeled_tf_logits,
+                                                                               unlabeled_logits_tf,
+                                                                               seed, *args, **kwargs)
         featureoutput_mi = torch.tensor(0, dtype=torch.float, device=unlabeled_logits_tf.device)
         if self._output_reg_weight > 0:
             featureoutput_mi = self.regularization_on_feature_output(unlabeled_tf_logits, unlabeled_logits_tf,
@@ -104,12 +104,12 @@ class FeatureOutputCrossIICEpocher(_FeatureOutputIICEpocher, IICTrainEpocher):
         return cross_mi * self._cross_reg_weight + featureoutput_mi * self._output_reg_weight
 
 
-class FeatureOutputCrossIICUDAEpocher(_FeatureOutputIICEpocher, UDAIICEpocher):
+class FeatureOutputCrossIICUDAEpocher(_FeatureOutputIICEpocher, ConsistencyMIEpocher):
 
-    def init(self, *, iic_weight: float, uda_weight: float, output_reg_weight: float,  # noqa
+    def init(self, *, mi_weight: float, consistency_weight: float, output_reg_weight: float,  # noqa
              projectors_wrapper: ClusterProjectorWrapper, IIDSegCriterionWrapper: IICLossWrapper,
              reg_criterion: T_loss, enforce_matching=False, **kwargs):  # noqa
-        super().init(iic_weight=iic_weight, uda_weight=uda_weight, projectors_wrapper=projectors_wrapper,
+        super().init(mi_weight=mi_weight, consistency_weight=consistency_weight, projectors_wrapper=projectors_wrapper,
                      IIDSegCriterionWrapper=IIDSegCriterionWrapper, reg_criterion=reg_criterion,
                      enforce_matching=enforce_matching, **kwargs, )
         self._output_reg_weight = output_reg_weight  # noqa

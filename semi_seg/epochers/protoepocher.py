@@ -19,7 +19,7 @@ from deepclustering2.type import T_loss
 from semi_seg._utils import ContrastiveProjectorWrapper as PrototypeProjectorWrapper
 from .base import TrainEpocher
 from .helper import unl_extractor
-from .miepocher import UDATrainEpocher
+from .miepocher import ConsistencyTrainEpocher
 
 
 # I think this only works for pretrain-finetune framework
@@ -151,7 +151,7 @@ class PrototypeEpocher(TrainEpocher):
         return LocalLabelGenerator()
 
 
-class DifferentiablePrototypeEpocher(UDATrainEpocher):
+class DifferentiablePrototypeEpocher(ConsistencyTrainEpocher):
     """
     This Epocher is only for updating the encoder descriptor, using different ways
     https://arxiv.org/abs/2005.04966

@@ -10,7 +10,7 @@ from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.meters2 import EpochResultDict, MeterInterface
 from deepclustering2.optim import get_lrs_from_optimizer
 from .comparable import InfoNCEEpocher
-from .miepocher import IICTrainEpocher, UDAIICEpocher
+from .miepocher import MITrainEpocher, ConsistencyMIEpocher
 
 
 # ======== base pretrain epocher mixin ================
@@ -101,9 +101,9 @@ class InfoNCEPretrainEpocher(__freeze_grad_mixin, _PretrainEpocherMixin, InfoNCE
     pass
 
 
-class IICPretrainEpocher(__freeze_grad_mixin, _PretrainEpocherMixin, IICTrainEpocher):
+class MIPretrainEpocher(__freeze_grad_mixin, _PretrainEpocherMixin, MITrainEpocher):
     pass
 
 
-class UDAIICPretrainEpocher(__freeze_grad_mixin, _PretrainEpocherMixin, UDAIICEpocher):
+class UDAIICPretrainEpocher(__freeze_grad_mixin, _PretrainEpocherMixin, ConsistencyMIEpocher):
     pass

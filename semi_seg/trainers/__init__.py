@@ -6,6 +6,7 @@ base_trainer_zoos = {
     "partial": SemiTrainer,
     "uda": UDATrainer,
     "iic": IICTrainer,
+    "mine":MineTrainer,
     "udaiic": UDAIICTrainer,
     "entropy": EntropyMinTrainer,
     "meanteacher": MeanTeacherTrainer,

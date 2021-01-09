@@ -72,8 +72,8 @@ class PretrainInfoNCETrainer(_PretrainTrainerMixin, InfoNCETrainer):
 
 
 class PretrainIICTrainer(_PretrainTrainerMixin, IICTrainer):
-    from semi_seg.epochers.pretrain import IICPretrainEpocher
-    def _set_epocher_class(self, epocher_class=IICPretrainEpocher):
+    from semi_seg.epochers.pretrain import MIPretrainEpocher
+    def _set_epocher_class(self, epocher_class=MIPretrainEpocher):
         super(PretrainIICTrainer, self)._set_epocher_class(epocher_class)
 
 
