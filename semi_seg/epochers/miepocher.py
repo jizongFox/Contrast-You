@@ -1,6 +1,8 @@
 from typing import Callable, Iterable
 
 import torch
+from torch import Tensor
+
 from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
 from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
 from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
@@ -11,8 +13,6 @@ from deepclustering2.epoch import _Epocher  # noqa
 from deepclustering2.meters2 import AverageValueMeter, MultipleAverageValueMeter, \
     MeterInterface
 from deepclustering2.type import T_loss
-from torch import Tensor
-
 from .base import TrainEpocher
 from .helper import unl_extractor
 
@@ -64,7 +64,7 @@ class MITrainEpocher(TrainEpocher):
         feature_names = self._fextractor._feature_names  # noqa
         n_uls = len(unlabeled_tf_logits) * 2
 
-        def generate_iic(unlabeled_features, mi_estimator: Callable[[Tensor, Tensor], Tensor]):
+        def calculate_iic(unlabeled_features, mi_estimator: Callable[[Tensor, Tensor], Tensor]):
             unlabeled_features, unlabeled_tf_features = torch.chunk(unlabeled_features, 2, dim=0)
 
             with FixRandomSeed(seed):
@@ -75,7 +75,7 @@ class MITrainEpocher(TrainEpocher):
             loss = mi_estimator(unlabeled_tf_features, unlabeled_features_tf)
             return loss
 
-        iic_losses = [generate_iic(f, mi) for f, mi in zip(
+        iic_losses = [calculate_iic(f, mi) for f, mi in zip(
             unl_extractor(self._fextractor, n_uls=n_uls), self._mi_estimator_array
         )]
 

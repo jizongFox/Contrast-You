@@ -14,7 +14,8 @@ from deepclustering2.tqdm import tqdm
 from deepclustering2.type import T_loader, T_loss
 from .contrast_epocher import PretrainDecoderEpoch as _PretrainDecoderEpoch
 from .contrast_epocher import PretrainEncoderEpoch as _PretrainEncoderEpoch
-from ..arch import UNetFeatureExtractor
+
+UNetFeatureExtractor = None
 from ..losses.iic_loss import IIDLoss
 
 

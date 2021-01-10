@@ -95,7 +95,7 @@ class SemiTrainer(Trainer):
         return epocher
 
     def _run_epoch(self, epocher: TrainEpocher, *args, **kwargs) -> EpochResultDict:
-        epocher.init(reg_weight=0.0)  # partial supervision without regularization
+        epocher.init(reg_weight=0.0, *args, **kwargs)  # partial supervision without regularization
         result = epocher.run()
         return result
 
@@ -116,7 +116,7 @@ class SemiTrainer(Trainer):
                 with torch.no_grad():
                     eval_result, cur_score = self.eval_epoch()
             # update lr_scheduler
-            if hasattr(self, "_scheduler"):
+            if hasattr(self, "_scheduler") and hasattr(self._scheduler, "step") and callable(self._scheduler.step):
                 self._scheduler.step()
             if self.on_master():
                 storage_per_epoch = StorageIncomeDict(tra=train_result, val=eval_result)

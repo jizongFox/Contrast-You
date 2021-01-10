@@ -1,6 +1,7 @@
 RandomSeed: 10
 
 Arch:
+  name: unet
   input_dim: 1
   num_classes: 4
 
