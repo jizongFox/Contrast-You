@@ -6,6 +6,12 @@ from __future__ import print_function
 
 import torch
 import torch.nn as nn
+from torch import Tensor
+
+
+def is_normalized(feature: Tensor):
+    norms = feature.norm(dim=1)
+    return torch.allclose(norms, torch.ones_like(norms))
 
 
 class SupConLoss(nn.Module):
@@ -99,3 +105,63 @@ class SupConLoss(nn.Module):
         loss = loss.view(anchor_count, batch_size).mean()
 
         return loss
+
+
+class SupConLoss2(nn.Module):
+    def __init__(self, temperature=0.07):
+        super().__init__()
+        self._t = temperature
+
+    def forward(self, proj_feat1, proj_feat2, target=None, mask: Tensor = None):
+        assert is_normalized(proj_feat1) and is_normalized(proj_feat2), f"features need to be normalized first"
+        assert proj_feat1.shape == proj_feat2.shape, (proj_feat1.shape, proj_feat2.shape)
+
+        batch_size = len(proj_feat1)
+        projections = torch.cat([proj_feat1, proj_feat2], dim=0)
+        sim_div_temperature = torch.mm(projections, projections.t().contiguous()) / self._t
+        max_value = sim_div_temperature.max().detach()
+        sim_matrix = torch.exp(sim_div_temperature-max_value)
+        unselect_diganal_mask = 1 - torch.eye(
+            batch_size * 2, batch_size * 2, dtype=torch.float, device=proj_feat2.device)
+
+        # build negative examples
+        if mask is not None:
+            assert mask.shape == torch.Size([batch_size, batch_size])
+            mask = mask.repeat(2, 2)
+            pos_mask = mask == 1
+            neg_mask = mask == 0
+
+        elif target is not None:
+            if isinstance(target, list):
+                target = torch.Tensor(target).to(device=proj_feat2.device)
+            mask = torch.eq(target[..., None], target[None, ...])
+            mask = mask.repeat(2, 2)
+
+            pos_mask = mask == True
+            neg_mask = mask == False
+        else:
+            # only postive masks are diagnal of the sim_matrix
+            pos_mask = torch.eye(batch_size, dtype=torch.float, device=proj_feat2.device)  # SIMCLR
+            pos_mask = pos_mask.repeat(2, 2)
+            neg_mask = 1 - pos_mask
+        pos = sim_matrix * (pos_mask * unselect_diganal_mask)
+        pos = pos.sum(1)
+        negs = sim_matrix * (neg_mask * unselect_diganal_mask)
+        negs = negs.sum(1)
+
+        loss = (- torch.log(pos / (pos + negs))).mean()
+        return loss
+
+
+if __name__ == '__main__':
+    import random
+
+    feature1 = torch.randn(100, 256)
+    feature2 = torch.randn(100, 256)
+    criterion = SupConLoss2(temperature=0.07)
+    target = [random.randint(0, 5) for i in range(100)]
+    loss = criterion(
+        nn.functional.normalize(feature1, dim=1),
+        nn.functional.normalize(feature2, dim=1),
+        target=target
+    )

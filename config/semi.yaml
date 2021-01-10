@@ -122,6 +122,7 @@ InfoNCEParameters:
   DecoderParams:
     head_types: mlp
     normalize: true
+    output_size: [16,16]
   LossParams:
     temperature: 0.07
     base_temperature: 0.07
@@ -142,6 +143,7 @@ DPrototypeParameters:
   cluster_weight: 0.1
   prototytpe_nums: 100
 
-
+ExperimentParameters:
+  null
 
 #Checkpoint: runs/test_pipeline

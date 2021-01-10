@@ -81,3 +81,12 @@ class PretrainUDAIICTrainer(_PretrainTrainerMixin, UDAIICTrainer):
     from semi_seg.epochers.pretrain import UDAIICPretrainEpocher
     def _set_epocher_class(self, epocher_class=UDAIICPretrainEpocher):
         super(PretrainUDAIICTrainer, self)._set_epocher_class(epocher_class)
+
+
+from .trainer import ExperimentalTrainer
+from ..epochers.pretrain import ExperimentalPretrainEpocher
+
+
+class PretrainExperimentalTrainer(_PretrainTrainerMixin, ExperimentalTrainer):
+    def _set_epocher_class(self, epocher_class=ExperimentalPretrainEpocher):
+        super(PretrainExperimentalTrainer, self)._set_epocher_class(epocher_class)

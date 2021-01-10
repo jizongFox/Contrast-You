@@ -3,6 +3,9 @@ from contextlib import nullcontext
 from typing import Union, Tuple
 
 import torch
+from torch import nn
+from torch.utils.data import DataLoader
+
 from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
 from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
 from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
@@ -18,8 +21,6 @@ from deepclustering2.schedulers.customized_scheduler import WeightScheduler
 from deepclustering2.type import T_loader, T_loss, T_optim
 from deepclustering2.utils import class2one_hot, ExceptionIgnorer, warn_on_unused_kwargs
 from semi_seg._utils import _num_class_mixin
-from torch import nn
-from torch.utils.data import DataLoader
 
 
 # ======== validation epochers =============
@@ -126,7 +127,7 @@ class TrainEpocher(_num_class_mixin, _Epocher):
 
     def init(self, *, reg_weight: float, disable_bn_track_for_unlabeled_data: bool, **kwargs):
         self._reg_weight = reg_weight  # noqa
-        self._disable_bn = disable_bn_track_for_unlabeled_data
+        self._disable_bn = disable_bn_track_for_unlabeled_data  # noqa
         warn_on_unused_kwargs(kwargs)
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:

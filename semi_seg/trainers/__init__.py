@@ -6,7 +6,7 @@ base_trainer_zoos = {
     "partial": SemiTrainer,
     "uda": UDATrainer,
     "iic": IICTrainer,
-    "mine":MineTrainer,
+    "mine": MineTrainer,
     "udaiic": UDAIICTrainer,
     "entropy": EntropyMinTrainer,
     "meanteacher": MeanTeacherTrainer,
@@ -20,12 +20,14 @@ base_trainer_zoos = {
     # "infonce_demo": InfoNCETrainerDemo,
     "prototype": PrototypeTrainer,
     "dp": DifferentiablePrototypeTrainer,
+    "experiment": ExperimentalTrainer
 
 }
 pre_trainer_zoos = {
     "udaiicpretrain": PretrainUDAIICTrainer,
     "iicpretrain": PretrainIICTrainer,
-    "infoncepretrain": PretrainInfoNCETrainer
+    "infoncepretrain": PretrainInfoNCETrainer,
+    "experimentpretrain": PretrainExperimentalTrainer
 }
 
 trainer_zoos = {**base_trainer_zoos, **pre_trainer_zoos}

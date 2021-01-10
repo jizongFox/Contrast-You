@@ -11,7 +11,7 @@ PretrainConfig:
   ContrastData:
     group_sample_num: 8
     partition_sample_num: 1
-    num_workers: 2
+    num_workers: 4
     shuffle: false
 
   Optim:
@@ -30,6 +30,7 @@ PretrainConfig:
     DecoderParams:
       head_types: mlp
       normalize: true
+      output_size: [16,16]
     LossParams:
       temperature: 0.07
       base_temperature: 0.07

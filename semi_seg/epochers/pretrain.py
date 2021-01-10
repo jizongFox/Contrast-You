@@ -107,3 +107,10 @@ class MIPretrainEpocher(__freeze_grad_mixin, _PretrainEpocherMixin, MITrainEpoch
 
 class UDAIICPretrainEpocher(__freeze_grad_mixin, _PretrainEpocherMixin, ConsistencyMIEpocher):
     pass
+
+
+from .new import NewEpocher
+
+
+class ExperimentalPretrainEpocher(__freeze_grad_mixin, _PretrainEpocherMixin, NewEpocher):
+    pass
