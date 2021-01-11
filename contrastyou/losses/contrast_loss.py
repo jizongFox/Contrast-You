@@ -108,9 +108,10 @@ class SupConLoss(nn.Module):
 
 
 class SupConLoss2(nn.Module):
-    def __init__(self, temperature=0.07):
+    def __init__(self, temperature=0.07, out_mode=True):
         super().__init__()
         self._t = temperature
+        self._out_mode = out_mode
 
     def forward(self, proj_feat1, proj_feat2, target=None, mask: Tensor = None):
         assert is_normalized(proj_feat1) and is_normalized(proj_feat2), f"features need to be normalized first"
@@ -118,9 +119,12 @@ class SupConLoss2(nn.Module):
 
         batch_size = len(proj_feat1)
         projections = torch.cat([proj_feat1, proj_feat2], dim=0)
-        sim_div_temperature = torch.mm(projections, projections.t().contiguous()) / self._t
-        max_value = sim_div_temperature.max().detach()
-        sim_matrix = torch.exp(sim_div_temperature-max_value)
+        sim_logits = torch.mm(projections, projections.t().contiguous()) / self._t
+        max_value = sim_logits.max().detach()
+        sim_logits -= max_value
+
+        sim_exp = torch.exp(sim_logits)
+
         unselect_diganal_mask = 1 - torch.eye(
             batch_size * 2, batch_size * 2, dtype=torch.float, device=proj_feat2.device)
 
@@ -144,24 +148,66 @@ class SupConLoss2(nn.Module):
             pos_mask = torch.eye(batch_size, dtype=torch.float, device=proj_feat2.device)  # SIMCLR
             pos_mask = pos_mask.repeat(2, 2)
             neg_mask = 1 - pos_mask
-        pos = sim_matrix * (pos_mask * unselect_diganal_mask)
-        pos = pos.sum(1)
-        negs = sim_matrix * (neg_mask * unselect_diganal_mask)
-        negs = negs.sum(1)
 
-        loss = (- torch.log(pos / (pos + negs))).mean()
+        pos_mask = pos_mask * unselect_diganal_mask
+        neg_mask = neg_mask * unselect_diganal_mask
+        pos = sim_exp * pos_mask
+        negs = sim_exp * neg_mask
+        pos_count = pos_mask.sum(1)
+        if not self._out_mode:
+            # this is the in mode
+            loss = (- torch.log(pos.sum(1) / (pos.sum(1) + negs.sum(1))) / pos_count).mean()
+        # this is the out mode
+        else:
+            log_pos_div_sum_pos_neg = (sim_logits - torch.log((pos + negs).sum(1, keepdim=True))) * pos_mask
+            log_pos_div_sum_pos_neg = log_pos_div_sum_pos_neg.sum(1) / pos_count
+            loss = -log_pos_div_sum_pos_neg.mean()
+
         return loss
 
 
 if __name__ == '__main__':
     import random
 
-    feature1 = torch.randn(100, 256)
-    feature2 = torch.randn(100, 256)
-    criterion = SupConLoss2(temperature=0.07)
+    feature1 = torch.randn(100, 256, device="cuda")
+    feature2 = torch.randn(100, 256, device="cuda")
+    criterion1 = SupConLoss(temperature=0.07, base_temperature=0.07)
+    criterion2 = SupConLoss2(temperature=0.07, out_mode=False)
+    criterion3 = SupConLoss2(temperature=0.07, out_mode=True)
+
     target = [random.randint(0, 5) for i in range(100)]
-    loss = criterion(
+    from torch.cuda import Event
+
+    start = Event(enable_timing=True, blocking=True)
+    end = Event(enable_timing=True, blocking=True)
+    start.record()
+    loss1 = criterion1(torch.stack(
+        [nn.functional.normalize(feature1, dim=1),
+         nn.functional.normalize(feature2, dim=1), ], dim=1
+    ), labels=target)
+    end.record()
+    print(start.elapsed_time(end))
+
+    start = Event(enable_timing=True, blocking=True)
+    end = Event(enable_timing=True, blocking=True)
+    start.record()
+    loss2 = criterion2(
         nn.functional.normalize(feature1, dim=1),
         nn.functional.normalize(feature2, dim=1),
         target=target
     )
+    end.record()
+    print(start.elapsed_time(end))
+
+    start = Event(enable_timing=True, blocking=True)
+    end = Event(enable_timing=True, blocking=True)
+    start.record()
+    loss3 = criterion3(
+        nn.functional.normalize(feature1, dim=1),
+        nn.functional.normalize(feature2, dim=1),
+        target=target
+    )
+    end.record()
+    print(start.elapsed_time(end))
+
+    assert torch.allclose(loss1, loss2) and torch.allclose(loss3, loss1), (loss1, loss2, loss3)

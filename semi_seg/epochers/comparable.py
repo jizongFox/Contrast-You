@@ -3,9 +3,6 @@ from functools import lru_cache
 from typing import Callable, Iterable
 
 import torch
-from torch import Tensor
-from torch import nn
-
 from contrastyou.epocher._utils import unfold_position
 from contrastyou.featextractor.unet import FeatureExtractor
 from contrastyou.helper import average_iter, weighted_average_iter
@@ -17,7 +14,10 @@ from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, MeterInt
 from deepclustering2.models import ema_updater as EMA_Updater
 from deepclustering2.schedulers.customized_scheduler import RampScheduler
 from deepclustering2.type import T_loss
-from semi_seg._utils import ClusterProjectorWrapper, PICALossWrapper, ContrastiveProjectorWrapper
+from semi_seg._utils import ContrastiveProjectorWrapper
+from torch import Tensor
+from torch import nn
+
 from .base import TrainEpocher
 from .helper import unl_extractor
 from .miepocher import MITrainEpocher, ConsistencyTrainEpocher
@@ -249,14 +249,14 @@ class EntropyMinEpocher(TrainEpocher):
         return reg_loss
 
 
-class PICAEpocher(MITrainEpocher):
-    only_with_labeled_data = False
-
-    def init(self, *, reg_weight: float, projectors_wrapper: ClusterProjectorWrapper,
-             PICASegCriterionWrapper: PICALossWrapper, enforce_matching=False, **kwargs):
-        super().init(reg_weight=reg_weight, projectors_wrapper=projectors_wrapper,
-                     IIDSegCriterionWrapper=PICASegCriterionWrapper,  # noqa
-                     enforce_matching=enforce_matching, **kwargs)
+# class PICAEpocher(MITrainEpocher):
+#     only_with_labeled_data = False
+#
+#     def init(self, *, reg_weight: float, projectors_wrapper: ClusterProjectorWrapper,
+#              PICASegCriterionWrapper: PICALossWrapper, enforce_matching=False, **kwargs):
+#         super().init(reg_weight=reg_weight, projectors_wrapper=projectors_wrapper,
+#                      IIDSegCriterionWrapper=PICASegCriterionWrapper,  # noqa
+#                      enforce_matching=enforce_matching, **kwargs)
 
 
 class InfoNCEEpocher(TrainEpocher):

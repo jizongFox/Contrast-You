@@ -3,9 +3,6 @@ from itertools import chain
 from typing import Tuple, Type
 
 import torch
-from torch import nn
-from torch import optim
-
 from contrastyou.losses.contrast_loss import SupConLoss
 from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
 from deepclustering2 import optim
@@ -19,6 +16,9 @@ from semi_seg.epochers import TrainEpocher, EvalEpocher, ConsistencyTrainEpocher
     MIMeanTeacherEpocher, MIDLPaperEpocher, InfoNCEEpocher, DifferentiablePrototypeEpocher, \
     UCMeanTeacherEpocher
 from semi_seg.miestimator.iicestimator import IICEstimatorArray
+from torch import nn
+from torch import optim
+
 from .base import SemiTrainer
 
 
@@ -471,7 +471,7 @@ class ExperimentalTrainer(InfoNCETrainer):
         )
         from contrastyou.losses.contrast_loss import SupConLoss2 as SupConLoss
 
-        self._criterion = SupConLoss(temperature=config["LossParams"]["temperature"])
+        self._criterion = SupConLoss(temperature=config["LossParams"]["temperature"], out_mode=True)
         self._reg_weight = float(config["weight"])
 
     def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = NewEpocher):
