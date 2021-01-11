@@ -1,6 +1,8 @@
 from functools import lru_cache
 
 import torch
+from torch import Tensor
+
 from contrastyou.helper import weighted_average_iter, average_iter
 from contrastyou.losses.iic_loss import _ntuple
 from contrastyou.projectors.heads import ProjectionHead, LocalProjectionHead
@@ -8,8 +10,6 @@ from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.meters2 import AverageValueMeter, MeterInterface, MultipleAverageValueMeter
 from deepclustering2.type import T_loss
 from semi_seg._utils import ContrastiveProjectorWrapper
-from torch import Tensor
-
 from .base import TrainEpocher
 from .helper import unl_extractor
 

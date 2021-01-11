@@ -3,6 +3,9 @@ from functools import lru_cache
 from typing import Callable, Iterable
 
 import torch
+from torch import Tensor
+from torch import nn
+
 from contrastyou.epocher._utils import unfold_position
 from contrastyou.featextractor.unet import FeatureExtractor
 from contrastyou.helper import average_iter, weighted_average_iter
@@ -15,9 +18,6 @@ from deepclustering2.models import ema_updater as EMA_Updater
 from deepclustering2.schedulers.customized_scheduler import RampScheduler
 from deepclustering2.type import T_loss
 from semi_seg._utils import ContrastiveProjectorWrapper
-from torch import Tensor
-from torch import nn
-
 from .base import TrainEpocher
 from .helper import unl_extractor
 from .miepocher import MITrainEpocher, ConsistencyTrainEpocher
@@ -197,8 +197,8 @@ class MIMeanTeacherEpocher(MITrainEpocher):
 
 class MIDLPaperEpocher(ConsistencyTrainEpocher):
 
-    def init(self, *, mi_weight: float, consistency_weight: float, iic_segcriterion: T_loss, reg_criterion: T_loss,
-             # noqa
+    def init(self, *, mi_weight: float, consistency_weight: float, iic_segcriterion: T_loss,  # noqa
+             reg_criterion: T_loss,  # noqa
              **kwargs):  # noqa
         super().init(reg_weight=1.0, reg_criterion=reg_criterion, **kwargs)
         self._iic_segcriterion = iic_segcriterion  # noqa
