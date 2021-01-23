@@ -109,7 +109,7 @@ class UDAIICPretrainEpocher(__freeze_grad_mixin, _PretrainEpocherMixin, Consiste
     pass
 
 
-from .new import NewEpocher
+from .newepocher import NewEpocher
 
 
 class ExperimentalPretrainEpocher(__freeze_grad_mixin, _PretrainEpocherMixin, NewEpocher):

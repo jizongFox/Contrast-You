@@ -4,7 +4,7 @@ from typing import Union, Tuple
 
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.utils.data.dataloader import DataLoader
 
 from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
 from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
@@ -12,7 +12,7 @@ from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
 from contrastyou.featextractor.unet import FeatureExtractorWithIndex as FeatureExtractor
 from deepclustering2.augment.tensor_augment import TensorRandomFlip
 from deepclustering2.decorator import FixRandomSeed
-from deepclustering2.decorator.decorator import _disable_tracking_bn_stats
+from deepclustering2.decorator.decorator import _disable_tracking_bn_stats  # noqa
 from deepclustering2.epoch import _Epocher  # noqa
 from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, UniversalDice, MeterInterface, SurfaceMeter
 from deepclustering2.models import Model
@@ -46,7 +46,6 @@ class EvalEpocher(_num_class_mixin, _Epocher):
 
     @torch.no_grad()
     def _run(self, *args, **kwargs) -> Tuple[EpochResultDict, float]:
-        report_dict = EpochResultDict()
         for i, val_data in zip(self._indicator, self._val_loader):
             val_img, val_target, file_path, _, group = self._unzip_data(val_data, self._device)
             val_logits = self._model(val_img)
@@ -58,6 +57,7 @@ class EvalEpocher(_num_class_mixin, _Epocher):
             self.meters["dice"].add(val_logits.max(1)[1], val_target.squeeze(1), group_name=group)
             report_dict = self.meters.tracking_status()
             self._indicator.set_postfix_dict(report_dict)
+        report_dict = self.meters.tracking_status(final=True)
         return report_dict, self.meters["dice"].summary()["DSC_mean"]
 
     @staticmethod
@@ -98,6 +98,7 @@ class InferenceEpocher(EvalEpocher):
                 self.meters["hd"].add(val_logits.max(1)[1], val_target.squeeze(1))
             report_dict = self.meters.tracking_status()
             self._indicator.set_postfix_dict(report_dict)
+        report_dict = self.meters.tracking_status(final=True)
         return report_dict, self.meters["dice"].summary()["DSC_mean"]
 
 
@@ -226,6 +227,7 @@ class TrainEpocher(_num_class_mixin, _Epocher):
                     self.meters["reg_loss"].add(reg_loss.item())
                     report_dict = self.meters.tracking_status()
                     self._indicator.set_postfix_dict(report_dict)
+        report_dict = self.meters.tracking_status(final=True)
         return report_dict
 
     def _run_only_label(self, *args, **kwargs) -> EpochResultDict:
@@ -253,7 +255,7 @@ class TrainEpocher(_num_class_mixin, _Epocher):
                                                 group_name=label_group)
                     report_dict = self.meters.tracking_status()
                     self._indicator.set_postfix_dict(report_dict)
-
+        report_dict = self.meters.tracking_status(final=True)
         return report_dict
 
     @staticmethod

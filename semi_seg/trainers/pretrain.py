@@ -67,23 +67,26 @@ class _PretrainTrainerMixin:
 
 class PretrainInfoNCETrainer(_PretrainTrainerMixin, InfoNCETrainer):
     from semi_seg.epochers.pretrain import InfoNCEPretrainEpocher
+
     def _set_epocher_class(self, epocher_class=InfoNCEPretrainEpocher):
         super(PretrainInfoNCETrainer, self)._set_epocher_class(epocher_class)
 
 
 class PretrainIICTrainer(_PretrainTrainerMixin, IICTrainer):
     from semi_seg.epochers.pretrain import MIPretrainEpocher
+
     def _set_epocher_class(self, epocher_class=MIPretrainEpocher):
         super(PretrainIICTrainer, self)._set_epocher_class(epocher_class)
 
 
 class PretrainUDAIICTrainer(_PretrainTrainerMixin, UDAIICTrainer):
     from semi_seg.epochers.pretrain import UDAIICPretrainEpocher
+
     def _set_epocher_class(self, epocher_class=UDAIICPretrainEpocher):
         super(PretrainUDAIICTrainer, self)._set_epocher_class(epocher_class)
 
 
-from .trainer import ExperimentalTrainer
+from .newtrainer import ExperimentalTrainer
 from ..epochers.pretrain import ExperimentalPretrainEpocher
 
 

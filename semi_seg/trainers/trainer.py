@@ -3,6 +3,9 @@ from itertools import chain
 from typing import Tuple, Type
 
 import torch
+from torch import nn
+from torch import optim
+
 from contrastyou.losses.contrast_loss import SupConLoss
 from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
 from deepclustering2 import optim
@@ -16,10 +19,7 @@ from semi_seg.epochers import TrainEpocher, EvalEpocher, ConsistencyTrainEpocher
     MIMeanTeacherEpocher, MIDLPaperEpocher, InfoNCEEpocher, DifferentiablePrototypeEpocher, \
     UCMeanTeacherEpocher
 from semi_seg.miestimator.iicestimator import IICEstimatorArray
-from torch import nn
-from torch import optim
-
-from .base import SemiTrainer
+from semi_seg.trainers.base import SemiTrainer
 
 
 class UDATrainer(SemiTrainer):
@@ -451,28 +451,3 @@ class DifferentiablePrototypeTrainer(SemiTrainer):
         )
         result = epocher.run()
         return result
-
-
-from semi_seg.epochers.new import NewEpocher
-
-
-class ExperimentalTrainer(InfoNCETrainer):
-    def _init(self):
-        super(IICTrainer, self)._init()
-        config = deepcopy(self._config["InfoNCEParameters"])
-        self._projector = ContrastiveProjectorWrapper()
-        self._projector.init_encoder(
-            feature_names=self.feature_positions,
-            **config["EncoderParams"]
-        )
-        self._projector.init_decoder(
-            feature_names=self.feature_positions,
-            **config["DecoderParams"]
-        )
-        from contrastyou.losses.contrast_loss import SupConLoss2 as SupConLoss
-
-        self._criterion = SupConLoss(temperature=config["LossParams"]["temperature"], out_mode=True)
-        self._reg_weight = float(config["weight"])
-
-    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = NewEpocher):
-        super(ExperimentalTrainer, self)._set_epocher_class(epocher_class)
