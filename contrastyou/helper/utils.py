@@ -111,3 +111,9 @@ def plt_interactive():
     plt.ion()
     yield
     plt.ioff()
+
+
+def extract_model_state_dict(trainer_checkpoint_path: str):
+    trainer_state = torch.load(trainer_checkpoint_path, map_location="cpu")
+
+    return trainer_state["_model"]

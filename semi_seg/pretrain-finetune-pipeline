@@ -1,0 +1,10 @@
+#!/bin/bash
+set -e
+save_dir=piplinecheck
+max_epoch=20
+num_batches=10
+
+python main.py Trainer.name=infoncepretrain Trainer.num_batches=${num_batches} Trainer.max_epoch=${max_epoch} \
+              Trainer.save_dir=${save_dir}/pretrain --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce.yaml
+python main.py Trainer.name=partial  Trainer.only_labeled_data=true Trainer.num_batches=${num_batches} Trainer.max_epoch=${max_epoch} \
+        Trainer.save_dir=${save_dir}/train Arch.checkpoint=runs/${save_dir}/pretrain/last.pth --opt_config_path ../config/specific/infonce.yaml

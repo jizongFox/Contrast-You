@@ -1,5 +1,6 @@
 from functools import partial
 from pathlib import Path
+from typing import Any, Dict
 
 from contrastyou.helper import get_dataset
 from deepclustering2.meters2 import EpochResultDict
@@ -20,16 +21,16 @@ def _get_contrastive_dataloader(partial_loader, config):
 
     if config.get("DistributedTrain") is True:
         raise NotImplementedError()
-
+    contrastive_config = config["ContrastiveLoaderParams"]
+    num_workers = contrastive_config.pop("num_workers")
     batch_sampler = ContrastBatchSampler(
         dataset=dataset,
-        group_sample_num=8,
-        partition_sample_num=1
+        **contrastive_config
     )
 
     contrastive_loader = DataLoader(
         dataset, batch_sampler=batch_sampler,
-        num_workers=8,
+        num_workers=num_workers,
         pin_memory=True
     )
 
@@ -37,6 +38,9 @@ def _get_contrastive_dataloader(partial_loader, config):
 
 
 class _PretrainTrainerMixin:
+    _unlabeled_loader: iter
+    _config: Dict[str, Any]
+
     def init(self, *args, **kwargs):
         super(_PretrainTrainerMixin, self).init(*args, **kwargs)
         # here you have conventional training objects

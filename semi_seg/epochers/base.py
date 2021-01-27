@@ -3,6 +3,7 @@ from contextlib import nullcontext
 from typing import Union, Tuple
 
 import torch
+from loguru import logger
 from torch import nn
 from torch.utils.data.dataloader import DataLoader
 
@@ -18,6 +19,7 @@ from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, Universa
 from deepclustering2.models import Model
 from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.schedulers.customized_scheduler import WeightScheduler
+from deepclustering2.tqdm import item2str
 from deepclustering2.type import T_loader, T_loss, T_optim
 from deepclustering2.utils import class2one_hot, ExceptionIgnorer, warn_on_unused_kwargs
 from semi_seg._utils import _num_class_mixin
@@ -104,14 +106,12 @@ class InferenceEpocher(EvalEpocher):
 
 # ========= base training epochers ===============
 class TrainEpocher(_num_class_mixin, _Epocher):
-    only_with_labeled_data = False  # highlight: this is the tricky part of the experiments
-    train_with_two_stage = False  # highlight: this is the parameter to use two stage training
-
-    # (without mixing supervised and unsupervised)
+    # without mixing supervised and unsupervised
 
     def __init__(self, *, model: Union[Model, nn.Module], optimizer: T_optim, labeled_loader: T_loader,
                  unlabeled_loader: T_loader, sup_criterion: T_loss, num_batches: int, cur_epoch=0,
-                 device="cpu", feature_position=None, feature_importance=None) -> None:
+                 device="cpu", feature_position=None, feature_importance=None, train_with_two_stage: bool = False,
+                 only_with_labeled_data: bool = False, disable_bn_track_for_unlabeled_data: bool = False) -> None:
         super().__init__(model, num_batches=num_batches, cur_epoch=cur_epoch, device=device)
         self._optimizer = optimizer
         self._labeled_loader = labeled_loader
@@ -123,12 +123,23 @@ class TrainEpocher(_num_class_mixin, _Epocher):
                                                                    (int, float)), feature_importance
         self._feature_position = feature_position
         self._feature_importance = feature_importance
+        logger.debug("Initializing {} with features and weights: {}", self.__class__.__name__,
+                     item2str({k: v for k, v in zip(self._feature_position, self._feature_importance)}))
+
         assert len(self._feature_position) == len(self._feature_importance), \
             (len(self._feature_position), len(self._feature_importance))
+        self.only_with_labeled_data = only_with_labeled_data  # highlight: this is the tricky part of the experiments
+        if self.only_with_labeled_data:
+            logger.debug("{} set to be using only labeled data", self.__class__.__name__)
+        self.train_with_two_stage = train_with_two_stage  # highlight: this is the parameter to use two stage training
+        logger.debug("{} set to be using {} stage training", self.__class__.__name__,
+                     "two" if self.train_with_two_stage else "single")
+        self._disable_bn = disable_bn_track_for_unlabeled_data  # highlight: disable the bn accumulation
+        if self._disable_bn:
+            logger.debug("{} set to disable bn tracking", self.__class__.__name__)
 
-    def init(self, *, reg_weight: float, disable_bn_track_for_unlabeled_data: bool, **kwargs):
+    def init(self, *, reg_weight: float, **kwargs):
         self._reg_weight = reg_weight  # noqa
-        self._disable_bn = disable_bn_track_for_unlabeled_data  # noqa
         warn_on_unused_kwargs(kwargs)
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
@@ -155,7 +166,6 @@ class TrainEpocher(_num_class_mixin, _Epocher):
 
     def _run_semi(self, *args, **kwargs) -> EpochResultDict:
         bn_context = _disable_tracking_bn_stats if self._disable_bn else nullcontext
-        report_dict = EpochResultDict()
         for i, labeled_data, unlabeled_data in zip(self._indicator, self._labeled_loader, self._unlabeled_loader):
             seed = random.randint(0, int(1e7))
             labeled_image, labeled_target, labeled_filename, _, label_group = \
@@ -231,7 +241,6 @@ class TrainEpocher(_num_class_mixin, _Epocher):
         return report_dict
 
     def _run_only_label(self, *args, **kwargs) -> EpochResultDict:
-        report_dict = EpochResultDict()
         for i, labeled_data in zip(self._indicator, self._labeled_loader):
             labeled_image, labeled_target, labeled_filename, _, label_group = \
                 self._unzip_data(labeled_data, self._device)

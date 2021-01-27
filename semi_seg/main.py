@@ -1,162 +1,78 @@
-import warnings
-from copy import deepcopy
-
-warnings.filterwarnings("ignore")
 from scipy.sparse import issparse  # noqa
 
 _ = issparse  # noqa
-import os
+from contrastyou.helper import extract_model_state_dict
 from deepclustering2.loss import KL_div
 import random
 from pathlib import Path
 from contrastyou import PROJECT_PATH
-from contrastyou.arch import UNet, UNet_Index
-import torch.multiprocessing as mp
+from contrastyou.arch import UNet
 from deepclustering2.configparser import ConfigManger
-from deepclustering2.utils import gethash, path2Path, yaml_write
-import torch
-from deepclustering2.utils import set_benchmark, load_yaml, merge_dict
-from semi_seg.trainers import base_trainer_zoos, pre_trainer_zoos
+from deepclustering2.utils import gethash
+from deepclustering2.utils import set_benchmark
+from semi_seg.trainers import base_trainer_zoos
+from semi_seg.trainers import pre_trainer_zoos
 from semi_seg.dsutils import get_dataloaders
-from deepclustering2.ddp import initialize_ddp_environment, convert2syncBN
-from termcolor import colored
 from loguru import logger
+from copy import deepcopy
+import warnings
+
+warnings.filterwarnings("ignore")
 
 cur_githash = gethash(__file__)  # noqa
 
-trainer_zoos = {**base_trainer_zoos}
+trainer_zoos = {**base_trainer_zoos, **pre_trainer_zoos}
 
 
 def main():
-    cmanager = ConfigManger(Path(PROJECT_PATH) / "config/semi.yaml")
-    config = cmanager.config
+    with ConfigManger(base_path=Path(PROJECT_PATH) / "config/base.yaml")(scope="base") as config:
+        port = random.randint(10000, 60000)
+        use_distributed_training = config.get("DistributedTrain")
 
-    def load_pretrain_dict(cmanager):
-        """
-        PretrainConfig:
-            InfoNCEParameters:
-                a:b
-        """
-        try:
-            # if load from a checkpoint
-            pretrain_config = load_yaml(Path(PROJECT_PATH) / "config/pretrain.yaml", verbose=False)
-            if cmanager._default_path is not None:  # noqd
-                config_path = path2Path(cmanager._default_path)
-                if config_path.is_file():
-                    config_path = config_path.parent
-                pretrain_config = load_yaml(config_path / "pretrain.yaml", verbose=False)
-            # get additional config dict from commandlines
-            _received_cmds = cmanager.parsed_config.get("PretrainConfig")
-            received_cmds = {"PretrainConfig": _received_cmds} if _received_cmds is not None else None
-            pretrain_config = merge_dict(pretrain_config, received_cmds)
-        except FileNotFoundError:
-            pretrain_config = {"PretrainConfig": {}}
-        return pretrain_config
-
-    pretrain_config = load_pretrain_dict(cmanager)
-
-    port = random.randint(10000, 60000)
-    use_distributed_training = config.get("DistributedTrain")
-
-    if use_distributed_training is True:
-        ngpus_per_node = torch.cuda.device_count()
-        print(colored(f"Found {ngpus_per_node} per node", "red"))
-        mp.spawn(main_worker, nprocs=ngpus_per_node,  # noqa
-                 args=(ngpus_per_node, config, pretrain_config, cmanager, port))
-    else:
-        main_worker(0, 1, config, pretrain_config, cmanager, port)
+        if use_distributed_training is True:
+            """ngpus_per_node = torch.cuda.device_count()
+            print(colored(f"Found {ngpus_per_node} per node", "red"))
+            mp.spawn(main_worker, nprocs=ngpus_per_node,  # noqa
+                     args=(ngpus_per_node, config, port))
+            """
+            raise RuntimeError("DDP training not supported")
+        else:
+            save_dir = config["Trainer"]["save_dir"]
+            main_worker(0, 1, config, port)
 
 
 @logger.catch(reraise=True)
-def main_worker(rank, ngpus_per_node, config, pretrain_config, cmanager, port):  # noqa
-    use_distributed_train = config.get("DistributedTrain")
-
-    if use_distributed_train:
-        def set_distributed_training():
-            config["Trainer"]["device"] = f"cuda:{rank}"
-            config["LabeledData"]["batch_size"] = config["LabeledData"]["batch_size"] // ngpus_per_node
-            config["UnlabeledData"]["batch_size"] = config["UnlabeledData"]["batch_size"] // ngpus_per_node
-            initialize_ddp_environment(rank, ngpus_per_node, dist_url=f"tcp://localhost:{port}")
-
-        set_distributed_training()
-
+def main_worker(rank, ngpus_per_node, config, port):  # noqa
     set_benchmark(config.get("RandomSeed", 1))
 
     labeled_loader, unlabeled_loader, val_loader = get_dataloaders(config)
 
     config_arch = deepcopy(config["Arch"])
-    network_arch = {"unet": UNet, "unetindex": UNet_Index}[config_arch.pop("name")]
-    model = network_arch(**config_arch)
+    model_checkpoint = config_arch.pop("checkpoint", None)
+    model = UNet(**config_arch)
     logger.info(f"Initializing {model.__class__.__name__}")
-    if use_distributed_train:
-        model = convert2syncBN(model)
-        model = torch.nn.parallel.DistributedDataParallel(model.to(rank), device_ids=[rank])
+    if model_checkpoint:
+        model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=False)
+        logger.info(f"loading checkpoint from  {model_checkpoint}")
 
-    pretrain_classname = pretrain_config["PretrainConfig"].get("Trainer", {}).get("name")
-    checkpoint = config.get("Checkpoint", None)
-    use_only_labeled_data = config["Trainer"].pop("only_labeled_data")
-    two_stage_training = config["Trainer"].pop("two_stage_training")
-    relative_main_dir = config["Trainer"]["save_dir"]
-
-    ############################# pretraining launch part ###############################################
-    if pretrain_classname:
-        # save pretrain config
-        pretrainTrainer = pre_trainer_zoos[pretrain_classname](
-            model=model,
-            labeled_loader=iter(labeled_loader),
-            unlabeled_loader=iter(unlabeled_loader),
-            val_loader=val_loader,
-            sup_criterion=KL_div(verbose=False),
-            configuration=pretrain_config["PretrainConfig"],
-            save_dir=os.path.join(relative_main_dir, "pretrain"),
-            **{k: v for k, v in pretrain_config["PretrainConfig"]["Trainer"].items() if k != "save_dir"}
-        )
-        # manually write config to the save_dir
-        absolute_main_dir = relative_main_dir if os.path.isabs(relative_main_dir) else os.path.join(
-            pretrainTrainer.RUN_PATH, relative_main_dir)
-        yaml_write(pretrain_config, absolute_main_dir, save_name="pretrain.yaml")
-        pretrainTrainer.init()
-        use_only_labeled_data = True
-
-        if checkpoint is not None:
-            pretrainTrainer.load_state_dict_from_path(
-                os.path.join(checkpoint, "pretrain"),
-                strict=True
-            )
-        pretrainTrainer.start_training()
-
-    ############################### training launch part ################################################
     trainer_name = config["Trainer"].pop("name")
     Trainer = trainer_zoos[trainer_name]
 
     trainer = Trainer(
         model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
         val_loader=val_loader, sup_criterion=KL_div(verbose=False),
-        configuration={**cmanager.config, **{"GITHASH": cur_githash}},
-        save_dir=relative_main_dir if not pretrain_classname else os.path.join(relative_main_dir, "train"),
-        **{k: v for k, v in config["Trainer"].items() if k != "save_dir"}
+        configuration={**config, **{"GITHASH": cur_githash}},
+        **config["Trainer"]
     )
-    # save config yaml
-    absolute_main_dir = relative_main_dir if os.path.isabs(relative_main_dir) else os.path.join(
-        trainer.RUN_PATH, relative_main_dir)
-    # manually write config to the save_dir
-    yaml_write({**cmanager.config, **{"GITHASH": cur_githash}}, absolute_main_dir, save_name="config.yaml")
+
     trainer.init()
-
-    if checkpoint is not None:
-        try:
-            trainer.load_state_dict_from_path(os.path.join(checkpoint, "train"), strict=True)
-        except Exception:
-            trainer.load_state_dict_from_path(checkpoint, strict=True)
-
-    if use_only_labeled_data:
-        trainer.set_only_labeled_data(enable=True)  # the trick to make the pretrain-finetune framework working.
-
-    if two_stage_training:
-        trainer.set_train_with_two_stage(enable=True)
+    trainer_checkpoint = config.get("trainer_checkpoint", None)
+    if trainer_checkpoint:
+        trainer.load_state_dict_from_path(trainer_checkpoint, strict=True)
 
     trainer.start_training()
-    # trainer.inference()
+    if "pretrain" not in trainer_name:
+        trainer.inference()
 
 
 if __name__ == '__main__':

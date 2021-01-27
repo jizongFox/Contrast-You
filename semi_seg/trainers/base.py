@@ -1,9 +1,9 @@
 import os
-from functools import partial
 from pathlib import Path
 from typing import Tuple, Type
 
 import torch
+from loguru import logger
 from torch import nn
 from torch import optim
 
@@ -20,13 +20,12 @@ from semi_seg.epochers import TrainEpocher, EvalEpocher
 
 class SemiTrainer(Trainer):
     RUN_PATH = str(Path(PROJECT_PATH) / "semi_seg" / "runs")  # noqa
-    _only_labeled_data = False
-    _train_with_two_stage = False
 
     def __init__(self, model: nn.Module, labeled_loader: T_loader, unlabeled_loader: T_loader,
                  val_loader: T_loader, sup_criterion: T_loss, save_dir: str = "base", max_epoch: int = 100,
                  num_batches: int = 100, device: str = "cpu", configuration=None, **kwargs):
         super().__init__(model, save_dir, max_epoch, num_batches, device, configuration)
+        logger.add(os.path.join(self._save_dir, "loguru.log"))
         self._labeled_loader = labeled_loader
         self._unlabeled_loader = unlabeled_loader
         self._val_loader = val_loader
@@ -46,7 +45,10 @@ class SemiTrainer(Trainer):
         self._feature_importance = [x / sum(feature_importance) for x in feature_importance]
         assert len(self._feature_importance) == len(self.feature_positions), \
             (self._feature_importance, self.feature_positions)
+
         self._disable_bn = self._config["Trainer"].get("disable_bn_track_for_unlabeled_data", False)
+        self._train_with_two_stage = self._config["Trainer"].get("two_stage_training", False)
+        self._only_labeled_data = self._config["Trainer"].get("only_labeled_data", False)
 
     def _init_scheduler(self, optimizer):
         scheduler_dict = self._config.get("Scheduler", None)
@@ -84,18 +86,13 @@ class SemiTrainer(Trainer):
             model=self._model, optimizer=self._optimizer, labeled_loader=self._labeled_loader,
             unlabeled_loader=self._unlabeled_loader, sup_criterion=self._sup_criterion, num_batches=self._num_batches,
             cur_epoch=self._cur_epoch, device=self._device, feature_position=self.feature_positions,
-            feature_importance=self._feature_importance
+            feature_importance=self._feature_importance, train_with_two_stage=self._train_with_two_stage,
+            only_with_labeled_data=self._only_labeled_data, disable_bn_track_for_unlabeled_data=self._disable_bn
         )
-        if self._only_labeled_data:
-            epocher.only_with_labeled_data = True
-        if self._train_with_two_stage:
-            epocher.train_with_two_stage = True
-        # manually hack the setting of disable_bn option
-        epocher.init = partial(epocher.init, disable_bn_track_for_unlabeled_data=self._disable_bn)
         return epocher
 
     def _run_epoch(self, epocher: TrainEpocher, *args, **kwargs) -> EpochResultDict:
-        epocher.init(reg_weight=0.0, *args, **kwargs)  # partial supervision without regularization
+        epocher.init(reg_weight=0.0, **kwargs)  # partial supervision without regularization
         result = epocher.run()
         return result
 
@@ -152,12 +149,6 @@ class SemiTrainer(Trainer):
 
     def set_feature_positions(self, feature_positions):
         self.feature_positions = feature_positions  # noqa
-
-    def set_only_labeled_data(self, enable: bool):
-        self._only_labeled_data = enable  # noqa
-
-    def set_train_with_two_stage(self, enable: bool):
-        self._train_with_two_stage = enable
 
 
 class FineTuneTrainer(SemiTrainer):

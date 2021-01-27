@@ -1,0 +1,23 @@
+Trainer:
+  name: null
+  feature_names: [ "Conv5", ]
+  feature_importance: [ 1, ]
+  device: cuda
+  num_batches: 300
+  max_epoch: 100
+  only_labeled_data: false
+  two_stage_training: false
+  disable_bn_track_for_unlabeled_data: false
+
+Optim:
+  name: Adam
+  lr: 0.00001
+  weight_decay: 0.00001
+
+Scheduler:
+  null
+
+ContrastiveLoaderParams:
+  group_sample_num: 3
+  partition_sample_num: 1
+  num_workers: 4

@@ -1,5 +1,6 @@
 from copy import deepcopy
 
+from loguru import logger
 from torch.utils.data import DataLoader
 
 from contrastyou import DATA_PATH
@@ -25,7 +26,8 @@ augment_zoos = {
 
 def get_dataloaders(config, group_val_patient=True):
     _config = deepcopy(config)
-    dataset_name = _config["Data"].pop("name", "acdc")
+    dataset_name = _config["Data"].pop("name")
+    logger.debug("Initializing {} dataset", dataset_name)
     assert dataset_name in dataset_zoos.keys(), config["Data"]
     datainterface = dataset_zoos[dataset_name]
     augmentinferface = augment_zoos[dataset_name]
@@ -71,6 +73,8 @@ def get_dataloaders(config, group_val_patient=True):
         pin_memory=True
     )
     group_val_patient = group_val_patient if dataset_name not in ("spleen", "mmwhs") else False
+    if group_val_patient:
+        logger.debug("grouping val patients")
     val_loader = DataLoader(
         val_set,
         batch_size=1 if group_val_patient else 4,

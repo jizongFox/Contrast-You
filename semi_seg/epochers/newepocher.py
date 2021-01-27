@@ -7,7 +7,8 @@ from contrastyou.epocher._utils import preprocess_input_with_single_transformati
 from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
 from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
 from contrastyou.helper import weighted_average_iter, average_iter
-from contrastyou.losses.iic_loss import _ntuple
+from contrastyou.losses.contrast_loss import is_normalized
+from contrastyou.losses.iic_loss import _ntuple  # noqa
 from contrastyou.projectors.heads import ProjectionHead, LocalProjectionHead
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.decorator.decorator import _disable_tracking_bn_stats as disable_bn  # noqa
@@ -19,9 +20,23 @@ from .base import TrainEpocher, EvalEpocher
 from .helper import unl_extractor
 
 
+class EvalEpocherWOEval(EvalEpocher):
+    """
+    This epocher is set to using the current estimation of batch and without accumulating the statistic
+    network in train mode while BN is in disable accumulation mode.
+    Usually improves performance with some domain gap
+    """
+
+    def _run(self, *args, **kwargs):
+        with disable_bn(self._model):  # disable bn accumulation
+            return super(EvalEpocherWOEval, self)._run(*args, **kwargs)
+
+    def _set_model_state(self, model) -> None:
+        model.train()
+
+
 class NewEpocher(TrainEpocher):
     """This epocher is going to do feature clustering on UNet intermediate layers, instead of using MI"""
-    only_with_labeled_data = False
 
     def init(self, *, reg_weight: float, projectors_wrapper: ContrastiveProjectorWrapper = None,
              infoNCE_criterion: T_loss = None, kernel_size=1, margin=3, **kwargs):
@@ -29,8 +44,8 @@ class NewEpocher(TrainEpocher):
         super().init(reg_weight=reg_weight, **kwargs)
         self._projectors_wrapper: ContrastiveProjectorWrapper = projectors_wrapper  # noqa
         self._infonce_criterion: T_loss = infoNCE_criterion  # noqa
-        self._kernel_size = kernel_size
-        self._margin = margin
+        self._kernel_size = kernel_size  # noqa
+        self._margin = margin  # noqa
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super()._configure_meters(meters)
@@ -57,6 +72,7 @@ class NewEpocher(TrainEpocher):
             if isinstance(projector, ProjectionHead):
                 norm_tf_feature, norm_feature_tf = proj_tf_feature, proj_feature_tf
                 assert len(norm_tf_feature.shape) == 2, norm_tf_feature.shape
+                assert is_normalized(norm_feature_tf) and is_normalized(norm_feature_tf)
                 labels = self.global_label_generator(partition_list=partition_group, patient_list=label_group)
                 return self._infonce_criterion(norm_feature_tf, norm_tf_feature, target=labels)
 
@@ -134,18 +150,3 @@ class NewEpocher(TrainEpocher):
         new_matrix[sim_matrix > 0.95] = 1
         new_matrix[sim_matrix < 0.65] = 0
         return new_matrix
-
-
-class EvalEpocherWOEval(EvalEpocher):
-    """
-    This epocher is set to using the current estimation of batch and without accumulating the statistic
-    network in train mode while BN is in disable accumulation mode.
-    Usually improves performance with some domain gap
-    """
-
-    def _run(self, *args, **kwargs):
-        with disable_bn(self._model):  # disable bn accumulation
-            return super(EvalEpocherWOEval, self)._run(*args, **kwargs)
-
-    def _set_model_state(self, model) -> None:
-        model.train()
