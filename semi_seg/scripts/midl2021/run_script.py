@@ -17,7 +17,7 @@ parser.add_argument("-f", "--features", required=True, nargs="+",
 parser.add_argument("--save_dir", required=True, type=str, help="save_dir for the save folder")
 parser.add_argument("--time", default=4, type=int, help="demanding time")
 parser.add_argument("--lr", default=None, type=str, help="learning rate")
-
+parser.add_argument("--output-size", default=20, help="output size of decoder")
 args = parser.parse_args()
 
 num_batches = args.num_batches
@@ -34,6 +34,7 @@ save_dir = args.save_dir
 
 features = args.features
 importance_weights = [str(1.0) if x == "Conv5" else str(0.5) for x in features]
+output_size = int(args.output_size)
 
 SharedParams = f" Data.labeled_data_ratio={label_ratio} " \
                f" Data.unlabeled_data_ratio={1 - label_ratio} " \
@@ -46,6 +47,8 @@ SharedParams = f" Data.labeled_data_ratio={label_ratio} " \
 
 SharedTrainerParams = SharedParams + f" Optim.lr={lr_zooms[args.dataset_name]:.10f} "
 
+PretrainParams = SharedParams + f"InfoNCEParameters.DecoderParams.output_size=[{output_size},{output_size}]"
+
 jobs = [
     # ps using one stage trianing
     f"python main.py {SharedTrainerParams} Trainer.name=partial Trainer.save_dir={save_dir}/ps",
@@ -54,20 +57,24 @@ jobs = [
     f"python main.py {SharedTrainerParams} Trainer.name=partial Trainer.save_dir={save_dir}/ps_only_labeled "
     f"                                     Trainer.only_labeled_data=true",
 
+    # fs using only labeled data
+    f"python main.py {SharedTrainerParams} Trainer.name=partial Trainer.save_dir={save_dir}/fs "
+    f"                   Trainer.only_labeled_data=true  Data.labeled_data_ratio=1.0 Data.unlabeled_data_ratio=0.0 ",
+
     # contrastive learning with pretrain
-    f"python main.py {SharedParams} Trainer.name=infoncepretrain  Trainer.save_dir={save_dir}/infonce/pretrain "
+    f"python main.py {PretrainParams} Trainer.name=infoncepretrain  Trainer.save_dir={save_dir}/infonce/pretrain "
     f"               --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce.yaml"
     f"    &&  "
     f"python main.py {SharedTrainerParams} Trainer.name=partial  Trainer.only_labeled_data=true "
-    f"              Trainer.save_dir={save_dir}/train "
+    f"              Trainer.save_dir={save_dir}/infonce/train "
     f"              Arch.checkpoint=runs/{save_dir}/infonce/pretrain/last.pth ",
 
     # # improved contrastive learning with pretrain
-    f"python main.py {SharedParams} Trainer.name=experimentpretrain  Trainer.save_dir={save_dir}/new1/pretrain "
+    f"python main.py {PretrainParams} Trainer.name=experimentpretrain  Trainer.save_dir={save_dir}/new1/pretrain "
     f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce.yaml"
     f"   &&  "
-    f"python main.py {SharedTrainerParams} Trainer.name=partial  Trainer.only_labeled_data=true Trainer.save_dir=${save_dir}/new1/train "
-    f"              Arch.checkpoint=runs/${save_dir}/new1/pretrain/last.pth "
+    f"python main.py {SharedTrainerParams} Trainer.name=partial  Trainer.only_labeled_data=true Trainer.save_dir={save_dir}/new1/train "
+    f"              Arch.checkpoint=runs/{save_dir}/new1/pretrain/last.pth "
 
 ]
 
