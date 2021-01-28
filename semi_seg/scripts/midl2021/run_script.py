@@ -38,6 +38,7 @@ output_size = int(args.output_size)
 
 SharedParams = f" Data.labeled_data_ratio={label_ratio} " \
                f" Data.unlabeled_data_ratio={1 - label_ratio} " \
+               f" Data.name={args.dataset_name}" \
                f" Trainer.max_epoch={max_epoch} " \
                f" Trainer.num_batches={num_batches} " \
                f" Arch.num_classes={dataset_name2class_numbers[args.dataset_name]} " \
@@ -45,35 +46,33 @@ SharedParams = f" Data.labeled_data_ratio={label_ratio} " \
                f" Trainer.feature_names=[{','.join(features)}] " \
                f" Trainer.feature_importance=[{','.join(importance_weights)}] "
 
-SharedTrainerParams = SharedParams + f" Optim.lr={lr_zooms[args.dataset_name]:.10f} "
+TrainerParams = SharedParams + f" Optim.lr={lr_zooms[args.dataset_name]:.10f} "
 
 PretrainParams = SharedParams + f"InfoNCEParameters.DecoderParams.output_size=[{output_size},{output_size}]"
 
+save_dir += ("/" + "/".join([args.dataset_name, f"{'_'.join(features)}", f"label_ratio_{label_ratio}"]))
 jobs = [
-    # ps using one stage trianing
-    f"python main.py {SharedTrainerParams} Trainer.name=partial Trainer.save_dir={save_dir}/ps",
-
     # ps using only labeled data
-    f"python main.py {SharedTrainerParams} Trainer.name=partial Trainer.save_dir={save_dir}/ps_only_labeled "
+    f"python main.py {TrainerParams} Trainer.name=partial Trainer.save_dir={save_dir}/ps_only_labeled "
     f"                                     Trainer.only_labeled_data=true",
 
     # fs using only labeled data
-    f"python main.py {SharedTrainerParams} Trainer.name=partial Trainer.save_dir={save_dir}/fs "
+    f"python main.py {TrainerParams} Trainer.name=partial Trainer.save_dir={save_dir}/fs "
     f"                   Trainer.only_labeled_data=true  Data.labeled_data_ratio=1.0 Data.unlabeled_data_ratio=0.0 ",
 
     # contrastive learning with pretrain
     f"python main.py {PretrainParams} Trainer.name=infoncepretrain  Trainer.save_dir={save_dir}/infonce/pretrain "
     f"               --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce.yaml"
     f"    &&  "
-    f"python main.py {SharedTrainerParams} Trainer.name=partial  Trainer.only_labeled_data=true "
+    f"python main.py {TrainerParams} Trainer.name=partial  Trainer.only_labeled_data=true "
     f"              Trainer.save_dir={save_dir}/infonce/train "
     f"              Arch.checkpoint=runs/{save_dir}/infonce/pretrain/last.pth ",
 
     # # improved contrastive learning with pretrain
     f"python main.py {PretrainParams} Trainer.name=experimentpretrain  Trainer.save_dir={save_dir}/new1/pretrain "
-    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce.yaml"
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/new.yaml"
     f"   &&  "
-    f"python main.py {SharedTrainerParams} Trainer.name=partial  Trainer.only_labeled_data=true Trainer.save_dir={save_dir}/new1/train "
+    f"python main.py {TrainerParams} Trainer.name=partial  Trainer.only_labeled_data=true Trainer.save_dir={save_dir}/new1/train "
     f"              Arch.checkpoint=runs/{save_dir}/new1/pretrain/last.pth "
 
 ]
@@ -91,4 +90,5 @@ for j in jobs:
         ]
     )
     jobsubmiter.account = next(accounts)
+    print(j)
     jobsubmiter.run(j)

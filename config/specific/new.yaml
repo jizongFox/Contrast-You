@@ -1,0 +1,23 @@
+InfoNCEParameters:
+  EncoderParams:
+    head_types: mlp
+    normalize: true
+  DecoderParams:
+    head_types: mlp
+    normalize: true
+    output_size: [ 16,16 ]
+  LossParams:
+    temperature: 0.07
+    base_temperature: 0.07
+  weight: 0.1
+  neigh_weight: 1
+
+  NeighParams:
+    kernel_size: 1
+    margin: 3
+
+  ContentParams:
+    null
+
+
+

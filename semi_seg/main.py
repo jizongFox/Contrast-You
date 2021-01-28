@@ -1,3 +1,5 @@
+import os
+
 from scipy.sparse import issparse  # noqa
 
 _ = issparse  # noqa
@@ -26,6 +28,9 @@ trainer_zoos = {**base_trainer_zoos, **pre_trainer_zoos}
 
 def main():
     with ConfigManger(base_path=Path(PROJECT_PATH) / "config/base.yaml")(scope="base") as config:
+        save_dir = config["Trainer"]["save_dir"]
+        logger.add(os.path.join(save_dir, "loguru.log"))
+
         port = random.randint(10000, 60000)
         use_distributed_training = config.get("DistributedTrain")
 
@@ -37,7 +42,6 @@ def main():
             """
             raise RuntimeError("DDP training not supported")
         else:
-            save_dir = config["Trainer"]["save_dir"]
             main_worker(0, 1, config, port)
 
 

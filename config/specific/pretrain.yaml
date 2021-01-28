@@ -18,6 +18,6 @@ Scheduler:
   null
 
 ContrastiveLoaderParams:
-  group_sample_num: 3
+  group_sample_num: 8
   partition_sample_num: 1
-  num_workers: 4
+  num_workers: 8

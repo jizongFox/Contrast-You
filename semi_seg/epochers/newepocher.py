@@ -1,6 +1,7 @@
 from functools import lru_cache
 
 import torch
+from loguru import logger
 from torch import Tensor
 
 from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
@@ -39,13 +40,22 @@ class NewEpocher(TrainEpocher):
     """This epocher is going to do feature clustering on UNet intermediate layers, instead of using MI"""
 
     def init(self, *, reg_weight: float, projectors_wrapper: ContrastiveProjectorWrapper = None,
-             infoNCE_criterion: T_loss = None, kernel_size=1, margin=3, **kwargs):
+             infoNCE_criterion: T_loss = None, kernel_size=1, margin=3, neigh_weight: float = None, **kwargs):
         assert projectors_wrapper is not None and infoNCE_criterion is not None, (projectors_wrapper, infoNCE_criterion)
         super().init(reg_weight=reg_weight, **kwargs)
         self._projectors_wrapper: ContrastiveProjectorWrapper = projectors_wrapper  # noqa
         self._infonce_criterion: T_loss = infoNCE_criterion  # noqa
         self._kernel_size = kernel_size  # noqa
         self._margin = margin  # noqa
+        assert 0 <= neigh_weight <= 1, neigh_weight
+        self._neigh_weight = neigh_weight  # noqa
+        if self._neigh_weight == 1:
+            logger.debug("{}, only considering neighor term", self.__class__.__name__, )
+        elif self._neigh_weight == 0:
+            logger.debug("{}, only considering content term", self.__class__.__name__, )
+        else:
+            logger.debug("{}, considers neighor term: {} and content term: {}", self.__class__.__name__,
+                         self._neigh_weight, 1 - self._neigh_weight)
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super()._configure_meters(meters)
@@ -84,16 +94,19 @@ class NewEpocher(TrainEpocher):
 
                 mask = self.generate_relation_masks(proj_feature_tf.shape[-2:], kernel_size=self._kernel_size,
                                                     margin=self._margin)
-                relative_mask = self.generate_similarity_masks(norm_tf_feature, norm_feature_tf)
 
                 position_mi = average_iter(
                     [self._infonce_criterion(x, y, mask=mask) for x, y in zip(norm_tf_feature, norm_feature_tf)]
                 )
-                content_mi = average_iter(
-                    [self._infonce_criterion(x, y, mask=_mask) for x, y, _mask in
-                     zip(norm_tf_feature, norm_feature_tf, relative_mask)]
-                )
-                return position_mi + content_mi
+                content_mi = torch.tensor(0.0, dtype=torch.float, device=self.device)
+                if self._neigh_weight < 1:
+                    relative_mask = self.generate_similarity_masks(norm_tf_feature, norm_feature_tf)
+
+                    content_mi = average_iter(
+                        [self._infonce_criterion(x, y, mask=_mask) for x, y, _mask in
+                         zip(norm_tf_feature, norm_feature_tf, relative_mask)]
+                    )
+                return position_mi * self._neigh_weight + content_mi * (1 - self._neigh_weight)
             else:
                 raise NotImplementedError(type(projector))
 

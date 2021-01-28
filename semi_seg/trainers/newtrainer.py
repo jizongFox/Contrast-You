@@ -105,6 +105,18 @@ class ExperimentalTrainer(InfoNCETrainer):
 
         self._criterion = SupConLoss(temperature=config["LossParams"]["temperature"], out_mode=True)
         self._reg_weight = float(config["weight"])
+        self._neigh_weight = float(config["neigh_weight"])
+
+        # neigh params:
+        self._k = config["NeighParams"]["kernel_size"]
+        self._m = config["NeighParams"]["margin"]
 
     def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = NewEpocher):
         super(ExperimentalTrainer, self)._set_epocher_class(epocher_class)
+
+    def _run_epoch(self, epocher: NewEpocher, *args, **kwargs) -> EpochResultDict:
+        epocher.init(reg_weight=self._reg_weight, projectors_wrapper=self._projector,
+                     infoNCE_criterion=self._criterion, kernel_size=self._k, margin=self._m,
+                     neigh_weight=self._neigh_weight)
+        result = epocher.run()
+        return result

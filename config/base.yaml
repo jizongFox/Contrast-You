@@ -21,7 +21,7 @@ Data:
 LabeledData:
   shuffle: true
   batch_size: 5
-  num_workers: 3
+  num_workers: 5
 
 UnlabeledData:
   shuffle: true

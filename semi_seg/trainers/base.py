@@ -25,7 +25,6 @@ class SemiTrainer(Trainer):
                  val_loader: T_loader, sup_criterion: T_loss, save_dir: str = "base", max_epoch: int = 100,
                  num_batches: int = 100, device: str = "cpu", configuration=None, **kwargs):
         super().__init__(model, save_dir, max_epoch, num_batches, device, configuration)
-        logger.add(os.path.join(self._save_dir, "loguru.log"))
         self._labeled_loader = labeled_loader
         self._unlabeled_loader = unlabeled_loader
         self._val_loader = val_loader
