@@ -1,12 +1,12 @@
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Callable
 
 from contrastyou.helper import get_dataset
 from deepclustering2.meters2 import EpochResultDict
 from deepclustering2.meters2 import StorageIncomeDict
 from .trainer import InfoNCETrainer, IICTrainer, UDAIICTrainer
-
+from loguru import logger
 
 def _get_contrastive_dataloader(partial_loader, config):
     unlabeled_dataset = get_dataset(partial_loader)
@@ -40,11 +40,15 @@ def _get_contrastive_dataloader(partial_loader, config):
 class _PretrainTrainerMixin:
     _unlabeled_loader: iter
     _config: Dict[str, Any]
+    _start_epoch: int
+    _max_epoch: int
+    init: Callable[..., None]
 
     def init(self, *args, **kwargs):
         super(_PretrainTrainerMixin, self).init(*args, **kwargs)
         # here you have conventional training objects
         self._contrastive_loader = _get_contrastive_dataloader(self._unlabeled_loader, self._config)
+        logger.debug("creating contrastive_loader")
 
     def _run_epoch(self, epocher, *args, **kwargs) -> EpochResultDict:
         epocher.init = partial(epocher.init, chain_dataloader=self._contrastive_loader, )

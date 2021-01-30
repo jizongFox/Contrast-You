@@ -94,6 +94,7 @@ class __freeze_grad_mixin:
 
     def _run(self, *args, **kwargs):
         with freeze_grad(self._model, self._feature_position) as self._model:  # noqa
+
             return super()._run(*args, **kwargs)
 
 

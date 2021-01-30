@@ -14,9 +14,6 @@ Optim:
   lr: 0.00001
   weight_decay: 0.00001
 
-Scheduler:
-  null
-
 ContrastiveLoaderParams:
   group_sample_num: 8
   partition_sample_num: 1

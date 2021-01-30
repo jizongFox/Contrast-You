@@ -2,6 +2,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 
 import torch
+from loguru import logger
 from torch import nn, Tensor
 
 __all__ = ["UNet"]
@@ -312,8 +313,10 @@ def freeze_grad(unet: UNet, feature_pos):
     utils = feature_pos[-1]
     unet.disable_grad_all()
     unet.enable_grad(from_, utils)
+    logger.debug("enable gradient from {} to {}", from_, utils)
     yield unet
     unet.enable_grad_all()
+    logger.debug("enable all gradient")
 
 
 if __name__ == '__main__':
