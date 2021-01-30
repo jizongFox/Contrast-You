@@ -17,7 +17,7 @@ parser.add_argument("-f", "--features", required=True, nargs="+",
 parser.add_argument("--save_dir", required=True, type=str, help="save_dir for the save folder")
 parser.add_argument("--time", default=4, type=int, help="demanding time")
 parser.add_argument("--lr", default=None, type=str, help="learning rate")
-parser.add_argument("--output-size", default=20, help="output size of decoder")
+parser.add_argument("--output-size", default=16, help="output size of decoder")
 args = parser.parse_args()
 
 num_batches = args.num_batches
@@ -52,13 +52,13 @@ PretrainParams = SharedParams + f"InfoNCEParameters.DecoderParams.output_size=[{
 
 save_dir += ("/" + "/".join([args.dataset_name, f"{'_'.join(features)}", f"label_ratio_{label_ratio}"]))
 jobs = [
-    # # ps using only labeled data
-    # f"python main.py {TrainerParams} Trainer.name=partial Trainer.save_dir={save_dir}/ps_only_labeled "
-    # f"                                     Trainer.only_labeled_data=true",
-    #
-    # # fs using only labeled data
-    # f"python main.py {TrainerParams} Trainer.name=partial Trainer.save_dir={save_dir}/fs "
-    # f"                   Trainer.only_labeled_data=true  Data.labeled_data_ratio=1.0 Data.unlabeled_data_ratio=0.0 ",
+    # ps using only labeled data
+    f"python main.py {TrainerParams} Trainer.name=partial Trainer.save_dir={save_dir}/ps_only_labeled "
+    f"                                     Trainer.only_labeled_data=true",
+
+    # fs using only labeled data
+    f"python main.py {TrainerParams} Trainer.name=partial Trainer.save_dir={save_dir}/fs "
+    f"                   Trainer.only_labeled_data=true  Data.labeled_data_ratio=1.0 Data.unlabeled_data_ratio=0.0 ",
 
     # contrastive learning with pretrain
     f"python main.py {PretrainParams} Trainer.name=infoncepretrain  Trainer.save_dir={save_dir}/infonce/pretrain "
@@ -68,19 +68,19 @@ jobs = [
     f"              Trainer.save_dir={save_dir}/infonce/train "
     f"              Arch.checkpoint=runs/{save_dir}/infonce/pretrain/last.pth ",
 
-    # # # improved contrastive learning with pretrain
-    # f"python main.py {PretrainParams} Trainer.name=experimentpretrain  Trainer.save_dir={save_dir}/new1/pretrain "
-    # f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/new.yaml"
-    # f"   &&  "
-    # f"python main.py {TrainerParams} Trainer.name=partial  Trainer.only_labeled_data=true Trainer.save_dir={save_dir}/new1/train "
-    # f"              Arch.checkpoint=runs/{save_dir}/new1/pretrain/last.pth "
+    # # improved contrastive learning with pretrain
+    f"python main.py {PretrainParams} Trainer.name=experimentpretrain  Trainer.save_dir={save_dir}/new1/pretrain "
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/new.yaml"
+    f"   &&  "
+    f"python main.py {TrainerParams} Trainer.name=partial  Trainer.only_labeled_data=true Trainer.save_dir={save_dir}/new1/train "
+    f"              Arch.checkpoint=runs/{save_dir}/new1/pretrain/last.pth "
 
 ]
 
 # CC things
 accounts = cycle(["def-chdesa", "def-mpederso", "rrg-mpederso"])
 
-jobsubmiter = JobSubmiter(project_path="../../", on_local=1, time=args.time, )
+jobsubmiter = JobSubmiter(project_path="../../", on_local=False, time=args.time, )
 for j in jobs:
     jobsubmiter.prepare_env(
         [
