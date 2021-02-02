@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from typing import Union
 
+from loguru import logger
 from torch import Tensor, nn
 
 from contrastyou.featextractor.unet import FeatureExtractor
@@ -41,3 +42,19 @@ def set_grad(tensor_or_module: Union[Tensor, nn.Module], is_enable):
     if isinstance(tensor_or_module, Tensor):
         return set_grad_tensor(tensor_or_module, is_enable)
     return set_grad_module(tensor_or_module, is_enable)
+
+
+class __AssertWithUnLabeledData:
+
+    def _assertion(self):
+        from .base import FineTuneEpocher
+        assert not isinstance(self, FineTuneEpocher)
+        logger.debug("{} using unlabeled data checked!", self.__class__.__name__)
+
+
+class __AssertWithLabeledData:
+
+    def _assertion(self):
+        from .base import FineTuneEpocher
+        assert isinstance(self, FineTuneEpocher)
+        logger.debug("{} using only labeled data checked!", self.__class__.__name__)

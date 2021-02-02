@@ -4,6 +4,7 @@ from .trainer import *
 
 base_trainer_zoos = {
     "partial": SemiTrainer,
+    "finetune": FineTuneTrainer,
     "uda": UDATrainer,
     "iic": IICTrainer,
     "mine": MineTrainer,
@@ -13,21 +14,18 @@ base_trainer_zoos = {
     "ucmeanteacher": UCMeanTeacherTrainer,
     "iicmeanteacher": IICMeanTeacherTrainer,
     "midl": MIDLTrainer,
-    # "featureoutputiic": IICFeatureOutputTrainer,
-    # "featureoutputudaiic": UDAIICFeatureOutputTrainer,
-    # "pica": PICATrainer,
     "infonce": InfoNCETrainer,
-    # "infonce_demo": InfoNCETrainerDemo,
     "prototype": PrototypeTrainer,
-    "dp": DifferentiablePrototypeTrainer,
-    "experiment": ExperimentalTrainer
+    "experiment": ExperimentalTrainer,
+    "experiment2": ExperimentalTrainer2
 
 }
 pre_trainer_zoos = {
     "udaiicpretrain": PretrainUDAIICTrainer,
     "iicpretrain": PretrainIICTrainer,
     "infoncepretrain": PretrainInfoNCETrainer,
-    "experimentpretrain": PretrainExperimentalTrainer
+    "experimentpretrain": PretrainExperimentalTrainer,
+    "experimentpretrain2": PretrainExperimentalTrainer2
 }
 
 trainer_zoos = {**base_trainer_zoos, **pre_trainer_zoos}

@@ -27,7 +27,8 @@ trainer_zoos = {**base_trainer_zoos, **pre_trainer_zoos}
 
 
 def main():
-    with ConfigManger(base_path=Path(PROJECT_PATH) / "config/base.yaml")(scope="base") as config:
+    config_manager = ConfigManger(base_path=Path(PROJECT_PATH) / "config/base.yaml")
+    with config_manager(scope="base") as config:
         save_dir = config["Trainer"]["save_dir"]
         logger.add(os.path.join(save_dir, "loguru.log"))
 

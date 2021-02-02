@@ -6,7 +6,7 @@ import torch
 from torch import Tensor
 from torch import nn
 
-from contrastyou.epocher._utils import unfold_position
+from contrastyou.epocher._utils import unfold_position  # noqa
 from contrastyou.featextractor.unet import FeatureExtractor
 from contrastyou.helper import average_iter, weighted_average_iter
 from contrastyou.projectors.heads import ProjectionHead, LocalProjectionHead
@@ -18,17 +18,16 @@ from deepclustering2.models import ema_updater as EMA_Updater
 from deepclustering2.schedulers.customized_scheduler import RampScheduler
 from deepclustering2.type import T_loss
 from semi_seg._utils import ContrastiveProjectorWrapper
+from ._helper import unl_extractor, __AssertWithUnLabeledData
 from .base import TrainEpocher
-from .helper import unl_extractor
 from .miepocher import MITrainEpocher, ConsistencyTrainEpocher
 
 
-class MeanTeacherEpocher(TrainEpocher):
-    only_with_labeled_data = False
+class MeanTeacherEpocher(TrainEpocher, __AssertWithUnLabeledData):
 
-    def init(self, *, reg_weight: float, teacher_model: nn.Module, reg_criterion: T_loss,  # noqa
-             ema_updater: EMA_Updater, **kwargs):  # noqa
-        super().init(reg_weight=reg_weight, **kwargs)
+    def _init(self, *, reg_weight: float, teacher_model: nn.Module, reg_criterion: T_loss,  # noqa
+              ema_updater: EMA_Updater, **kwargs):  # noqa
+        super()._init(reg_weight=reg_weight, **kwargs)
         self._reg_criterion = reg_criterion  # noqa
         self._teacher_model = teacher_model  # noqa
         self._ema_updater = ema_updater  # noqa
@@ -56,12 +55,12 @@ class MeanTeacherEpocher(TrainEpocher):
         return reg_loss
 
 
-class UCMeanTeacherEpocher(MeanTeacherEpocher):
+class UCMeanTeacherEpocher(MeanTeacherEpocher, __AssertWithUnLabeledData):
 
-    def init(self, *, reg_weight: float, teacher_model: nn.Module, reg_criterion: T_loss, ema_updater: EMA_Updater,
-             threshold: RampScheduler = None, **kwargs):
-        super().init(reg_weight=reg_weight, teacher_model=teacher_model, reg_criterion=reg_criterion,
-                     ema_updater=ema_updater, **kwargs)
+    def _init(self, *, reg_weight: float, teacher_model: nn.Module, reg_criterion: T_loss, ema_updater: EMA_Updater,
+              threshold: RampScheduler = None, **kwargs):
+        super()._init(reg_weight=reg_weight, teacher_model=teacher_model, reg_criterion=reg_criterion,
+                      ema_updater=ema_updater, **kwargs)
         assert isinstance(threshold, RampScheduler), threshold
         self._threshold: RampScheduler = threshold
         self._entropy_loss = Entropy(reduction="none")
@@ -109,13 +108,14 @@ class UCMeanTeacherEpocher(MeanTeacherEpocher):
         return (reg_loss.mean(1) * mask).mean()
 
 
-class MIMeanTeacherEpocher(MITrainEpocher):
+class MIMeanTeacherEpocher(MITrainEpocher, __AssertWithUnLabeledData):
 
-    def init(self, *, mi_estimator_array: Iterable[Callable[[Tensor, Tensor], Tensor]], teacher_model: nn.Module = None,
-             ema_updater: EMA_Updater = None, mt_weight: float = None, mi_weight: float = None, enforce_matching=False,
-             reg_criterion: T_loss = None, **kwargs):
-        super(MIMeanTeacherEpocher, self).init(reg_weight=1.0, mi_estimator_array=mi_estimator_array,
-                                               enforce_matching=enforce_matching, **kwargs)
+    def _init(self, *, mi_estimator_array: Iterable[Callable[[Tensor, Tensor], Tensor]],
+              teacher_model: nn.Module = None,
+              ema_updater: EMA_Updater = None, mt_weight: float = None, mi_weight: float = None, enforce_matching=False,
+              reg_criterion: T_loss = None, **kwargs):
+        super(MIMeanTeacherEpocher, self)._init(reg_weight=1.0, mi_estimator_array=mi_estimator_array,
+                                                enforce_matching=enforce_matching, **kwargs)
         assert reg_criterion is not None
         assert teacher_model is not None
         assert ema_updater is not None
@@ -192,10 +192,10 @@ class MIMeanTeacherEpocher(MITrainEpocher):
         # update ema
         self._ema_updater(self._teacher_model, self._model)
 
-        return self._mt_weight * uda_loss + self._iic_weight * reg_loss
+        return self._mt_weight * uda_loss + self._mi_weight * reg_loss
 
 
-class MIDLPaperEpocher(ConsistencyTrainEpocher):
+class MIDLPaperEpocher(ConsistencyTrainEpocher, __AssertWithUnLabeledData):
 
     def init(self, *, mi_weight: float, consistency_weight: float, iic_segcriterion: T_loss,  # noqa
              reg_criterion: T_loss,  # noqa
@@ -226,8 +226,7 @@ class MIDLPaperEpocher(ConsistencyTrainEpocher):
         return uda_loss * self._consistency_weight + iic_loss * self._mi_weight
 
 
-class EntropyMinEpocher(TrainEpocher):
-    only_with_labeled_data = False
+class EntropyMinEpocher(TrainEpocher, __AssertWithUnLabeledData):
 
     def init(self, *, reg_weight: float, **kwargs):
         super().init(reg_weight=reg_weight, **kwargs)
@@ -249,23 +248,12 @@ class EntropyMinEpocher(TrainEpocher):
         return reg_loss
 
 
-# class PICAEpocher(MITrainEpocher):
-#     only_with_labeled_data = False
-#
-#     def init(self, *, reg_weight: float, projectors_wrapper: ClusterProjectorWrapper,
-#              PICASegCriterionWrapper: PICALossWrapper, enforce_matching=False, **kwargs):
-#         super().init(reg_weight=reg_weight, projectors_wrapper=projectors_wrapper,
-#                      IIDSegCriterionWrapper=PICASegCriterionWrapper,  # noqa
-#                      enforce_matching=enforce_matching, **kwargs)
+class InfoNCEEpocher(TrainEpocher, __AssertWithUnLabeledData):
 
-
-class InfoNCEEpocher(TrainEpocher):
-    only_with_labeled_data = False
-
-    def init(self, *, reg_weight: float, projectors_wrapper: ContrastiveProjectorWrapper = None,
-             infoNCE_criterion: T_loss = None, **kwargs):
+    def _init(self, *, reg_weight: float, projectors_wrapper: ContrastiveProjectorWrapper = None,
+              infoNCE_criterion: T_loss = None, **kwargs):
         assert projectors_wrapper is not None and infoNCE_criterion is not None, (projectors_wrapper, infoNCE_criterion)
-        super().init(reg_weight=reg_weight, **kwargs)
+        super()._init(reg_weight=reg_weight, **kwargs)
         self._projectors_wrapper: ContrastiveProjectorWrapper = projectors_wrapper  # noqa
         self._infonce_criterion: T_loss = infoNCE_criterion  # noqa
 
@@ -281,16 +269,10 @@ class InfoNCEEpocher(TrainEpocher):
         n_uls = len(unlabeled_tf_logits) * 2
 
         def generate_infonce(features, projector):
-            unlabeled_features, unlabeled_tf_features = torch.chunk(features, 2, dim=0)
-            with FixRandomSeed(seed):
-                unlabeled_features_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_features], dim=0)
-            assert unlabeled_tf_features.shape == unlabeled_tf_features.shape, \
-                (unlabeled_tf_features.shape, unlabeled_tf_features.shape)
 
-            proj_tf_feature, proj_feature_tf = torch.chunk(
-                projector(torch.cat([unlabeled_tf_features, unlabeled_features_tf], dim=0)), 2, dim=0
-            )
-            # normalization and label generation goes differently here.
+            proj_tf_feature, proj_feature_tf = self.unlabeled_projection(unl_features=features, projector=projector,
+                                                                         seed=seed)
+
             if isinstance(projector, ProjectionHead):
                 norm_tf_feature, norm_feature_tf = proj_tf_feature, proj_feature_tf
                 assert len(norm_tf_feature.shape) == 2, norm_tf_feature.shape
@@ -334,3 +316,18 @@ class InfoNCEEpocher(TrainEpocher):
     def local_label_generator(self):
         from contrastyou.epocher._utils import LocalLabelGenerator  # noqa
         return LocalLabelGenerator()
+
+    def unlabeled_projection(self, unl_features, projector, seed):
+        unlabeled_features, unlabeled_tf_features = torch.chunk(unl_features, 2, dim=0)
+        with FixRandomSeed(seed):
+            unlabeled_features_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_features], dim=0)
+        assert unlabeled_tf_features.shape == unlabeled_tf_features.shape, \
+            (unlabeled_tf_features.shape, unlabeled_tf_features.shape)
+
+        proj_tf_feature, proj_feature_tf = torch.chunk(
+            projector(torch.cat([unlabeled_tf_features, unlabeled_features_tf], dim=0)), 2, dim=0
+        )
+        return proj_tf_feature, proj_feature_tf
+    
+    def _assertion(self):
+        super(InfoNCEEpocher, self)._assertion()

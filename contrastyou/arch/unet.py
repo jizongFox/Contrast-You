@@ -5,7 +5,7 @@ import torch
 from loguru import logger
 from torch import nn, Tensor
 
-__all__ = ["UNet"]
+__all__ = ["UNet", "freeze_grad"]
 
 
 class conv_block(nn.Module):

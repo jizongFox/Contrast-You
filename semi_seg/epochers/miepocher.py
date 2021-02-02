@@ -13,17 +13,15 @@ from deepclustering2.epoch import _Epocher  # noqa
 from deepclustering2.meters2 import AverageValueMeter, MultipleAverageValueMeter, \
     MeterInterface
 from deepclustering2.type import T_loss
+from ._helper import unl_extractor, __AssertWithUnLabeledData
 from .base import TrainEpocher
-from .helper import unl_extractor
 
 
-# noinspection Mypy
-class ConsistencyTrainEpocher(TrainEpocher):
-    only_with_labeled_data = False
+class ConsistencyTrainEpocher(TrainEpocher, __AssertWithUnLabeledData, ):
 
-    def init(self, *, reg_weight: float, reg_criterion: T_loss, **kwargs):  # noqa
-        super().init(reg_weight=reg_weight, **kwargs)
-        self._reg_criterion = reg_criterion  # noqa
+    def _init(self, *, reg_weight: float, reg_criterion: T_loss, **kwargs):  # noqa
+        super()._init(reg_weight=reg_weight, **kwargs)
+        self._reg_criterion = reg_criterion
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super()._configure_meters(meters)
@@ -45,12 +43,11 @@ class ConsistencyTrainEpocher(TrainEpocher):
         return reg_loss
 
 
-class MITrainEpocher(TrainEpocher):
-    only_with_labeled_data = False
+class MITrainEpocher(TrainEpocher, __AssertWithUnLabeledData):
 
-    def init(self, *, reg_weight: float, mi_estimator_array: Iterable[Callable[[Tensor, Tensor], Tensor]],
-             enforce_matching=False, **kwargs):  # noqa
-        super().init(reg_weight=reg_weight, **kwargs)
+    def _init(self, *, reg_weight: float = 0.1, mi_estimator_array: Iterable[Callable[[Tensor, Tensor], Tensor]],
+              enforce_matching=False, **kwargs):  # noqa
+        super()._init(reg_weight=reg_weight, **kwargs)
         self._mi_estimator_array = mi_estimator_array  # noqa
         self._enforce_matching = enforce_matching  # noqa
 
@@ -91,12 +88,13 @@ class MITrainEpocher(TrainEpocher):
         return reg_loss
 
 
-class ConsistencyMIEpocher(MITrainEpocher):
+class ConsistencyMIEpocher(MITrainEpocher, __AssertWithUnLabeledData):
 
-    def init(self, *, mi_weight: float, consistency_weight: float,  # noqa
-             mi_estimator_array: Iterable[Callable[[Tensor, Tensor], Tensor]], reg_criterion: T_loss,  # noqa
-             enforce_matching=False, **kwargs):
-        super().init(reg_weight=1.0, mi_estimator_array=mi_estimator_array, enforce_matching=enforce_matching, **kwargs)
+    def _init(self, *, mi_weight: float, consistency_weight: float,  # noqa
+              mi_estimator_array: Iterable[Callable[[Tensor, Tensor], Tensor]], reg_criterion: T_loss,  # noqa
+              enforce_matching=False, **kwargs):
+        super()._init(reg_weight=1.0, mi_estimator_array=mi_estimator_array, enforce_matching=enforce_matching,
+                      **kwargs)
         self._mi_weight = mi_weight  # noqa
         self._cons_weight = consistency_weight  # noqa
         self._reg_criterion = reg_criterion  # noqa

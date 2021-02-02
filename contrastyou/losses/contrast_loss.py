@@ -168,12 +168,24 @@ class SupConLoss2(nn.Module):
 
 
 class SupConLoss3(SupConLoss2):
+    """
+    This loss takes two similarity matrix, one for positive one for negative
+    """
 
-    def forward(self, proj_feat1, proj_feat2, target=None, mask: Tensor = None):
+    def forward(self, proj_feat1, proj_feat2, pos_weight: Tensor = None, neg_weight: Tensor = None, **kwargs):
         assert is_normalized(proj_feat1) and is_normalized(proj_feat2), f"features need to be normalized first"
         assert proj_feat1.shape == proj_feat2.shape, (proj_feat1.shape, proj_feat2.shape)
-
+        pos_weight: Tensor
+        neg_weight: Tensor
+        assert pos_weight is not None and neg_weight is not None, (pos_weight, neg_weight)
         batch_size = len(proj_feat1)
+
+        assert pos_weight.shape == torch.Size([batch_size, batch_size])
+        assert neg_weight.shape == torch.Size([batch_size, batch_size])
+        assert pos_weight.max() <= 1 and pos_weight.min() >= 0
+        assert neg_weight.max() <= 1 and neg_weight.min() >= 0
+        [pos_weight, neg_weight] = list(map(lambda x: x.repeat(2, 2), [pos_weight, neg_weight]))
+
         projections = torch.cat([proj_feat1, proj_feat2], dim=0)
         sim_logits = torch.mm(projections, projections.t().contiguous()) / self._t
         max_value = sim_logits.max().detach()
@@ -184,40 +196,21 @@ class SupConLoss3(SupConLoss2):
         unselect_diganal_mask = 1 - torch.eye(
             batch_size * 2, batch_size * 2, dtype=torch.float, device=proj_feat2.device)
 
-        # build negative examples
-        if mask is not None:
-            assert mask.shape == torch.Size([batch_size, batch_size])
-            mask = mask.repeat(2, 2)
-            pos_mask = mask == 1
-            neg_mask = mask == 0
-
-        elif target is not None:
-            if isinstance(target, list):
-                target = torch.Tensor(target).to(device=proj_feat2.device)
-            mask = torch.eq(target[..., None], target[None, ...])
-            mask = mask.repeat(2, 2)
-
-            pos_mask = mask == True
-            neg_mask = mask == False
-        else:
-            # only postive masks are diagnal of the sim_matrix
-            pos_mask = torch.eye(batch_size, dtype=torch.float, device=proj_feat2.device)  # SIMCLR
-            pos_mask = pos_mask.repeat(2, 2)
-            neg_mask = 1 - pos_mask
-
-        pos_mask = pos_mask * unselect_diganal_mask
-        neg_mask = neg_mask * unselect_diganal_mask
-        pos = sim_exp * pos_mask
-        negs = sim_exp * neg_mask
-        pos_count = pos_mask.sum(1)
+        pos_weight = pos_weight * unselect_diganal_mask
+        neg_weight = neg_weight * unselect_diganal_mask
+        pos = sim_exp * pos_weight
+        negs = sim_exp * neg_weight
+        pos_sum_weight = pos_weight.sum(1)
         if not self._out_mode:
             # this is the in mode
-            loss = (- torch.log(pos.sum(1) / (pos.sum(1) + negs.sum(1))) / pos_count).mean()
+            loss = (- torch.log(pos.sum(1) / (pos.sum(1) + negs.sum(1))) / pos_sum_weight).mean()
         # this is the out mode
         else:
-            log_pos_div_sum_pos_neg = (sim_logits - torch.log((pos + negs).sum(1, keepdim=True))) * pos_mask
-            log_pos_div_sum_pos_neg = log_pos_div_sum_pos_neg.sum(1) / pos_count
+            log_pos_div_sum_pos_neg = (sim_logits - torch.log((pos + negs).sum(1, keepdim=True))) * pos
+            log_pos_div_sum_pos_neg = log_pos_div_sum_pos_neg.sum(1) / pos_sum_weight
             loss = -log_pos_div_sum_pos_neg.mean()
+
+        return loss
 
 
 if __name__ == '__main__':

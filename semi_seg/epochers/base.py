@@ -1,4 +1,5 @@
 import random
+from abc import abstractmethod
 from contextlib import nullcontext
 from typing import Union, Tuple
 
@@ -23,10 +24,30 @@ from deepclustering2.tqdm import item2str
 from deepclustering2.type import T_loader, T_loss, T_optim
 from deepclustering2.utils import class2one_hot, ExceptionIgnorer, warn_on_unused_kwargs
 from semi_seg._utils import _num_class_mixin
+from ._helper import __AssertWithLabeledData
+
+
+# to enable init and _init, in order to insert assertion of params
+
+class Epocher(_num_class_mixin, _Epocher):
+
+    def init(self, *args, **kwargs):
+        self._init(*args, **kwargs)
+        self._assertion()
+
+    @abstractmethod
+    def _init(self, *args, **kwargs):
+        pass
+
+    def _assertion(self):
+        try:
+            super(Epocher, self)._assertion()  # noqa
+        except AttributeError:
+            pass
 
 
 # ======== validation epochers =============
-class EvalEpocher(_num_class_mixin, _Epocher):
+class EvalEpocher(Epocher):
 
     def __init__(self, model: Union[Model, nn.Module], val_loader: T_loader, sup_criterion: T_loss, cur_epoch=0,
                  device="cpu") -> None:
@@ -35,6 +56,9 @@ class EvalEpocher(_num_class_mixin, _Epocher):
         super().__init__(model, num_batches=len(val_loader), cur_epoch=cur_epoch, device=device)
         self._val_loader = val_loader
         self._sup_criterion = sup_criterion
+
+    def _init(self, **kwargs):
+        pass
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         C = self.num_classes
@@ -70,7 +94,7 @@ class EvalEpocher(_num_class_mixin, _Epocher):
 
 class InferenceEpocher(EvalEpocher):
 
-    def init(self, *, save_dir: str):
+    def _init(self, *, save_dir: str):
         self._save_dir = save_dir  # noqa
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
@@ -105,13 +129,12 @@ class InferenceEpocher(EvalEpocher):
 
 
 # ========= base training epochers ===============
-class TrainEpocher(_num_class_mixin, _Epocher):
-    # without mixing supervised and unsupervised
+class TrainEpocher(Epocher):
 
     def __init__(self, *, model: Union[Model, nn.Module], optimizer: T_optim, labeled_loader: T_loader,
                  unlabeled_loader: T_loader, sup_criterion: T_loss, num_batches: int, cur_epoch=0,
                  device="cpu", feature_position=None, feature_importance=None, train_with_two_stage: bool = False,
-                 only_with_labeled_data: bool = False, disable_bn_track_for_unlabeled_data: bool = False) -> None:
+                 disable_bn_track_for_unlabeled_data: bool = False) -> None:
         super().__init__(model, num_batches=num_batches, cur_epoch=cur_epoch, device=device)
         self._optimizer = optimizer
         self._labeled_loader = labeled_loader
@@ -128,9 +151,6 @@ class TrainEpocher(_num_class_mixin, _Epocher):
 
         assert len(self._feature_position) == len(self._feature_importance), \
             (len(self._feature_position), len(self._feature_importance))
-        self.only_with_labeled_data = only_with_labeled_data  # highlight: this is the tricky part of the experiments
-        if self.only_with_labeled_data:
-            logger.debug("{} set to be using only labeled data", self.__class__.__name__)
         self.train_with_two_stage = train_with_two_stage  # highlight: this is the parameter to use two stage training
         logger.debug("{} set to be using {} stage training", self.__class__.__name__,
                      "two" if self.train_with_two_stage else "single")
@@ -138,7 +158,7 @@ class TrainEpocher(_num_class_mixin, _Epocher):
         if self._disable_bn:
             logger.debug("{} set to disable bn tracking", self.__class__.__name__)
 
-    def init(self, *, reg_weight: float, **kwargs):
+    def _init(self, *, reg_weight: float, **kwargs):
         self._reg_weight = reg_weight  # noqa
         warn_on_unused_kwargs(kwargs)
 
@@ -148,16 +168,13 @@ class TrainEpocher(_num_class_mixin, _Epocher):
         meters.register_meter("lr", AverageValueMeter())
         meters.register_meter("reg_weight", AverageValueMeter())
         meters.register_meter("sup_loss", AverageValueMeter())
-        if not self.only_with_labeled_data:
-            meters.register_meter("reg_loss", AverageValueMeter())
+        meters.register_meter("reg_loss", AverageValueMeter())
         meters.register_meter("sup_dice", UniversalDice(C, report_axises=report_axis, ))
         return meters
 
     def _run(self, *args, **kwargs):
         self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer)[0])
         assert self._model.training, self._model.training
-        if self.only_with_labeled_data:
-            return self._run_only_label(*args, **kwargs)
         with FeatureExtractor(self._model, self._feature_position) as self._fextractor:  # noqa
             return self._run_semi(*args, **kwargs)
 
@@ -240,6 +257,38 @@ class TrainEpocher(_num_class_mixin, _Epocher):
         report_dict = self.meters.tracking_status(final=True)
         return report_dict
 
+    @staticmethod
+    def _unzip_data(data, device):
+        (image, target), _, filename, partition, group = \
+            preprocess_input_with_twice_transformation(data, device)
+        return image, target, filename, partition, group
+
+    def regularization(self, *args, **kwargs):
+        return torch.tensor(0, dtype=torch.float, device=self._device)
+
+
+class FineTuneEpocher(TrainEpocher, __AssertWithLabeledData):
+
+    def __init__(self, *, model: Union[Model, nn.Module], optimizer: T_optim, labeled_loader: T_loader,
+                 unlabeled_loader: T_loader, sup_criterion: T_loss, num_batches: int, cur_epoch=0, device="cpu",
+                 feature_position=None, feature_importance=None, **kwargs) -> None:
+        super().__init__(model=model, optimizer=optimizer, labeled_loader=labeled_loader,
+                         unlabeled_loader=unlabeled_loader, sup_criterion=sup_criterion, num_batches=num_batches,
+                         cur_epoch=cur_epoch, device=device, feature_position=feature_position,
+                         feature_importance=feature_importance, train_with_two_stage=False,
+                         disable_bn_track_for_unlabeled_data=False)
+
+    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters = super(FineTuneEpocher, self)._configure_meters(meters)
+        meters.delete_meter("reg_loss")
+        meters.delete_meter("reg_weight")
+        return meters
+
+    def _run(self, *args, **kwargs):
+        self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer)[0])
+        assert self._model.training, self._model.training
+        return self._run_only_label(*args, **kwargs)
+
     def _run_only_label(self, *args, **kwargs) -> EpochResultDict:
         for i, labeled_data in zip(self._indicator, self._labeled_loader):
             labeled_image, labeled_target, labeled_filename, _, label_group = \
@@ -266,12 +315,3 @@ class TrainEpocher(_num_class_mixin, _Epocher):
                     self._indicator.set_postfix_dict(report_dict)
         report_dict = self.meters.tracking_status(final=True)
         return report_dict
-
-    @staticmethod
-    def _unzip_data(data, device):
-        (image, target), _, filename, partition, group = \
-            preprocess_input_with_twice_transformation(data, device)
-        return image, target, filename, partition, group
-
-    def regularization(self, *args, **kwargs):
-        return torch.tensor(0, dtype=torch.float, device=self._device)

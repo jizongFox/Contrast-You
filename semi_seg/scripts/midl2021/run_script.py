@@ -53,26 +53,24 @@ PretrainParams = SharedParams + f"InfoNCEParameters.DecoderParams.output_size=[{
 save_dir += ("/" + "/".join([args.dataset_name, f"{'_'.join(features)}", f"label_ratio_{label_ratio}"]))
 jobs = [
     # ps using only labeled data
-    f"python main.py {TrainerParams} Trainer.name=partial Trainer.save_dir={save_dir}/ps_only_labeled "
-    f"                                     Trainer.only_labeled_data=true",
+    f"python main.py {TrainerParams} Trainer.name=finetune Trainer.save_dir={save_dir}/ps ",
 
     # fs using only labeled data
-    f"python main.py {TrainerParams} Trainer.name=partial Trainer.save_dir={save_dir}/fs "
-    f"                   Trainer.only_labeled_data=true  Data.labeled_data_ratio=1.0 Data.unlabeled_data_ratio=0.0 ",
+    f"python main.py {TrainerParams} Trainer.name=finetune Trainer.save_dir={save_dir}/fs "
+    f"                     Data.labeled_data_ratio=1.0 Data.unlabeled_data_ratio=0.0 ",
 
     # contrastive learning with pretrain
     f"python main.py {PretrainParams} Trainer.name=infoncepretrain  Trainer.save_dir={save_dir}/infonce/pretrain "
     f"               --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce.yaml"
     f"    &&  "
-    f"python main.py {TrainerParams} Trainer.name=partial  Trainer.only_labeled_data=true "
-    f"              Trainer.save_dir={save_dir}/infonce/train "
+    f"python main.py {TrainerParams} Trainer.name=finetune          Trainer.save_dir={save_dir}/infonce/train "
     f"              Arch.checkpoint=runs/{save_dir}/infonce/pretrain/last.pth ",
 
     # # improved contrastive learning with pretrain
     f"python main.py {PretrainParams} Trainer.name=experimentpretrain  Trainer.save_dir={save_dir}/new1/pretrain "
     f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/new.yaml"
     f"   &&  "
-    f"python main.py {TrainerParams} Trainer.name=partial  Trainer.only_labeled_data=true Trainer.save_dir={save_dir}/new1/train "
+    f"python main.py {TrainerParams} Trainer.name=finetune  Trainer.save_dir={save_dir}/new1/train "
     f"              Arch.checkpoint=runs/{save_dir}/new1/pretrain/last.pth "
 
 ]

@@ -17,16 +17,15 @@ from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.meters2 import MeterInterface, AverageValueMeter
 from deepclustering2.type import T_loss
 from semi_seg._utils import ContrastiveProjectorWrapper as PrototypeProjectorWrapper
+from ._helper import unl_extractor
 from .base import TrainEpocher
-from .helper import unl_extractor
 from .miepocher import ConsistencyTrainEpocher
 
 
 # I think this only works for pretrain-finetune framework
 class PrototypeEpocher(TrainEpocher):
-    only_with_labeled_data = False
 
-    def init(self, *, reg_weight: float, prototype_projector: PrototypeProjectorWrapper = None, feature_buffers=None,
+    def _init(self, *, reg_weight: float, prototype_projector: PrototypeProjectorWrapper = None, feature_buffers=None,
              infoNCE_criterion: T_loss = None, **kwargs):
         """
         :param reg_weight:  regularization weight
@@ -38,7 +37,7 @@ class PrototypeEpocher(TrainEpocher):
         """
         assert prototype_projector is not None, prototype_projector
         assert infoNCE_criterion is not None, infoNCE_criterion
-        super().init(reg_weight=reg_weight, **kwargs)
+        super()._init(reg_weight=reg_weight, **kwargs)
         self._projectors_wrapper = prototype_projector  # noqa
         self._feature_buffers: Optional[Dict[str, Dict[str, Tensor]]] = feature_buffers  # noqa
         self._infonce_criterion = infoNCE_criterion  # noqa
@@ -157,9 +156,9 @@ class DifferentiablePrototypeEpocher(ConsistencyTrainEpocher):
     https://arxiv.org/abs/2005.04966
     """
 
-    def init(self, *, uda_weight: float, cluster_weight: float, prototype_vectors: Tensor = None,
+    def _init(self, *, uda_weight: float, cluster_weight: float, prototype_vectors: Tensor = None,
              prototype_nums=100, **kwargs):
-        super(DifferentiablePrototypeEpocher, self).init(reg_weight=1.0, reg_criterion=nn.MSELoss())
+        super(DifferentiablePrototypeEpocher, self)._init(reg_weight=1.0, reg_criterion=nn.MSELoss())
         assert self._feature_position == [
             "Conv5"], f"Only support Conv5 for current simplification, given {','.join(self._feature_position)}"
 

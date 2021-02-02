@@ -12,10 +12,11 @@ from deepclustering2 import optim
 from deepclustering2.meters2 import EpochResultDict
 from deepclustering2.meters2 import StorageIncomeDict
 from deepclustering2.schedulers import GradualWarmupScheduler
+from deepclustering2.tqdm import item2str
 from deepclustering2.trainer2 import Trainer
 from deepclustering2.type import T_loader, T_loss
 from semi_seg.epochers import InferenceEpocher
-from semi_seg.epochers import TrainEpocher, EvalEpocher
+from semi_seg.epochers import TrainEpocher, EvalEpocher, FineTuneEpocher
 
 
 class SemiTrainer(Trainer):
@@ -42,12 +43,15 @@ class SemiTrainer(Trainer):
         assert isinstance(feature_importance, list), type(feature_importance)
         feature_importance = [float(x) for x in feature_importance]
         self._feature_importance = [x / sum(feature_importance) for x in feature_importance]
+
         assert len(self._feature_importance) == len(self.feature_positions), \
             (self._feature_importance, self.feature_positions)
 
+        logger.info("{} feature importance: {}", self.__class__.__name__,
+                    item2str({c: v for c, v in zip(self.feature_positions, self._feature_importance)}))
+
         self._disable_bn = self._config["Trainer"].get("disable_bn_track_for_unlabeled_data", False)
         self._train_with_two_stage = self._config["Trainer"].get("two_stage_training", False)
-        self._only_labeled_data = self._config["Trainer"].get("only_labeled_data", False)
 
     def _init_scheduler(self, optimizer):
         scheduler_dict = self._config.get("Scheduler", None)
@@ -86,7 +90,7 @@ class SemiTrainer(Trainer):
             unlabeled_loader=self._unlabeled_loader, sup_criterion=self._sup_criterion, num_batches=self._num_batches,
             cur_epoch=self._cur_epoch, device=self._device, feature_position=self.feature_positions,
             feature_importance=self._feature_importance, train_with_two_stage=self._train_with_two_stage,
-            only_with_labeled_data=self._only_labeled_data, disable_bn_track_for_unlabeled_data=self._disable_bn
+            disable_bn_track_for_unlabeled_data=self._disable_bn
         )
         return epocher
 
@@ -147,9 +151,11 @@ class SemiTrainer(Trainer):
         return result, cur_score
 
     def set_feature_positions(self, feature_positions):
+        logger.info("feature_position for {}: [{}]", self.__class__.__name__, ", ".join(feature_positions))
         self.feature_positions = feature_positions  # noqa
 
 
 class FineTuneTrainer(SemiTrainer):
-    _only_labeled_data = True
-    pass
+
+    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = FineTuneEpocher):
+        super()._set_epocher_class(epocher_class)
