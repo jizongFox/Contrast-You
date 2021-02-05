@@ -12,12 +12,13 @@ parser.add_argument("-b", "--num_batches", default=500, type=int, help="num batc
 parser.add_argument("-e", "--max_epoch", default=100, type=int, help="max epoch")
 parser.add_argument("-s", "--random_seed", default=1, type=int, help="random seed")
 parser.add_argument("-f", "--features", required=True, nargs="+",
-                    choices=["Conv5", "Up_conv5", "Up_conv4", "Up_conv3", "Up_conv2", "DeConv_1x1"],
+                    choices=["Up_conv5", "Up_conv4", "Up_conv3", "Up_conv2", "DeConv_1x1"],
                     help="features from which the contrastive learning are made")
 parser.add_argument("--save_dir", required=True, type=str, help="save_dir for the save folder")
 parser.add_argument("--time", default=4, type=int, help="demanding time")
 parser.add_argument("--lr", default=None, type=str, help="learning rate")
 parser.add_argument("--output-size", default=16, help="output size of decoder")
+parser.add_argument("--on-local", default=False, action="store_true", help="run on local")
 args = parser.parse_args()
 
 num_batches = args.num_batches
@@ -26,7 +27,7 @@ max_epoch = args.max_epoch
 
 label_ratio = args.label_ratio
 
-save_dir_main = args.save_dir if args.save_dir else "main_result_folder"
+save_dir_main = args.save_dir
 
 lr: str = args.lr or f"{lr_zooms[args.dataset_name]:.10f}"
 
@@ -50,43 +51,69 @@ TrainerParams = SharedParams + f" Optim.lr={lr_zooms[args.dataset_name]:.10f} "
 
 PretrainParams = SharedParams + f"InfoNCEParameters.DecoderParams.output_size=[{output_size},{output_size}]"
 
-save_dir += ("/" + "/".join([args.dataset_name, f"{'_'.join(features)}", f"label_ratio_{label_ratio}"]))
-jobs = [
+save_dir += ("/" + "/".join([args.dataset_name, f"label_ratio_{label_ratio}"]))
+
+baselines = [
+
     # ps using only labeled data
     f"python main.py {TrainerParams} Trainer.name=finetune Trainer.save_dir={save_dir}/ps ",
 
     # fs using only labeled data
     f"python main.py {TrainerParams} Trainer.name=finetune Trainer.save_dir={save_dir}/fs "
     f"                     Data.labeled_data_ratio=1.0 Data.unlabeled_data_ratio=0.0 ",
-
+]
+Encoder_jobs = [
     # contrastive learning with pretrain
-    f"python main.py {PretrainParams} Trainer.name=infoncepretrain  Trainer.save_dir={save_dir}/infonce/pretrain "
+    f"python main.py {PretrainParams} Trainer.name=infoncepretrain  Trainer.save_dir={save_dir}/infonce/encoder/pretrain "
     f"               --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce.yaml"
     f"    &&  "
-    f"python main.py {TrainerParams} Trainer.name=finetune          Trainer.save_dir={save_dir}/infonce/train "
-    f"              Arch.checkpoint=runs/{save_dir}/infonce/pretrain/last.pth ",
+    f"python main.py {TrainerParams} Trainer.name=finetune          Trainer.save_dir={save_dir}/infonce/encoder/train "
+    f"              Arch.checkpoint=runs/{save_dir}/infonce/encoder/pretrain/last.pth ",
 
-    # # improved contrastive learning with pretrain
-    f"python main.py {PretrainParams} Trainer.name=experimentpretrain  Trainer.save_dir={save_dir}/new1/pretrain "
+    # improved contrastive learning with pretrain
+    f"python main.py {PretrainParams} Trainer.name=experimentpretrain  Trainer.save_dir={save_dir}/new1/encoder/pretrain "
     f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/new.yaml"
     f"   &&  "
-    f"python main.py {TrainerParams} Trainer.name=finetune  Trainer.save_dir={save_dir}/new1/train "
-    f"              Arch.checkpoint=runs/{save_dir}/new1/pretrain/last.pth "
+    f"python main.py {TrainerParams} Trainer.name=finetune  Trainer.save_dir={save_dir}/new1/encoder/train "
+    f"              Arch.checkpoint=runs/{save_dir}/new1/encoder/pretrain/last.pth "
+
+]
+
+Decoder_Jobs = [
+    # contrastive learning with pretrain
+    f"python main.py {PretrainParams} Trainer.name=infoncepretrain  Trainer.save_dir={save_dir}/infonce/{'_'.join(features)}/pretrain "
+    f" Arch.checkpoint=runs/{save_dir}/infonce/encoder/pretrain/last.pth     Trainer.grad_from=Up5        "
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce.yaml"
+    f"    &&  "
+    f"python main.py {TrainerParams} Trainer.name=finetune          Trainer.save_dir={save_dir}/infonce/{'_'.join(features)}/train "
+    f"              Arch.checkpoint=runs/{save_dir}/infonce/{'_'.join(features)}/pretrain/last.pth ",
+
+    # # improved contrastive learning with pretrain
+    f"python main.py {PretrainParams} Trainer.name=experimentpretrain  Trainer.save_dir={save_dir}/new1/{'_'.join(features)}/pretrain "
+    f" Arch.checkpoint=runs/{save_dir}/new1/encoder/pretrain/last.pth        Trainer.grad_from=Up5     "
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/new.yaml"
+    f"   &&  "
+    f"python main.py {TrainerParams} Trainer.name=finetune  Trainer.save_dir={save_dir}/new1/{'_'.join(features)}/train "
+    f"              Arch.checkpoint=runs/{save_dir}/new1/{'_'.join(features)}/pretrain/last.pth "
 
 ]
 
 # CC things
 accounts = cycle(["def-chdesa", "def-mpederso", "rrg-mpederso"])
 
-jobsubmiter = JobSubmiter(project_path="../../", on_local=False, time=args.time, )
-for j in jobs:
-    jobsubmiter.prepare_env(
+job_submiter = JobSubmiter(project_path="../../", on_local=args.on_local, time=args.time, )
+
+for j in [*baselines, *Encoder_jobs, *Decoder_Jobs]:
+    job_submiter.prepare_env(
         [
             "source ../venv/bin/activate ",
             "export OMP_NUM_THREADS=1",
-            "export PYTHONOPTIMIZE=1"
+            # "export PYTHONOPTIMIZE=1",
+            "export LOGURU_LEVEL=INFO"
         ]
     )
-    jobsubmiter.account = next(accounts)
+    job_submiter.account = next(accounts)
     print(j)
-    jobsubmiter.run(j)
+    code = job_submiter.run(j)
+    if code != 0:
+        raise RuntimeError

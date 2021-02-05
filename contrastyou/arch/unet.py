@@ -308,12 +308,10 @@ class UNet_Index(UNet):
 
 
 @contextmanager
-def freeze_grad(unet: UNet, feature_pos):
-    from_ = "Conv1"
-    utils = feature_pos[-1]
+def freeze_grad(unet: UNet, from_="Conv1", util_="Conv5"):
     unet.disable_grad_all()
-    unet.enable_grad(from_, utils)
-    logger.debug("enable gradient from {} to {}", from_, utils)
+    unet.enable_grad(from_, util_)
+    logger.debug("enable gradient from {} to {}", from_, util_)
     yield unet
     unet.enable_grad_all()
     logger.debug("enable all gradient")

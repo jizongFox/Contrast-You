@@ -3,21 +3,15 @@ from typing import Callable, Iterable
 import torch
 from torch import Tensor
 
-from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
-from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
-from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
 from contrastyou.helper import weighted_average_iter
-from contrastyou.projectors.heads import ClusterHead  # noqa
 from deepclustering2.decorator import FixRandomSeed
-from deepclustering2.epoch import _Epocher  # noqa
-from deepclustering2.meters2 import AverageValueMeter, MultipleAverageValueMeter, \
-    MeterInterface
+from deepclustering2.meters2 import AverageValueMeter, MultipleAverageValueMeter, MeterInterface
 from deepclustering2.type import T_loss
 from ._helper import unl_extractor, __AssertWithUnLabeledData
 from .base import TrainEpocher
 
 
-class ConsistencyTrainEpocher(TrainEpocher, __AssertWithUnLabeledData, ):
+class ConsistencyTrainEpocher(TrainEpocher, __AssertWithUnLabeledData):
 
     def _init(self, *, reg_weight: float, reg_criterion: T_loss, **kwargs):  # noqa
         super()._init(reg_weight=reg_weight, **kwargs)
@@ -39,7 +33,7 @@ class ConsistencyTrainEpocher(TrainEpocher, __AssertWithUnLabeledData, ):
             unlabeled_tf_logits.softmax(1),
             unlabeled_logits_tf.softmax(1).detach()
         )
-        self.meters["uda"].add(reg_loss.item())
+        self.meters["consistency"].add(reg_loss.item())
         return reg_loss
 
 

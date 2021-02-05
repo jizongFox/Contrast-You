@@ -28,7 +28,6 @@ from ._helper import __AssertWithLabeledData
 
 
 # to enable init and _init, in order to insert assertion of params
-
 class Epocher(_num_class_mixin, _Epocher):
 
     def init(self, *args, **kwargs):
@@ -107,7 +106,6 @@ class InferenceEpocher(EvalEpocher):
     def _run(self, *args, **kwargs) -> Tuple[EpochResultDict, float]:
         self._model.eval()
         assert self._model.training is False, self._model.training
-        report_dict = EpochResultDict()
         for i, val_data in zip(self._indicator, self._val_loader):
             val_img, val_target, file_path, _, group = self._unzip_data(val_data, self._device)
             val_logits = self._model(val_img)

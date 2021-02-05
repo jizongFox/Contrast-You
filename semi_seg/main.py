@@ -75,6 +75,11 @@ def main_worker(rank, ngpus_per_node, config, port):  # noqa
     if trainer_checkpoint:
         trainer.load_state_dict_from_path(trainer_checkpoint, strict=True)
 
+    if trainer_name in pre_trainer_zoos:
+        from_, util_ = config["Trainer"]["grad_from"] or "Conv1", \
+                       config["Trainer"]["grad_util"] or config["Trainer"]["feature_names"][-1]
+        trainer.enable_grad(from_=from_, util_=util_)
+
     trainer.start_training()
     if "pretrain" not in trainer_name:
         trainer.inference()

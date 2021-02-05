@@ -2,6 +2,7 @@ import random
 from typing import List, Callable
 
 import torch
+from loguru import logger
 from torch import nn, Tensor
 from torch.optim.optimizer import Optimizer
 
@@ -29,6 +30,10 @@ class _PretrainEpocherMixin:
     on_master: Callable[[], bool]
     regularization: Callable[..., Tensor]
 
+    def __init__(self, *args, **kwargs):
+        super(_PretrainEpocherMixin, self).__init__(*args, **kwargs)
+        self.__initialized_grad = False
+
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meter = super()._configure_meters(meters)  # noqa
         meter.delete_meters(["sup_loss", "sup_dice", "reg_weight"])
@@ -40,13 +45,15 @@ class _PretrainEpocherMixin:
         self._chain_dataloader = chain_dataloader  # noqa
 
     def _run(self, *args, **kwargs) -> EpochResultDict:
+        assert self.__initialized_grad, "one must call `enable_grad` to set grad enabling"
+        logger.debug("set gradient update from {} to {}", self.__from, self.__util)
         self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer)[0])
         assert self._model.training, self._model.training
 
         with FeatureExtractor(self._model, self._feature_position) as self._fextractor:  # noqa
-            return self._run_pretrain(*args, **kwargs)
+            return self.__run_pretrain(*args, **kwargs)
 
-    def _run_pretrain(self, *args, **kwargs):
+    def __run_pretrain(self, *args, **kwargs):
         for i, data in zip(self._indicator, self._chain_dataloader):
             seed = random.randint(0, int(1e7))
             unlabeled_image, unlabeled_target, unlabeled_filename, unl_partition, unl_group = \
@@ -97,11 +104,16 @@ class _PretrainEpocherMixin:
         report_dict = self.meters.tracking_status(final=True)
         return report_dict
 
+    def enable_grad(self, from_="Conv1", util_="Conv5"):
+        self.__from = from_
+        self.__util = util_
+        self.__initialized_grad = True
+
 
 class __FreezeGradMixin:
     _model: nn.Module
     _feature_position: List[str]
 
     def _run(self, *args, **kwargs):
-        with freeze_grad(self._model, self._feature_position) as self._model:  # noqa
+        with freeze_grad(self._model, from_="Conv1", util_=self._feature_position[-1]) as self._model:  # noqa
             return super()._run(*args, **kwargs)  # noqa

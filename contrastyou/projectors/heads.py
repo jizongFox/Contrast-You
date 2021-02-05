@@ -37,6 +37,7 @@ class ProjectionHead(HeadBase):
     def forward(self, features):
         return self._header(features)
 
+
 # head for contrastive pixel-wise projection
 class LocalProjectionHead(HeadBase):
     """
@@ -114,6 +115,7 @@ class ClusterHead(HeadBase):
 
     def forward(self, features):
         return [x(features) for x in self._headers]
+
 
 # head for IIC segmentaiton clustering
 class LocalClusterHead(HeadBase):

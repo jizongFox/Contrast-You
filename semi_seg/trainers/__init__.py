@@ -3,7 +3,6 @@ from .pretrain import *
 from .trainer import *
 
 base_trainer_zoos = {
-    "partial": SemiTrainer,
     "finetune": FineTuneTrainer,
     "uda": UDATrainer,
     "iic": IICTrainer,

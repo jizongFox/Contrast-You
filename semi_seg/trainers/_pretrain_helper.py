@@ -53,17 +53,29 @@ class _PretrainTrainerMixin:
     _storage: Storage
     _writer: SummaryWriter
 
-    def init(self, *args, **kwargs):
-        super(_PretrainTrainerMixin, self).init(*args, **kwargs)  # noqa
+    def __init__(self, *args, **kwargs):
+        super(_PretrainTrainerMixin, self).__init__(*args, **kwargs)
+        self.__initialized_grad = False
+
+    def _init(self, *args, **kwargs):
+        super(_PretrainTrainerMixin, self)._init(*args, **kwargs)  # noqa
         # here you have conventional training objects
         self._contrastive_loader = _get_contrastive_dataloader(self._unlabeled_loader, self._config)
         logger.debug("creating contrastive_loader")
 
     def _run_epoch(self, epocher, *args, **kwargs) -> EpochResultDict:
         epocher.init = partial(epocher.init, chain_dataloader=self._contrastive_loader, )
+        epocher.enable_grad(from_=self.__from, util_=self.__util)
         return super(_PretrainTrainerMixin, self)._run_epoch(epocher, *args, **kwargs)  # noqa
 
+    def enable_grad(self, from_="Conv1", util_="DeConv_1x1"):
+        self.__from = from_
+        self.__util = util_
+        self.__initialized_grad = True
+        logger.info("set grad from {} to {}", from_, util_)
+
     def _start_training(self):
+        assert self.__initialized_grad, "`enable_grad` must be called first"
         for self._cur_epoch in range(self._start_epoch, self._max_epoch):
             train_result: EpochResultDict
             eval_result: EpochResultDict

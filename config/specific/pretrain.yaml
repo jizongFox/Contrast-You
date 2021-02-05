@@ -6,6 +6,8 @@ Trainer:
   num_batches: 500
   max_epoch: 100
   two_stage_training: false
+  grad_from: null
+  grad_util: null
 
 Optim:
   name: Adam
@@ -13,6 +15,6 @@ Optim:
   weight_decay: 0.00001
 
 ContrastiveLoaderParams:
-  group_sample_num: 8
+  group_sample_num: 2
   partition_sample_num: 1
   num_workers: 8
