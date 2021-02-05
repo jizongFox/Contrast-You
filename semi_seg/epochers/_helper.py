@@ -1,10 +1,11 @@
 from contextlib import contextmanager
-from typing import Union
+from typing import Union, List
 
 from loguru import logger
 from torch import Tensor, nn
 
 from contrastyou.featextractor.unet import FeatureExtractor
+from deepclustering2.tqdm import item2str
 
 
 class unl_extractor:
@@ -52,9 +53,38 @@ class __AssertWithUnLabeledData:
         logger.debug("{} using unlabeled data checked!", self.__class__.__name__)
 
 
-class __AssertWithLabeledData:
+class __AssertOnlyWithLabeledData:
 
     def _assertion(self):
         from .base import FineTuneEpocher
         assert isinstance(self, FineTuneEpocher)
         logger.debug("{} using only labeled data checked!", self.__class__.__name__)
+
+
+# feature extractor mixin
+
+class _FeatureExtractorMixin:
+
+    def __init__(self, feature_position: Union[List[str], str], feature_importance: Union[float, List[float]], *args,
+                 **kwargs):
+        super(_FeatureExtractorMixin, self).__init__(*args, **kwargs)
+
+        assert isinstance(feature_position, list) and isinstance(feature_position[0], str), feature_position
+        assert isinstance(feature_importance, list) and isinstance(feature_importance[0],
+                                                                   (int, float)), feature_importance
+        self._feature_position = feature_position
+        self._feature_importance = feature_importance
+        logger.debug("Initializing {} with features and weights: {}", self.__class__.__name__,
+                     item2str({k: v for k, v in zip(self._feature_position, self._feature_importance)}))
+
+        assert len(self._feature_position) == len(self._feature_importance), \
+            (len(self._feature_position), len(self._feature_importance))
+
+    def run(self, *args, **kwargs):
+        with FeatureExtractor(self._model, self._feature_position) as self._fextractor:  # noqa
+            logger.debug(f"create feature extractor for {', '.join(self._feature_position)} ")
+            return super(_FeatureExtractorMixin, self).run(*args, **kwargs)  # noqa
+
+    def forward_pass(self, *args, **kwargs):
+        self._fextractor.clear()
+        return super(_FeatureExtractorMixin, self).forward_pass(*args, **kwargs)  # noqa

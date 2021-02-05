@@ -64,25 +64,27 @@ baselines = [
 ]
 Encoder_jobs = [
     # contrastive learning with pretrain
-    f"python main.py {PretrainParams} Trainer.name=infoncepretrain  Trainer.save_dir={save_dir}/infonce/encoder/pretrain "
+    f"python main.py {PretrainParams} Trainer.name=infoncepretrain  Trainer.save_dir={save_dir}/infonce/Conv5/pretrain "
+    f" Trainer.feature_names=[Conv5] Trainer.feature_importance=[1.0] "
     f"               --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce.yaml"
     f"    &&  "
-    f"python main.py {TrainerParams} Trainer.name=finetune          Trainer.save_dir={save_dir}/infonce/encoder/train "
-    f"              Arch.checkpoint=runs/{save_dir}/infonce/encoder/pretrain/last.pth ",
+    f"python main.py {TrainerParams} Trainer.name=finetune          Trainer.save_dir={save_dir}/infonce/Conv5/train "
+    f"              Arch.checkpoint=runs/{save_dir}/infonce/Conv5/pretrain/last.pth ",
 
     # improved contrastive learning with pretrain
-    f"python main.py {PretrainParams} Trainer.name=experimentpretrain  Trainer.save_dir={save_dir}/new1/encoder/pretrain "
+    f"python main.py {PretrainParams} Trainer.name=experimentpretrain  Trainer.save_dir={save_dir}/new1/Conv5/pretrain "
+    f" Trainer.feature_names=[Conv5] Trainer.feature_importance=[1.0] "
     f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/new.yaml"
     f"   &&  "
-    f"python main.py {TrainerParams} Trainer.name=finetune  Trainer.save_dir={save_dir}/new1/encoder/train "
-    f"              Arch.checkpoint=runs/{save_dir}/new1/encoder/pretrain/last.pth "
+    f"python main.py {TrainerParams} Trainer.name=finetune  Trainer.save_dir={save_dir}/new1/Conv5/train "
+    f"              Arch.checkpoint=runs/{save_dir}/new1/Conv5/pretrain/last.pth "
 
 ]
 
 Decoder_Jobs = [
     # contrastive learning with pretrain
     f"python main.py {PretrainParams} Trainer.name=infoncepretrain  Trainer.save_dir={save_dir}/infonce/{'_'.join(features)}/pretrain "
-    f" Arch.checkpoint=runs/{save_dir}/infonce/encoder/pretrain/last.pth     Trainer.grad_from=Up5        "
+    f" Arch.checkpoint=runs/{save_dir}/infonce/Conv5/pretrain/last.pth     Trainer.grad_from=Up5        "
     f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce.yaml"
     f"    &&  "
     f"python main.py {TrainerParams} Trainer.name=finetune          Trainer.save_dir={save_dir}/infonce/{'_'.join(features)}/train "
@@ -90,7 +92,7 @@ Decoder_Jobs = [
 
     # # improved contrastive learning with pretrain
     f"python main.py {PretrainParams} Trainer.name=experimentpretrain  Trainer.save_dir={save_dir}/new1/{'_'.join(features)}/pretrain "
-    f" Arch.checkpoint=runs/{save_dir}/new1/encoder/pretrain/last.pth        Trainer.grad_from=Up5     "
+    f" Arch.checkpoint=runs/{save_dir}/new1/Conv5/pretrain/last.pth        Trainer.grad_from=Up5     "
     f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/new.yaml"
     f"   &&  "
     f"python main.py {TrainerParams} Trainer.name=finetune  Trainer.save_dir={save_dir}/new1/{'_'.join(features)}/train "
@@ -108,7 +110,7 @@ for j in [*baselines, *Encoder_jobs, *Decoder_Jobs]:
         [
             "source ../venv/bin/activate ",
             "export OMP_NUM_THREADS=1",
-            # "export PYTHONOPTIMIZE=1",
+            "export PYTHONOPTIMIZE=1",
             "export LOGURU_LEVEL=INFO"
         ]
     )

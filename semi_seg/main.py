@@ -29,21 +29,12 @@ trainer_zoos = {**base_trainer_zoos, **pre_trainer_zoos}
 def main():
     config_manager = ConfigManger(base_path=Path(PROJECT_PATH) / "config/base.yaml")
     with config_manager(scope="base") as config:
-        save_dir = config["Trainer"]["save_dir"]
-        logger.add(os.path.join(save_dir, "loguru.log"))
+        save_dir = "runs/" + str(config["Trainer"]["save_dir"])
+        logger.add(os.path.join(save_dir, "loguru.log"), level="TRACE", diagnose=True, )
 
         port = random.randint(10000, 60000)
-        use_distributed_training = config.get("DistributedTrain")
 
-        if use_distributed_training is True:
-            """ngpus_per_node = torch.cuda.device_count()
-            print(colored(f"Found {ngpus_per_node} per node", "red"))
-            mp.spawn(main_worker, nprocs=ngpus_per_node,  # noqa
-                     args=(ngpus_per_node, config, port))
-            """
-            raise RuntimeError("DDP training not supported")
-        else:
-            main_worker(0, 1, config, port)
+        main_worker(0, 1, config, port)
 
 
 @logger.catch(reraise=True)

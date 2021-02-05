@@ -11,7 +11,6 @@ from torch.utils.data.dataloader import DataLoader
 from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
 from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
 from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
-from contrastyou.featextractor.unet import FeatureExtractorWithIndex as FeatureExtractor
 from deepclustering2.augment.tensor_augment import TensorRandomFlip
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.decorator.decorator import _disable_tracking_bn_stats  # noqa
@@ -20,11 +19,10 @@ from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, Universa
 from deepclustering2.models import Model
 from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.schedulers.customized_scheduler import WeightScheduler
-from deepclustering2.tqdm import item2str
 from deepclustering2.type import T_loader, T_loss, T_optim
 from deepclustering2.utils import class2one_hot, ExceptionIgnorer, warn_on_unused_kwargs
 from semi_seg._utils import _num_class_mixin
-from ._helper import __AssertWithLabeledData
+from ._helper import __AssertOnlyWithLabeledData
 
 
 # to enable init and _init, in order to insert assertion of params
@@ -131,24 +129,15 @@ class TrainEpocher(Epocher):
 
     def __init__(self, *, model: Union[Model, nn.Module], optimizer: T_optim, labeled_loader: T_loader,
                  unlabeled_loader: T_loader, sup_criterion: T_loss, num_batches: int, cur_epoch=0,
-                 device="cpu", feature_position=None, feature_importance=None, train_with_two_stage: bool = False,
-                 disable_bn_track_for_unlabeled_data: bool = False) -> None:
+                 device="cpu", train_with_two_stage: bool = False,
+                 disable_bn_track_for_unlabeled_data: bool = False, **kwargs) -> None:
         super().__init__(model, num_batches=num_batches, cur_epoch=cur_epoch, device=device)
         self._optimizer = optimizer
         self._labeled_loader = labeled_loader
         self._unlabeled_loader = unlabeled_loader
         self._sup_criterion = sup_criterion
         self._affine_transformer = TensorRandomFlip(axis=[1, 2], threshold=0.8)
-        assert isinstance(feature_position, list) and isinstance(feature_position[0], str), feature_position
-        assert isinstance(feature_importance, list) and isinstance(feature_importance[0],
-                                                                   (int, float)), feature_importance
-        self._feature_position = feature_position
-        self._feature_importance = feature_importance
-        logger.debug("Initializing {} with features and weights: {}", self.__class__.__name__,
-                     item2str({k: v for k, v in zip(self._feature_position, self._feature_importance)}))
 
-        assert len(self._feature_position) == len(self._feature_importance), \
-            (len(self._feature_position), len(self._feature_importance))
         self.train_with_two_stage = train_with_two_stage  # highlight: this is the parameter to use two stage training
         logger.debug("{} set to be using {} stage training", self.__class__.__name__,
                      "two" if self.train_with_two_stage else "single")
@@ -173,44 +162,29 @@ class TrainEpocher(Epocher):
     def _run(self, *args, **kwargs):
         self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer)[0])
         assert self._model.training, self._model.training
-        with FeatureExtractor(self._model, self._feature_position) as self._fextractor:  # noqa
-            return self._run_semi(*args, **kwargs)
+        return self._run_semi(*args, **kwargs)
 
     def _set_model_state(self, model) -> None:
         model.train()
 
     def _run_semi(self, *args, **kwargs) -> EpochResultDict:
-        bn_context = _disable_tracking_bn_stats if self._disable_bn else nullcontext
         for i, labeled_data, unlabeled_data in zip(self._indicator, self._labeled_loader, self._unlabeled_loader):
             seed = random.randint(0, int(1e7))
             labeled_image, labeled_target, labeled_filename, _, label_group = \
                 self._unzip_data(labeled_data, self._device)
             unlabeled_image, _unlabeled_target, unlabeled_filename, unl_partition, unl_group = self._unzip_data(
                 unlabeled_data, self._device)
-            n_l, n_unl = len(labeled_image), len(unlabeled_image)
 
             with FixRandomSeed(seed):
                 unlabeled_image_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_image], dim=0)
             assert unlabeled_image_tf.shape == unlabeled_image.shape, \
                 (unlabeled_image_tf.shape, unlabeled_image.shape)
 
-            # clear the cached features
-            self._fextractor.clear()
-
-            if not self.train_with_two_stage:
-                # if train with only single stage
-                predict_logits = self._model(torch.cat([labeled_image, unlabeled_image, unlabeled_image_tf], dim=0))
-                label_logits, unlabel_logits, unlabel_tf_logits = torch.split(predict_logits,
-                                                                              [n_l, n_unl, n_unl], dim=0)
-            else:
-                # train with two stages, while their feature extractions are the same
-                label_logits = self._model(labeled_image)
-                with bn_context(self._model):
-                    unlabel_logits, unlabel_tf_logits = torch.split(
-                        self._model(torch.cat([unlabeled_image, unlabeled_image_tf], dim=0)),
-                        [n_unl, n_unl],
-                        dim=0
-                    )
+            label_logits, unlabel_logits, unlabel_tf_logits = self.forward_pass(
+                labeled_image=labeled_image,
+                unlabeled_image=unlabeled_image,
+                unlabeled_image_tf=unlabeled_image_tf
+            )
 
             with FixRandomSeed(seed):
                 unlabel_logits_tf = torch.stack([self._affine_transformer(x) for x in unlabel_logits], dim=0)
@@ -255,6 +229,28 @@ class TrainEpocher(Epocher):
         report_dict = self.meters.tracking_status(final=True)
         return report_dict
 
+    def forward_pass(self, *args, **kwargs):
+        return self._forward_pass(*args, **kwargs)
+
+    def _forward_pass(self, labeled_image, unlabeled_image, unlabeled_image_tf):
+        n_l, n_unl = len(labeled_image), len(unlabeled_image)
+        if not self.train_with_two_stage:
+            # if train with only single stage
+            predict_logits = self._model(torch.cat([labeled_image, unlabeled_image, unlabeled_image_tf], dim=0))
+            label_logits, unlabel_logits, unlabel_tf_logits = torch.split(predict_logits,
+                                                                          [n_l, n_unl, n_unl], dim=0)
+        else:
+            # train with two stages, while their feature extractions are the same
+            label_logits = self._model(labeled_image)
+            bn_context = _disable_tracking_bn_stats if self._disable_bn else nullcontext
+            with bn_context(self._model):
+                unlabel_logits, unlabel_tf_logits = torch.split(
+                    self._model(torch.cat([unlabeled_image, unlabeled_image_tf], dim=0)),
+                    [n_unl, n_unl],
+                    dim=0
+                )
+        return label_logits, unlabel_logits, unlabel_tf_logits
+
     @staticmethod
     def _unzip_data(data, device):
         (image, target), _, filename, partition, group = \
@@ -265,15 +261,14 @@ class TrainEpocher(Epocher):
         return torch.tensor(0, dtype=torch.float, device=self._device)
 
 
-class FineTuneEpocher(TrainEpocher, __AssertWithLabeledData):
+class FineTuneEpocher(TrainEpocher, __AssertOnlyWithLabeledData):
 
     def __init__(self, *, model: Union[Model, nn.Module], optimizer: T_optim, labeled_loader: T_loader,
                  unlabeled_loader: T_loader, sup_criterion: T_loss, num_batches: int, cur_epoch=0, device="cpu",
-                 feature_position=None, feature_importance=None, **kwargs) -> None:
+                 **kwargs) -> None:
         super().__init__(model=model, optimizer=optimizer, labeled_loader=labeled_loader,
                          unlabeled_loader=unlabeled_loader, sup_criterion=sup_criterion, num_batches=num_batches,
-                         cur_epoch=cur_epoch, device=device, feature_position=feature_position,
-                         feature_importance=feature_importance, train_with_two_stage=False,
+                         cur_epoch=cur_epoch, device=device, train_with_two_stage=False,
                          disable_bn_track_for_unlabeled_data=False)
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
@@ -291,9 +286,7 @@ class FineTuneEpocher(TrainEpocher, __AssertWithLabeledData):
         for i, labeled_data in zip(self._indicator, self._labeled_loader):
             labeled_image, labeled_target, labeled_filename, _, label_group = \
                 self._unzip_data(labeled_data, self._device)
-
-            label_logits = self._model(labeled_image)
-
+            label_logits = self.forward_pass(labeled_image=labeled_image)
             # supervised part
             onehot_target = class2one_hot(labeled_target.squeeze(1), self.num_classes)
             sup_loss = self._sup_criterion(label_logits.softmax(1), onehot_target)
@@ -313,3 +306,7 @@ class FineTuneEpocher(TrainEpocher, __AssertWithLabeledData):
                     self._indicator.set_postfix_dict(report_dict)
         report_dict = self.meters.tracking_status(final=True)
         return report_dict
+
+    def _forward_pass(self, labeled_image, **kwargs):
+        label_logits = self._model(labeled_image)
+        return label_logits

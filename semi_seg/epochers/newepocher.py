@@ -18,11 +18,11 @@ from deepclustering2.epoch import _Epocher  # noqa
 from deepclustering2.meters2 import AverageValueMeter, MeterInterface, MultipleAverageValueMeter
 from deepclustering2.type import T_loss
 from semi_seg._utils import ContrastiveProjectorWrapper
-from ._helper import unl_extractor, __AssertWithUnLabeledData
+from ._helper import unl_extractor, __AssertWithUnLabeledData, _FeatureExtractorMixin
 from .base import TrainEpocher
 
 
-class NewEpocher(TrainEpocher, __AssertWithUnLabeledData):
+class NewEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnLabeledData):
     """This epocher is going to do feature clustering on UNet intermediate layers, instead of using MI"""
 
     def _init(self, *, reg_weight: float, projectors_wrapper: ContrastiveProjectorWrapper = None,

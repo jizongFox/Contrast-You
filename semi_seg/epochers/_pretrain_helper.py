@@ -2,12 +2,10 @@ import random
 from typing import List, Callable
 
 import torch
-from loguru import logger
 from torch import nn, Tensor
 from torch.optim.optimizer import Optimizer
 
 from contrastyou.arch.unet import freeze_grad
-from contrastyou.featextractor.unet import FeatureExtractorWithIndex as FeatureExtractor
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.meters2 import EpochResultDict, MeterInterface
 from deepclustering2.optim import get_lrs_from_optimizer
@@ -29,10 +27,7 @@ class _PretrainEpocherMixin:
     _affine_transformer: Callable[[Tensor], Tensor]
     on_master: Callable[[], bool]
     regularization: Callable[..., Tensor]
-
-    def __init__(self, *args, **kwargs):
-        super(_PretrainEpocherMixin, self).__init__(*args, **kwargs)
-        self.__initialized_grad = False
+    forward_pass: Callable
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meter = super()._configure_meters(meters)  # noqa
@@ -42,35 +37,28 @@ class _PretrainEpocherMixin:
     def init(self, *, chain_dataloader, **kwargs):
         # extend the interface for original class with chain_dataloader
         super().init(**kwargs)  # noqa
-        self._chain_dataloader = chain_dataloader  # noqa
+        self._chain_dataloader = chain_dataloader
 
     def _run(self, *args, **kwargs) -> EpochResultDict:
-        assert self.__initialized_grad, "one must call `enable_grad` to set grad enabling"
-        logger.debug("set gradient update from {} to {}", self.__from, self.__util)
         self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer)[0])
         assert self._model.training, self._model.training
-
-        with FeatureExtractor(self._model, self._feature_position) as self._fextractor:  # noqa
-            return self.__run_pretrain(*args, **kwargs)
+        return self.__run_pretrain(*args, **kwargs)
 
     def __run_pretrain(self, *args, **kwargs):
         for i, data in zip(self._indicator, self._chain_dataloader):
             seed = random.randint(0, int(1e7))
             unlabeled_image, unlabeled_target, unlabeled_filename, unl_partition, unl_group = \
                 self._unzip_data(data, self._device)
-            n_l, n_unl = 0, len(unlabeled_image)
 
             with FixRandomSeed(seed):
                 unlabeled_image_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_image], dim=0)
             assert unlabeled_image_tf.shape == unlabeled_image.shape, \
                 (unlabeled_image_tf.shape, unlabeled_image.shape)
 
-            # clear feature cache
-            self._fextractor.clear()
-
-            predict_logits = self._model(torch.cat([unlabeled_image, unlabeled_image_tf], dim=0))
-
-            unlabel_logits, unlabel_tf_logits = torch.split(predict_logits, [n_unl, n_unl], dim=0)
+            unlabel_logits, unlabel_tf_logits = self.forward_pass(
+                unlabeled_image=unlabeled_image,
+                unlabeled_image_tf=unlabeled_image_tf
+            )
 
             with FixRandomSeed(seed):
                 unlabel_logits_tf = torch.stack([self._affine_transformer(x) for x in unlabel_logits], dim=0)
@@ -104,16 +92,29 @@ class _PretrainEpocherMixin:
         report_dict = self.meters.tracking_status(final=True)
         return report_dict
 
-    def enable_grad(self, from_="Conv1", util_="Conv5"):
-        self.__from = from_
-        self.__util = util_
-        self.__initialized_grad = True
+    def _forward_pass(self, unlabeled_image, unlabeled_image_tf):
+        n_l, n_unl = 0, len(unlabeled_image)
+        predict_logits = self._model(torch.cat([unlabeled_image, unlabeled_image_tf], dim=0))
+
+        unlabel_logits, unlabel_tf_logits = torch.split(predict_logits, [n_unl, n_unl], dim=0)
+        return unlabel_logits, unlabel_tf_logits
 
 
-class __FreezeGradMixin:
+class _FreezeGradMixin:
     _model: nn.Module
     _feature_position: List[str]
 
+    def __init__(self, *args, **kwargs):
+        super(_FreezeGradMixin, self).__init__(*args, **kwargs)
+        self.__initialize_grad = False
+
+    def enable_grad(self, from_: str, util_: str):
+        self.__from = from_
+        self.__util = util_
+        self.__initialize_grad = True
+
     def _run(self, *args, **kwargs):
-        with freeze_grad(self._model, from_="Conv1", util_=self._feature_position[-1]) as self._model:  # noqa
+        if not self.__initialize_grad:
+            raise RuntimeError("`enable_grad` must be called before _run() function")
+        with freeze_grad(self._model, from_=self.__from, util_=self.__util) as self._model:  # noqa
             return super()._run(*args, **kwargs)  # noqa

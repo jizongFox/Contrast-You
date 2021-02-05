@@ -18,7 +18,7 @@ from deepclustering2.models import ema_updater as EMA_Updater
 from deepclustering2.schedulers.customized_scheduler import RampScheduler
 from deepclustering2.type import T_loss
 from semi_seg._utils import ContrastiveProjectorWrapper
-from ._helper import unl_extractor, __AssertWithUnLabeledData
+from ._helper import unl_extractor, __AssertWithUnLabeledData, _FeatureExtractorMixin
 from .base import TrainEpocher
 from .miepocher import MITrainEpocher, ConsistencyTrainEpocher
 
@@ -248,7 +248,7 @@ class EntropyMinEpocher(TrainEpocher, __AssertWithUnLabeledData):
         return reg_loss
 
 
-class InfoNCEEpocher(TrainEpocher, __AssertWithUnLabeledData):
+class InfoNCEEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnLabeledData):
 
     def _init(self, *, reg_weight: float, projectors_wrapper: ContrastiveProjectorWrapper = None,
               infoNCE_criterion: T_loss = None, **kwargs):
@@ -328,6 +328,6 @@ class InfoNCEEpocher(TrainEpocher, __AssertWithUnLabeledData):
             projector(torch.cat([unlabeled_tf_features, unlabeled_features_tf], dim=0)), 2, dim=0
         )
         return proj_tf_feature, proj_feature_tf
-    
+
     def _assertion(self):
         super(InfoNCEEpocher, self)._assertion()

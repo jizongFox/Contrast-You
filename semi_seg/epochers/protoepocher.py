@@ -17,16 +17,16 @@ from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.meters2 import MeterInterface, AverageValueMeter
 from deepclustering2.type import T_loss
 from semi_seg._utils import ContrastiveProjectorWrapper as PrototypeProjectorWrapper
-from ._helper import unl_extractor
+from ._helper import unl_extractor, _FeatureExtractorMixin
 from .base import TrainEpocher
 from .miepocher import ConsistencyTrainEpocher
 
 
 # I think this only works for pretrain-finetune framework
-class PrototypeEpocher(TrainEpocher):
+class PrototypeEpocher(_FeatureExtractorMixin, TrainEpocher):
 
     def _init(self, *, reg_weight: float, prototype_projector: PrototypeProjectorWrapper = None, feature_buffers=None,
-             infoNCE_criterion: T_loss = None, **kwargs):
+              infoNCE_criterion: T_loss = None, **kwargs):
         """
         :param reg_weight:  regularization weight
         :param prototype_projector: prototype projector to logits
@@ -150,14 +150,14 @@ class PrototypeEpocher(TrainEpocher):
         return LocalLabelGenerator()
 
 
-class DifferentiablePrototypeEpocher(ConsistencyTrainEpocher):
+class DifferentiablePrototypeEpocher(_FeatureExtractorMixin, ConsistencyTrainEpocher):
     """
     This Epocher is only for updating the encoder descriptor, using different ways
     https://arxiv.org/abs/2005.04966
     """
 
     def _init(self, *, uda_weight: float, cluster_weight: float, prototype_vectors: Tensor = None,
-             prototype_nums=100, **kwargs):
+              prototype_nums=100, **kwargs):
         super(DifferentiablePrototypeEpocher, self)._init(reg_weight=1.0, reg_criterion=nn.MSELoss())
         assert self._feature_position == [
             "Conv5"], f"Only support Conv5 for current simplification, given {','.join(self._feature_position)}"

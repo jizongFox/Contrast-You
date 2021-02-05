@@ -7,7 +7,7 @@ from contrastyou.helper import weighted_average_iter
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.meters2 import AverageValueMeter, MultipleAverageValueMeter, MeterInterface
 from deepclustering2.type import T_loss
-from ._helper import unl_extractor, __AssertWithUnLabeledData
+from ._helper import unl_extractor, __AssertWithUnLabeledData, _FeatureExtractorMixin
 from .base import TrainEpocher
 
 
@@ -37,7 +37,7 @@ class ConsistencyTrainEpocher(TrainEpocher, __AssertWithUnLabeledData):
         return reg_loss
 
 
-class MITrainEpocher(TrainEpocher, __AssertWithUnLabeledData):
+class MITrainEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnLabeledData):
 
     def _init(self, *, reg_weight: float = 0.1, mi_estimator_array: Iterable[Callable[[Tensor, Tensor], Tensor]],
               enforce_matching=False, **kwargs):  # noqa

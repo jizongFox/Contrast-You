@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any, Dict, Callable
 
 from loguru import logger
-from torch.utils.data.dataloader import _BaseDataLoaderIter as BaseDataLoaderIter, DataLoader
+from torch.utils.data.dataloader import _BaseDataLoaderIter as BaseDataLoaderIter, DataLoader  # noqa
 
 from contrastyou.datasets._seg_datset import ContrastBatchSampler  # noqa
 from contrastyou.helper import get_dataset
@@ -68,7 +68,7 @@ class _PretrainTrainerMixin:
         epocher.enable_grad(from_=self.__from, util_=self.__util)
         return super(_PretrainTrainerMixin, self)._run_epoch(epocher, *args, **kwargs)  # noqa
 
-    def enable_grad(self, from_="Conv1", util_="DeConv_1x1"):
+    def enable_grad(self, from_, util_):
         self.__from = from_
         self.__util = util_
         self.__initialized_grad = True
