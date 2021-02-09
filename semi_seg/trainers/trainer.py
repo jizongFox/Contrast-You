@@ -57,7 +57,7 @@ class MIDLTrainer(UDATrainer):
     def _run_epoch(self, epocher: MIDLPaperEpocher, *args, **kwargs) -> EpochResultDict:
         epocher.init(mi_weight=self._iic_weight, consistency_weight=self._uda_weight,
                      iic_segcriterion=self._iic_segcriterion,
-                     reg_criterion=self._reg_criterion)
+                     reg_criterion=self._reg_criterion)  # noqa
         result = epocher.run()
         return result
 
@@ -112,6 +112,7 @@ class InfoNCETrainer(IICTrainer):
     def _init(self):
         super(IICTrainer, self)._init()
         config = deepcopy(self._config["InfoNCEParameters"])
+        self.__encoder_method = config["EncoderParams"].pop("method_name", "supcontrast")
         self._projector = ContrastiveProjectorWrapper()
         self._projector.init_encoder(
             feature_names=self.feature_positions,
@@ -130,6 +131,7 @@ class InfoNCETrainer(IICTrainer):
     def _run_epoch(self, epocher: InfoNCEEpocher, *args, **kwargs) -> EpochResultDict:
         epocher.init(reg_weight=self._reg_weight, projectors_wrapper=self._projector,
                      infoNCE_criterion=self._criterion)
+        epocher.set_global_contrast_method(method_name=self.__encoder_method)
         result = epocher.run()
         return result
 

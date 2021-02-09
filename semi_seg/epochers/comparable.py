@@ -1,8 +1,10 @@
 import math
+from abc import abstractmethod
 from functools import lru_cache
 from typing import Callable, Iterable
 
 import torch
+from loguru import logger
 from torch import Tensor
 from torch import nn
 
@@ -11,7 +13,7 @@ from contrastyou.featextractor.unet import FeatureExtractor
 from contrastyou.helper import average_iter, weighted_average_iter
 from contrastyou.projectors.heads import ProjectionHead, LocalProjectionHead
 from deepclustering2.decorator import FixRandomSeed
-from deepclustering2.decorator.decorator import _disable_tracking_bn_stats as disable_bn
+from deepclustering2.decorator.decorator import _disable_tracking_bn_stats as disable_bn  # noqa
 from deepclustering2.loss import Entropy
 from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, MeterInterface, MultipleAverageValueMeter
 from deepclustering2.models import ema_updater as EMA_Updater
@@ -248,7 +250,8 @@ class EntropyMinEpocher(TrainEpocher, __AssertWithUnLabeledData):
         return reg_loss
 
 
-class InfoNCEEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnLabeledData):
+class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnLabeledData):
+    """base epocher class for infonce like method"""
 
     def _init(self, *, reg_weight: float, projectors_wrapper: ContrastiveProjectorWrapper = None,
               infoNCE_criterion: T_loss = None, **kwargs):
@@ -256,66 +259,17 @@ class InfoNCEEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnLabeled
         super()._init(reg_weight=reg_weight, **kwargs)
         self._projectors_wrapper: ContrastiveProjectorWrapper = projectors_wrapper  # noqa
         self._infonce_criterion: T_loss = infoNCE_criterion  # noqa
+        self.__encoder_method_name__ = "supcontrast"
+
+    def set_global_contrast_method(self, method_name: str = "supcontrast"):
+        assert method_name in ("simclr", "supcontrast")
+        self.__encoder_method_name__ = method_name
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super()._configure_meters(meters)
         meters.register_meter("mi", AverageValueMeter())
         meters.register_meter("individual_mis", MultipleAverageValueMeter())
         return meters
-
-    def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group,
-                       partition_group, *args, **kwargs):
-        feature_names = self._fextractor._feature_names  # noqa
-        n_uls = len(unlabeled_tf_logits) * 2
-
-        def generate_infonce(features, projector):
-
-            proj_tf_feature, proj_feature_tf = self.unlabeled_projection(unl_features=features, projector=projector,
-                                                                         seed=seed)
-
-            if isinstance(projector, ProjectionHead):
-                norm_tf_feature, norm_feature_tf = proj_tf_feature, proj_feature_tf
-                assert len(norm_tf_feature.shape) == 2, norm_tf_feature.shape
-                labels = self.global_label_generator(partition_list=partition_group, patient_list=label_group)
-
-            elif isinstance(projector, LocalProjectionHead):
-                proj_feature_tf_unfold, positional_label = unfold_position(proj_feature_tf,
-                                                                           partition_num=proj_feature_tf.shape[-2:])
-                proj_tf_feature_unfold, _ = unfold_position(proj_tf_feature, partition_num=proj_tf_feature.shape[-2:])
-
-                __b = proj_tf_feature_unfold.size(0)
-                norm_feature_tf = proj_feature_tf_unfold.view(__b, -1)
-                norm_tf_feature = proj_tf_feature_unfold.view(__b, -1)
-
-                labels = self.local_label_generator(partition_list=partition_group, patient_list=label_group,
-                                                    location_list=positional_label)
-
-            else:
-                raise NotImplementedError(type(projector))
-            return self._infonce_criterion(torch.stack([norm_feature_tf, norm_tf_feature], dim=1), labels=labels)
-
-        losses = [generate_infonce(f, p) for f, p in zip(unl_extractor(self._fextractor, n_uls=n_uls),
-                                                         self._projectors_wrapper)]
-
-        reg_loss = weighted_average_iter(losses, self._feature_importance)
-        self.meters["mi"].add(-reg_loss.item())
-        self.meters["individual_mis"].add(**dict(zip(
-            self._feature_position,
-            [-x.item() for x in losses]
-        )))
-        return reg_loss
-
-    @property  # noqa
-    @lru_cache()
-    def global_label_generator(self):
-        from contrastyou.epocher._utils import GlobalLabelGenerator  # noqa
-        return GlobalLabelGenerator()
-
-    @property  # noqa
-    @lru_cache()
-    def local_label_generator(self):
-        from contrastyou.epocher._utils import LocalLabelGenerator  # noqa
-        return LocalLabelGenerator()
 
     def unlabeled_projection(self, unl_features, projector, seed):
         unlabeled_features, unlabeled_tf_features = torch.chunk(unl_features, 2, dim=0)
@@ -329,5 +283,75 @@ class InfoNCEEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnLabeled
         )
         return proj_tf_feature, proj_feature_tf
 
+    @lru_cache()
+    def global_label_generator(self, gmethod: str):
+        from contrastyou.epocher._utils import GlobalLabelGenerator  # noqa
+        logger.debug("initialize {} label generator for encoder training", self.__encoder_method_name__)
+        if gmethod == "supcontrast":
+            return GlobalLabelGenerator()
+        elif gmethod == "simclr":
+            return GlobalLabelGenerator(True, True)
+
+    @lru_cache()
+    def local_label_generator(self):
+        from contrastyou.epocher._utils import LocalLabelGenerator  # noqa
+        return LocalLabelGenerator()
+
+    def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group,
+                       partition_group, *args, **kwargs):
+        feature_names = self._fextractor._feature_names  # noqa
+        n_uls = len(unlabeled_tf_logits) * 2
+
+        losses = [
+            self.generate_infonce(
+                features=f, projector=p, seed=seed, partition_group=partition_group, label_group=label_group
+            ) for f, p in zip(unl_extractor(self._fextractor, n_uls=n_uls), self._projectors_wrapper)
+        ]
+
+        reg_loss = weighted_average_iter(losses, self._feature_importance)
+        self.meters["mi"].add(-reg_loss.item())
+        self.meters["individual_mis"].add(**dict(zip(
+            self._feature_position,
+            [-x.item() for x in losses]
+        )))
+        return reg_loss
+
+    @abstractmethod
+    def generate_infonce(self, *, features, projector, seed, partition_group, label_group) -> Tensor:
+        ...
+
+
+class InfoNCEEpocher(_InfoNCEBasedEpocher):
+    """INFONCE that implments SIMCLR and SupContrast"""
+
     def _assertion(self):
+        from contrastyou.losses.contrast_loss import SupConLoss
+        if not isinstance(self._infonce_criterion, SupConLoss):
+            raise RuntimeError(f"{self.__class__.__name__} only support `SupConLoss`, "
+                               f"given {type(self._infonce_criterion)}")
         super(InfoNCEEpocher, self)._assertion()
+
+    def generate_infonce(self, *, features, projector, seed, partition_group, label_group):
+
+        proj_tf_feature, proj_feature_tf = self.unlabeled_projection(unl_features=features, projector=projector,
+                                                                     seed=seed)
+        if isinstance(projector, ProjectionHead):
+            norm_tf_feature, norm_feature_tf = proj_tf_feature, proj_feature_tf
+            assert len(norm_tf_feature.shape) == 2, norm_tf_feature.shape
+            labels = self.global_label_generator(gmethod=self.__encoder_method_name__)(partition_list=partition_group,
+                                                                                       patient_list=label_group)
+
+        elif isinstance(projector, LocalProjectionHead):
+            proj_feature_tf_unfold, positional_label = unfold_position(proj_feature_tf,
+                                                                       partition_num=proj_feature_tf.shape[-2:])
+            proj_tf_feature_unfold, _ = unfold_position(proj_tf_feature, partition_num=proj_tf_feature.shape[-2:])
+
+            __b = proj_tf_feature_unfold.size(0)
+            norm_feature_tf = proj_feature_tf_unfold.view(__b, -1)
+            norm_tf_feature = proj_tf_feature_unfold.view(__b, -1)
+
+            labels = self.local_label_generator()(partition_list=partition_group, patient_list=label_group,
+                                                  location_list=positional_label)
+        else:
+            raise NotImplementedError(type(projector))
+        return self._infonce_criterion(torch.stack([norm_feature_tf, norm_tf_feature], dim=1), labels=labels)

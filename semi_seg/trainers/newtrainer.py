@@ -13,6 +13,7 @@ class ExperimentalTrainer(InfoNCETrainer):
         super(IICTrainer, self)._init()
         config = deepcopy(self._config["InfoNCEParameters"])
         self._projector = ContrastiveProjectorWrapper()
+        self.__encoder_method = config["EncoderParams"].pop("method_name", "supcontrast")
         self._projector.init_encoder(
             feature_names=self.feature_positions,
             **config["EncoderParams"]
@@ -38,6 +39,7 @@ class ExperimentalTrainer(InfoNCETrainer):
         epocher.init(reg_weight=self._reg_weight, projectors_wrapper=self._projector,
                      infoNCE_criterion=self._criterion, kernel_size=self._k, margin=self._m,
                      neigh_weight=self._neigh_weight)
+        epocher.set_global_contrast_method(method_name=self.__encoder_method)
         result = epocher.run()
         return result
 

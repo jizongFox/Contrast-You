@@ -5,7 +5,7 @@ from typing import Union, Tuple
 
 import torch
 from loguru import logger
-from torch import nn
+from torch import nn, Tensor
 from torch.utils.data.dataloader import DataLoader
 
 from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
@@ -286,7 +286,7 @@ class FineTuneEpocher(TrainEpocher, __AssertOnlyWithLabeledData):
         for i, labeled_data in zip(self._indicator, self._labeled_loader):
             labeled_image, labeled_target, labeled_filename, _, label_group = \
                 self._unzip_data(labeled_data, self._device)
-            label_logits = self.forward_pass(labeled_image=labeled_image)
+            label_logits: Tensor = self.forward_pass(labeled_image=labeled_image)  # noqa
             # supervised part
             onehot_target = class2one_hot(labeled_target.squeeze(1), self.num_classes)
             sup_loss = self._sup_criterion(label_logits.softmax(1), onehot_target)
