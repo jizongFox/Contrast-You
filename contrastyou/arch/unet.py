@@ -83,7 +83,6 @@ class UNet(nn.Module):
         self.Up_conv2 = conv_block(in_ch=32, out_ch=16)
 
         self.DeConv_1x1 = nn.Conv2d(16, num_classes, kernel_size=1, stride=1, padding=0)
-        logger.info(f"Initializing {self.__class__.__name__}")
 
     def forward(self, x, return_features=False):
         # encoding path

@@ -12,7 +12,7 @@ from contrastyou.arch import UNet
 from deepclustering2.configparser import ConfigManger
 from deepclustering2.utils import gethash
 from deepclustering2.utils import set_benchmark
-from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos
+from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, FineTuneTrainer
 from semi_seg.dsutils import get_dataloaders
 from loguru import logger
 from copy import deepcopy
@@ -45,18 +45,27 @@ def main_worker(rank, ngpus_per_node, config, port):  # noqa
     config_arch = deepcopy(config["Arch"])
     model_checkpoint = config_arch.pop("checkpoint", None)
     model = UNet(**config_arch)
+    logger.info(f"Initializing {model.__class__.__name__}")
     if model_checkpoint:
         logger.info(f"loading checkpoint from  {model_checkpoint}")
         model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=False)
 
     trainer_name = config["Trainer"].pop("name")
+    base_save_dir = config["Trainer"]["save_dir"]
+
     Trainer = trainer_zoos[trainer_name]
+
+    is_pretrain: bool = trainer_name in pre_trainer_zoos
+    save_dir = base_save_dir
+    if is_pretrain:
+        save_dir = os.path.join(base_save_dir, "pretrain")
 
     trainer = Trainer(
         model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
         val_loader=val_loader, sup_criterion=KL_div(verbose=False),
         configuration={**config, **{"GITHASH": cur_githash}},
-        **config["Trainer"]
+        save_dir=save_dir,
+        **{k: v for k, v in config["Trainer"].items() if k != "save_dir"}
     )
 
     trainer.init()
@@ -64,14 +73,26 @@ def main_worker(rank, ngpus_per_node, config, port):  # noqa
     if trainer_checkpoint:
         trainer.load_state_dict_from_path(trainer_checkpoint, strict=True)
 
-    if trainer_name in pre_trainer_zoos:
+    if is_pretrain:
         from_, util_ = config["Trainer"]["grad_from"] or "Conv1", \
                        config["Trainer"]["grad_util"] or config["Trainer"]["feature_names"][-1]
         trainer.enable_grad(from_=from_, util_=util_)
 
     trainer.start_training()
-    if "pretrain" not in trainer_name:
-        trainer.inference()
+
+    if is_pretrain:
+        save_dir = os.path.join(base_save_dir, "train")
+        finetune_trainer = FineTuneTrainer(
+            model=model, labeled_loader=iter(labeled_loader),
+            unlabeled_loader=iter(unlabeled_loader),
+            val_loader=val_loader, sup_criterion=KL_div(verbose=False),
+            save_dir=save_dir,
+            configuration=config,
+            **{k: v for k, v in config["Trainer"].items() if k != "save_dir"}
+        )
+        finetune_trainer.init()
+        finetune_trainer.start_training()
+        finetune_trainer.inference()
 
 
 if __name__ == '__main__':

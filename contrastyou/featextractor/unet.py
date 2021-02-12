@@ -50,11 +50,11 @@ class FeatureExtractor(nn.Module):
         self._hook_handlers = {}
         from semi_seg._utils import get_model
         net = get_model(self._net)
-        for f in self._feature_names:
+        for i, f in enumerate(self._feature_names):
             extractor = self._create_collector()
             handler = getattr(net, f).register_forward_hook(extractor)
-            self._feature_exactors[f] = extractor
-            self._hook_handlers[f] = handler
+            self._feature_exactors[str(i) + "_" + f] = extractor
+            self._hook_handlers[str(i) + "_" + f] = handler
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -66,10 +66,6 @@ class FeatureExtractor(nn.Module):
         if item in self._feature_exactors:
             return self._feature_exactors[item].feature
         return super().__getitem__(item)
-
-    def get_feature_from_num(self, num):
-        feature = self._feature_names[num]
-        return self[feature]
 
     def __iter__(self):
         for k, v in self._feature_exactors.items():

@@ -30,25 +30,29 @@ class SemiTrainer(Trainer):
         self._unlabeled_loader = unlabeled_loader
         self._val_loader = val_loader
         self._sup_criterion = sup_criterion
+        self.__initialized__ = False
 
     # initialization
     def init(self):
         self._init()
         self._init_optimizer()
         self._init_scheduler(self._optimizer)
+        self.__initialized__ = True
 
     def _init(self):
         self.set_feature_positions(self._config["Trainer"]["feature_names"])
         feature_importance = self._config["Trainer"]["feature_importance"]
         assert isinstance(feature_importance, list), type(feature_importance)
         feature_importance = [float(x) for x in feature_importance]
-        self._feature_importance = [x / sum(feature_importance) for x in feature_importance]
+        # self._feature_importance = [x / sum(feature_importance) for x in feature_importance]
+        self._feature_importance = feature_importance
 
         assert len(self._feature_importance) == len(self.feature_positions), \
             (self._feature_importance, self.feature_positions)
 
         logger.info("{} feature importance: {}", self.__class__.__name__,
-                    item2str({c: v for c, v in zip(self.feature_positions, self._feature_importance)}))
+                    item2str({f"{c}|{i}": v for i, (c, v) in
+                              enumerate(zip(self.feature_positions, self._feature_importance))}))
 
         self._disable_bn = self._config["Trainer"].get("disable_bn_track_for_unlabeled_data", False)
         self._train_with_two_stage = self._config["Trainer"].get("two_stage_training", False)
@@ -105,6 +109,11 @@ class SemiTrainer(Trainer):
                              cur_epoch=self._cur_epoch, device=self._device)
         result, cur_score = evaler.run()
         return result, cur_score
+
+    def start_training(self, *args, **kwargs):
+        if not self.__initialized__:
+            raise RuntimeError(f"call self.init() first to initialize {self.__class__.__name__}")
+        return super(SemiTrainer, self).start_training()
 
     def _start_training(self):
         for self._cur_epoch in range(self._start_epoch, self._max_epoch):

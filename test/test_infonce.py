@@ -3,7 +3,7 @@ from unittest import TestCase
 from torch.optim import Adam
 
 from contrastyou.arch import UNet
-from contrastyou.losses.contrast_loss import SupConLoss
+from contrastyou.losses.contrast_loss import SupConLoss2
 from deepclustering2.configparser import ConfigManger
 from deepclustering2.loss import KL_div
 from semi_seg._utils import ContrastiveProjectorWrapper  # noqa
@@ -18,8 +18,8 @@ class TestInfoNCECase(TestCase):
         optimizer = Adam(network.parameters(), )
         self._model = network
         self._optimizer = optimizer
-        self._feature_names = ["Conv5", "Up_conv2"]
-        self._feature_importance = [1.0, 1.0]
+        self._feature_names = ["Conv5", "Conv5", "Up_conv2"]
+        self._feature_importance = [1.0, 1.0, 1.0]
         with ConfigManger(
             base_path="../config/base.yaml",
             optional_paths="../config/specific/infonce.yaml"
@@ -28,7 +28,6 @@ class TestInfoNCECase(TestCase):
             self._projector = ContrastiveProjectorWrapper()
 
             self.__contrast_name = self.config["InfoNCEParameters"]["EncoderParams"].pop("method_name")
-            self.config["InfoNCEParameters"]["EncoderParams"]["pool_method"] = "identical"
 
             self._projector.init_encoder(
                 feature_names=self._feature_names,
@@ -37,7 +36,7 @@ class TestInfoNCECase(TestCase):
                 feature_names=self._feature_names,
                 **self.config["InfoNCEParameters"]["DecoderParams"]
             )
-            self._infonce_criterion = SupConLoss()
+            self._infonce_criterion = SupConLoss2()
 
     def override_encoder_params(self, **kwargs):
         self.config["InfoNCEParameters"]["EncoderParams"].update(kwargs)
@@ -52,8 +51,8 @@ class TestInfoNCECase(TestCase):
             unlabeled_loader=iter(self.unlabeled_loader),
             sup_criterion=KL_div(),
             num_batches=10,
-            feature_position=["Conv5", "Up_conv2"],
-            feature_importance=[1, 1],
+            feature_position=self._feature_names,
+            feature_importance=self._feature_importance,
             device="cuda"
         )
         epocher.init(reg_weight=0.1, projectors_wrapper=self._projector, infoNCE_criterion=self._infonce_criterion)

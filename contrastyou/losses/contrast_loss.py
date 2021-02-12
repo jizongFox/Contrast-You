@@ -13,8 +13,8 @@ from torch import Tensor
 from contrastyou.helper import deprecated
 
 
-def is_normalized(feature: Tensor):
-    norms = feature.norm(dim=1)
+def is_normalized(feature: Tensor, dim=1):
+    norms = feature.norm(dim=dim)
     return torch.allclose(norms, torch.ones_like(norms))
 
 

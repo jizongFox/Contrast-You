@@ -3,6 +3,7 @@ from abc import abstractmethod
 from functools import lru_cache
 from typing import Callable, Iterable
 
+import numpy as np
 import torch
 from loguru import logger
 from torch import Tensor
@@ -12,7 +13,7 @@ from contrastyou.epocher._utils import unfold_position  # noqa
 from contrastyou.featextractor.unet import FeatureExtractor
 from contrastyou.helper import average_iter, weighted_average_iter
 from contrastyou.losses.contrast_loss import is_normalized
-from contrastyou.projectors.heads import ProjectionHead, DenseProjectionHead
+from contrastyou.projectors.heads import ProjectionHead
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.decorator.decorator import _disable_tracking_bn_stats as disable_bn  # noqa
 from deepclustering2.loss import Entropy
@@ -264,7 +265,7 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
         self._infonce_criterion: T_loss = infoNCE_criterion  # noqa
         self.__encoder_method_name__ = "simclr"
 
-    def set_global_contrast_method(self, method_name: str = "supcontrast"):
+    def set_global_contrast_method(self, *, method_name):
         assert method_name in ("simclr", "supcontrast")
         self.__encoder_method_name__ = method_name
 
@@ -316,50 +317,101 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
         reg_loss = weighted_average_iter(losses, self._feature_importance)
         self.meters["mi"].add(-reg_loss.item())
         self.meters["individual_mis"].add(**dict(zip(
-            self._feature_position,
+            [f"{p}|{i}" for i, p in enumerate(self._feature_position)],
             [-x.item() for x in losses]
         )))
         return reg_loss
 
-    @abstractmethod
     def generate_infonce(self, *, feature_name, features, projector, seed, partition_group, label_group) -> Tensor:
+        proj_tf_feature, proj_feature_tf = self.unlabeled_projection(unl_features=features, projector=projector,
+                                                                     seed=seed)
+        assert is_normalized(proj_tf_feature) and is_normalized(proj_feature_tf)
+        if isinstance(projector, ProjectionHead):
+            # it goes to **global** representation here.
+            return self._global_infonce(
+                feature_name=feature_name,
+                norm_tf_feature=proj_tf_feature,
+                norm_feature_tf=proj_feature_tf,
+                partition_group=partition_group,
+                label_group=label_group
+            )
+        # it goes to a **dense** representation on pixels
+        return self._dense_based_infonce(
+            feature_name=feature_name,
+            norm_tf_feature=proj_tf_feature,
+            norm_feature_tf=proj_feature_tf,
+            partition_group=partition_group,
+            label_group=label_group
+        )
+
+    @abstractmethod
+    def _global_infonce(self, *, feature_name, norm_tf_feature, norm_feature_tf, partition_group,
+                        label_group) -> Tensor:
+        ...
+
+    @abstractmethod
+    def _dense_based_infonce(self, *, feature_name, norm_tf_feature, norm_feature_tf, partition_group,
+                             label_group) -> Tensor:
         ...
 
 
 class InfoNCEEpocher(_InfoNCEBasedEpocher):
     """INFONCE that implments SIMCLR and SupContrast"""
+    from contrastyou.losses.contrast_loss import SupConLoss2
+    _infonce_criterion: SupConLoss2
 
     def _assertion(self):
-        from contrastyou.losses.contrast_loss import SupConLoss
-        if not isinstance(self._infonce_criterion, SupConLoss):
-            raise RuntimeError(f"{self.__class__.__name__} only support `SupConLoss`, "
+        from contrastyou.losses.contrast_loss import SupConLoss2
+        if not isinstance(self._infonce_criterion, SupConLoss2):
+            raise RuntimeError(f"{self.__class__.__name__} only support `SupConLoss2`, "
                                f"given {type(self._infonce_criterion)}")
         super(InfoNCEEpocher, self)._assertion()
 
-    def generate_infonce(self, *, feature_name, features, projector, seed, partition_group, label_group):
+    def _dense_based_infonce(self, *, feature_name, norm_tf_feature, norm_feature_tf, partition_group,
+                             label_group) -> Tensor:
+        b, c, *hw = norm_tf_feature.shape
+        norm_tf_feature = norm_tf_feature.view(b, c, -1).permute(0, 2, 1)
+        norm_feature_tf = norm_feature_tf.view(b, c, -1).permute(0, 2, 1)
+        assert is_normalized(norm_feature_tf, dim=2) and is_normalized(norm_tf_feature, dim=2)
 
-        proj_tf_feature, proj_feature_tf = self.unlabeled_projection(unl_features=features, projector=projector,
-                                                                     seed=seed)
-        if isinstance(projector, ProjectionHead):
-            norm_tf_feature, norm_feature_tf = proj_tf_feature, proj_feature_tf
-            assert len(norm_tf_feature.shape) == 2, norm_tf_feature.shape
-            assert is_normalized(norm_feature_tf) and is_normalized(norm_feature_tf)
-            labels = self.global_label_generator(self.__encoder_method_name__)(partition_list=partition_group,
-                                                                               patient_list=label_group)
-            return self._infonce_criterion(norm_feature_tf, norm_tf_feature, target=labels)
+        if "Conv" in feature_name:
+            # this is the dense feature from encoder
+            return self._dense_infonce_for_encoder(
+                feature_name=feature_name,
+                norm_tf_feature=norm_tf_feature,
+                norm_feature_tf=norm_feature_tf,
+                partition_group=partition_group,
+                label_group=label_group
+            )
+        return self._dense_infonce_for_decoder(
+            feature_name=feature_name,
+            norm_tf_feature=norm_tf_feature,
+            norm_feature_tf=norm_feature_tf,
+            partition_group=partition_group,
+            label_group=label_group
+        )
 
-        elif isinstance(projector, DenseProjectionHead):
-            # for dense prediction with aligned feature maps
-            proj_feature_tf_unfold, positional_label = unfold_position(proj_feature_tf,
-                                                                       partition_num=proj_feature_tf.shape[-2:])
-            proj_tf_feature_unfold, _ = unfold_position(proj_tf_feature, partition_num=proj_tf_feature.shape[-2:])
+    def _global_infonce(self, *, feature_name, norm_tf_feature, norm_feature_tf, partition_group,
+                        label_group) -> Tensor:
+        """methods go for global vectors"""
+        assert len(norm_tf_feature.shape) == 2, norm_tf_feature.shape
+        assert is_normalized(norm_feature_tf) and is_normalized(norm_feature_tf)
+        # generate simclr or supcontrast labels
+        labels = self.global_label_generator(self.__encoder_method_name__)(partition_list=partition_group,
+                                                                           patient_list=label_group)
+        return self._infonce_criterion(norm_feature_tf, norm_tf_feature, target=labels)
 
-            __b = proj_tf_feature_unfold.size(0)
-            norm_feature_tf = proj_feature_tf_unfold.view(__b, -1)
-            norm_tf_feature = proj_tf_feature_unfold.view(__b, -1)
+    def _dense_infonce_for_encoder(self, *, feature_name, norm_tf_feature, norm_feature_tf, partition_group,
+                                   label_group):
+        """here the dense prediction does not consider the spatial neighborhood"""
+        # the mask of this dense metric would be image-wise simclr
+        assert "Conv" in feature_name, feature_name
+        b, hw, c = norm_feature_tf.shape
+        label = [i for i in range(np.prod(hw))]  # noqa
+        return sum(
+            [self._infonce_criterion(f1, f2, target=label) for f1, f2 in zip(norm_tf_feature, norm_feature_tf)]) / b
 
-            labels = self.local_label_generator()(partition_list=partition_group, patient_list=label_group,
-                                                  location_list=positional_label)
-        else:
-            raise NotImplementedError(type(projector))
-        return self._infonce_criterion(torch.stack([norm_feature_tf, norm_tf_feature], dim=1), labels=labels)
+    def _dense_infonce_for_decoder(self, *, feature_name, norm_tf_feature, norm_feature_tf, partition_group,
+                                   label_group):
+        """here the dense predictions consider the neighorhood information, and the content similiarity"""
+        return torch.tensor(0.0, device=self.device)

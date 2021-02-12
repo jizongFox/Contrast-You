@@ -6,7 +6,7 @@ import torch
 from torch import nn
 from torch import optim
 
-from contrastyou.losses.contrast_loss import SupConLoss
+from contrastyou.losses.contrast_loss import SupConLoss2 as SupConLoss
 from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
 from deepclustering2 import optim
 from deepclustering2.loss import KL_div
@@ -112,7 +112,7 @@ class InfoNCETrainer(IICTrainer):
     def _init(self):
         super(IICTrainer, self)._init()
         config = deepcopy(self._config["InfoNCEParameters"])
-        self.__encoder_method = config["EncoderParams"].pop("method_name", "supcontrast")
+        self.__encoder_method = config["EncoderParams"].pop("method_name", "simclr")
         self._projector = ContrastiveProjectorWrapper()
         self._projector.init_encoder(
             feature_names=self.feature_positions,

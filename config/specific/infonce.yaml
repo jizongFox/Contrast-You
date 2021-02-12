@@ -7,9 +7,9 @@ InfoNCEParameters:
   DecoderParams:
     head_types: mlp
     normalize: true
+    pool_method: adaptive_avg # adaptive_max #identical
     output_size: [ 16,16 ]
   LossParams:
     temperature: 0.07
-    base_temperature: 0.07
   weight: 0.1
 

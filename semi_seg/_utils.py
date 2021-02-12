@@ -57,7 +57,7 @@ class _ContrastiveEncodeProjectorWrapper(ProjectorWrapperBase):
         feature_names: Union[str, List[str]],
         head_types: Union[str, List[str]],
         normalize: Union[bool, List[bool]] = True,
-        pooling_method: str = None
+        pooling_method: Union[str, List[str]] = None
     ):
         super().__init__()
         if isinstance(pooling_method, str):
@@ -70,8 +70,9 @@ class _ContrastiveEncodeProjectorWrapper(ProjectorWrapperBase):
         self._head_types = n_pair(head_types)
         self._normalize = n_pair(normalize)
         self._pooling_method = n_pair(pooling_method)
-        for f, h, n, p in zip(self._feature_names, self._head_types, self._normalize, self._pooling_method):
-            self._projectors[f] = self._create_head(
+        for i, (f, h, n, p) in enumerate(
+            zip(self._feature_names, self._head_types, self._normalize, self._pooling_method)):
+            self._projectors[str(i) + "_" + f] = self._create_head(
                 input_dim=UNet.dimension_dict[f],
                 head_type=h,
                 output_dim=256,
@@ -91,14 +92,14 @@ class _ContrastiveEncodeProjectorWrapper(ProjectorWrapperBase):
 class _ContrastiveDecoderProjectorWrapper(_ContrastiveEncodeProjectorWrapper):
 
     def __init__(self, feature_names: Union[str, List[str]], head_types: Union[str, List[str]],
-                 normalize: Union[bool, List[bool]] = True, output_size=(2, 2)):
+                 normalize: Union[bool, List[bool]] = True, output_size=(2, 2), pooling_method: str = None):
         self._output_size = output_size
 
-        super().__init__(feature_names, head_types, normalize)
+        super().__init__(feature_names, head_types, normalize, pooling_method)
 
     def _create_head(self, input_dim, output_dim, head_type, normalize, pooling_method):
         return _LocalProjectionHead(input_dim=input_dim, head_type=head_type, output_size=self._output_size,
-                                    normalize=normalize)
+                                    normalize=normalize, pooling_name=pooling_method)
 
 
 # encoder and decoder contrastive projector
@@ -116,9 +117,13 @@ class ContrastiveProjectorWrapper(CombineWrapperBase):
         normalize: Union[bool, List[bool]] = True,
         pool_method: str = None
     ):
-        assert pool_method in ("adaptive_avg", "adaptive_max", "identical"), pool_method
-        if pool_method == "identical":
-            pool_method = None
+        if isinstance(pool_method, str):
+            pool_method = [pool_method, ]
+        if isinstance(pool_method, (list, tuple)):
+            for p in pool_method:
+                assert p in ("adaptive_avg", "adaptive_max", "identical"), pool_method
+        pool_method = [p if p != "identical" else None for p in pool_method]
+
         self._encoder_names = _filter_encodernames(feature_names)
         encoder_projectors = _ContrastiveEncodeProjectorWrapper(
             feature_names=self._encoder_names, head_types=head_types, normalize=normalize, pooling_method=pool_method)
@@ -129,11 +134,13 @@ class ContrastiveProjectorWrapper(CombineWrapperBase):
         feature_names: Union[str, List[str]],
         head_types: Union[str, List[str]] = "mlp",
         normalize: Union[bool, List[bool]] = True,
-        output_size=(2, 2)
+        output_size=(2, 2),
+        pool_method: str = None
     ):
+        assert pool_method in ("adaptive_avg", "adaptive_max"), pool_method
         self._decoder_names = _filter_decodernames(feature_names)
         decoder_projectors = _ContrastiveDecoderProjectorWrapper(
-            self._decoder_names, head_types, normalize=normalize, output_size=output_size)
+            self._decoder_names, head_types, normalize=normalize, output_size=output_size, pooling_method=pool_method)
         self._projector_list.append(decoder_projectors)
 
     @property

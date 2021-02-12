@@ -49,13 +49,21 @@ class DenseProjectionHead(ProjectorHeadBase):
     return a fixed feature size
     """
 
-    def __init__(self, input_dim, head_type="mlp", output_size=(4, 4), normalize=True) -> None:
+    def __init__(self, input_dim, head_type="mlp", output_size=(4, 4), normalize=True,
+                 pooling_name="adaptive_avg") -> None:
         super().__init__()
         assert _check_head_type(head_type), head_type
         self._output_size = output_size
         self._normalize = normalize
-        self._pooling_name = "adaptive_avg"
-        self._pooling_module = nn.AdaptiveAvgPool2d(self._output_size) if self._output_size else Identical()
+        self._pooling_name = pooling_name
+        if output_size is None:
+            self._pooling_module = Identical()
+            logger.debug("initialize {} with dense output without pooling", self.__class__.__name__, output_size)
+        else:
+            self._pooling_module = {"adaptive_avg": nn.AdaptiveAvgPool2d(output_size),
+                                    "adaptive_max": nn.AdaptiveMaxPool2d(output_size)}[pooling_name]
+            logger.debug("initialize {} with pooling of {} and output_size of: {}",
+                         self.__class__.__name__, self._pooling_module.__class__.__name__, output_size)
         if head_type == "mlp":
             self._projector = nn.Sequential(
                 nn.Conv2d(input_dim, 64, 1, 1, 0),
@@ -66,7 +74,6 @@ class DenseProjectionHead(ProjectorHeadBase):
             self._projector = nn.Sequential(
                 nn.Conv2d(input_dim, 64, 1, 1, 0),
             )
-        logger.debug("initialize {} with output_size of: {}", self.__class__.__name__, output_size)
 
     def forward(self, features):
         out = self._projector(features)
