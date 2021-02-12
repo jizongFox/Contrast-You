@@ -85,7 +85,8 @@ class _ContrastiveEncodeProjectorWrapper(ProjectorWrapperBase):
             return _ProjectionHead(input_dim=input_dim, output_dim=output_dim, head_type=head_type, normalize=normalize,
                                    pooling_name=pooling_method)
         # if no pooling method is provided, output dense prediction of 14\times14, with 1x1 conv.
-        return _LocalProjectionHead(input_dim=input_dim, head_type=head_type, output_size=None, normalize=normalize)
+        return _LocalProjectionHead(input_dim=input_dim, head_type=head_type, output_size=None, normalize=normalize,
+                                    pooling_name="none")
 
 
 # decoder contrastive projector

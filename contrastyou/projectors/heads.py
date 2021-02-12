@@ -51,19 +51,31 @@ class DenseProjectionHead(ProjectorHeadBase):
 
     def __init__(self, input_dim, head_type="mlp", output_size=(4, 4), normalize=True,
                  pooling_name="adaptive_avg") -> None:
+        """
+        :param input_dim:
+        :param head_type:
+        :param output_size: Tuple of dimension, default (4,4)
+        :param normalize: if normalize the dense dimension.
+        :param pooling_name: adaptive_avg or adaptive_max or none
+        """
         super().__init__()
         assert _check_head_type(head_type), head_type
         self._output_size = output_size
         self._normalize = normalize
         self._pooling_name = pooling_name
-        if output_size is None:
-            self._pooling_module = Identical()
-            logger.debug("initialize {} with dense output without pooling", self.__class__.__name__, output_size)
-        else:
-            self._pooling_module = {"adaptive_avg": nn.AdaptiveAvgPool2d(output_size),
-                                    "adaptive_max": nn.AdaptiveMaxPool2d(output_size)}[pooling_name]
+
+        self._pooling_module = {
+            "adaptive_avg": nn.AdaptiveAvgPool2d(output_size),
+            "adaptive_max": nn.AdaptiveMaxPool2d(output_size),
+            None: Identical(),
+            "none": Identical()
+        }[pooling_name]
+        if pooling_name in ("adaptive_avg", "adaptive_max"):
             logger.debug("initialize {} with pooling of {} and output_size of: {}",
                          self.__class__.__name__, self._pooling_module.__class__.__name__, output_size)
+        else:
+            logger.debug("initialize {} without pooling", self.__class__.__name__)
+
         if head_type == "mlp":
             self._projector = nn.Sequential(
                 nn.Conv2d(input_dim, 64, 1, 1, 0),

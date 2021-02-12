@@ -27,14 +27,13 @@ max_epoch = args.max_epoch
 
 label_ratio = args.label_ratio
 
-save_dir_main = args.save_dir
-
 lr: str = args.lr or f"{lr_zooms[args.dataset_name]:.10f}"
 
 save_dir = args.save_dir
-
 features = args.features
+
 importance_weights = [str(1.0) if x == "Conv5" else str(0.5) for x in features]
+
 output_size = int(args.output_size)
 
 SharedParams = f" Data.labeled_data_ratio={label_ratio} " \
@@ -42,6 +41,8 @@ SharedParams = f" Data.labeled_data_ratio={label_ratio} " \
                f" Data.name={args.dataset_name}" \
                f" Trainer.max_epoch={max_epoch} " \
                f" Trainer.num_batches={num_batches} " \
+               f" Trainer.feature_names=[{','.join(features)}] " \
+               f" Trainer.feature_importance=[{','.join(importance_weights)}] " \
                f" Arch.num_classes={dataset_name2class_numbers[args.dataset_name]} " \
                f" RandomSeed={random_seed} "
 
@@ -60,30 +61,63 @@ baselines = [
     f"python main.py {TrainerParams} Trainer.name=finetune Trainer.save_dir={save_dir}/fs "
     f"                     Data.labeled_data_ratio=1.0 Data.unlabeled_data_ratio=0.0 ",
 ]
+
 Encoder_jobs = [
     # contrastive learning with pretrain
-    f"python main.py {PretrainParams} Trainer.name=infoncepretrain  Trainer.save_dir={save_dir}/infonce/Conv5/simclr "
-    f" Trainer.feature_names=[Conv5] Trainer.feature_importance=[1.0] "
+    f"python main.py {PretrainParams} Trainer.name=infoncepretrain  "
+    f" Trainer.save_dir={save_dir}/infonce/Conv5/simclr/pre "
+    f" Trainer.feature_names=[Conv5] "
+    f" Trainer.feature_importance=[1.0] "
     f" InfoNCEParameters.EncoderParams.method_name=simclr "
-    f"               --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce.yaml",
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce.yaml"
+    f" && "
+    f"python main.py {TrainerParams} Trainer.name=finetune  "
+    f" Trainer.save_dir={save_dir}/infonce/Conv5/simclr/tra "
+    f" Trainer.feature_names=[Conv5] "
+    f" Trainer.feature_importance=[1.0] "
+    f" Arch.checkpoint=runs/{save_dir}/infonce/Conv5/simclr/pre/last.pth",
 
-    f"python main.py {PretrainParams} Trainer.name=infoncepretrain  Trainer.save_dir={save_dir}/infonce/Conv5/supcontrast "
-    f" Trainer.feature_names=[Conv5] Trainer.feature_importance=[1.0] "
+    f"python main.py {PretrainParams} Trainer.name=infoncepretrain  "
+    f" Trainer.save_dir={save_dir}/infonce/Conv5/supcontrast/pre "
+    f" Trainer.feature_names=[Conv5] "
+    f" Trainer.feature_importance=[1.0] "
     f" InfoNCEParameters.EncoderParams.method_name=supcontrast "
-    f"               --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce.yaml",
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce.yaml"
+    f" && "
+    f"python main.py {TrainerParams} Trainer.name=finetune  "
+    f" Trainer.save_dir={save_dir}/infonce/Conv5/supcontrast/tra "
+    f" Trainer.feature_names=[Conv5] "
+    f" Trainer.feature_importance=[1.0] "
+    f" Arch.checkpoint=runs/{save_dir}/infonce/Conv5/supcontrast/pre/last.pth",
 
     # contrastive learning with pretrain+
-    f"python main.py {PretrainParams} Trainer.name=infoncepretrain  Trainer.save_dir={save_dir}/infonce/Conv5+/simclr "
-    f" Trainer.feature_names=[Conv5,Conv5] Trainer.feature_importance=[1.0,0.1] "
+    f"python main.py {PretrainParams} Trainer.name=infoncepretrain  "
+    f" Trainer.save_dir={save_dir}/infonce/Conv5+/simclr/pre "
+    f" Trainer.feature_names=[Conv5,Conv5] "
+    f" Trainer.feature_importance=[1.0,0.1] "
     f" InfoNCEParameters.EncoderParams.pool_method=[adaptive_avg,identical] "
     f" InfoNCEParameters.EncoderParams.method_name=simclr "
-    f"               --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce.yaml",
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce.yaml"
+    f" && "
+    f"python main.py {TrainerParams} Trainer.name=finetune  "
+    f" Trainer.save_dir={save_dir}/infonce/Conv5+/simclr/tra "
+    f" Trainer.feature_names=[Conv5] "
+    f" Trainer.feature_importance=[1.0] "
+    f" Arch.checkpoint=runs/{save_dir}/infonce/Conv5+/simclr/pre/last.pth",
 
-    f"python main.py {PretrainParams} Trainer.name=infoncepretrain  Trainer.save_dir={save_dir}/infonce/Conv5+/supcontrast "
-    f" Trainer.feature_names=[Conv5,Conv5] Trainer.feature_importance=[1.0,0.1] "
+    f"python main.py {PretrainParams} Trainer.name=infoncepretrain  "
+    f" Trainer.save_dir={save_dir}/infonce/Conv5+/supcontrast/pre "
+    f" Trainer.feature_names=[Conv5,Conv5] "
+    f" Trainer.feature_importance=[1.0,0.1] "
     f" InfoNCEParameters.EncoderParams.pool_method=[adaptive_avg,identical] "
     f" InfoNCEParameters.EncoderParams.method_name=supcontrast "
-    f"               --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce.yaml",
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce.yaml"
+    f" && "
+    f"python main.py {TrainerParams} Trainer.name=finetune  "
+    f" Trainer.save_dir={save_dir}/infonce/Conv5+/supcontrast/tra "
+    f" Trainer.feature_names=[Conv5] "
+    f" Trainer.feature_importance=[1.0] "
+    f" Arch.checkpoint=runs/{save_dir}/infonce/Conv5+/supcontrast/pre/last.pth",
 
 ]
 
