@@ -1,5 +1,5 @@
 from contrastyou.arch import UNet
-from contrastyou.projectors.heads import ProjectionHead, LocalProjectionHead
+from contrastyou.projectors.heads import ProjectionHead, DenseProjectionHead
 
 from ._utils import encoder_names
 from .base import _SingleEstimator
@@ -22,7 +22,7 @@ class InfoNCEEtimator(_SingleEstimator):
 
         input_dim = UNet.dimension_dict[layer_name]
 
-        CLUSTERHEAD = ProjectionHead if self._layer_name in encoder_names else LocalProjectionHead
+        CLUSTERHEAD = ProjectionHead if self._layer_name in encoder_names else DenseProjectionHead
 
         self._projector = CLUSTERHEAD(input_dim=input_dim, num_clusters=num_cluster,
                                       num_subheads=num_subhead, head_type=head_type, T=temperature,

@@ -9,7 +9,7 @@ from contrastyou.arch import UNetFeatureExtractor, UNet
 from contrastyou.epocher.IIC_epocher import IICPretrainEcoderEpoch, IICPretrainDecoderEpoch
 from contrastyou.losses.contrast_loss import SupConLoss
 from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
-from contrastyou.projectors.heads import ClusterHead, ProjectionHead, LocalProjectionHead, LocalClusterHead
+from contrastyou.projectors.heads import ClusterHead, ProjectionHead, DenseProjectionHead, DenseClusterHead
 from contrastyou.trainer.contrast_trainer import ContrastTrainer
 
 
@@ -98,12 +98,12 @@ class IICContrastTrainer(ContrastTrainer):
         self._enable_grad_from = enable_grad_from
 
         # adding optimizer and scheduler
-        self._projector_contrastive = LocalProjectionHead(
+        self._projector_contrastive = DenseProjectionHead(
             projector_input_dim,
             head_type=ptype,
             output_size=(4, 4)
         )
-        self._projector_iic = LocalClusterHead(
+        self._projector_iic = DenseClusterHead(
             projector_input_dim,
             num_clusters=num_clusters,
             num_subheads=num_subheads,

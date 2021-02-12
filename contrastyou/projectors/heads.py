@@ -1,9 +1,9 @@
 from functools import lru_cache
 
+from loguru import logger
 from torch import nn
-from torch.nn import functional as F
 
-from .nn import HeadBase, Flatten, Normalize, Identical, SoftmaxWithT
+from .nn import ProjectorHeadBase, Flatten, Normalize, Identical, SoftmaxWithT
 
 
 def _check_head_type(head_type):
@@ -11,15 +11,19 @@ def _check_head_type(head_type):
 
 
 # head for contrastive projection
-class ProjectionHead(HeadBase):
+class ProjectionHead(ProjectorHeadBase):
 
-    def __init__(self, input_dim, output_dim, interm_dim=256, head_type="mlp", normalize=True) -> None:
+    def __init__(self, input_dim, output_dim, interm_dim=256, head_type="mlp", normalize=True,
+                 pooling_name: str = None) -> None:
         super().__init__()
         assert _check_head_type(head_type), head_type
+        assert pooling_name in ("adaptive_avg", "adaptive_max"), pooling_name
         self._normalize = normalize
+        pooling_module = {"adaptive_avg": nn.AdaptiveAvgPool2d((1, 1)),
+                          "adaptive_max": nn.AdaptiveMaxPool2d((1, 1))}[pooling_name]
         if head_type == "mlp":
             self._header = nn.Sequential(
-                nn.AdaptiveAvgPool2d((1, 1)),
+                pooling_module,
                 Flatten(),
                 nn.Linear(input_dim, interm_dim),
                 nn.LeakyReLU(0.01, inplace=True),
@@ -28,18 +32,19 @@ class ProjectionHead(HeadBase):
             )
         else:
             self._header = nn.Sequential(
-                nn.AdaptiveAvgPool2d((1, 1)),
+                pooling_module,
                 Flatten(),
                 nn.Linear(input_dim, output_dim),
                 Normalize() if self._normalize else Identical()
             )
+        logger.debug("initialize {} with pooling method of: {}", self.__class__.__name__, pooling_name)
 
     def forward(self, features):
         return self._header(features)
 
 
 # head for contrastive pixel-wise projection
-class LocalProjectionHead(HeadBase):
+class DenseProjectionHead(ProjectorHeadBase):
     """
     return a fixed feature size
     """
@@ -49,22 +54,24 @@ class LocalProjectionHead(HeadBase):
         assert _check_head_type(head_type), head_type
         self._output_size = output_size
         self._normalize = normalize
+        self._pooling_name = "adaptive_avg"
+        self._pooling_module = nn.AdaptiveAvgPool2d(self._output_size) if self._output_size else Identical()
         if head_type == "mlp":
             self._projector = nn.Sequential(
-                nn.Conv2d(input_dim, 64, 3, 1, 1),
+                nn.Conv2d(input_dim, 64, 1, 1, 0),
                 nn.LeakyReLU(0.01, inplace=True),
-                nn.Conv2d(64, 32, 3, 1, 1),
+                nn.Conv2d(64, 32, 1, 1, 0),
             )
         else:
             self._projector = nn.Sequential(
-                nn.Conv2d(input_dim, 64, 3, 1, 1),
+                nn.Conv2d(input_dim, 64, 1, 1, 0),
             )
+        logger.debug("initialize {} with output_size of: {}", self.__class__.__name__, output_size)
 
     def forward(self, features):
-        b, c, h, w = features.shape
         out = self._projector(features)
-        # fixme: Upsampling and interpolate don't pass the gradient correctly.
-        out = F.adaptive_max_pool2d(out, output_size=self._output_size)
+        # change resolution here
+        out = self._pooling_module(out)
         if self._normalize:
             return self._normalize_func(out)
         return out
@@ -76,7 +83,7 @@ class LocalProjectionHead(HeadBase):
 
 
 # head for IIC clustering
-class ClusterHead(HeadBase):
+class ClusterHead(ProjectorHeadBase):
     def __init__(self, input_dim, num_clusters=5, num_subheads=10, head_type="linear", T=1, normalize=False) -> None:
         super().__init__()
         assert _check_head_type(head_type), head_type
@@ -118,7 +125,7 @@ class ClusterHead(HeadBase):
 
 
 # head for IIC segmentaiton clustering
-class LocalClusterHead(HeadBase):
+class DenseClusterHead(ProjectorHeadBase):
     """
     this classification head uses the loss for IIC segmentation, which consists of multiple heads
     """

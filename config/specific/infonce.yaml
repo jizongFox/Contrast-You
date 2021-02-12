@@ -2,7 +2,8 @@ InfoNCEParameters:
   EncoderParams:
     head_types: mlp
     normalize: true
-    method_name: supcontrast
+    method_name: simclr
+    pool_method: adaptive_avg # adaptive_max #identical
   DecoderParams:
     head_types: mlp
     normalize: true

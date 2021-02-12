@@ -2,7 +2,7 @@ InfoNCEParameters:
   EncoderParams:
     head_types: mlp
     normalize: true
-    method_name: supcontrast
+    method_name: simclr
   DecoderParams:
     head_types: mlp
     normalize: true

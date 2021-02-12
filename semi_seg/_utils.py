@@ -8,8 +8,8 @@ from contrastyou.arch import UNet
 from contrastyou.losses.iic_loss import IIDLoss as _IIDLoss, IIDSegmentationSmallPathLoss
 from contrastyou.losses.pica_loss import PUILoss, PUISegLoss
 from contrastyou.losses.wrappers import LossWrapperBase
-from contrastyou.projectors.heads import LocalClusterHead as _LocalClusterHead, ClusterHead as _EncoderClusterHead, \
-    ProjectionHead as _ProjectionHead, LocalProjectionHead as _LocalProjectionHead
+from contrastyou.projectors.heads import DenseClusterHead as _LocalClusterHead, ClusterHead as _EncoderClusterHead, \
+    ProjectionHead as _ProjectionHead, DenseProjectionHead as _LocalProjectionHead
 from contrastyou.projectors.wrappers import ProjectorWrapperBase, CombineWrapperBase
 
 
@@ -49,15 +49,100 @@ class _num_class_mixin:
         return get_model(self._model).num_classes
 
 
-# loss function
-class IIDLoss(_IIDLoss):
+# encoder contrastive projector
+class _ContrastiveEncodeProjectorWrapper(ProjectorWrapperBase):
 
-    def forward(self, x_out: Tensor, x_tf_out: Tensor):
-        return super().forward(x_out, x_tf_out)[0]
+    def __init__(
+        self,
+        feature_names: Union[str, List[str]],
+        head_types: Union[str, List[str]],
+        normalize: Union[bool, List[bool]] = True,
+        pooling_method: str = None
+    ):
+        super().__init__()
+        if isinstance(pooling_method, str):
+            assert pooling_method in ("adaptive_avg", "adaptive_max"), pooling_method
+        if isinstance(feature_names, str):
+            feature_names = [feature_names, ]
+        self._feature_names = feature_names
+        n = len(self._feature_names)
+        n_pair = _nlist(n)
+        self._head_types = n_pair(head_types)
+        self._normalize = n_pair(normalize)
+        self._pooling_method = n_pair(pooling_method)
+        for f, h, n, p in zip(self._feature_names, self._head_types, self._normalize, self._pooling_method):
+            self._projectors[f] = self._create_head(
+                input_dim=UNet.dimension_dict[f],
+                head_type=h,
+                output_dim=256,
+                normalize=n,
+                pooling_method=p
+            )
+
+    def _create_head(self, input_dim, output_dim, head_type, normalize, pooling_method):
+        if pooling_method is not None:
+            return _ProjectionHead(input_dim=input_dim, output_dim=output_dim, head_type=head_type, normalize=normalize,
+                                   pooling_name=pooling_method)
+        # if no pooling method is provided, output dense prediction of 14\times14, with 1x1 conv.
+        return _LocalProjectionHead(input_dim=input_dim, head_type=head_type, output_size=None, normalize=normalize)
+
+
+# decoder contrastive projector
+class _ContrastiveDecoderProjectorWrapper(_ContrastiveEncodeProjectorWrapper):
+
+    def __init__(self, feature_names: Union[str, List[str]], head_types: Union[str, List[str]],
+                 normalize: Union[bool, List[bool]] = True, output_size=(2, 2)):
+        self._output_size = output_size
+
+        super().__init__(feature_names, head_types, normalize)
+
+    def _create_head(self, input_dim, output_dim, head_type, normalize, pooling_method):
+        return _LocalProjectionHead(input_dim=input_dim, head_type=head_type, output_size=self._output_size,
+                                    normalize=normalize)
+
+
+# encoder and decoder contrastive projector
+class ContrastiveProjectorWrapper(CombineWrapperBase):
+
+    def __init__(self):
+        super().__init__()
+        self._encoder_names = []
+        self._decoder_names = []
+
+    def init_encoder(
+        self,
+        feature_names: Union[str, List[str]],
+        head_types: Union[str, List[str]] = "mlp",
+        normalize: Union[bool, List[bool]] = True,
+        pool_method: str = None
+    ):
+        assert pool_method in ("adaptive_avg", "adaptive_max", "identical"), pool_method
+        if pool_method == "identical":
+            pool_method = None
+        self._encoder_names = _filter_encodernames(feature_names)
+        encoder_projectors = _ContrastiveEncodeProjectorWrapper(
+            feature_names=self._encoder_names, head_types=head_types, normalize=normalize, pooling_method=pool_method)
+        self._projector_list.append(encoder_projectors)
+
+    def init_decoder(
+        self,
+        feature_names: Union[str, List[str]],
+        head_types: Union[str, List[str]] = "mlp",
+        normalize: Union[bool, List[bool]] = True,
+        output_size=(2, 2)
+    ):
+        self._decoder_names = _filter_decodernames(feature_names)
+        decoder_projectors = _ContrastiveDecoderProjectorWrapper(
+            self._decoder_names, head_types, normalize=normalize, output_size=output_size)
+        self._projector_list.append(decoder_projectors)
+
+    @property
+    def feature_names(self):
+        return self._encoder_names + self._decoder_names
 
 
 # decoder IIC projectors
-class _LocalClusterWrappaer(ProjectorWrapperBase):
+class _LocalClusterWrapper(ProjectorWrapperBase):
     def __init__(
         self,
         feature_names: Union[str, List[str]],
@@ -67,7 +152,7 @@ class _LocalClusterWrappaer(ProjectorWrapperBase):
         normalize: Union[bool, List[bool]] = False,
         temperature: Union[float, List[float]] = 1.0,
     ) -> None:
-        super(_LocalClusterWrappaer, self).__init__()
+        super(_LocalClusterWrapper, self).__init__()
         if isinstance(feature_names, str):
             feature_names = [feature_names, ]
         self._feature_names = feature_names
@@ -97,7 +182,7 @@ class _LocalClusterWrappaer(ProjectorWrapperBase):
 
 
 # encoder IIC projectors
-class _EncoderClusterWrapper(_LocalClusterWrappaer):
+class _EncoderClusterWrapper(_LocalClusterWrapper):
     @staticmethod
     def _create_clusterheads(*args, **kwargs):
         return _EncoderClusterHead(*args, **kwargs)
@@ -135,7 +220,7 @@ class ClusterProjectorWrapper(CombineWrapperBase):
                      temperature: Union[float, List[float]] = 1.0
                      ):
         self._decoder_names = _filter_decodernames(feature_names)
-        decoder_projectors = _LocalClusterWrappaer(
+        decoder_projectors = _LocalClusterWrapper(
             self._decoder_names, head_types, num_subheads,
             num_clusters, normalize, temperature)
         self._projector_list.append(decoder_projectors)
@@ -145,83 +230,11 @@ class ClusterProjectorWrapper(CombineWrapperBase):
         return self._encoder_names + self._decoder_names
 
 
-# encoder contrastive projector
-class _ContrastiveEncodeProjectorWrapper(ProjectorWrapperBase):
+# loss function
+class IIDLoss(_IIDLoss):
 
-    def __init__(
-        self,
-        feature_names: Union[str, List[str]],
-        head_types: Union[str, List[str]],
-        normalize: Union[bool, List[bool]] = True,
-    ):
-        super().__init__()
-        if isinstance(feature_names, str):
-            feature_names = [feature_names, ]
-        self._feature_names = feature_names
-        n = len(self._feature_names)
-        n_pair = _nlist(n)
-        self._head_types = n_pair(head_types)
-        self._normalize = n_pair(normalize)
-        for f, h, n in zip(self._feature_names, self._head_types, self._normalize):
-            self._projectors[f] = self._create_head(
-                input_dim=UNet.dimension_dict[f],
-                head_type=h,
-                output_dim=256,
-                normalize=n
-            )
-
-    def _create_head(self, input_dim, output_dim, head_type, normalize):
-        return _ProjectionHead(input_dim=input_dim, output_dim=output_dim, head_type=head_type, normalize=normalize)
-
-
-# decoder contrastive projector
-class _ContrastiveDecoderProjectorWrapper(_ContrastiveEncodeProjectorWrapper):
-
-    def __init__(self, feature_names: Union[str, List[str]], head_types: Union[str, List[str]],
-                 normalize: Union[bool, List[bool]] = True, output_size=(2, 2)):
-        self._output_size = output_size
-
-        super().__init__(feature_names, head_types, normalize)
-
-    def _create_head(self, input_dim, output_dim, head_type, normalize, ):
-        return _LocalProjectionHead(input_dim=input_dim, head_type=head_type, output_size=self._output_size,
-                                    normalize=normalize)
-
-
-# encoder and decoder contrastive projector
-class ContrastiveProjectorWrapper(CombineWrapperBase):
-
-    def __init__(self):
-        super().__init__()
-        self._encoder_names = []
-        self._decoder_names = []
-
-    def init_encoder(
-        self,
-        feature_names: Union[str, List[str]],
-        head_types: Union[str, List[str]] = "mlp",
-        normalize: Union[bool, List[bool]] = True,
-    ):
-        self._encoder_names = _filter_encodernames(feature_names)
-        encoder_projectors = _ContrastiveEncodeProjectorWrapper(
-            feature_names=self._encoder_names, head_types=head_types, normalize=normalize)
-        self._projector_list.append(encoder_projectors)
-
-    def init_decoder(
-        self,
-        feature_names: Union[str, List[str]],
-        head_types: Union[str, List[str]] = "mlp",
-        normalize: Union[bool, List[bool]] = True,
-        output_size=(2, 2)
-    ):
-        self._decoder_names = _filter_decodernames(feature_names)
-        decoder_projectors = _ContrastiveDecoderProjectorWrapper(
-            self._decoder_names, head_types, normalize=normalize, output_size=output_size)
-        self._projector_list.append(decoder_projectors)
-
-    @property
-    def feature_names(self):
-        return self._encoder_names + self._decoder_names
+    def forward(self, x_out: Tensor, x_tf_out: Tensor):
+        return super().forward(x_out, x_tf_out)[0]
 
 
 # IIC loss for encoder and decoder

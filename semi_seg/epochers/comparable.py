@@ -11,7 +11,8 @@ from torch import nn
 from contrastyou.epocher._utils import unfold_position  # noqa
 from contrastyou.featextractor.unet import FeatureExtractor
 from contrastyou.helper import average_iter, weighted_average_iter
-from contrastyou.projectors.heads import ProjectionHead, LocalProjectionHead
+from contrastyou.losses.contrast_loss import is_normalized
+from contrastyou.projectors.heads import ProjectionHead, DenseProjectionHead
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.decorator.decorator import _disable_tracking_bn_stats as disable_bn  # noqa
 from deepclustering2.loss import Entropy
@@ -257,9 +258,11 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
               infoNCE_criterion: T_loss = None, **kwargs):
         assert projectors_wrapper is not None and infoNCE_criterion is not None, (projectors_wrapper, infoNCE_criterion)
         super()._init(reg_weight=reg_weight, **kwargs)
+        assert projectors_wrapper is not None and infoNCE_criterion is not None, (projectors_wrapper, infoNCE_criterion)
+
         self._projectors_wrapper: ContrastiveProjectorWrapper = projectors_wrapper  # noqa
         self._infonce_criterion: T_loss = infoNCE_criterion  # noqa
-        self.__encoder_method_name__ = "supcontrast"
+        self.__encoder_method_name__ = "simclr"
 
     def set_global_contrast_method(self, method_name: str = "supcontrast"):
         assert method_name in ("simclr", "supcontrast")
@@ -291,6 +294,8 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
             return GlobalLabelGenerator()
         elif gmethod == "simclr":
             return GlobalLabelGenerator(True, True)
+        else:
+            raise NotImplementedError(gmethod)
 
     @lru_cache()
     def local_label_generator(self):
@@ -304,10 +309,10 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
 
         losses = [
             self.generate_infonce(
-                features=f, projector=p, seed=seed, partition_group=partition_group, label_group=label_group
-            ) for f, p in zip(unl_extractor(self._fextractor, n_uls=n_uls), self._projectors_wrapper)
+                feature_name=n, features=f, projector=p, seed=seed, partition_group=partition_group,
+                label_group=label_group) for n, f, p in
+            zip(self._fextractor.feature_names, unl_extractor(self._fextractor, n_uls=n_uls), self._projectors_wrapper)
         ]
-
         reg_loss = weighted_average_iter(losses, self._feature_importance)
         self.meters["mi"].add(-reg_loss.item())
         self.meters["individual_mis"].add(**dict(zip(
@@ -317,7 +322,7 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
         return reg_loss
 
     @abstractmethod
-    def generate_infonce(self, *, features, projector, seed, partition_group, label_group) -> Tensor:
+    def generate_infonce(self, *, feature_name, features, projector, seed, partition_group, label_group) -> Tensor:
         ...
 
 
@@ -331,17 +336,20 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
                                f"given {type(self._infonce_criterion)}")
         super(InfoNCEEpocher, self)._assertion()
 
-    def generate_infonce(self, *, features, projector, seed, partition_group, label_group):
+    def generate_infonce(self, *, feature_name, features, projector, seed, partition_group, label_group):
 
         proj_tf_feature, proj_feature_tf = self.unlabeled_projection(unl_features=features, projector=projector,
                                                                      seed=seed)
         if isinstance(projector, ProjectionHead):
             norm_tf_feature, norm_feature_tf = proj_tf_feature, proj_feature_tf
             assert len(norm_tf_feature.shape) == 2, norm_tf_feature.shape
-            labels = self.global_label_generator(gmethod=self.__encoder_method_name__)(partition_list=partition_group,
-                                                                                       patient_list=label_group)
+            assert is_normalized(norm_feature_tf) and is_normalized(norm_feature_tf)
+            labels = self.global_label_generator(self.__encoder_method_name__)(partition_list=partition_group,
+                                                                               patient_list=label_group)
+            return self._infonce_criterion(norm_feature_tf, norm_tf_feature, target=labels)
 
-        elif isinstance(projector, LocalProjectionHead):
+        elif isinstance(projector, DenseProjectionHead):
+            # for dense prediction with aligned feature maps
             proj_feature_tf_unfold, positional_label = unfold_position(proj_feature_tf,
                                                                        partition_num=proj_feature_tf.shape[-2:])
             proj_tf_feature_unfold, _ = unfold_position(proj_tf_feature, partition_num=proj_tf_feature.shape[-2:])

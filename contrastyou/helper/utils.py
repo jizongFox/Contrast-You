@@ -1,5 +1,7 @@
 # dictionary helper functions
 import collections
+import functools
+import warnings
 from contextlib import contextmanager
 from typing import Union, Dict
 
@@ -117,3 +119,20 @@ def extract_model_state_dict(trainer_checkpoint_path: str):
     trainer_state = torch.load(trainer_checkpoint_path, map_location="cpu")
 
     return trainer_state["_model"]
+
+
+def deprecated(func):
+    """This is a decorator which can be used to mark functions
+    as deprecated. It will result in a warning being emitted
+    when the function is used."""
+
+    @functools.wraps(func)
+    def new_func(*args, **kwargs):
+        warnings.simplefilter('always', DeprecationWarning)  # turn off filter
+        warnings.warn("Call to deprecated function {}.".format(func.__name__),
+                      category=DeprecationWarning,
+                      stacklevel=2)
+        warnings.simplefilter('default', DeprecationWarning)  # reset filter
+        return func(*args, **kwargs)
+
+    return new_func

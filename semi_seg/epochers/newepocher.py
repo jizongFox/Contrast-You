@@ -8,7 +8,7 @@ from torch import Tensor
 from contrastyou.helper import average_iter
 from contrastyou.losses.contrast_loss import is_normalized, SupConLoss2
 from contrastyou.losses.iic_loss import _ntuple  # noqa
-from contrastyou.projectors.heads import ProjectionHead, LocalProjectionHead
+from contrastyou.projectors.heads import ProjectionHead, DenseProjectionHead
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.type import T_loss
 from semi_seg._utils import ContrastiveProjectorWrapper
@@ -16,7 +16,9 @@ from .comparable import _InfoNCEBasedEpocher
 
 
 class NewEpocher(_InfoNCEBasedEpocher):
-    """This epocher takes binary masks defined as the two priors"""
+    """This epocher takes binary masks defined as the two priors
+    infonce_criterion should be set as `SupConLoss2`
+    """
 
     def _init(self, *, reg_weight: float, projectors_wrapper: ContrastiveProjectorWrapper = None,
               infoNCE_criterion: T_loss = None, kernel_size: int = 1, margin: int = 3, neigh_weight: float = None,
@@ -43,7 +45,7 @@ class NewEpocher(_InfoNCEBasedEpocher):
                                f"given {type(self._infonce_criterion)}")
         super(NewEpocher, self)._assertion()
 
-    def generate_infonce(self, *, features, projector, seed, partition_group, label_group):
+    def generate_infonce(self, *, feature_name, features, projector, seed, partition_group, label_group):
 
         proj_tf_feature, proj_feature_tf = self.unlabeled_projection(unl_features=features, projector=projector,
                                                                      seed=seed)
@@ -56,7 +58,7 @@ class NewEpocher(_InfoNCEBasedEpocher):
                                                                                patient_list=label_group)
             return self._infonce_criterion(norm_feature_tf, norm_tf_feature, target=labels)
 
-        elif isinstance(projector, LocalProjectionHead):
+        elif isinstance(projector, DenseProjectionHead):
             norm_tf_feature, norm_feature_tf = proj_tf_feature, proj_feature_tf
             b, c, *hw = norm_tf_feature.shape
             norm_tf_feature = norm_tf_feature.view(b, c, -1).permute(0, 2, 1)
@@ -133,7 +135,7 @@ class NewEpocher2(NewEpocher):
                                                                                patient_list=label_group)
             return self._infonce_criterion(norm_feature_tf, norm_tf_feature, target=labels)
 
-        elif isinstance(projector, LocalProjectionHead):
+        elif isinstance(projector, DenseProjectionHead):
             norm_tf_feature, norm_feature_tf = proj_tf_feature, proj_feature_tf
             b, c, *hw = norm_tf_feature.shape
             norm_tf_feature = norm_tf_feature.view(b, c, -1).permute(0, 2, 1)

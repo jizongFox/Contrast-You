@@ -12,7 +12,7 @@ from torch.nn import functional as F
 
 from contrastyou.epocher._utils import unfold_position  # noqa
 from contrastyou.helper import weighted_average_iter, pairwise_distances as _pairwise_distance
-from contrastyou.projectors.heads import ProjectionHead, LocalProjectionHead
+from contrastyou.projectors.heads import ProjectionHead, DenseProjectionHead
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.meters2 import MeterInterface, AverageValueMeter
 from deepclustering2.type import T_loss
@@ -108,7 +108,7 @@ class PrototypeEpocher(_FeatureExtractorMixin, TrainEpocher):
                                                    F.normalize(proj_feature_tf, p=2, dim=1)
                 assert len(norm_tf_feature.shape) == 2, norm_tf_feature.shape
                 labels = self.global_label_generator(partition_list=partition_group, patient_list=label_group)
-            elif isinstance(projector, LocalProjectionHead):
+            elif isinstance(projector, DenseProjectionHead):
                 proj_feature_tf_unfold, positional_label = unfold_position(proj_feature_tf,
                                                                            partition_num=proj_feature_tf.shape[-2:])
                 proj_tf_feature_unfold, _ = unfold_position(proj_tf_feature, partition_num=proj_tf_feature.shape[-2:])

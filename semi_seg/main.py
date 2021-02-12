@@ -12,8 +12,7 @@ from contrastyou.arch import UNet
 from deepclustering2.configparser import ConfigManger
 from deepclustering2.utils import gethash
 from deepclustering2.utils import set_benchmark
-from semi_seg.trainers import base_trainer_zoos
-from semi_seg.trainers import pre_trainer_zoos
+from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos
 from semi_seg.dsutils import get_dataloaders
 from loguru import logger
 from copy import deepcopy
@@ -46,10 +45,9 @@ def main_worker(rank, ngpus_per_node, config, port):  # noqa
     config_arch = deepcopy(config["Arch"])
     model_checkpoint = config_arch.pop("checkpoint", None)
     model = UNet(**config_arch)
-    logger.info(f"Initializing {model.__class__.__name__}")
     if model_checkpoint:
-        model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=False)
         logger.info(f"loading checkpoint from  {model_checkpoint}")
+        model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=False)
 
     trainer_name = config["Trainer"].pop("name")
     Trainer = trainer_zoos[trainer_name]

@@ -11,10 +11,10 @@ Trainer:
 
 Optim:
   name: Adam
-  lr: 0.00001
+  lr: 0.000005
   weight_decay: 0.00001
 
 ContrastiveLoaderParams:
-  group_sample_num: 8
+  group_sample_num: 7
   partition_sample_num: 1
   num_workers: 8

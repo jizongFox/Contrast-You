@@ -1,7 +1,7 @@
 import random
 from abc import abstractmethod
 from contextlib import nullcontext
-from typing import Union, Tuple
+from typing import Union, Tuple, Callable
 
 import torch
 from loguru import logger
@@ -27,6 +27,7 @@ from ._helper import __AssertOnlyWithLabeledData
 
 # to enable init and _init, in order to insert assertion of params
 class Epocher(_num_class_mixin, _Epocher):
+    _forward_pass: Callable
 
     def init(self, *args, **kwargs):
         self._init(*args, **kwargs)
@@ -41,6 +42,9 @@ class Epocher(_num_class_mixin, _Epocher):
             super(Epocher, self)._assertion()  # noqa
         except AttributeError:
             pass
+
+    def forward_pass(self, *args, **kwargs):
+        return self._forward_pass(*args, **kwargs)
 
 
 # ======== validation epochers =============
@@ -228,9 +232,6 @@ class TrainEpocher(Epocher):
                     self._indicator.set_postfix_dict(report_dict)
         report_dict = self.meters.tracking_status(final=True)
         return report_dict
-
-    def forward_pass(self, *args, **kwargs):
-        return self._forward_pass(*args, **kwargs)
 
     def _forward_pass(self, labeled_image, unlabeled_image, unlabeled_image_tf):
         n_l, n_unl = len(labeled_image), len(unlabeled_image)

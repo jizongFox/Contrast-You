@@ -81,6 +81,10 @@ class FeatureExtractor(nn.Module):
     def clear(self):
         pass
 
+    @property
+    def feature_names(self):
+        return self._feature_names
+
 
 class FeatureExtractorWithIndex(FeatureExtractor):
     """

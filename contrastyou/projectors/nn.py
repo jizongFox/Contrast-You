@@ -1,4 +1,5 @@
 from torch import nn, Tensor
+from torch.nn import functional as F
 
 
 class Flatten(nn.Module):
@@ -29,7 +30,7 @@ class Normalize(nn.Module):
         self._dim = dim
 
     def forward(self, input):
-        return nn.functional.normalize(input, p=2, dim=self._dim)
+        return F.normalize(input, p=2, dim=self._dim)
 
 
 class Identical(nn.Module):
@@ -41,5 +42,5 @@ class Identical(nn.Module):
         return input
 
 
-class HeadBase(nn.Module):
+class ProjectorHeadBase(nn.Module):
     pass
