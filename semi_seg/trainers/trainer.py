@@ -19,7 +19,7 @@ from semi_seg.epochers import TrainEpocher, EvalEpocher, ConsistencyTrainEpocher
     MIMeanTeacherEpocher, MIDLPaperEpocher, InfoNCEEpocher, DifferentiablePrototypeEpocher, \
     UCMeanTeacherEpocher
 from semi_seg.miestimator.iicestimator import IICEstimatorArray
-from semi_seg.trainers.base import SemiTrainer
+from semi_seg.trainers.base import SemiTrainer, _FeatureExtractor
 
 
 class UDATrainer(SemiTrainer):
@@ -107,23 +107,47 @@ class MineTrainer(IICTrainer):
 
 
 # using infonce as estimation
-class InfoNCETrainer(IICTrainer):
+class InfoNCETrainer(_FeatureExtractor, SemiTrainer):
 
     def _init(self):
-        super(IICTrainer, self)._init()
-        config = deepcopy(self._config["InfoNCEParameters"])
-        self.__encoder_method = config["EncoderParams"].pop("method_name", "simclr")
+        _projector_config = deepcopy(self._config["ProjectorParams"])
+
+        global_features = _projector_config["GlobalParams"]["feature_names"] or []
+        global_importance = _projector_config["GlobalParams"].pop("feature_importance") or []
+
+        if isinstance(global_features, str):
+            global_features = [global_features, ]
+            global_importance = [global_importance, ]
+
+        global_importance = global_importance[:len(global_features)]
+
+        dense_features = _projector_config["DenseParams"]["feature_names"] or []
+        dense_importance = _projector_config["DenseParams"].pop("feature_importance") or []
+
+        if isinstance(dense_features, str):
+            dense_features = [dense_features, ]
+            dense_importance = [dense_importance, ]
+
+        dense_importance = dense_importance[:len(dense_features)]
+
+        self._config["Trainer"]["feature_names"] = global_features + dense_features
+        self._config["Trainer"]["feature_importance"] = global_importance + dense_importance
+
+        super(InfoNCETrainer, self)._init()
+        _infonce_config = deepcopy(self._config["InfoNCEParameters"])
+        self.__encoder_method__ = _infonce_config["GlobalParams"].pop("method_name", "supcontrast")
+
         self._projector = ContrastiveProjectorWrapper()
-        self._projector.init_encoder(
-            feature_names=self.feature_positions,
-            **config["EncoderParams"]
-        )
-        self._projector.init_decoder(
-            feature_names=self.feature_positions,
-            **config["DecoderParams"]
-        )
-        self._criterion = SupConLoss(**config["LossParams"])
-        self._reg_weight = float(config["weight"])
+        if len(global_features) > 0:
+            self._projector.register_global_projector(
+                **_projector_config["GlobalParams"]
+            )
+        if len(dense_features) > 0:
+            self._projector.register_dense_projector(
+                **_projector_config["DenseParams"]
+            )
+        self._criterion = SupConLoss(**_infonce_config["LossParams"])
+        self._reg_weight = float(_infonce_config["weight"])
 
     def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = InfoNCEEpocher):
         super()._set_epocher_class(epocher_class)
@@ -131,7 +155,7 @@ class InfoNCETrainer(IICTrainer):
     def _run_epoch(self, epocher: InfoNCEEpocher, *args, **kwargs) -> EpochResultDict:
         epocher.init(reg_weight=self._reg_weight, projectors_wrapper=self._projector,
                      infoNCE_criterion=self._criterion)
-        epocher.set_global_contrast_method(method_name=self.__encoder_method)
+        epocher.set_global_contrast_method(method_name=self.__encoder_method__)
         result = epocher.run()
         return result
 

@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Tuple, Type
+from typing import Tuple, Type, List, Dict, Any, Callable
 
 import torch
 from loguru import logger
@@ -19,6 +19,37 @@ from semi_seg.epochers import InferenceEpocher
 from semi_seg.epochers import TrainEpocher, EvalEpocher, FineTuneEpocher
 
 
+class _FeatureExtractor:
+    feature_positions: List[str]
+    _config: Dict[str, Any]
+    set_feature_positions: Callable
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.__feature_extractor_initialized__ = False
+
+    def _init(self):
+        self.set_feature_positions(self._config["Trainer"]["feature_names"])
+        feature_importance = self._config["Trainer"]["feature_importance"]
+        assert isinstance(feature_importance, list), type(feature_importance)
+        feature_importance = [float(x) for x in feature_importance]
+        self._feature_importance = feature_importance
+
+        assert len(self._feature_importance) == len(self.feature_positions), \
+            (self._feature_importance, self.feature_positions)
+
+        logger.info("{} feature importance: {}", self.__class__.__name__,
+                    item2str({f"{c}|{i}": v for i, (c, v) in
+                              enumerate(zip(self.feature_positions, self._feature_importance))}))
+        self.__feature_extractor_initialized__ = True
+        super(_FeatureExtractor, self)._init()  # noqa
+
+    def start_training(self):
+        if not self.__feature_extractor_initialized__:
+            raise RuntimeError()
+        return super(_FeatureExtractor, self).start_training()  # noqa
+
+
 class SemiTrainer(Trainer):
     RUN_PATH = str(Path(PROJECT_PATH) / "semi_seg" / "runs")  # noqa
 
@@ -31,6 +62,7 @@ class SemiTrainer(Trainer):
         self._val_loader = val_loader
         self._sup_criterion = sup_criterion
         self.__initialized__ = False
+        self._feature_importance, self.feature_positions = None, None
 
     # initialization
     def init(self):
@@ -40,20 +72,6 @@ class SemiTrainer(Trainer):
         self.__initialized__ = True
 
     def _init(self):
-        self.set_feature_positions(self._config["Trainer"]["feature_names"])
-        feature_importance = self._config["Trainer"]["feature_importance"]
-        assert isinstance(feature_importance, list), type(feature_importance)
-        feature_importance = [float(x) for x in feature_importance]
-        # self._feature_importance = [x / sum(feature_importance) for x in feature_importance]
-        self._feature_importance = feature_importance
-
-        assert len(self._feature_importance) == len(self.feature_positions), \
-            (self._feature_importance, self.feature_positions)
-
-        logger.info("{} feature importance: {}", self.__class__.__name__,
-                    item2str({f"{c}|{i}": v for i, (c, v) in
-                              enumerate(zip(self.feature_positions, self._feature_importance))}))
-
         self._disable_bn = self._config["Trainer"].get("disable_bn_track_for_unlabeled_data", False)
         self._train_with_two_stage = self._config["Trainer"].get("two_stage_training", False)
 

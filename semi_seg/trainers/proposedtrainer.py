@@ -3,43 +3,28 @@ from typing import Type
 
 from deepclustering2.meters2 import EpochResultDict
 from semi_seg.epochers.base import TrainEpocher
-from semi_seg.epochers.newepocher import NewEpocher
-from semi_seg.trainers.trainer import InfoNCETrainer, IICTrainer
-from .._utils import ContrastiveProjectorWrapper
+from semi_seg.epochers.newepocher import ProposedEpocher1
+from semi_seg.trainers.trainer import InfoNCETrainer
 
 
 class ExperimentalTrainer(InfoNCETrainer):
     def _init(self):
-        super(IICTrainer, self)._init()
+        super(ExperimentalTrainer, self)._init()
         config = deepcopy(self._config["InfoNCEParameters"])
-        self._projector = ContrastiveProjectorWrapper()
-        self.__encoder_method = config["EncoderParams"].pop("method_name", "supcontrast")
-        self._projector.init_encoder(
-            feature_names=self.feature_positions,
-            **config["EncoderParams"]
-        )
-        self._projector.init_decoder(
-            feature_names=self.feature_positions,
-            **config["DecoderParams"]
-        )
-        from contrastyou.losses.contrast_loss import SupConLoss2 as SupConLoss
-
-        self._criterion = SupConLoss(temperature=config["LossParams"]["temperature"], out_mode=True)
-        self._reg_weight = float(config["weight"])
-        self._neigh_weight = float(config["neigh_weight"])
 
         # neigh params:
         self._k = config["NeighParams"]["kernel_size"]
         self._m = config["NeighParams"]["margin"]
+        self._neigh_weight = float(config["neigh_weight"])
 
-    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = NewEpocher):
+    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = ProposedEpocher1):
         super(ExperimentalTrainer, self)._set_epocher_class(epocher_class)
 
-    def _run_epoch(self, epocher: NewEpocher, *args, **kwargs) -> EpochResultDict:
+    def _run_epoch(self, epocher: ProposedEpocher1, *args, **kwargs) -> EpochResultDict:
         epocher.init(reg_weight=self._reg_weight, projectors_wrapper=self._projector,
                      infoNCE_criterion=self._criterion, kernel_size=self._k, margin=self._m,
                      neigh_weight=self._neigh_weight)
-        epocher.set_global_contrast_method(method_name=self.__encoder_method)
+        epocher.set_global_contrast_method(method_name=self.__encoder_method__)
         result = epocher.run()
         return result
 

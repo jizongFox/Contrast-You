@@ -1,11 +1,13 @@
 from torch import nn
 
+from .nn import ModuleDict
 
-class ProjectorWrapperBase(nn.Module):
+
+class _ProjectorWrapperBase(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self._projectors = nn.ModuleDict()
+        self._projectors = ModuleDict()
 
     def __len__(self):
         return len(self._projectors)

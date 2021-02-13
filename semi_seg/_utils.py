@@ -9,8 +9,9 @@ from contrastyou.losses.iic_loss import IIDLoss as _IIDLoss, IIDSegmentationSmal
 from contrastyou.losses.pica_loss import PUILoss, PUISegLoss
 from contrastyou.losses.wrappers import LossWrapperBase
 from contrastyou.projectors.heads import DenseClusterHead as _LocalClusterHead, ClusterHead as _EncoderClusterHead, \
-    ProjectionHead as _ProjectionHead, DenseProjectionHead as _LocalProjectionHead
-from contrastyou.projectors.wrappers import ProjectorWrapperBase, CombineWrapperBase
+    DenseProjectionHead
+from contrastyou.projectors.heads import ProjectionHead
+from contrastyou.projectors.wrappers import _ProjectorWrapperBase, CombineWrapperBase  # noqa
 
 
 def get_model(model):
@@ -49,108 +50,70 @@ class _num_class_mixin:
         return get_model(self._model).num_classes
 
 
-# encoder contrastive projector
-class _ContrastiveEncodeProjectorWrapper(ProjectorWrapperBase):
-
-    def __init__(
-        self,
-        feature_names: Union[str, List[str]],
-        head_types: Union[str, List[str]],
-        normalize: Union[bool, List[bool]] = True,
-        pooling_method: Union[str, List[str]] = None
-    ):
-        super().__init__()
-        if isinstance(pooling_method, str):
-            assert pooling_method in ("adaptive_avg", "adaptive_max"), pooling_method
-        if isinstance(feature_names, str):
-            feature_names = [feature_names, ]
-        self._feature_names = feature_names
-        n = len(self._feature_names)
-        n_pair = _nlist(n)
-        self._head_types = n_pair(head_types)
-        self._normalize = n_pair(normalize)
-        self._pooling_method = n_pair(pooling_method)
-        for i, (f, h, n, p) in enumerate(
-            zip(self._feature_names, self._head_types, self._normalize, self._pooling_method)):
-            self._projectors[str(i) + "_" + f] = self._create_head(
-                input_dim=UNet.dimension_dict[f],
-                head_type=h,
-                output_dim=256,
-                normalize=n,
-                pooling_method=p
-            )
-
-    def _create_head(self, input_dim, output_dim, head_type, normalize, pooling_method):
-        if pooling_method is not None:
-            return _ProjectionHead(input_dim=input_dim, output_dim=output_dim, head_type=head_type, normalize=normalize,
-                                   pooling_name=pooling_method)
-        # if no pooling method is provided, output dense prediction of 14\times14, with 1x1 conv.
-        return _LocalProjectionHead(input_dim=input_dim, head_type=head_type, output_size=None, normalize=normalize,
-                                    pooling_name="none")
-
-
-# decoder contrastive projector
-class _ContrastiveDecoderProjectorWrapper(_ContrastiveEncodeProjectorWrapper):
-
-    def __init__(self, feature_names: Union[str, List[str]], head_types: Union[str, List[str]],
-                 normalize: Union[bool, List[bool]] = True, output_size=(2, 2), pooling_method: str = None):
-        self._output_size = output_size
-
-        super().__init__(feature_names, head_types, normalize, pooling_method)
-
-    def _create_head(self, input_dim, output_dim, head_type, normalize, pooling_method):
-        return _LocalProjectionHead(input_dim=input_dim, head_type=head_type, output_size=self._output_size,
-                                    normalize=normalize, pooling_name=pooling_method)
-
-
-# encoder and decoder contrastive projector
-class ContrastiveProjectorWrapper(CombineWrapperBase):
+class ContrastiveProjectorWrapper(_ProjectorWrapperBase):
 
     def __init__(self):
         super().__init__()
-        self._encoder_names = []
-        self._decoder_names = []
+        self.__index = 0
 
-    def init_encoder(
-        self,
-        feature_names: Union[str, List[str]],
-        head_types: Union[str, List[str]] = "mlp",
-        normalize: Union[bool, List[bool]] = True,
-        pool_method: str = None
-    ):
-        if isinstance(pool_method, str):
-            pool_method = [pool_method, ]
-        if isinstance(pool_method, (list, tuple)):
-            for p in pool_method:
-                assert p in ("adaptive_avg", "adaptive_max", "identical"), pool_method
-        pool_method = [p if p != "identical" else None for p in pool_method]
+    def _register_global_projector(self, *, feature_name: str, head_type: str, output_dim: int = 256, normalize=True,
+                                   pool_name: str):
+        input_dim = UNet.dimension_dict[feature_name]
 
-        self._encoder_names = _filter_encodernames(feature_names)
-        encoder_projectors = _ContrastiveEncodeProjectorWrapper(
-            feature_names=self._encoder_names, head_types=head_types, normalize=normalize, pooling_method=pool_method)
-        self._projector_list.append(encoder_projectors)
+        projector = ProjectionHead(input_dim=input_dim, head_type=head_type, normalize=normalize, pool_name=pool_name,
+                                   output_dim=output_dim)
+        self._projectors[f"{self.__index}|{feature_name}"] = projector
+        self.__index += 1
 
-    def init_decoder(
-        self,
-        feature_names: Union[str, List[str]],
-        head_types: Union[str, List[str]] = "mlp",
-        normalize: Union[bool, List[bool]] = True,
-        output_size=(2, 2),
-        pool_method: str = None
-    ):
-        assert pool_method in ("adaptive_avg", "adaptive_max"), pool_method
-        self._decoder_names = _filter_decodernames(feature_names)
-        decoder_projectors = _ContrastiveDecoderProjectorWrapper(
-            self._decoder_names, head_types, normalize=normalize, output_size=output_size, pooling_method=pool_method)
-        self._projector_list.append(decoder_projectors)
+    def _register_dense_projector(self, *, feature_name: str, output_dim: int = 64, head_type: str,
+                                  normalize: bool = False, pool_name="adaptive_avg", spatial_size=(16, 16)):
+        input_dim = UNet.dimension_dict[feature_name]
+        projector = DenseProjectionHead(input_dim=input_dim, output_dim=output_dim, head_type=head_type,
+                                        normalize=normalize,
+                                        pool_name=pool_name, spatial_size=spatial_size)
+        self._projectors[f"{self.__index}|{feature_name}"] = projector
+        self.__index += 1
 
-    @property
-    def feature_names(self):
-        return self._encoder_names + self._decoder_names
+    def register_global_projector(self, *,
+                                  feature_names: Union[str, List[str]],
+                                  head_type: Union[str, List[str]],
+                                  output_dim: Union[int, List[int]] = 256,
+                                  normalize: Union[bool, List[bool]] = True,
+                                  pool_name: Union[str, List[str]]):
+        if isinstance(feature_names, str):
+            feature_names = [feature_names, ]
+        self._global_feature_names = feature_names
+        n = len(self._global_feature_names)
+        n_pair = _nlist(n)
+        head_type_ = n_pair(head_type)
+        normalize_ = n_pair(normalize)
+        pool_name_ = n_pair(pool_name)
+        output_dim_ = n_pair(output_dim)
+        for i, (f, h, n, p, o) in enumerate(
+            zip(feature_names, head_type_, normalize_, pool_name_, output_dim_)):
+            self._register_global_projector(feature_name=f, head_type=h, output_dim=o, normalize=n, pool_name=p)
+
+    def register_dense_projector(self, *, feature_names: str, output_dim: int = 64, head_type: str,
+                                 normalize: bool = False, pool_name="adaptive_avg", spatial_size=(16, 16)
+                                 ):
+        if isinstance(feature_names, str):
+            feature_names = [feature_names, ]
+        self._dense_feature_names = feature_names
+        n = len(self._dense_feature_names)
+        n_pair = _nlist(n)
+        head_type_ = n_pair(head_type)
+        normalize_ = n_pair(normalize)
+        pool_name_ = n_pair(pool_name)
+        output_dim_ = n_pair(output_dim)
+        spatial_size_ = n_pair(spatial_size)
+        for i, (f, h, n, p, o, s) in enumerate(
+            zip(feature_names, head_type_, normalize_, pool_name_, output_dim_, spatial_size_)):
+            self._register_dense_projector(feature_name=f, head_type=h, output_dim=o, normalize=n, pool_name=p,
+                                           spatial_size=s, )
 
 
 # decoder IIC projectors
-class _LocalClusterWrapper(ProjectorWrapperBase):
+class _LocalClusterWrapper(_ProjectorWrapperBase):
     def __init__(
         self,
         feature_names: Union[str, List[str]],
