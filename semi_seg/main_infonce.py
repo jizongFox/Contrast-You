@@ -76,19 +76,31 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
     trainer.start_training()
 
     if is_pretrain:
-        base_config = config_manager.base_config
-        config["Optim"].update(base_config["Optim"])
-        config["Scheduler"].update(base_config["Scheduler"])
-        finetune_trainer = FineTuneTrainer(
-            model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
-            val_loader=val_loader, sup_criterion=KL_div(verbose=False),
-            configuration={**config, **{"GITHASH": cur_githash}},
-            save_dir=os.path.join(base_save_dir, "tra") if is_pretrain else base_save_dir,
-            **{k: v for k, v in config["Trainer"].items() if k != "save_dir"}
-        )
-        finetune_trainer.init()
-        finetune_trainer.start_training()
-        finetune_trainer.inference()
+        for labeled_ratio in (0.01, 0.02, 0.03, 0.04, 0.05):
+            model.load_state_dict(extract_model_state_dict(
+                os.path.join(trainer._save_dir, "last.pth")),  # noqa
+                strict=True
+            )
+
+            base_config = config_manager.base_config
+            config["Optim"].update(base_config["Optim"])
+            config["Scheduler"].update(base_config["Scheduler"])
+            config["Data"]["labeled_data_ratio"] = labeled_ratio
+            config["Data"]["unlabeled_data_ratio"] = 1 - labeled_ratio
+
+            labeled_loader, unlabeled_loader, val_loader = get_dataloaders(config)
+
+            finetune_trainer = FineTuneTrainer(
+                model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
+                val_loader=val_loader, sup_criterion=KL_div(verbose=False),
+                configuration={**config, **{"GITHASH": cur_githash}},
+                save_dir=os.path.join(base_save_dir, "tra",
+                                      f"ratio_{str(labeled_ratio)}"),
+                **{k: v for k, v in config["Trainer"].items() if k != "save_dir"}
+            )
+            finetune_trainer.init()
+            finetune_trainer.start_training()
+            finetune_trainer.inference()
 
 
 if __name__ == '__main__':

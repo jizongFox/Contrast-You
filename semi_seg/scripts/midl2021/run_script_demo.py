@@ -48,7 +48,7 @@ TrainerParams = SharedParams + f" Optim.lr={lr_zooms[args.dataset_name]:.10f} "
 
 PretrainParams = SharedParams
 
-save_dir += ("/" + "/".join([args.dataset_name, f"label_ratio_{label_ratio}"]))
+save_dir += ("/" + "/".join([args.dataset_name, f"random_seed_{random_seed}"]))
 
 baselines = [
 
@@ -124,7 +124,6 @@ Encoder_jobs = [
     f" InfoNCEParameters.DenseParams.include_all=false "
     f" Trainer.save_dir={save_dir}/infonce/Conv5_dense/w_0.0001/imagewise "
     f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
-
 
     # contrastive learning with pretrain Conv5+
     f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
