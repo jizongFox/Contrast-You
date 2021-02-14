@@ -143,6 +143,16 @@ Encoder_jobs = [
     f" Trainer.grad_from=Conv1 Trainer.grad_to=Up_conv3 "
     f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
 
+    # contrastive learning with pretrain Conv5 and Upconv3 jointly
+    f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
+    f" ProjectorParams.GlobalParams.feature_names=[Conv5,Up_conv3] "
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0,0.0001] "
+    f" ProjectorParams.DenseParams.feature_names=[Conv5,] "
+    f" ProjectorParams.DenseParams.feature_importance=[0.0001,] "
+    f" Trainer.save_dir={save_dir}/infonce/Conv5_dense_Upconv3/w_1.0_0.0001_0.00001 "
+    f" Trainer.grad_from=Conv1 Trainer.grad_to=Up_conv3 "
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
+
 ]
 """
 Decoder_Jobs = [
