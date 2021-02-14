@@ -50,7 +50,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=False)
 
     trainer_name = config["Trainer"].pop("name")
-    assert trainer_name in ("infonce", "infoncepretrain", "finetune"), trainer_name
+    assert trainer_name in ("infoncepretrain",), trainer_name
 
     Trainer = trainer_zoos[trainer_name]
 
