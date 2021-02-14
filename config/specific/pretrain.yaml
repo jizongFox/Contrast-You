@@ -15,6 +15,6 @@ Optim:
   weight_decay: 0.00001
 
 ContrastiveLoaderParams:
-  group_sample_num: 6
+  group_sample_num: 7
   partition_sample_num: 1
-  num_workers: 8
+  num_workers: 6
