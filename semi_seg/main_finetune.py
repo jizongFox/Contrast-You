@@ -12,13 +12,10 @@ from contrastyou.arch import UNet
 from deepclustering2.configparser import ConfigManger
 from deepclustering2.utils import gethash
 from deepclustering2.utils import set_benchmark
-from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, FineTuneTrainer
+from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, DirectTrainer
 from semi_seg.dsutils import get_dataloaders
 from loguru import logger
 from copy import deepcopy
-import warnings
-
-warnings.filterwarnings("ignore")
 
 cur_githash = gethash(__file__)  # noqa
 
@@ -48,7 +45,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=False)
 
     trainer_name = config["Trainer"].pop("name")
-    assert trainer_name in ("finetune",), trainer_name
+    assert trainer_name in ("finetune", "directtrain"), trainer_name
     base_model_checkpoint = deepcopy(model.state_dict())
 
     for labeled_ratio in (0.01, 0.02, 0.03, 0.04, 0.05, 1.0):
@@ -59,7 +56,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
 
         labeled_loader, unlabeled_loader, val_loader = get_dataloaders(config)
 
-        finetune_trainer = FineTuneTrainer(
+        finetune_trainer = DirectTrainer(
             model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
             val_loader=val_loader, sup_criterion=KL_div(verbose=False),
             configuration={**config, **{"GITHASH": cur_githash}},

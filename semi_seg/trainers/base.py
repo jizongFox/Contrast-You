@@ -15,8 +15,7 @@ from deepclustering2.schedulers import GradualWarmupScheduler
 from deepclustering2.tqdm import item2str
 from deepclustering2.trainer2 import Trainer
 from deepclustering2.type import T_loader, T_loss
-from semi_seg.epochers import InferenceEpocher
-from semi_seg.epochers import TrainEpocher, EvalEpocher, FineTuneEpocher
+from semi_seg.epochers import TrainEpocher, EvalEpocher, FineTuneEpocher, InferenceEpocher,DirectTrainEpocher
 
 
 class _FeatureExtractor:
@@ -183,6 +182,12 @@ class SemiTrainer(Trainer):
 
 
 class FineTuneTrainer(SemiTrainer):
+
+    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = FineTuneEpocher):
+        super()._set_epocher_class(epocher_class)
+
+
+class DirectTrainer(SemiTrainer):
 
     def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = FineTuneEpocher):
         super()._set_epocher_class(epocher_class)

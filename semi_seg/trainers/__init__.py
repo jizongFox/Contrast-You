@@ -3,6 +3,7 @@ from .pretrain import *
 from .trainer import *
 
 base_trainer_zoos = {
+    "directtrain": DirectTrainer,
     "finetune": FineTuneTrainer,
     "uda": UDATrainer,
     "iic": IICTrainer,

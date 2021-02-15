@@ -311,3 +311,7 @@ class FineTuneEpocher(TrainEpocher, __AssertOnlyWithLabeledData):
     def _forward_pass(self, labeled_image, **kwargs):
         label_logits = self._model(labeled_image)
         return label_logits
+
+
+class DirectTrainEpocher(FineTuneEpocher):
+    pass

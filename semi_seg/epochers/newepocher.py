@@ -16,6 +16,8 @@ class ProposedEpocher1(InfoNCEEpocher):
     def _init(self, *, reg_weight: float, projectors_wrapper: ContrastiveProjectorWrapper = None,
               infoNCE_criterion: T_loss = None, kernel_size: int = 1, margin: int = 3, neigh_weight: float = None,
               **kwargs):
+        super(ProposedEpocher1, self)._init(reg_weight=reg_weight, projectors_wrapper=projectors_wrapper,
+                                            infoNCE_criterion=infoNCE_criterion, **kwargs)
         self._kernel_size = kernel_size  # noqa
         self._margin = margin  # noqa
         assert 0 <= neigh_weight <= 1, neigh_weight
