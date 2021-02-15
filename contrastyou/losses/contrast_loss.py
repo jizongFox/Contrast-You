@@ -131,6 +131,9 @@ class SupConLoss2(nn.Module):
         assert is_normalized(proj_feat1) and is_normalized(proj_feat2), f"features need to be normalized first"
         assert proj_feat1.shape == proj_feat2.shape, (proj_feat1.shape, proj_feat2.shape)
 
+        if (target is not None) and (mask is not None):
+            raise RuntimeError(f"`target` and `mask` should not be provided in the same time")
+
         batch_size = len(proj_feat1)
         sim_exp, sim_logits = exp_sim_temperature(proj_feat1, proj_feat2, self._t)
 

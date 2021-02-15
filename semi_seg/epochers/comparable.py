@@ -1,20 +1,22 @@
 import math
 from abc import abstractmethod
-from functools import lru_cache
+from functools import lru_cache, partial
 from typing import Callable, Iterable
 
 import torch
 from loguru import logger
 from torch import Tensor
 from torch import nn
+from torch.nn import functional as F
 
 from contrastyou.epocher._utils import unfold_position  # noqa
 from contrastyou.featextractor.unet import FeatureExtractor
 from contrastyou.helper import average_iter, weighted_average_iter
 from contrastyou.losses.contrast_loss import is_normalized
+from contrastyou.losses.iic_loss import _ntuple
 from contrastyou.projectors.heads import ProjectionHead
 from contrastyou.projectors.nn import Normalize
-from deepclustering2.configparser._utils import get_config
+from deepclustering2.configparser._utils import get_config  # noqa
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.decorator.decorator import _disable_tracking_bn_stats as disable_bn  # noqa
 from deepclustering2.loss import Entropy
@@ -366,7 +368,7 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
 
 
 class InfoNCEEpocher(_InfoNCEBasedEpocher):
-    """INFONCE that implments SIMCLR and SupContrast"""
+    """INFONCE that implements SIMCLR and SupContrast"""
     from contrastyou.losses.contrast_loss import SupConLoss2
     _infonce_criterion: SupConLoss2
 
@@ -426,23 +428,71 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
         include_all = _config["InfoNCEParameters"]["DenseParams"].get("include_all", False)
         if include_all:
             return self._infonce_criterion(proj_feature_tf.reshape(-1, c), proj_tf_feature.reshape(-1, c))
-
-        return sum(
-            [self._infonce_criterion(f1, f2) for f1, f2 in zip(proj_tf_feature, proj_feature_tf)]
-        ) / b
+        else:
+            raise RuntimeError("experimental results show that using batch-wise is better")
 
     def _dense_infonce_for_decoder(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
                                    label_group):
         """here the dense predictions consider the neighborhood information, and the content similarity"""
         assert "Up" in feature_name, feature_name
-        b, hw, c = proj_feature_tf.shape
+        b, c, *hw = proj_feature_tf.shape
+        output_size = (9, 9)
+        sampled_norm_tf_feature, sampled_norm_feature_tf = self._feature_map_tailoring(
+            proj_tf_feature=proj_tf_feature,
+            proj_feature_tf=proj_feature_tf,
+            output_size=output_size
+        )
+        assert sampled_norm_tf_feature.shape == torch.Size([b, c, *output_size])
+        assert is_normalized(sampled_norm_tf_feature) and is_normalized(sampled_norm_feature_tf)
 
-        return torch.tensor(0.0, device=self.device)
+        # in order to save memory, we try to sample 1 positive pair with several negative pairs
+        mask = self.generate_relation_masks(output_size)
+        n_tf_feature, n_feature_tf = self._reshape_dense_feature(sampled_norm_tf_feature, sampled_norm_feature_tf)
+        return sum([self._infonce_criterion(f1, f2, mask=mask) for f1, f2 in zip(n_tf_feature, n_feature_tf)]) / b
 
-    def feature_map_tailoring(self, proj_tf_feature, proj_feature_tf):
+    def _feature_map_tailoring(self, *, proj_tf_feature: Tensor, proj_feature_tf: Tensor, output_size=(9, 9),
+                               method="adaptive_avg"):
         """
         it consists of
-        1. upsampling the feature map to a pre-defined size
+        1. downsampling the feature map to a pre-defined size
         2. sampling fixed position
+        3. reshaping the feature map
+        4. create a relation mask
         """
-        pass
+        b, c, *hw = proj_feature_tf.shape
+        # 1. upsampling
+        proj_feature_tf = self._resize_featuremap(output_size=output_size, method=method)(proj_feature_tf)
+        proj_tf_feature = self._resize_featuremap(output_size=output_size, method=method)(proj_tf_feature)
+        # output features are [b,c,h_,w_] with h_, w_ as the reduced size
+        if not (is_normalized(proj_feature_tf, dim=1) and is_normalized(proj_feature_tf, dim=1)):
+            proj_feature_tf = Normalize(dim=1)(proj_feature_tf)
+            proj_tf_feature = Normalize(dim=1)(proj_tf_feature)
+        return proj_tf_feature, proj_feature_tf
+
+    @lru_cache()
+    def _resize_featuremap(self, output_size, method="adaptive_avg"):
+        if method == "bilinear":
+            return partial(F.interpolate, size=output_size, align_corners=True)
+        elif method == "adaptive_avg":
+            return nn.AdaptiveAvgPool2d(output_size=output_size)
+        elif method == "adaptive_max":
+            return nn.AdaptiveMaxPool2d(output_size=output_size)
+        else:
+            raise ValueError(method)
+
+    @lru_cache()
+    def generate_relation_masks(self, output_size) -> Tensor:
+        _pair = _ntuple(2)
+        output_size = _pair(output_size)
+        size = output_size[0] * output_size[1]
+        mask = torch.zeros(size, size, dtype=torch.float, device=self._device)
+        for i in range(output_size[0]):
+            for j in range(output_size[1]):
+                relation = torch.ones(*output_size, dtype=torch.float, device=self._device) * -1
+                relation[
+                max(i - 1, 0):i + 2,
+                max(j - 1, 0):j + 2
+                ] = 0
+                relation[i, j] = 1
+                mask[i * output_size[0] + j] = relation.view(1, -1)
+        return mask

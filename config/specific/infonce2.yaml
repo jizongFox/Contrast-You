@@ -17,8 +17,8 @@ ProjectorParams:
 
   DenseParams:
     feature_names: null
-    feature_importance: [ 0.05 ]
+    feature_importance: []
     head_type: mlp
     normalize: false # in order to perform pooling manually`1
     pool_name: identical # adaptive_max #identical
-    spatial_size: [ 16, 16 ]
+    spatial_size: 16
