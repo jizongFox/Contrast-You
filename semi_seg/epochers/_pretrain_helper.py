@@ -1,11 +1,10 @@
 import random
-from typing import List, Callable
+from typing import Callable
 
 import torch
 from torch import nn, Tensor
 from torch.optim.optimizer import Optimizer
 
-from contrastyou.arch.unet import freeze_grad
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.meters2 import EpochResultDict, MeterInterface
 from deepclustering2.optim import get_lrs_from_optimizer
@@ -98,23 +97,3 @@ class _PretrainEpocherMixin:
 
         unlabel_logits, unlabel_tf_logits = torch.split(predict_logits, [n_unl, n_unl], dim=0)
         return unlabel_logits, unlabel_tf_logits
-
-
-class _FreezeGradMixin:
-    _model: nn.Module
-    _feature_position: List[str]
-
-    def __init__(self, *args, **kwargs):
-        super(_FreezeGradMixin, self).__init__(*args, **kwargs)
-        self.__initialize_grad = False
-
-    def enable_grad(self, from_: str, util_: str):
-        self.__from = from_
-        self.__util = util_
-        self.__initialize_grad = True
-
-    def _run(self, *args, **kwargs):
-        if not self.__initialize_grad:
-            raise RuntimeError("`enable_grad` must be called before _run() function")
-        with freeze_grad(self._model, from_=self.__from, util_=self.__util) as self._model:  # noqa
-            return super()._run(*args, **kwargs)  # noqa

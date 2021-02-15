@@ -2,6 +2,8 @@ import os
 
 from scipy.sparse import issparse  # noqa
 
+from contrastyou.arch.unet import arch_order
+
 _ = issparse  # noqa
 from contrastyou.helper import extract_model_state_dict
 from deepclustering2.loss import KL_div
@@ -16,9 +18,6 @@ from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, FineTuneTrain
 from semi_seg.dsutils import get_dataloaders
 from loguru import logger
 from copy import deepcopy
-import warnings
-
-warnings.filterwarnings("ignore")
 
 cur_githash = gethash(__file__)  # noqa
 
@@ -35,7 +34,7 @@ def main():
 @logger.catch(reraise=True)
 def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
     base_save_dir = str(config["Trainer"]["save_dir"])
-    logger.add(os.path.join("runs", base_save_dir, "loguru.log"), level="TRACE", diagnose=True, )
+    logger.add(os.path.join("runs", base_save_dir, "loguru.log"), level="TRACE", diagnose=True)
 
     set_benchmark(config.get("RandomSeed", 1))
 
@@ -70,10 +69,12 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
 
     if is_pretrain:
         from_, util_ = config["Trainer"]["grad_from"] or "Conv1", \
-                       config["Trainer"]["grad_util"] or config["Trainer"]["feature_names"][-1]
-        trainer.enable_grad(from_=from_, util_=util_)
-
-    trainer.start_training()
+                       config["Trainer"]["grad_util"] or \
+                       sorted(trainer._config["Trainer"]["feature_names"], key=lambda x: arch_order(x))[-1]  # noqa
+        with trainer.enable_grad(from_=from_, util_=util_):
+            trainer.start_training()
+    else:
+        trainer.start_training()
 
     if is_pretrain:
         for labeled_ratio in (0.01, 0.02, 0.03, 0.04, 0.05):

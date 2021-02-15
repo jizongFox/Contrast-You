@@ -1,11 +1,12 @@
 from collections import OrderedDict
 from contextlib import contextmanager
+from functools import lru_cache
 
 import torch
 from loguru import logger
 from torch import nn, Tensor
 
-__all__ = ["UNet", "freeze_grad"]
+__all__ = ["UNet", "freeze_grad", "arch_order"]
 
 
 class conv_block(nn.Module):
@@ -315,6 +316,12 @@ def freeze_grad(unet: UNet, from_="Conv1", util_="Conv5"):
     yield unet
     unet.enable_grad_all()
     logger.debug("enable all gradient")
+
+
+@lru_cache()
+def arch_order(layer_name):
+    unet_order = UNet().component_names
+    return unet_order.index(layer_name)
 
 
 if __name__ == '__main__':

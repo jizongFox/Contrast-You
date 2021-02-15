@@ -3,6 +3,7 @@ RandomSeed: 10
 Arch:
   input_dim: 1
   num_classes: 4
+  checkpoint: null
 
 Optim:
   name: Adam
