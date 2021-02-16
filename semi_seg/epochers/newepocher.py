@@ -30,18 +30,9 @@ class ProposedEpocher1(InfoNCEEpocher):
             logger.debug("{}, considers neighor term: {} and content term: {}", self.__class__.__name__,
                          self._neigh_weight, 1 - self._neigh_weight)
 
-    def _dense_infonce_for_encoder(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
-                                   label_group):
-        """here the dense prediction does not consider the spatial neighborhood"""
-        # the mask of this dense metric would be image-wise simclr
-        assert "Conv" in feature_name, feature_name
-        b, hw, c = proj_feature_tf.shape
-
-        return self._infonce_criterion(proj_feature_tf.reshape(-1, c), proj_tf_feature.reshape(-1, c))
-
     def _dense_infonce_for_decoder(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
                                    label_group):
-        b, hw, c = proj_feature_tf.shape
+        b, c, *hw = proj_feature_tf.shape
         nearby_mask = self.generate_relation_masks(
             output_size=(math.sqrt(hw), math.sqrt(hw)), kernel_size=self._kernel_size, margin=self._margin
         )

@@ -10,11 +10,11 @@ from semi_seg.trainers.trainer import InfoNCETrainer
 class ExperimentalTrainer(InfoNCETrainer):
     def _init(self):
         super(ExperimentalTrainer, self)._init()
-        config = deepcopy(self._config["InfoNCEParameters"])
+        config = deepcopy(self._config["NeighParams"])
 
         # neigh params:
-        self._k = config["NeighParams"]["kernel_size"]
-        self._m = config["NeighParams"]["margin"]
+        self._k = int(config["k"])
+        self._m = int(config["m"])
         self._neigh_weight = float(config["neigh_weight"])
 
     def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = ProposedEpocher1):

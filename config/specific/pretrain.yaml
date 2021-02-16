@@ -12,7 +12,7 @@ Trainer:
 Optim:
   name: Adam
   lr: 0.000002
-  weight_decay: 0.00001
+  weight_decay: 0.0
 
 ContrastiveLoaderParams:
   group_sample_num: 7

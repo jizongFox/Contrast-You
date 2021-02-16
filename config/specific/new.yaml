@@ -1,26 +1,29 @@
 InfoNCEParameters:
-  EncoderParams:
-    head_types: mlp
-    normalize: true
-    method_name: simclr
-    pool_method: adaptive_avg # adaptive_max #identical
-  DecoderParams:
-    head_types: mlp
-    normalize: true
-    output_size: [ 16,16 ]
-    pool_method: adaptive_avg # adaptive_max #identical
+  GlobalParams:
+    method_name: supcontrast
+  DenseParams:
+    include_all: true
   LossParams:
     temperature: 0.07
-
   weight: 0.1
-  neigh_weight: 1
 
-  NeighParams:
-    kernel_size: 1
-    margin: 3
+ProjectorParams:
+  GlobalParams:
+    feature_names: [ Conv5, ]
+    feature_importance: [ 1]
+    head_type: mlp
+    normalize: true
+    pool_name: adaptive_avg # adaptive_max #identical
 
-  ContentParams:
-    null
+  DenseParams:
+    feature_names: null
+    feature_importance: []
+    head_type: mlp
+    normalize: false # in order to perform pooling manually`1
+    pool_name: identical # adaptive_max #identical
+    spatial_size: 16
 
-
-
+NeighParams:
+  k: 1
+  m: 1
+  neigh_weight: 0.5
