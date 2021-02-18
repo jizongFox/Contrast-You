@@ -12,8 +12,7 @@ from pathlib import Path
 from contrastyou import PROJECT_PATH
 from contrastyou.arch import UNet
 from deepclustering2.configparser import ConfigManger
-from deepclustering2.utils import gethash
-from deepclustering2.utils import set_benchmark
+from deepclustering2.utils import set_benchmark, gethash
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, FineTuneTrainer
 from semi_seg.dsutils import get_dataloaders
 from loguru import logger
@@ -70,7 +69,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
     if is_pretrain:
         from_, util_ = config["Trainer"]["grad_from"] or "Conv1", \
                        config["Trainer"]["grad_util"] or \
-                       sorted(trainer._config["Trainer"]["feature_names"], key=lambda x: arch_order(x))[-1]  # noqa
+                       sorted(trainer._config["FeatureExtractor"]["feature_names"], key=lambda x: arch_order(x))[-1]  # noqa
         with trainer.enable_grad(from_=from_, util_=util_):
             trainer.start_training()
     else:
@@ -101,7 +100,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
             )
             finetune_trainer.init()
             finetune_trainer.start_training()
-            finetune_trainer.inference()
+            # finetune_trainer.inference()
 
 
 if __name__ == '__main__':

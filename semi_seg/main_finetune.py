@@ -66,7 +66,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         )
         finetune_trainer.init()
         finetune_trainer.start_training()
-        finetune_trainer.inference()
+        # finetune_trainer.inference()
 
 
 if __name__ == '__main__':

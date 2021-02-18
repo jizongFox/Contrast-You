@@ -1,5 +1,5 @@
 from contrastyou.datasets._seg_datset import ContrastBatchSampler  # noqa
-from ._pretrain_helper import _PretrainTrainerMixin
+from ._helper import _PretrainTrainerMixin
 from .proposedtrainer import ExperimentalTrainer, ExperimentalTrainer2
 from .trainer import InfoNCETrainer, IICTrainer, UDAIICTrainer
 

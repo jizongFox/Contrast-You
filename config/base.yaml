@@ -30,8 +30,6 @@ UnlabeledData:
   num_workers: 5
 
 Trainer:
-  feature_names: [ "Conv5", "Up_conv3", "Up_conv2" ]
-  feature_importance: [ 1, 0.5, 0.5 ]
   name: partial
   save_dir: tmp
   device: cuda

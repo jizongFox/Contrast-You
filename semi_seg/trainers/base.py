@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Tuple, Type, List, Dict, Any, Callable
+from typing import Tuple, Type
 
 import torch
 from loguru import logger
@@ -12,41 +12,9 @@ from deepclustering2 import optim
 from deepclustering2.meters2 import EpochResultDict
 from deepclustering2.meters2 import StorageIncomeDict
 from deepclustering2.schedulers import GradualWarmupScheduler
-from deepclustering2.tqdm import item2str
 from deepclustering2.trainer2 import Trainer
 from deepclustering2.type import T_loader, T_loss
-from semi_seg.epochers import TrainEpocher, EvalEpocher, FineTuneEpocher, InferenceEpocher,DirectTrainEpocher
-
-
-class _FeatureExtractor:
-    feature_positions: List[str]
-    _config: Dict[str, Any]
-    set_feature_positions: Callable
-
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.__feature_extractor_initialized__ = False
-
-    def _init(self):
-        self.set_feature_positions(self._config["Trainer"]["feature_names"])
-        feature_importance = self._config["Trainer"]["feature_importance"]
-        assert isinstance(feature_importance, list), type(feature_importance)
-        feature_importance = [float(x) for x in feature_importance]
-        self._feature_importance = feature_importance
-
-        assert len(self._feature_importance) == len(self.feature_positions), \
-            (self._feature_importance, self.feature_positions)
-
-        logger.info("{} feature importance: {}", self.__class__.__name__,
-                    item2str({f"{c}|{i}": v for i, (c, v) in
-                              enumerate(zip(self.feature_positions, self._feature_importance))}))
-        self.__feature_extractor_initialized__ = True
-        super(_FeatureExtractor, self)._init()  # noqa
-
-    def start_training(self):
-        if not self.__feature_extractor_initialized__:
-            raise RuntimeError()
-        return super(_FeatureExtractor, self).start_training()  # noqa
+from semi_seg.epochers import TrainEpocher, EvalEpocher, FineTuneEpocher, InferenceEpocher
 
 
 class SemiTrainer(Trainer):
@@ -177,7 +145,7 @@ class SemiTrainer(Trainer):
         return result, cur_score
 
     def set_feature_positions(self, feature_positions):
-        logger.info("feature_position for {}: [{}]", self.__class__.__name__, ", ".join(feature_positions))
+        logger.info("set {} feature_position as: [{}]", self.__class__.__name__, ", ".join(feature_positions))
         self.feature_positions = feature_positions  # noqa
 
 

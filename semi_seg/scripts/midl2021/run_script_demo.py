@@ -2,6 +2,7 @@ import argparse
 from itertools import cycle
 
 from deepclustering2.cchelper import JobSubmiter
+from deepclustering2.utils import gethash
 from semi_seg.scripts.helper import dataset_name2class_numbers, lr_zooms
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -22,6 +23,7 @@ random_seed = args.random_seed
 max_epoch = args.max_epoch
 group_sample_num = args.group_sample_num
 
+__githash__ = gethash(__file__)
 lr: str = args.lr or f"{lr_zooms[args.dataset_name]:.10f}"
 
 save_dir = args.save_dir
@@ -36,7 +38,8 @@ TrainerParams = SharedParams + f" Optim.lr={lr_zooms[args.dataset_name]:.10f} "
 
 PretrainParams = SharedParams + f" ContrastiveLoaderParams.group_sample_num={group_sample_num}"
 
-save_dir += ("/" + "/".join([args.dataset_name, f"sample_num_{group_sample_num}", f"random_seed_{random_seed}"]))
+save_dir += ("/" + "/".join(
+    [f"githash_{__githash__[:7]}", args.dataset_name, f"sample_num_{group_sample_num}", f"random_seed_{random_seed}"]))
 
 baselines = [
     f"python main_finetune.py {TrainerParams} Trainer.name=finetune Trainer.save_dir={save_dir}/baseline ",
@@ -171,7 +174,7 @@ accounts = cycle(["def-chdesa", "def-mpederso", "rrg-mpederso"])
 
 job_submiter = JobSubmiter(project_path="../../", on_local=args.on_local, time=args.time, )
 
-for j in [*baselines, *Encoder_jobs, *Decoder_Jobs]:
+for j in [*baselines, *Encoder_jobs, ]:
     job_submiter.prepare_env(
         [
             "source ../venv/bin/activate ",

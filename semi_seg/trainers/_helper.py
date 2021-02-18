@@ -1,6 +1,6 @@
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, Callable
+from typing import List, Dict, Any, Callable
 
 from loguru import logger
 from torch import nn
@@ -9,8 +9,8 @@ from torch.utils.data.dataloader import _BaseDataLoaderIter as BaseDataLoaderIte
 from contrastyou.arch.unet import freeze_grad
 from contrastyou.datasets._seg_datset import ContrastBatchSampler  # noqa
 from contrastyou.helper import get_dataset
-from deepclustering2.meters2 import EpochResultDict, Storage
-from deepclustering2.meters2 import StorageIncomeDict
+from deepclustering2.meters2 import StorageIncomeDict, Storage, EpochResultDict
+from deepclustering2.tqdm import item2str
 from deepclustering2.writer import SummaryWriter
 
 
@@ -37,6 +37,41 @@ def _get_contrastive_dataloader(partial_loader, config):
     )
 
     return iter(contrastive_loader)
+
+
+# mixin for feature extractor
+class _FeatureExtractor:
+    feature_positions: List[str]
+    _config: Dict[str, Any]
+    set_feature_positions: Callable
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.__feature_extractor_initialized = False
+
+    def _init(self):
+        if "FeatureExtractor" not in self._config:
+            raise RuntimeError("FeatureExtractor Should be in the config.")
+        feature_config = self._config["FeatureExtractor"]
+        self.set_feature_positions(feature_config["feature_names"])
+        feature_importance = feature_config["feature_importance"]
+        assert isinstance(feature_importance, list), type(feature_importance)
+        feature_importance = [float(x) for x in feature_importance]
+        self._feature_importance = feature_importance
+
+        assert len(self._feature_importance) == len(self.feature_positions), \
+            (self._feature_importance, self.feature_positions)
+
+        logger.info("{} feature importance: {}", self.__class__.__name__,
+                    item2str({f"{c}|{i}": v for i, (c, v) in
+                              enumerate(zip(self.feature_positions, self._feature_importance))}))
+        self.__feature_extractor_initialized = True
+        super(_FeatureExtractor, self)._init()  # noqa
+
+    def start_training(self):
+        if not self.__feature_extractor_initialized:
+            raise RuntimeError("_FeatureExtractor should be initialized by calling `_int()` first.")
+        return super(_FeatureExtractor, self).start_training()  # noqa
 
 
 class _PretrainTrainerMixin:

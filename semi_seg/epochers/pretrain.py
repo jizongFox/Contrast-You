@@ -1,9 +1,10 @@
-from ._pretrain_helper import _PretrainEpocherMixin
+from ._helper import _PretrainEpocherMixin
 from .comparable import InfoNCEEpocher
 from .miepocher import MITrainEpocher, ConsistencyMIEpocher
 from .newepocher import ProposedEpocher1, ProposedEpocher2
 
 
+# override batch loop in order to ignore the supervised loss.
 class InfoNCEPretrainEpocher(_PretrainEpocherMixin, InfoNCEEpocher):
     pass
 

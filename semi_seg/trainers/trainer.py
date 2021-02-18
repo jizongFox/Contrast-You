@@ -19,7 +19,8 @@ from semi_seg.epochers import TrainEpocher, EvalEpocher, ConsistencyTrainEpocher
     MIMeanTeacherEpocher, MIDLPaperEpocher, InfoNCEEpocher, DifferentiablePrototypeEpocher, \
     UCMeanTeacherEpocher
 from semi_seg.miestimator.iicestimator import IICEstimatorArray
-from semi_seg.trainers.base import SemiTrainer, _FeatureExtractor
+from semi_seg.trainers._helper import _FeatureExtractor
+from semi_seg.trainers.base import SemiTrainer
 
 
 class UDATrainer(SemiTrainer):
@@ -63,7 +64,7 @@ class MIDLTrainer(UDATrainer):
 
 
 # MI trainer
-class IICTrainer(SemiTrainer):
+class IICTrainer(_FeatureExtractor, SemiTrainer):
     def _init(self):
         super(IICTrainer, self)._init()
         config = deepcopy(self._config["IICRegParameters"])
@@ -130,8 +131,11 @@ class InfoNCETrainer(_FeatureExtractor, SemiTrainer):
 
         dense_importance = dense_importance[:len(dense_features)]
 
-        self._config["Trainer"]["feature_names"] = global_features + dense_features
-        self._config["Trainer"]["feature_importance"] = global_importance + dense_importance
+        # override FeatureExtractor by using the settings from Global and Dense parameters.
+        if "FeatureExtractor" not in self._config:
+            self._config["FeatureExtractor"] = {}
+        self._config["FeatureExtractor"]["feature_names"] = global_features + dense_features
+        self._config["FeatureExtractor"]["feature_importance"] = global_importance + dense_importance
 
         super(InfoNCETrainer, self)._init()
         _infonce_config = deepcopy(self._config["InfoNCEParameters"])
@@ -387,7 +391,6 @@ class IICMeanTeacherTrainer(IICTrainer):
 #                      PICASegCriterionWrapper=self._PICASegWrapper, enforce_matching=self._enforce_matching)
 #         result = epocher.run()
 #         return result
-
 
 # class InfoNCETrainerDemo(InfoNCETrainer):
 #     """This training class is going to balance the supervised loss and reg_loss for infonce dynamically to find if
