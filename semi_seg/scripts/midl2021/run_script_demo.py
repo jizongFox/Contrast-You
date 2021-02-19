@@ -178,6 +178,17 @@ Decoder_Jobs = [
     f" Arch.checkpoint=runs/{save_dir}/infonce/Conv5_baseline/encoder/pre/last.pth "
     f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
 
+    # contrastive learning with pretrain Decoder that takes encoders all together
+    f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
+    f" ProjectorParams.GlobalParams.feature_names=[Conv5,Up_conv3]"
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0,0.05]"
+    f" ProjectorParams.DenseParams.feature_names=[Up_conv3]"
+    f" ProjectorParams.DenseParams.feature_importance=[0.05]"
+    f" Trainer.grad_from=Conv1 Trainer.grad_util=Up_conv3 "
+    f" Trainer.save_dir={save_dir}/infonce/Conv5_baseline/all_decoder_up_conv3_global_dense "
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
+
+
 ]
 
 # CC things
