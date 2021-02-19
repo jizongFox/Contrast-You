@@ -436,7 +436,7 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
         """here the dense predictions consider the neighborhood information, and the content similarity"""
         assert "Up" in feature_name, feature_name
         b, c, *hw = proj_feature_tf.shape
-        output_size = (9, 9)
+        output_size = (12, 12)
         sampled_norm_tf_feature, sampled_norm_feature_tf = self._feature_map_tailoring(
             proj_tf_feature=proj_tf_feature,
             proj_feature_tf=proj_feature_tf,
@@ -445,10 +445,8 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
         assert sampled_norm_tf_feature.shape == torch.Size([b, c, *output_size])
         assert is_normalized(sampled_norm_tf_feature) and is_normalized(sampled_norm_feature_tf)
 
-        # in order to save memory, we try to sample 1 positive pair with several negative pairs
-        mask = self.generate_relation_masks(output_size)
         n_tf_feature, n_feature_tf = self._reshape_dense_feature(sampled_norm_tf_feature, sampled_norm_feature_tf)
-        return sum([self._infonce_criterion(f1, f2, mask=mask) for f1, f2 in zip(n_tf_feature, n_feature_tf)]) / b
+        return self._infonce_criterion(n_tf_feature.reshape(-1, c), n_feature_tf.reshape(-1, c))
 
     def _feature_map_tailoring(self, *, proj_tf_feature: Tensor, proj_feature_tf: Tensor, output_size=(9, 9),
                                method="adaptive_avg"):

@@ -1,6 +1,7 @@
 import math
 from functools import lru_cache
 
+import numpy as np
 import torch
 from loguru import logger
 from torch import Tensor
@@ -34,7 +35,7 @@ class ProposedEpocher1(InfoNCEEpocher):
                                    label_group):
         b, c, *hw = proj_feature_tf.shape
         nearby_mask = self.generate_relation_masks(
-            output_size=(math.sqrt(hw), math.sqrt(hw)), kernel_size=self._kernel_size, margin=self._margin
+            output_size=(math.sqrt(np.product(hw)), math.sqrt(hw)), kernel_size=self._kernel_size, margin=self._margin
         )
         sim_mask = self.generate_similarity_masks(norm_feature1=proj_feature_tf, norm_feature2=proj_tf_feature)
 

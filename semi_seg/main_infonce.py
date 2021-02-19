@@ -1,10 +1,9 @@
-import os
-
 from scipy.sparse import issparse  # noqa
 
-from contrastyou.arch.unet import arch_order
-
 _ = issparse  # noqa
+
+import os
+from contrastyou.arch.unet import arch_order
 from contrastyou.helper import extract_model_state_dict
 from deepclustering2.loss import KL_div
 import random
@@ -67,9 +66,12 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         trainer.load_state_dict_from_path(trainer_checkpoint, strict=True)
 
     if is_pretrain:
-        from_, util_ = config["Trainer"]["grad_from"] or "Conv1", \
-                       config["Trainer"]["grad_util"] or \
-                       sorted(trainer._config["FeatureExtractor"]["feature_names"], key=lambda x: arch_order(x))[-1]  # noqa
+        if "FeatureExtractor" not in trainer._config:  # noqa
+            raise RuntimeError("FeatureExtractor should be in trainer config")
+        from_, util_ = \
+            config["Trainer"]["grad_from"] or "Conv1", \
+            config["Trainer"]["grad_util"] or \
+            sorted(trainer._config["FeatureExtractor"]["feature_names"], key=lambda x: arch_order(x))[-1]  # noqa
         with trainer.enable_grad(from_=from_, util_=util_):
             trainer.start_training()
     else:

@@ -50,8 +50,8 @@ Encoder_jobs = [
     f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
     f" ProjectorParams.GlobalParams.feature_names=[Conv5]"
     f" ProjectorParams.GlobalParams.feature_importance=[1.0]"
-    f" Trainer.save_dir={save_dir}/infonce/Conv5_baseline "
-    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
+    f" Trainer.save_dir={save_dir}/infonce/Conv5_baseline/encoder "
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml"
 
     # contrastive learning with pretrain Conv5+
     f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
@@ -158,13 +158,24 @@ Encoder_jobs = [
 Decoder_Jobs = [
     # contrastive learning with pretrain Decoder that takes encoders from conv5
     f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
-    f" ProjectorParams.GlobalParams.feature_names=[] "
-    f" ProjectorParams.GlobalParams.feature_importance=[] "
+    f" ProjectorParams.GlobalParams.feature_names=[]"
+    f" ProjectorParams.GlobalParams.feature_importance=[]"
     f" ProjectorParams.DenseParams.feature_names=[Up_conv3]"
     f" ProjectorParams.DenseParams.feature_importance=[1.0]"
-    f" Trainer.save_dir={save_dir}/infonce/decoder/Upconv3 "
     f" Trainer.grad_from=Up5 Trainer.grad_util=Up_conv3 "
-    f" Arch.checkpoint=runs/{save_dir}/infonce/Conv5_baseline/pre/last.pth"
+    f" Trainer.save_dir={save_dir}/infonce/Conv5_baseline/decoder_up_conv3 "
+    f" Arch.checkpoint=runs/{save_dir}/infonce/Conv5_baseline/encoder/pre/last.pth "
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
+
+    # contrastive learning with pretrain Decoder that takes encoders from conv5
+    f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
+    f" ProjectorParams.GlobalParams.feature_names=[Up_conv3]"
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0]"
+    f" ProjectorParams.DenseParams.feature_names=[Up_conv3]"
+    f" ProjectorParams.DenseParams.feature_importance=[0.1]"
+    f" Trainer.grad_from=Up5 Trainer.grad_util=Up_conv3 "
+    f" Trainer.save_dir={save_dir}/infonce/Conv5_baseline/decoder_up_conv3_global "
+    f" Arch.checkpoint=runs/{save_dir}/infonce/Conv5_baseline/encoder/pre/last.pth "
     f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
 
 ]
@@ -174,7 +185,7 @@ accounts = cycle(["def-chdesa", "def-mpederso", "rrg-mpederso"])
 
 job_submiter = JobSubmiter(project_path="../../", on_local=args.on_local, time=args.time, )
 
-for j in [*baselines, *Encoder_jobs, ]:
+for j in [*Encoder_jobs, *Decoder_Jobs]:
     job_submiter.prepare_env(
         [
             "source ../venv/bin/activate ",
