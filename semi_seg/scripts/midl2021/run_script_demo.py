@@ -3,6 +3,7 @@ from itertools import cycle
 
 from deepclustering2.cchelper import JobSubmiter
 from deepclustering2.utils import gethash
+
 from semi_seg.scripts.helper import dataset_name2class_numbers, lr_zooms
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -88,16 +89,6 @@ Encoder_jobs = [
     f" ProjectorParams.GlobalParams.feature_names=[Conv5] "
     f" ProjectorParams.GlobalParams.feature_importance=[1.0] "
     f" ProjectorParams.DenseParams.feature_names=[Conv5] "
-    f" ProjectorParams.DenseParams.feature_importance=[0.1] "
-    f" InfoNCEParameters.DenseParams.include_all=true "
-    f" Trainer.save_dir={save_dir}/infonce/Conv5_dense/w_0.1/batchwise "
-    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
-
-    # contrastive learning with pretrain Conv5+
-    f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
-    f" ProjectorParams.GlobalParams.feature_names=[Conv5] "
-    f" ProjectorParams.GlobalParams.feature_importance=[1.0] "
-    f" ProjectorParams.DenseParams.feature_names=[Conv5] "
     f" ProjectorParams.DenseParams.feature_importance=[1.0] "
     f" InfoNCEParameters.DenseParams.include_all=true "
     f" Trainer.save_dir={save_dir}/infonce/Conv5_dense/w_1.0/batchwise "
@@ -138,19 +129,56 @@ Encoder_jobs = [
     # contrastive learning with pretrain Conv5 and Upconv3 jointly
     f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
     f" ProjectorParams.GlobalParams.feature_names=[Conv5,Up_conv3] "
-    f" ProjectorParams.GlobalParams.feature_importance=[1.0,0.00001] "
-    f" Trainer.save_dir={save_dir}/infonce/Conv5_Upconv3/w_1.0_0.00001 "
-    f" Trainer.grad_from=Conv1 Trainer.grad_util=Up_conv3 "
-    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
-
-    # contrastive learning with pretrain Conv5 and Upconv3 jointly
-    f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
-    f" ProjectorParams.GlobalParams.feature_names=[Conv5,Up_conv3] "
     f" ProjectorParams.GlobalParams.feature_importance=[1.0,0.0001] "
     f" ProjectorParams.DenseParams.feature_names=[Conv5,] "
     f" ProjectorParams.DenseParams.feature_importance=[0.0001,] "
     f" Trainer.save_dir={save_dir}/infonce/Conv5_dense_Upconv3/w_1.0_0.0001_0.00001 "
     f" Trainer.grad_from=Conv1 Trainer.grad_util=Up_conv3 "
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
+    
+    
+    # conv2
+
+    # contrastive learning with pretrain Conv5 and Upconv3 jointly
+    f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
+    f" ProjectorParams.GlobalParams.feature_names=[Conv5,Up_conv2] "
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0,0.5] "
+    f" Trainer.save_dir={save_dir}/infonce/Conv5_Upconv2/w_1.0_0.5 "
+    f" Trainer.grad_from=Conv1 Trainer.grad_util=Up_conv2 "
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
+
+    # contrastive learning with pretrain Conv5 and Upconv2 jointly
+    f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
+    f" ProjectorParams.GlobalParams.feature_names=[Conv5,Up_conv2] "
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0,0.1] "
+    f" Trainer.save_dir={save_dir}/infonce/Conv5_Upconv2/w_1.0_0.1 "
+    f" Trainer.grad_from=Conv1 Trainer.grad_util=Up_conv2 "
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
+
+    # contrastive learning with pretrain Conv5 and Upconv2 jointly
+    f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
+    f" ProjectorParams.GlobalParams.feature_names=[Conv5,Up_conv2] "
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0,0.01] "
+    f" Trainer.save_dir={save_dir}/infonce/Conv5_Upconv2/w_1.0_0.01 "
+    f" Trainer.grad_from=Conv1 Trainer.grad_util=Up_conv2 "
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
+
+    # contrastive learning with pretrain Conv5 and Upconv2 jointly
+    f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
+    f" ProjectorParams.GlobalParams.feature_names=[Conv5,Up_conv2] "
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0,0.0001] "
+    f" Trainer.save_dir={save_dir}/infonce/Conv5_Upconv2/w_1.0_0.0001 "
+    f" Trainer.grad_from=Conv1 Trainer.grad_util=Up_conv2 "
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
+
+    # contrastive learning with pretrain Conv5 and Upconv2 jointly
+    f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
+    f" ProjectorParams.GlobalParams.feature_names=[Conv5,Up_conv2] "
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0,0.0001] "
+    f" ProjectorParams.DenseParams.feature_names=[Conv5,] "
+    f" ProjectorParams.DenseParams.feature_importance=[0.0001,] "
+    f" Trainer.save_dir={save_dir}/infonce/Conv5_dense_Upconv2/w_1.0_0.0001_0.00001 "
+    f" Trainer.grad_from=Conv1 Trainer.grad_util=Up_conv2 "
     f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
 
 ]
@@ -187,7 +215,6 @@ Decoder_Jobs = [
     f" Trainer.grad_from=Conv1 Trainer.grad_util=Up_conv3 "
     f" Trainer.save_dir={save_dir}/infonce/Conv5_baseline/all_decoder_up_conv3_global_dense "
     f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
-
 
 ]
 

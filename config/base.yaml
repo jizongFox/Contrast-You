@@ -1,4 +1,5 @@
 RandomSeed: 10
+trainer_checkpoint: null
 
 Arch:
   input_dim: 1

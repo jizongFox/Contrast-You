@@ -46,7 +46,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         logger.info(f"loading checkpoint from  {model_checkpoint}")
         model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=False)
 
-    trainer_name = config["Trainer"].pop("name")
+    trainer_name = config["Trainer"]["name"]
     assert trainer_name in ("infoncepretrain", "experimentpretrain"), trainer_name
 
     Trainer = trainer_zoos[trainer_name]
@@ -58,7 +58,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         val_loader=val_loader, sup_criterion=KL_div(verbose=False),
         configuration={**config, **{"GITHASH": cur_githash}},
         save_dir=os.path.join(base_save_dir, "pre") if is_pretrain else base_save_dir,
-        **{k: v for k, v in config["Trainer"].items() if k != "save_dir"}
+        **{k: v for k, v in config["Trainer"].items() if k != "save_dir" and k != "name"}
     )
     trainer.init()
     trainer_checkpoint = config.get("trainer_checkpoint", None)
@@ -83,7 +83,6 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
                 os.path.join(trainer._save_dir, "last.pth")),  # noqa
                 strict=True
             )
-
             base_config = config_manager.base_config
             config["Optim"].update(base_config["Optim"])
             config["Scheduler"].update(base_config["Scheduler"])
