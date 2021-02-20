@@ -72,7 +72,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
             config["Trainer"]["grad_from"] or "Conv1", \
             config["Trainer"]["grad_util"] or \
             sorted(trainer._config["FeatureExtractor"]["feature_names"], key=lambda x: arch_order(x))[-1]  # noqa
-        with trainer.enable_grad(from_=from_, util_=util_):
+        with trainer.enable_grad(from_=from_, util_=util_), trainer.enable_bn(from_=from_, util_=util_):
             trainer.start_training()
     else:
         trainer.start_training()

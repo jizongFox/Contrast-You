@@ -51,7 +51,7 @@ Encoder_jobs = [
     f" ProjectorParams.GlobalParams.feature_names=[Conv5]"
     f" ProjectorParams.GlobalParams.feature_importance=[1.0]"
     f" Trainer.save_dir={save_dir}/infonce/Conv5_baseline/encoder "
-    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml"
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
 
     # contrastive learning with pretrain Conv5+
     f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "

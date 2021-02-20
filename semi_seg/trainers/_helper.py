@@ -2,16 +2,16 @@ from functools import partial
 from pathlib import Path
 from typing import List, Dict, Any, Callable
 
+from deepclustering2.meters2 import StorageIncomeDict, Storage, EpochResultDict
+from deepclustering2.tqdm import item2str
+from deepclustering2.writer import SummaryWriter
 from loguru import logger
 from torch import nn
 from torch.utils.data.dataloader import _BaseDataLoaderIter as BaseDataLoaderIter, DataLoader  # noqa
 
-from contrastyou.arch.unet import freeze_grad
+from contrastyou.arch.unet import enable_grad, enable_bn_tracking
 from contrastyou.datasets._seg_datset import ContrastBatchSampler  # noqa
 from contrastyou.helper import get_dataset
-from deepclustering2.meters2 import StorageIncomeDict, Storage, EpochResultDict
-from deepclustering2.tqdm import item2str
-from deepclustering2.writer import SummaryWriter
 
 
 def _get_contrastive_dataloader(partial_loader, config):
@@ -108,7 +108,13 @@ class _PretrainTrainerMixin:
         self.__util = util_
         self.__initialized_grad = True
         logger.info("set grad from {} to {}", from_, util_)
-        return freeze_grad(self._model, from_=self.__from, util_=self.__util)  # noqa
+        return enable_grad(self._model, from_=self.__from, util_=self.__util)  # noqa
+
+    def enable_bn(self, from_, util_):
+        self.__from = from_
+        self.__util = util_
+        logger.info("set bn tracking from {} to {}", from_, util_)
+        return enable_bn_tracking(self._model, from_=self.__from, util_=self.__util)  # noqa
 
     def _start_training(self):
         assert self.__initialized_grad, "`enable_grad` must be called first"

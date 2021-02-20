@@ -6,7 +6,7 @@ import torch
 from loguru import logger
 from torch import nn, Tensor
 
-__all__ = ["UNet", "freeze_grad", "arch_order"]
+__all__ = ["UNet", "enable_grad", "enable_bn_tracking", "arch_order"]
 
 
 class conv_block(nn.Module):
@@ -178,10 +178,35 @@ class UNet(nn.Module):
         assert from_index <= util_index, (from_, util)
         self._set_grad(self.component_names[from_index:util_index + 1], False)
 
+    def enable_track(self, from_: str, util: str):
+        assert from_ in self.component_names, from_
+        assert util in self.component_names, util
+        from_index = self.component_names.index(from_)
+        util_index = self.component_names.index(util)
+        assert from_index <= util_index, (from_, util)
+        self._set_track_bn(self.component_names[from_index:util_index + 1], True)
+
+    def disable_track(self, from_: str, util: str):
+        assert from_ in self.component_names, from_
+        assert util in self.component_names, util
+        from_index = self.component_names.index(from_)
+        util_index = self.component_names.index(util)
+        assert from_index <= util_index, (from_, util)
+        self._set_track_bn(self.component_names[from_index:util_index + 1], False)
+
     def _set_grad(self, name_list, requires_grad=False):
         for n in name_list:
             for parameter in getattr(self, n).parameters():
                 parameter.requires_grad = requires_grad
+
+    def _set_track_bn(self, name_list, track=True):
+        def switch_attr(m):
+            if hasattr(m, "track_running_stats"):
+                m.track_running_stats = track
+
+        for n in name_list:
+            model = getattr(self, n)
+            model.apply(switch_attr)
 
     @property
     def encoder_names(self):
@@ -309,13 +334,24 @@ class UNet_Index(UNet):
 
 
 @contextmanager
-def freeze_grad(unet: UNet, from_="Conv1", util_="Conv5"):
+def enable_grad(unet: UNet, from_="Conv1", util_="Conv5"):
     unet.disable_grad_all()
     unet.enable_grad(from_, util_)
     logger.debug("enable gradient from {} to {}", from_, util_)
+
     yield unet
     unet.enable_grad_all()
     logger.debug("enable all gradient")
+
+
+@contextmanager
+def enable_bn_tracking(unet: UNet, from_="Conv1", util_="Conv5"):
+    unet.disable_track("Conv1", "DeConv_1x1")
+    unet.enable_track(from_, util_)
+    logger.debug("enable bn tracking from {} to {}", from_, util_)
+    yield unet
+    unet.enable_track("Conv1", "DeConv_1x1")
+    logger.debug("enable all bn tracking")
 
 
 @lru_cache()
