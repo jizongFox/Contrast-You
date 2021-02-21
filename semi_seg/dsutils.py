@@ -33,7 +33,7 @@ def get_dataloaders(config, group_val_patient=True):
     augmentinferface = augment_zoos[dataset_name]
 
     data_manager = datainterface(root_dir=DATA_PATH, labeled_data_ratio=config["Data"]["labeled_data_ratio"],
-                                 unlabeled_data_ratio=config["Data"]["unlabeled_data_ratio"])
+                                 unlabeled_data_ratio=config["Data"]["unlabeled_data_ratio"], verbose=False)
 
     label_set, unlabel_set, val_set = data_manager._create_semi_supervised_datasets(  # noqa
         labeled_transform=augmentinferface.pretrain,
