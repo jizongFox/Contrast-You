@@ -10,15 +10,16 @@ InfoNCEParameters:
 ProjectorParams:
   GlobalParams:
     feature_names: [ Conv5, ]
-    feature_importance: [ 1]
+    feature_importance: [ 1 ]
     head_type: mlp
     normalize: true
     pool_name: adaptive_avg # adaptive_max #identical
 
   DenseParams:
     feature_names: null
-    feature_importance: []
+    feature_importance: [ ]
     head_type: mlp
     normalize: false # in order to perform pooling manually`1
     pool_name: identical # adaptive_max #identical
     spatial_size: 16
+    pool_method: adaptive_avg

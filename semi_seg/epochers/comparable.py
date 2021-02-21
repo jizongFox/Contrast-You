@@ -4,6 +4,14 @@ from functools import lru_cache, partial
 from typing import Callable, Iterable
 
 import torch
+from deepclustering2.configparser._utils import get_config  # noqa
+from deepclustering2.decorator import FixRandomSeed
+from deepclustering2.decorator.decorator import _disable_tracking_bn_stats as disable_bn  # noqa
+from deepclustering2.loss import Entropy
+from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, MeterInterface, MultipleAverageValueMeter
+from deepclustering2.models import ema_updater as EMA_Updater
+from deepclustering2.schedulers.customized_scheduler import RampScheduler
+from deepclustering2.type import T_loss
 from loguru import logger
 from torch import Tensor
 from torch import nn
@@ -16,14 +24,6 @@ from contrastyou.losses.contrast_loss import is_normalized
 from contrastyou.losses.iic_loss import _ntuple
 from contrastyou.projectors.heads import ProjectionHead
 from contrastyou.projectors.nn import Normalize
-from deepclustering2.configparser._utils import get_config  # noqa
-from deepclustering2.decorator import FixRandomSeed
-from deepclustering2.decorator.decorator import _disable_tracking_bn_stats as disable_bn  # noqa
-from deepclustering2.loss import Entropy
-from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, MeterInterface, MultipleAverageValueMeter
-from deepclustering2.models import ema_updater as EMA_Updater
-from deepclustering2.schedulers.customized_scheduler import RampScheduler
-from deepclustering2.type import T_loss
 from semi_seg._utils import ContrastiveProjectorWrapper
 from ._helper import unl_extractor, __AssertWithUnLabeledData, _FeatureExtractorMixin
 from .base import TrainEpocher
@@ -436,11 +436,16 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
         """here the dense predictions consider the neighborhood information, and the content similarity"""
         assert "Up" in feature_name, feature_name
         b, c, *hw = proj_feature_tf.shape
+        config = get_config(scope="base")
+
         output_size = (12, 12)
+        method = config["ProjectorParams"]["DenseParams"]["pool_method"]
+
         sampled_norm_tf_feature, sampled_norm_feature_tf = self._feature_map_tailoring(
             proj_tf_feature=proj_tf_feature,
             proj_feature_tf=proj_feature_tf,
-            output_size=output_size
+            output_size=output_size,
+            method=method
         )
         assert sampled_norm_tf_feature.shape == torch.Size([b, c, *output_size])
         assert is_normalized(sampled_norm_tf_feature) and is_normalized(sampled_norm_feature_tf)

@@ -94,7 +94,7 @@ class ContrastiveProjectorWrapper(_ProjectorWrapperBase):
             self._register_global_projector(feature_name=f, head_type=h, output_dim=o, normalize=n, pool_name=p)
 
     def register_dense_projector(self, *, feature_names: str, output_dim: int = 64, head_type: str,
-                                 normalize: bool = False, pool_name="adaptive_avg", spatial_size=(16, 16)
+                                 normalize: bool = False, pool_name="adaptive_avg", spatial_size=(16, 16), **kwargs
                                  ):
         if isinstance(feature_names, str):
             feature_names = [feature_names, ]

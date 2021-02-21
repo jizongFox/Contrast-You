@@ -17,6 +17,8 @@ parser.add_argument("--save_dir", required=True, type=str, help="save_dir for th
 parser.add_argument("--time", default=4, type=int, help="demanding time")
 parser.add_argument("--lr", default=None, type=str, help="learning rate")
 parser.add_argument("--on-local", default=False, action="store_true", help="run on local")
+parser.add_argument("--stage", required=True, type=str, choices=["baseline", "decoder"], help="training stage")
+parser.add_argument("--decoder_pool", default="adaptive_avg", choices=["adaptive_avg", "adaptive_max", "bilinear"])
 args = parser.parse_args()
 
 num_batches = args.num_batches
@@ -43,6 +45,7 @@ save_dir += ("/" + "/".join(
     [f"githash_{__githash__[:7]}", args.dataset_name, f"sample_num_{group_sample_num}", f"random_seed_{random_seed}"]))
 
 checkpoint_folder = f"{save_dir}/infonce/encoder/conv5"
+
 baselines = [
     f"python main_finetune.py {TrainerParams} Trainer.name=finetune Trainer.save_dir={save_dir}/baseline ",
     # contrastive learning with pretrain Conv5
@@ -60,8 +63,9 @@ Decoder_Jobs = [
     f" ProjectorParams.DenseParams.feature_names=[Up_conv5]"
     f" ProjectorParams.DenseParams.feature_importance=[1.0]"
     f" Trainer.grad_from=Up5 Trainer.grad_util=Up_conv5 "
-    f" Trainer.save_dir={save_dir}/infonce/decoder/upconv5 "
+    f" Trainer.save_dir={save_dir}/infonce/decoder/pool_{args.decoder_pool}/upconv5 "
     f" Arch.checkpoint=runs/{checkpoint_folder}/pre/last.pth "
+    f" ProjectorParams.DenseParams.pool_method={args.decoder_pool}  "
     f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
 
     f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
@@ -70,8 +74,9 @@ Decoder_Jobs = [
     f" ProjectorParams.DenseParams.feature_names=[Up_conv4]"
     f" ProjectorParams.DenseParams.feature_importance=[1.0]"
     f" Trainer.grad_from=Up5 Trainer.grad_util=Up_conv4 "
-    f" Trainer.save_dir={save_dir}/infonce/decoder/upconv4 "
+    f" Trainer.save_dir={save_dir}/infonce/decoder/pool_{args.decoder_pool}/upconv4 "
     f" Arch.checkpoint=runs/{checkpoint_folder}/pre/last.pth "
+    f" ProjectorParams.DenseParams.pool_method={args.decoder_pool}  "
     f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
 
     f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
@@ -80,8 +85,9 @@ Decoder_Jobs = [
     f" ProjectorParams.DenseParams.feature_names=[Up_conv3]"
     f" ProjectorParams.DenseParams.feature_importance=[1.0]"
     f" Trainer.grad_from=Up5 Trainer.grad_util=Up_conv3 "
-    f" Trainer.save_dir={save_dir}/infonce/decoder/upconv3 "
+    f" Trainer.save_dir={save_dir}/infonce/decoder/pool_{args.decoder_pool}/upconv3 "
     f" Arch.checkpoint=runs/{checkpoint_folder}/pre/last.pth "
+    f" ProjectorParams.DenseParams.pool_method={args.decoder_pool}  "
     f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
 
     f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
@@ -90,8 +96,9 @@ Decoder_Jobs = [
     f" ProjectorParams.DenseParams.feature_names=[Up_conv2]"
     f" ProjectorParams.DenseParams.feature_importance=[1.0]"
     f" Trainer.grad_from=Up5 Trainer.grad_util=Up_conv2 "
-    f" Trainer.save_dir={save_dir}/infonce/decoder/upconv2 "
+    f" Trainer.save_dir={save_dir}/infonce/decoder/pool_{args.decoder_pool}/upconv2 "
     f" Arch.checkpoint=runs/{checkpoint_folder}/pre/last.pth "
+    f" ProjectorParams.DenseParams.pool_method={args.decoder_pool}  "
     f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
 ]
 
@@ -100,7 +107,8 @@ accounts = cycle(["def-chdesa", "def-mpederso", "rrg-mpederso"])
 
 job_submiter = JobSubmiter(project_path="../../", on_local=args.on_local, time=args.time, )
 
-for j in [*baselines, *Decoder_Jobs]:
+job_array = baselines if args.stage == "baseline" else Decoder_Jobs
+for j in job_array:
     job_submiter.prepare_env(
         [
             "source ../venv/bin/activate ",

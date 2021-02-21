@@ -24,7 +24,8 @@ random_seed = args.random_seed
 max_epoch = args.max_epoch
 group_sample_num = args.group_sample_num
 
-__githash__ = gethash(__file__)
+__git_hash__ = gethash(__file__)
+
 lr: str = args.lr or f"{lr_zooms[args.dataset_name]:.10f}"
 
 save_dir = args.save_dir
@@ -40,11 +41,15 @@ TrainerParams = SharedParams + f" Optim.lr={lr_zooms[args.dataset_name]:.10f} "
 PretrainParams = SharedParams + f" ContrastiveLoaderParams.group_sample_num={group_sample_num}"
 
 save_dir += ("/" + "/".join(
-    [f"githash_{__githash__[:7]}", args.dataset_name, f"sample_num_{group_sample_num}", f"random_seed_{random_seed}"]))
+    [f"githash_{__git_hash__[:7]}",
+     args.dataset_name,
+     f"sample_num_{group_sample_num}",
+     f"random_seed_{random_seed}"]))
 
 baselines = [
     f"python main_finetune.py {TrainerParams} Trainer.name=finetune Trainer.save_dir={save_dir}/baseline ",
 ]
+
 Different_Encoder_jobs = [
     # contrastive learning with pretrain Conv5
     f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
