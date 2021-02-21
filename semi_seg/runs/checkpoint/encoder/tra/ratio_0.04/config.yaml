@@ -1,0 +1,66 @@
+Arch:
+  checkpoint: null
+  input_dim: 1
+  num_classes: 4
+ContrastiveLoaderParams:
+  group_sample_num: 6
+  num_workers: 6
+  partition_sample_num: 1
+Data:
+  labeled_data_ratio: 0.04
+  name: acdc
+  unlabeled_data_ratio: 0.96
+GITHASH: 3fff4ee6f7149ba604474da48e942949414b6a4c
+InfoNCEParameters:
+  DenseParams:
+    include_all: true
+  GlobalParams:
+    method_name: supcontrast
+  LossParams:
+    temperature: 0.07
+  weight: 0.1
+LabeledData:
+  batch_size: 5
+  num_workers: 5
+  shuffle: true
+Optim:
+  lr: 1.0e-07
+  name: Adam
+  weight_decay: 1.0e-05
+ProjectorParams:
+  DenseParams:
+    feature_importance: []
+    feature_names: null
+    head_type: mlp
+    normalize: false
+    pool_name: identical
+    spatial_size: 16
+  GlobalParams:
+    feature_importance:
+    - 1.0
+    feature_names:
+    - Conv5
+    head_type: mlp
+    normalize: true
+    pool_name: adaptive_avg
+RandomSeed: 90
+Scheduler:
+  multiplier: 200
+  warmup_max: 10
+Trainer:
+  device: cuda
+  disable_bn_track_for_unlabeled_data: false
+  feature_importance:
+  - 1
+  feature_names:
+  - Conv5
+  grad_from: null
+  grad_util: null
+  max_epoch: 100
+  num_batches: 300
+  save_dir: 0218/test5/githash_3fff4ee/acdc/sample_num_6/random_seed_90/infonce/Conv5_baseline/encoder
+  two_stage_training: false
+UnlabeledData:
+  batch_size: 5
+  num_workers: 5
+  shuffle: true
