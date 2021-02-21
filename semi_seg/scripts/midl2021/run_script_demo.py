@@ -45,6 +45,57 @@ save_dir += ("/" + "/".join(
 baselines = [
     f"python main_finetune.py {TrainerParams} Trainer.name=finetune Trainer.save_dir={save_dir}/baseline ",
 ]
+Different_Encoder_jobs = [
+    # contrastive learning with pretrain Conv5
+    f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
+    f" ProjectorParams.GlobalParams.feature_names=[Conv5]"
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0]"
+    f" Trainer.save_dir={save_dir}/infonce/Conv5_baseline/global/Conv5 "
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
+
+    # contrastive learning with pretrain Conv5
+    f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
+    f" ProjectorParams.GlobalParams.feature_names=[Conv4]"
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0]"
+    f" Trainer.save_dir={save_dir}/infonce/Conv5_baseline/global/conv4 "
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
+
+    # contrastive learning with pretrain Conv5
+    f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
+    f" ProjectorParams.GlobalParams.feature_names=[Conv3]"
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0]"
+    f" Trainer.save_dir={save_dir}/infonce/Conv5_baseline/global/conv3 "
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
+
+    # contrastive learning with pretrain Conv5
+    f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
+    f" ProjectorParams.GlobalParams.feature_names=[Conv2]"
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0]"
+    f" Trainer.save_dir={save_dir}/infonce/Conv5_baseline/global/conv2 "
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
+
+    # contrastive learning with pretrain Conv5
+    f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
+    f" ProjectorParams.GlobalParams.feature_names=[Up_conv5]"
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0]"
+    f" Trainer.save_dir={save_dir}/infonce/Conv5_baseline/global/upconv5 "
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
+
+    # contrastive learning with pretrain Conv5
+    f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
+    f" ProjectorParams.GlobalParams.feature_names=[Up_conv4]"
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0]"
+    f" Trainer.save_dir={save_dir}/infonce/Conv5_baseline/global/upconv4 "
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
+
+    # contrastive learning with pretrain Conv5
+    f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
+    f" ProjectorParams.GlobalParams.feature_names=[Up_conv3]"
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0]"
+    f" Trainer.save_dir={save_dir}/infonce/Conv5_baseline/global/upconv3 "
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
+
+]
 
 Encoder_jobs = [
     # contrastive learning with pretrain Conv5
@@ -135,8 +186,7 @@ Encoder_jobs = [
     f" Trainer.save_dir={save_dir}/infonce/Conv5_dense_Upconv3/w_1.0_0.0001_0.00001 "
     f" Trainer.grad_from=Conv1 Trainer.grad_util=Up_conv3 "
     f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
-    
-    
+
     # conv2
 
     # contrastive learning with pretrain Conv5 and Upconv3 jointly
@@ -223,7 +273,7 @@ accounts = cycle(["def-chdesa", "def-mpederso", "rrg-mpederso"])
 
 job_submiter = JobSubmiter(project_path="../../", on_local=args.on_local, time=args.time, )
 
-for j in [*Encoder_jobs, *Decoder_Jobs]:
+for j in [*baselines, *Different_Encoder_jobs]:
     job_submiter.prepare_env(
         [
             "source ../venv/bin/activate ",
