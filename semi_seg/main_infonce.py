@@ -47,7 +47,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=False)
 
     trainer_name = config["Trainer"]["name"]
-    assert trainer_name in ("infoncepretrain", "experimentpretrain"), trainer_name
+    assert trainer_name in ("infoncepretrain", "experimentpretrain", "experimentpretrain3"), trainer_name
 
     Trainer = trainer_zoos[trainer_name]
 
@@ -80,7 +80,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         trainer.start_training()
 
     if is_pretrain:
-        for labeled_ratio in (0.01, 0.02, 0.03, 0.04, 0.05):
+        for labeled_ratio in (0.01, 0.02, 0.03, 0.04, 0.05, 1.0):
             model.load_state_dict(extract_model_state_dict(
                 os.path.join(trainer._save_dir, "last.pth")),  # noqa
                 strict=True

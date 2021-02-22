@@ -192,6 +192,7 @@ class UDAIICTrainer(IICTrainer):
 
 
 class EntropyMinTrainer(SemiTrainer):
+
     def _init(self):
         super(EntropyMinTrainer, self)._init()
         config = deepcopy(self._config["EntropyMinParameters"])
@@ -207,6 +208,7 @@ class EntropyMinTrainer(SemiTrainer):
 
 
 class MeanTeacherTrainer(SemiTrainer):
+
     def _init(self):
         super(MeanTeacherTrainer, self)._init()
         self._teacher_model = deepcopy(self._model)

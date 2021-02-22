@@ -441,7 +441,7 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
         output_size = (12, 12)
         method = config["ProjectorParams"]["DenseParams"]["pool_method"]
 
-        sampled_norm_tf_feature, sampled_norm_feature_tf = self._feature_map_tailoring(
+        sampled_norm_tf_feature, sampled_norm_feature_tf = self._dense_featuremap_tailoring(
             proj_tf_feature=proj_tf_feature,
             proj_feature_tf=proj_feature_tf,
             output_size=output_size,
@@ -453,8 +453,8 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
         n_tf_feature, n_feature_tf = self._reshape_dense_feature(sampled_norm_tf_feature, sampled_norm_feature_tf)
         return self._infonce_criterion(n_tf_feature.reshape(-1, c), n_feature_tf.reshape(-1, c))
 
-    def _feature_map_tailoring(self, *, proj_tf_feature: Tensor, proj_feature_tf: Tensor, output_size=(9, 9),
-                               method="adaptive_avg"):
+    def _dense_featuremap_tailoring(self, *, proj_tf_feature: Tensor, proj_feature_tf: Tensor, output_size=(9, 9),
+                                    method="adaptive_avg"):
         """
         it consists of
         1. downsampling the feature map to a pre-defined size

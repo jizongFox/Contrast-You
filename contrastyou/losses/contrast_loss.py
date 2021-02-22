@@ -8,9 +8,8 @@ from typing import Tuple
 
 import torch
 import torch.nn as nn
-from torch import Tensor
-
 from contrastyou.helper import deprecated
+from torch import Tensor
 
 
 def is_normalized(feature: Tensor, dim=1):
@@ -200,7 +199,7 @@ class SupConLoss3(SupConLoss2):
         batch_size = len(proj_feat1)
 
         assert pos_weight.shape == torch.Size([batch_size, batch_size])
-        assert pos_weight.max() <= 1 and pos_weight.min() >= 0
+        # assert pos_weight.max() <= 1 and pos_weight.min() >= 0, (pos_weight.min(), pos_weight.max())
         [pos_weight, ] = list(map(lambda x: x.repeat(2, 2), [pos_weight, ]))
         unselect_diganal_mask = 1 - torch.eye(
             batch_size * 2, batch_size * 2, dtype=torch.float, device=proj_feat2.device)

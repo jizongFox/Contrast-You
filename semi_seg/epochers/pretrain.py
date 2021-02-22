@@ -1,7 +1,7 @@
 from ._helper import _PretrainEpocherMixin
 from .comparable import InfoNCEEpocher
 from .miepocher import MITrainEpocher, ConsistencyMIEpocher
-from .newepocher import ProposedEpocher1, ProposedEpocher2
+from .newepocher import ProposedEpocher1, ProposedEpocher2, ProposedEpocher3
 
 
 # override batch loop in order to ignore the supervised loss.
@@ -22,4 +22,8 @@ class ExperimentalPretrainEpocher(_PretrainEpocherMixin, ProposedEpocher1):
 
 
 class ExperimentalPretrainEpocher2(_PretrainEpocherMixin, ProposedEpocher2):
+    pass
+
+
+class ExperimentalPretrainEpocher3(_PretrainEpocherMixin, ProposedEpocher3):
     pass
