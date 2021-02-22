@@ -475,7 +475,7 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
     @lru_cache()
     def _resize_featuremap(self, output_size, method="adaptive_avg"):
         if method == "bilinear":
-            return partial(F.interpolate, size=output_size, align_corners=True)
+            return partial(F.interpolate, size=output_size, align_corners=True, mode="bilinear")
         elif method == "adaptive_avg":
             return nn.AdaptiveAvgPool2d(output_size=output_size)
         elif method == "adaptive_max":
