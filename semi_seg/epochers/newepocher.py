@@ -1,87 +1,14 @@
-import math
-from functools import lru_cache
-
-import numpy as np
 import torch
+from deepclustering2.configparser._utils import get_config  # noqa
+from deepclustering2.meters2 import MeterInterface, AverageValueMeter
+from deepclustering2.type import T_loss
+from torch import Tensor
+
 from contrastyou.losses.contrast_loss import SupConLoss3, is_normalized
 from contrastyou.losses.iic_loss import _ntuple  # noqa
 from contrastyou.projectors.nn import Normalize
-from deepclustering2.configparser._utils import get_config
-from deepclustering2.meters2 import MeterInterface, AverageValueMeter
-from deepclustering2.type import T_loss
-from loguru import logger
-from torch import Tensor
-
 from .comparable import InfoNCEEpocher
 from .._utils import ContrastiveProjectorWrapper
-
-
-class ProposedEpocher1(InfoNCEEpocher):
-
-    def _init(self, *, reg_weight: float, projectors_wrapper: ContrastiveProjectorWrapper = None,
-              infoNCE_criterion: T_loss = None, kernel_size: int = 1, margin: int = 3, neigh_weight: float = None,
-              **kwargs):
-        super(ProposedEpocher1, self)._init(reg_weight=reg_weight, projectors_wrapper=projectors_wrapper,
-                                            infoNCE_criterion=infoNCE_criterion, **kwargs)
-        self._kernel_size = kernel_size  # noqa
-        self._margin = margin  # noqa
-        assert 0 <= neigh_weight <= 1, neigh_weight
-        self._neigh_weight = neigh_weight  # noqa
-        if self._neigh_weight == 1:
-            logger.debug("{}, only considering neighor term", self.__class__.__name__, )
-        elif self._neigh_weight == 0:
-            logger.debug("{}, only considering content term", self.__class__.__name__, )
-        else:
-            logger.debug("{}, considers neighor term: {} and content term: {}", self.__class__.__name__,
-                         self._neigh_weight, 1 - self._neigh_weight)
-
-    def _dense_infonce_for_decoder(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
-                                   label_group):
-        b, c, *hw = proj_feature_tf.shape
-        nearby_mask = self.generate_relation_masks(
-            output_size=(math.sqrt(np.product(hw)), math.sqrt(hw)), kernel_size=self._kernel_size, margin=self._margin
-        )
-        sim_mask = self.generate_similarity_masks(norm_feature1=proj_feature_tf, norm_feature2=proj_tf_feature)
-
-    @lru_cache()
-    def generate_relation_masks(self, output_size, kernel_size=1, margin=1) -> Tensor:
-        _pair = _ntuple(2)
-        output_size = _pair(output_size)
-        size = output_size[0] * output_size[1]
-        mask = torch.zeros(size, size, dtype=torch.float, device=self._device)
-        for i in range(output_size[0]):
-            for j in range(output_size[1]):
-                relation = torch.zeros(*output_size, dtype=torch.float, device=self._device)
-                relation[
-                max(i - kernel_size - margin, 0):i + kernel_size + margin,
-                max(j - kernel_size - margin, 0):j + kernel_size + margin
-                ] = -1
-                relation[max(i - kernel_size, 0):i + kernel_size, max(j - kernel_size, 0):j + kernel_size] = 1
-                mask[i * output_size[0] + j] = relation.view(1, -1)
-        return mask
-
-    @torch.no_grad()
-    def generate_similarity_masks(self, norm_feature1: Tensor, norm_feature2: Tensor):
-        sim_matrix = norm_feature1.bmm(norm_feature2.transpose(2, 1))  # ranging from -1 to 1
-        sim_matrix -= sim_matrix.min()
-        sim_matrix /= 2
-        for i in range(sim_matrix.size(1)):
-            sim_matrix[:, i, i] = 1
-
-        new_matrix = torch.zeros_like(sim_matrix).fill_(-1)
-        new_matrix[sim_matrix > 0.95] = 1
-        new_matrix[sim_matrix < 0.65] = 0
-        return new_matrix
-
-
-class ProposedEpocher2(InfoNCEEpocher):
-
-    def _assertion(self):
-        from contrastyou.losses.contrast_loss import SupConLoss3
-        if not isinstance(self._infonce_criterion, SupConLoss3):
-            raise RuntimeError(f"{self.__class__.__name__} only support `SupConLoss3`, "
-                               f"given {type(self._infonce_criterion)}")
-        super(InfoNCEEpocher, self)._assertion()
 
 
 class ProposedEpocher3(InfoNCEEpocher):

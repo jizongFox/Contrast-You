@@ -1,21 +1,19 @@
-from scipy.sparse import issparse  # noqa
-
-_ = issparse  # noqa
-
 import os
-from contrastyou.arch.unet import arch_order
-from contrastyou.helper import extract_model_state_dict
-from deepclustering2.loss import KL_div
 import random
+from copy import deepcopy
 from pathlib import Path
+
+from deepclustering2.configparser import ConfigManger
+from deepclustering2.loss import KL_div
+from deepclustering2.utils import set_benchmark, gethash, yaml_load
+from loguru import logger
+
 from contrastyou import PROJECT_PATH
 from contrastyou.arch import UNet
-from deepclustering2.configparser import ConfigManger
-from deepclustering2.utils import set_benchmark, gethash
-from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, FineTuneTrainer
+from contrastyou.arch.unet import arch_order
+from contrastyou.helper import extract_model_state_dict
 from semi_seg.dsutils import get_dataloaders
-from loguru import logger
-from copy import deepcopy
+from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, FineTuneTrainer
 
 cur_githash = gethash(__file__)  # noqa
 
@@ -47,7 +45,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=False)
 
     trainer_name = config["Trainer"]["name"]
-    assert trainer_name in ("infoncepretrain", "experimentpretrain", "experimentpretrain3"), trainer_name
+    assert trainer_name in ("infoncepretrain", "experimentpretrain"), trainer_name
 
     Trainer = trainer_zoos[trainer_name]
 
@@ -85,20 +83,34 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
                 os.path.join(trainer._save_dir, "last.pth")),  # noqa
                 strict=True
             )
+            # get the base configuration
             base_config = config_manager.base_config
-            config["Optim"].update(base_config["Optim"])
-            config["Scheduler"].update(base_config["Scheduler"])
-            config["Data"]["labeled_data_ratio"] = labeled_ratio
-            config["Data"]["unlabeled_data_ratio"] = 1 - labeled_ratio
+            # in the cmd, one can change `Data` and `Trainer`
+            base_config["Data"]["name"] = config["Data"]["name"]
+            base_config["Data"]["labeled_data_ratio"] = labeled_ratio
+            base_config["Data"]["unlabeled_data_ratio"] = 1 - labeled_ratio
+            # modifying the optimizer options
+            advanced_optim_config = yaml_load("../config/specific/optim.yaml", verbose=False)
+            base_config.update(advanced_optim_config)
+            base_config["OptimizerSupplementary"]["name"] = config["Optim"]["name"]
+            base_config["OptimizerSupplementary"]["group"]["feature_names"] = [
+                f for f in model.component_names if
+                model.component_names.index(f) >= model.component_names.index(from_) and
+                model.component_names.index(f) <= model.component_names.index(util_)
+            ]
+            import ipdb
+            ipdb.set_trace()
+            # update trainer
+            base_config["Trainer"].update(config["Trainer"])
 
             labeled_loader, unlabeled_loader, val_loader = get_dataloaders(config)
 
             finetune_trainer = FineTuneTrainer(
                 model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
                 val_loader=val_loader, sup_criterion=KL_div(verbose=False),
-                configuration={**config, **{"GITHASH": cur_githash}},
+                configuration={**base_config, **{"GITHASH": cur_githash}},
                 save_dir=os.path.join(base_save_dir, "tra", f"ratio_{str(labeled_ratio)}"),
-                **{k: v for k, v in config["Trainer"].items() if k != "save_dir"}
+                **{k: v for k, v in base_config["Trainer"].items() if k != "save_dir"}
             )
             finetune_trainer.init()
             finetune_trainer.start_training()

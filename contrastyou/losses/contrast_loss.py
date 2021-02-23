@@ -7,9 +7,9 @@ from __future__ import print_function
 from typing import Tuple
 
 import torch
-import torch.nn as nn
+from torch import Tensor, nn
+
 from contrastyou.helper import deprecated
-from torch import Tensor
 
 
 def is_normalized(feature: Tensor, dim=1):

@@ -18,8 +18,6 @@ base_trainer_zoos = {
     "infonce": InfoNCETrainer,
     "prototype": PrototypeTrainer,
     "experiment": ExperimentalTrainer,
-    "experiment2": ExperimentalTrainer2,
-    "experiment3": ExperimentalTrainer3,
 
 }
 pre_trainer_zoos = {
@@ -27,8 +25,6 @@ pre_trainer_zoos = {
     "iicpretrain": PretrainIICTrainer,
     "infoncepretrain": PretrainInfoNCETrainer,
     "experimentpretrain": PretrainExperimentalTrainer,
-    "experimentpretrain2": PretrainExperimentalTrainer2,
-    "experimentpretrain3": PretrainExperimentalTrainer3,
 }
 
 trainer_zoos = {**base_trainer_zoos, **pre_trainer_zoos}
