@@ -3,15 +3,15 @@ import random
 from copy import deepcopy
 from pathlib import Path
 
-from deepclustering2.configparser import ConfigManger
-from deepclustering2.loss import KL_div
-from deepclustering2.utils import set_benchmark, gethash, yaml_load
 from loguru import logger
 
 from contrastyou import PROJECT_PATH
 from contrastyou.arch import UNet
 from contrastyou.arch.unet import arch_order
 from contrastyou.helper import extract_model_state_dict
+from deepclustering2.configparser import ConfigManger
+from deepclustering2.loss import KL_div
+from deepclustering2.utils import set_benchmark, gethash, yaml_load
 from semi_seg.dsutils import get_dataloaders
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, FineTuneTrainer
 
@@ -63,7 +63,9 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
     if trainer_checkpoint:
         trainer.load_state_dict_from_path(trainer_checkpoint, strict=True)
 
-    if is_pretrain:
+    if not is_pretrain:
+        trainer.start_training()
+    else:
         if "FeatureExtractor" not in trainer._config:  # noqa
             raise RuntimeError("FeatureExtractor should be in trainer config")
         from_, util_ = \
@@ -74,10 +76,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
             trainer.enable_grad(from_=from_, util_=util_), \
             trainer.enable_bn(from_=from_, util_=util_):
             trainer.start_training()
-    else:
-        trainer.start_training()
 
-    if is_pretrain:
         for labeled_ratio in (0.01, 0.02, 0.03, 0.04, 0.05, 1.0):
             model.load_state_dict(extract_model_state_dict(
                 os.path.join(trainer._save_dir, "last.pth")),  # noqa
@@ -90,14 +89,16 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
             base_config["Data"]["labeled_data_ratio"] = labeled_ratio
             base_config["Data"]["unlabeled_data_ratio"] = 1 - labeled_ratio
             # modifying the optimizer options
-            advanced_optim_config = yaml_load("../config/specific/optim.yaml", verbose=False)
-            base_config.update(advanced_optim_config)
-            base_config["OptimizerSupplementary"]["name"] = config["Optim"]["name"]
-            base_config["OptimizerSupplementary"]["group"]["feature_names"] = [
-                f for f in model.component_names if
-                model.component_names.index(f) >= model.component_names.index(from_) and
-                model.component_names.index(f) <= model.component_names.index(util_)
-            ]
+            use_different_lr = config["Use_diff_lr"]
+            if use_different_lr:
+                advanced_optim_config = yaml_load("../config/specific/optim.yaml", verbose=False)
+                base_config.update(advanced_optim_config)
+                base_config["OptimizerSupplementary"]["name"] = config["Optim"]["name"]
+                base_config["OptimizerSupplementary"]["group"]["feature_names"] = [
+                    f for f in model.component_names if
+                    model.component_names.index(from_) <= model.component_names.index(f) <= model.component_names.index(
+                        util_)
+                ]
             # update trainer
             base_config["Trainer"].update(config["Trainer"])
 

@@ -1,5 +1,6 @@
 RandomSeed: 10
 trainer_checkpoint: null
+Use_diff_lr: false
 
 Arch:
   input_dim: 1
