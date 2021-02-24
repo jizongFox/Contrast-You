@@ -124,7 +124,7 @@ class _PretrainEpocherMixin:
         self._chain_dataloader = chain_dataloader
 
     def _run(self, *args, **kwargs) -> EpochResultDict:
-        self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer)[0])
+        self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer))
         assert self._model.training, self._model.training
         return self.__run_pretrain(*args, **kwargs)
 

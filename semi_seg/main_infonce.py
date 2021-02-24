@@ -98,12 +98,10 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
                 model.component_names.index(f) >= model.component_names.index(from_) and
                 model.component_names.index(f) <= model.component_names.index(util_)
             ]
-            import ipdb
-            ipdb.set_trace()
             # update trainer
             base_config["Trainer"].update(config["Trainer"])
 
-            labeled_loader, unlabeled_loader, val_loader = get_dataloaders(config)
+            labeled_loader, unlabeled_loader, val_loader = get_dataloaders(base_config)
 
             finetune_trainer = FineTuneTrainer(
                 model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),

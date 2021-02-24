@@ -16,6 +16,7 @@ from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.decorator.decorator import _disable_tracking_bn_stats  # noqa
 from deepclustering2.epoch import _Epocher  # noqa
 from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, UniversalDice, MeterInterface, SurfaceMeter
+from deepclustering2.meters2.individual_meters.averagemeter import AverageValueListMeter
 from deepclustering2.models import Model
 from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.schedulers.customized_scheduler import WeightScheduler
@@ -156,7 +157,7 @@ class TrainEpocher(Epocher):
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         C = self.num_classes
         report_axis = list(range(1, C))
-        meters.register_meter("lr", AverageValueMeter())
+        meters.register_meter("lr", AverageValueListMeter())
         meters.register_meter("reg_weight", AverageValueMeter())
         meters.register_meter("sup_loss", AverageValueMeter())
         meters.register_meter("reg_loss", AverageValueMeter())
@@ -164,7 +165,7 @@ class TrainEpocher(Epocher):
         return meters
 
     def _run(self, *args, **kwargs):
-        self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer)[0])
+        self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer))
         assert self._model.training, self._model.training
         return self._run_semi(*args, **kwargs)
 
@@ -279,7 +280,7 @@ class FineTuneEpocher(TrainEpocher, __AssertOnlyWithLabeledData):
         return meters
 
     def _run(self, *args, **kwargs):
-        self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer)[0])
+        self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer))
         assert self._model.training, self._model.training
         return self._run_only_label(*args, **kwargs)
 
