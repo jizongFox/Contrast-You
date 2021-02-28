@@ -43,11 +43,12 @@ class MeanTeacherEpocher(TrainEpocher, __AssertWithUnLabeledData):
 
     def regularization(
         self,
+        *,
         unlabeled_tf_logits: Tensor,
         unlabeled_logits_tf: Tensor,
         seed: int,
         unlabeled_image: Tensor,
-        unlabeled_image_tf: Tensor, *args, **kwargs
+        unlabeled_image_tf: Tensor, **kwargs
     ):
         with torch.no_grad():
             teacher_unlabeled_logit = self._teacher_model(unlabeled_image)
@@ -78,8 +79,8 @@ class UCMeanTeacherEpocher(MeanTeacherEpocher, __AssertWithUnLabeledData):
         meters.register_meter("uc_ratio", AverageValueMeter())
         return meters
 
-    def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int,
-                       unlabeled_image: Tensor, unlabeled_image_tf: Tensor, *args, **kwargs):
+    def regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int,
+                       unlabeled_image: Tensor, unlabeled_image_tf: Tensor, **kwargs):
         @torch.no_grad()
         def get_teacher_pred_with_tf(uimage, noise=None):
             if noise is not None:
@@ -150,12 +151,13 @@ class MIMeanTeacherEpocher(MITrainEpocher, __AssertWithUnLabeledData):
 
     def regularization(
         self,
+        *,
         unlabeled_tf_logits: Tensor,
         unlabeled_logits_tf: Tensor,
         seed: int,
         unlabeled_image: Tensor = None,
         unlabeled_image_tf: Tensor = None,
-        *args, **kwargs
+        **kwargs
     ):
         feature_names = self._fextractor._feature_names  # noqa
         n_uls = len(unlabeled_tf_logits) * 2
@@ -191,9 +193,9 @@ class MIMeanTeacherEpocher(MITrainEpocher, __AssertWithUnLabeledData):
         )))
         uda_loss = ConsistencyTrainEpocher.regularization(
             self,  # noqa
-            unlabeled_tf_logits,
-            teacher_logits_tf.detach(),
-            seed,
+            unlabeled_tf_logits=unlabeled_tf_logits,
+            unlabeled_logits_tf=teacher_logits_tf.detach(),
+            seed=seed,
         )
 
         # update ema
@@ -219,14 +221,15 @@ class MIDLPaperEpocher(ConsistencyTrainEpocher, __AssertWithUnLabeledData):
 
     def regularization(
         self,
+        *,
         unlabeled_tf_logits: Tensor,
         unlabeled_logits_tf: Tensor,
-        seed, *args, **kwargs
+        seed, **kwargs
     ):
         uda_loss = super(MIDLPaperEpocher, self).regularization(
             unlabeled_tf_logits=unlabeled_tf_logits,
             unlabeled_logits_tf=unlabeled_logits_tf,
-            seed=seed, *args, **kwargs
+            seed=seed, **kwargs
         )
         iic_loss = self._iic_segcriterion(unlabeled_tf_logits.softmax(1), unlabeled_logits_tf.softmax(1).detach())
         self.meters["iic_mi"].add(iic_loss.item())
@@ -246,9 +249,10 @@ class EntropyMinEpocher(TrainEpocher, __AssertWithUnLabeledData):
 
     def regularization(
         self,
+        *,
         unlabeled_tf_logits: Tensor,
         unlabeled_logits_tf: Tensor,
-        seed, *args, **kwargs
+        seed, **kwargs
     ):
         reg_loss = self._entropy_criterion(unlabeled_logits_tf.softmax(1))
         self.meters["entropy"].add(reg_loss.item())
@@ -307,8 +311,8 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
         from contrastyou.epocher._utils import LocalLabelGenerator  # noqa
         return LocalLabelGenerator()
 
-    def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group,
-                       partition_group, *args, **kwargs):
+    def regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group,
+                       partition_group, **kwargs):
         feature_names = self._fextractor._feature_names  # noqa
         n_uls = len(unlabeled_tf_logits) * 2
 
@@ -368,7 +372,10 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
 
 
 class InfoNCEEpocher(_InfoNCEBasedEpocher):
-    """INFONCE that implements SIMCLR and SupContrast"""
+    """INFONCE that implements SIMCLR and SupContrast
+        This class take the feature maps (global and/or dense) to perform contrastive pretraining.
+        Dense feature and global feature can take from the same position and multiple times.
+    """
     from contrastyou.losses.contrast_loss import SupConLoss2
     _infonce_criterion: SupConLoss2
 

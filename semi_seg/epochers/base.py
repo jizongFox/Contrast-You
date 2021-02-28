@@ -129,7 +129,7 @@ class InferenceEpocher(EvalEpocher):
         return report_dict, self.meters["dice"].summary()["DSC_mean"]
 
 
-# ========= base training epochers ===============
+# ========= base training epocher ===============
 class TrainEpocher(Epocher):
 
     def __init__(self, *, model: Union[Model, nn.Module], optimizer: T_optim, labeled_loader: T_loader,
@@ -259,7 +259,7 @@ class TrainEpocher(Epocher):
             preprocess_input_with_twice_transformation(data, device)
         return image, target, filename, partition, group
 
-    def regularization(self, *args, **kwargs):
+    def regularization(self, **kwargs):
         return torch.tensor(0, dtype=torch.float, device=self._device)
 
 

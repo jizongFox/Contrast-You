@@ -81,8 +81,8 @@ class PrototypeEpocher(_FeatureExtractorMixin, TrainEpocher):
     def get_kmeans(self, feature_position):
         return self._kmeans_collection[feature_position]
 
-    def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group,
-                       partition_group, unlabeled_filename, labeled_filename, *args, **kwargs):
+    def regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group,
+                       partition_group, unlabeled_filename, labeled_filename, **kwargs):
 
         feature_names = self._fextractor._feature_names  # noqa
         n_uls = len(unlabeled_tf_logits) * 2
@@ -172,10 +172,12 @@ class DifferentiablePrototypeEpocher(_FeatureExtractorMixin, ConsistencyTrainEpo
         meters.register_meter("prototype_prototype", AverageValueMeter())
         return meters
 
-    def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group=None,
-                       partition_group=None, unlabeled_filename=None, labeled_filename=None, *args, **kwargs):
+    def regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group=None,
+                       partition_group=None, unlabeled_filename=None, labeled_filename=None, **kwargs):
         uda_loss = super(DifferentiablePrototypeEpocher, self).regularization(
-            unlabeled_tf_logits, unlabeled_logits_tf, seed
+            unlabeled_tf_logits=unlabeled_tf_logits,
+            unlabeled_logits_tf=unlabeled_logits_tf,
+            seed=seed
         )
 
         def get_loss(feature):

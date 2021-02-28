@@ -8,7 +8,7 @@ from loguru import logger
 from torch import nn, Tensor
 from torch.optim.optimizer import Optimizer
 
-from contrastyou.featextractor.unet import FeatureExtractor
+from contrastyou.featextractor.unet import FeatureExtractorWithIndex as FeatureExtractor
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.meters2 import EpochResultDict, MeterInterface
 from deepclustering2.optim import get_lrs_from_optimizer
@@ -126,9 +126,9 @@ class _PretrainEpocherMixin:
     def _run(self, *args, **kwargs) -> EpochResultDict:
         self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer))
         assert self._model.training, self._model.training
-        return self.__run_pretrain(*args, **kwargs)
+        return self._run_pretrain(*args, **kwargs)
 
-    def __run_pretrain(self, *args, **kwargs):
+    def _run_pretrain(self, *args, **kwargs):
         for i, data in zip(self._indicator, self._chain_dataloader):
             seed = random.randint(0, int(1e7))
             unlabeled_image, unlabeled_target, unlabeled_filename, unl_partition, unl_group = \

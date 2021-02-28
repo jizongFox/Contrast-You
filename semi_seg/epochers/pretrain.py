@@ -1,7 +1,7 @@
 from ._helper import _PretrainEpocherMixin
 from .comparable import InfoNCEEpocher
 from .miepocher import MITrainEpocher, ConsistencyMIEpocher
-from .newepocher import ProposedEpocher3
+from .newepocher import EncoderDenseContrastEpocher, EncoderDenseMixupContrastEpocher
 
 
 # override batch loop in order to ignore the supervised loss.
@@ -17,5 +17,9 @@ class UDAIICPretrainEpocher(_PretrainEpocherMixin, ConsistencyMIEpocher):
     pass
 
 
-class ExperimentalPretrainEpocher(_PretrainEpocherMixin, ProposedEpocher3):
+class ExperimentalPretrainEpocher(_PretrainEpocherMixin, EncoderDenseContrastEpocher):
+    pass
+
+
+class ExperimentalPretrainMixinEpocher(_PretrainEpocherMixin, EncoderDenseMixupContrastEpocher):
     pass
