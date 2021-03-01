@@ -17,7 +17,8 @@ parser.add_argument("--save_dir", required=True, type=str, help="save_dir for th
 parser.add_argument("--time", default=4, type=int, help="demanding time")
 parser.add_argument("--lr", default=None, type=str, help="learning rate")
 parser.add_argument("--on-local", default=False, action="store_true", help="run on local")
-parser.add_argument("--stage", required=True, nargs="+", choices=["baseline", "infonce", "proposed", "mixup"], help="stage", )
+parser.add_argument("--stage", required=True, nargs="+", choices=["baseline", "infonce", "proposed", "mixup"],
+                    help="stage", )
 parser.add_argument("--softenweight", type=float, default=0.01,
                     help="softenweight for softencontrastive for both global and dense")
 
@@ -62,7 +63,7 @@ InfoNCE_encoder_jobs = [
     f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
     f" ProjectorParams.GlobalParams.feature_names=[Conv5]"
     f" ProjectorParams.GlobalParams.feature_importance=[1.0]"
-    f" Trainer.save_dir={save_dir}/infonce/global/conv5 "
+    f" Trainer.save_dir={save_dir}/infonce/conv5/global "
     f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml",
 
     # contrastive learning with pretrain Conv5+
@@ -124,7 +125,7 @@ Proposed_encoder_jobs = [
     f"python main_infonce.py {ProposedParams} Trainer.name=experimentpretrain  "
     f" ProjectorParams.GlobalParams.feature_names=[Conv5]"
     f" ProjectorParams.GlobalParams.feature_importance=[1.0]"
-    f" Trainer.save_dir={save_dir}/experiment/global/conv5/softweight_{args.softenweight}"
+    f" Trainer.save_dir={save_dir}/experiment/conv5/global/softweight_{args.softenweight}"
     f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/new.yaml",
 
     # contrastive learning with pretrain Conv5+
