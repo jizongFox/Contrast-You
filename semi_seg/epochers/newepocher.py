@@ -12,7 +12,7 @@ from torch import Tensor
 
 from contrastyou.featextractor import FeatureExtractorWithIndex as FeatureExtractor
 from contrastyou.helper import weighted_average_iter
-from contrastyou.losses.contrast_loss import SupConLoss3, is_normalized
+from contrastyou.losses.contrast_loss import SupConLoss3, is_normalized, SupConLoss4
 from contrastyou.losses.iic_loss import _ntuple  # noqa
 from contrastyou.projectors.nn import Normalize
 from . import unl_extractor, ProjectionHead
@@ -90,9 +90,13 @@ class EncoderDenseContrastEpocher(InfoNCEEpocher):
                         label_group) -> Tensor:
 
         # global loss with hard coded loss.
-        unregulated_loss = super()._global_infonce(feature_name=feature_name, proj_tf_feature=proj_tf_feature,
-                                                   proj_feature_tf=proj_feature_tf, partition_group=partition_group,
-                                                   label_group=label_group)
+        unregulated_loss = super(EncoderDenseContrastEpocher, self)._global_infonce(
+            feature_name=feature_name,
+            proj_tf_feature=proj_tf_feature,
+            proj_feature_tf=proj_feature_tf,
+            partition_group=partition_group,
+            label_group=label_group
+        )
 
         def soft_global_infonce(soft_criterion: SupConLoss3):
             sim_coef = generate_similarity_masks(proj_tf_feature, proj_feature_tf)
@@ -154,7 +158,7 @@ class EncoderDenseMixupContrastEpocher(InfoNCEEpocher):
               infoNCE_criterion: T_loss = None, **kwargs):
         super()._init(reg_weight=reg_weight, projectors_wrapper=projectors_wrapper, infoNCE_criterion=infoNCE_criterion,
                       **kwargs)
-        self._infonce_criterion2 = SupConLoss3()  # adding a soften loss
+        self._infonce_criterion2 = SupConLoss4()  # adding a soften loss
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super(EncoderDenseMixupContrastEpocher, self)._configure_meters(meters)
@@ -273,12 +277,25 @@ class EncoderDenseMixupContrastEpocher(InfoNCEEpocher):
 
         oh_target = get_variable(name="oh_target")
         mixed_oh_target = get_variable(name="mixed_oh_target")
-        sim_coef = generate_similarity_weightmatrix_based_on_labels(
+        one2one_coef = generate_similarity_weightmatrix_based_on_labels(
+            label_dist1=oh_target,
+            label_dist2=oh_target,
+        )
+        # two2two_coef = generate_similarity_weightmatrix_based_on_labels(
+        #     label_dist1=mixed_oh_target,
+        #     label_dist2=mixed_oh_target
+        # )
+        two2two_coef = None
+
+        cross_coef = generate_similarity_weightmatrix_based_on_labels(
             label_dist1=oh_target,
             label_dist2=mixed_oh_target,
         )
-        regularized_loss = self._infonce_criterion2(proj_tf_feature, proj_feature_mixup,
-                                                    pos_weight=sim_coef)
+        self._infonce_criterion2: SupConLoss4
+        regularized_loss = self._infonce_criterion2(
+            proj_feat1=proj_tf_feature, proj_feat2=proj_feature_mixup,
+            one2one_weight=one2one_coef, two2two_weight=two2two_coef, one2two_weight=cross_coef,
+        )
 
         config = get_config(scope="base")
         reg_weight = float(config["ProjectorParams"]["GlobalParams"]["softweight"])
@@ -332,9 +349,12 @@ class EncoderDenseMixupContrastEpocher(InfoNCEEpocher):
                                                                proj_tf_feature.reshape(-1, c), \
                                                                proj_feature_mixup.reshape(-1, c)
 
-        sim_coef = generate_similarity_masks(proj_feature_tf, proj_feature_mixup)
-        regularized_loss = self._infonce_criterion2(proj_feature_tf, proj_feature_mixup,
-                                                    pos_weight=sim_coef)
+        one2one_coef = generate_similarity_masks(proj_feature_tf, proj_feature_tf)
+        two2two_coef = None
+        cross_coef = generate_similarity_masks(proj_feature_tf, proj_feature_mixup)
+        regularized_loss = self._infonce_criterion2(
+            proj_feat1=proj_tf_feature, proj_feat2=proj_feature_mixup,
+            one2one_weight=one2one_coef, two2two_weight=two2two_coef, one2two_weight=cross_coef, )
         self.meters[f"{feature_name}_dense/hardcode_mi"].add(unregularized_loss.item())
         self.meters[f"{feature_name}_dense/mixup_mi"].add(regularized_loss.item())
 

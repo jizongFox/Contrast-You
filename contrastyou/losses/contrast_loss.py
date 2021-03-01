@@ -127,6 +127,14 @@ class SupConLoss2(nn.Module):
         self._out_mode = out_mode
 
     def forward(self, proj_feat1, proj_feat2, target=None, mask: Tensor = None):
+        """
+        Here the proj_feat1 and proj_feat2 should share the same mask within and cross proj_feat1 and proj_feat2
+        :param proj_feat1:
+        :param proj_feat2:
+        :param target:
+        :param mask:
+        :return:
+        """
         assert is_normalized(proj_feat1) and is_normalized(proj_feat2), f"features need to be normalized first"
         assert proj_feat1.shape == proj_feat2.shape, (proj_feat1.shape, proj_feat2.shape)
 
@@ -208,6 +216,65 @@ class SupConLoss3(SupConLoss2):
 
         # todo: do you want to weight something here for the denominator?
         denominator = (sim_exp * unselect_diganal_mask).sum(1, keepdim=True)
+        exp_div_sum_exp = sim_exp / denominator
+
+        pos_weight = pos_weight * unselect_diganal_mask
+
+        if not self._out_mode:
+            # this is the in mode
+            loss = torch.log((exp_div_sum_exp * pos_weight).sum(1)) / pos_weight.sum(1)
+            loss = -loss.mean()
+        else:
+            # this is the out mode
+            log_pos_div_sum_pos_neg = torch.log(exp_div_sum_exp) * pos_weight
+            log_pos_div_sum_pos_neg = log_pos_div_sum_pos_neg.sum(1) / pos_weight.sum(1)
+            loss = -log_pos_div_sum_pos_neg.mean()
+        if torch.isnan(loss):
+            raise RuntimeError(loss)
+        return loss
+
+
+class SupConLoss4(SupConLoss2):
+
+    def forward(self, *, proj_feat1, proj_feat2, one2one_weight: Tensor = None, two2two_weight: Tensor,  # noqa
+                one2two_weight=None, **kwargs):  # noqa
+        """
+        w_{ip} log \frac{exp(z_i * z_p/t)}/{\sum_{a\in A(i)}exp(z_i,z_a/t)}
+        :param proj_feat1: normalized feature1
+        :param proj_feat2: normalized feature2
+        :param one2one_weight: weighted matrix within proj_feat1
+        :param two2two_weight: weighted matrix within proj_feat2
+        :param one2two_weight: weighted matrix from proj_feat1 to proj_feat2
+        :return:
+        """
+        assert is_normalized(proj_feat1) and is_normalized(proj_feat2), f"features need to be normalized first"
+        assert proj_feat1.shape == proj_feat2.shape, (proj_feat1.shape, proj_feat2.shape)
+        assert one2one_weight is not None or one2two_weight is not None or two2two_weight is not None
+        batch_size = len(proj_feat1)
+
+        pos_weight = torch.zeros(batch_size * 2, batch_size * 2, device=proj_feat2.device, dtype=torch.float)
+        enable_mask = torch.zeros_like(pos_weight)
+        if one2two_weight is not None:
+            pos_weight[:batch_size, :batch_size] = one2one_weight
+            enable_mask[:batch_size, :batch_size] = 1
+        if two2two_weight is not None:
+            pos_weight[batch_size:, batch_size:] = two2two_weight
+            enable_mask[batch_size:, batch_size:] = 1
+        if one2two_weight is not None:
+            pos_weight[:batch_size, batch_size:] = one2two_weight
+            pos_weight[batch_size:, :batch_size] = one2two_weight
+            enable_mask[:batch_size, batch_size:] = 1
+            enable_mask[batch_size:, :batch_size] = 1
+        pos_weight = pos_weight.contiguous()
+        enable_mask = enable_mask.contiguous()
+
+        unselect_diganal_mask = 1 - torch.eye(
+            batch_size * 2, batch_size * 2, dtype=torch.float, device=proj_feat2.device)
+
+        sim_exp, sim_logits = exp_sim_temperature(proj_feat1, proj_feat2, self._t)
+
+        # todo: do you want to weight something here for the denominator?
+        denominator = (sim_exp * unselect_diganal_mask * enable_mask).sum(1, keepdim=True)
         exp_div_sum_exp = sim_exp / denominator
 
         pos_weight = pos_weight * unselect_diganal_mask
