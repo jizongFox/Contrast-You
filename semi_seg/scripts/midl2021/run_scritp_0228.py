@@ -17,7 +17,7 @@ parser.add_argument("--save_dir", required=True, type=str, help="save_dir for th
 parser.add_argument("--time", default=4, type=int, help="demanding time")
 parser.add_argument("--lr", default=None, type=str, help="learning rate")
 parser.add_argument("--on-local", default=False, action="store_true", help="run on local")
-parser.add_argument("--stage", required=True, nargs="+", choices=["baseline", "infonce", "proposed"], help="stage", )
+parser.add_argument("--stage", required=True, nargs="+", choices=["baseline", "infonce", "proposed", "mixup"], help="stage", )
 parser.add_argument("--softenweight", type=float, default=0.01,
                     help="softenweight for softencontrastive for both global and dense")
 
@@ -178,6 +178,65 @@ Proposed_encoder_jobs = [
     f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/new.yaml",
 ]
 
+Proposed_mixup_jobs = [
+    # contrastive learning with pretrain Conv5
+    f"python main_infonce.py {ProposedParams} Trainer.name=experimentmixuppretrain  "
+    f" ProjectorParams.GlobalParams.feature_names=[Conv5]"
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0]"
+    f" Trainer.save_dir={save_dir}/mixup/global/conv5/softweight_{args.softenweight}"
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/new.yaml",
+
+    # contrastive learning with pretrain Conv5+
+    f"python main_infonce.py {ProposedParams} Trainer.name=experimentmixuppretrain  "
+    f" ProjectorParams.GlobalParams.feature_names=[Conv5] "
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0] "
+    f" ProjectorParams.DenseParams.feature_names=[Conv5] "
+    f" ProjectorParams.DenseParams.feature_importance=[0.01] "
+    f" InfoNCEParameters.DenseParams.include_all=true "
+    f" Trainer.save_dir={save_dir}/mixup/conv5/global+dense/1.0_0.01/softweight_{args.softenweight} "
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/new.yaml",
+
+    # contrastive learning with pretrain Conv5+
+    f"python main_infonce.py {ProposedParams} Trainer.name=experimentmixuppretrain  "
+    f" ProjectorParams.GlobalParams.feature_names=[Conv5] "
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0] "
+    f" ProjectorParams.DenseParams.feature_names=[Conv5] "
+    f" ProjectorParams.DenseParams.feature_importance=[0.001] "
+    f" InfoNCEParameters.DenseParams.include_all=true "
+    f" Trainer.save_dir={save_dir}/mixup/conv5/global+dense/1.0_0.001/softweight_{args.softenweight} "
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/new.yaml",
+
+    # contrastive learning with pretrain Conv5+
+    f"python main_infonce.py {ProposedParams} Trainer.name=experimentmixuppretrain  "
+    f" ProjectorParams.GlobalParams.feature_names=[Conv5] "
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0] "
+    f" ProjectorParams.DenseParams.feature_names=[Conv5] "
+    f" ProjectorParams.DenseParams.feature_importance=[0.0001] "
+    f" InfoNCEParameters.DenseParams.include_all=true "
+    f" Trainer.save_dir={save_dir}/mixup/conv5/global+dense/1.0_0.0001/softweight_{args.softenweight} "
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/new.yaml",
+
+    # contrastive learning with pretrain Conv5+
+    f"python main_infonce.py {ProposedParams} Trainer.name=experimentmixuppretrain  "
+    f" ProjectorParams.GlobalParams.feature_names=[Conv5] "
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0] "
+    f" ProjectorParams.DenseParams.feature_names=[Conv5] "
+    f" ProjectorParams.DenseParams.feature_importance=[0.1] "
+    f" InfoNCEParameters.DenseParams.include_all=true "
+    f" Trainer.save_dir={save_dir}/mixup/conv5/global+dense/1.0_0.1/softweight_{args.softenweight} "
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/new.yaml",
+
+    # contrastive learning with pretrain Conv5+
+    f"python main_infonce.py {ProposedParams} Trainer.name=experimentmixuppretrain  "
+    f" ProjectorParams.GlobalParams.feature_names=[Conv5] "
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0] "
+    f" ProjectorParams.DenseParams.feature_names=[Conv5] "
+    f" ProjectorParams.DenseParams.feature_importance=[1.0] "
+    f" InfoNCEParameters.DenseParams.include_all=true "
+    f" Trainer.save_dir={save_dir}/mixup/conv5/global+dense/1.0_1.0/softweight_{args.softenweight} "
+    f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/new.yaml",
+]
+
 # CC things
 accounts = cycle(["def-chdesa", "def-mpederso", "rrg-mpederso"])
 
@@ -191,6 +250,8 @@ if "infonce" in args.stage:
     job_array.extend(InfoNCE_encoder_jobs)
 if "proposed" in args.stage:
     job_array.extend(Proposed_encoder_jobs)
+if "mixup" in args.stage:
+    job_array.extend(Proposed_mixup_jobs)
 
 for j in [*job_array]:
     job_submiter.prepare_env(

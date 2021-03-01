@@ -77,12 +77,12 @@ class EncoderDenseContrastEpocher(InfoNCEEpocher):
         # todo: adding try except within a context manager
         for f in config["ProjectorParams"]["GlobalParams"]["feature_names"] or []:
             m = "global"
-            meters.register_meter(f"{f}_{m}/origin_mi", AverageValueMeter(), )
-            meters.register_meter(f"{f}_{m}/weight_mi", AverageValueMeter(), )
+            meters.register_meter(f"{f}_{m}/hardcode_mi", AverageValueMeter(), )
+            meters.register_meter(f"{f}_{m}/soften_mi", AverageValueMeter(), )
         for f in config["ProjectorParams"]["DenseParams"]["feature_names"] or []:
             m = "dense"
-            meters.register_meter(f"{f}_{m}/origin_mi", AverageValueMeter(), )
-            meters.register_meter(f"{f}_{m}/weight_mi", AverageValueMeter(), )
+            meters.register_meter(f"{f}_{m}/hardcore_mi", AverageValueMeter(), )
+            meters.register_meter(f"{f}_{m}/soften_mi", AverageValueMeter(), )
 
         return meters
 
@@ -102,8 +102,8 @@ class EncoderDenseContrastEpocher(InfoNCEEpocher):
 
         regularized_loss = soft_global_infonce(self._infonce_criterion2)
 
-        self.meters[f"{feature_name}_global/origin_mi"].add(unregulated_loss.item())
-        self.meters[f"{feature_name}_global/weight_mi"].add(regularized_loss.item())
+        self.meters[f"{feature_name}_global/hardcode_mi"].add(unregulated_loss.item())
+        self.meters[f"{feature_name}_global/soften_mi"].add(regularized_loss.item())
 
         config = get_config(scope="base")
         reg_weight = float(config["ProjectorParams"]["GlobalParams"]["softweight"])
@@ -132,8 +132,8 @@ class EncoderDenseContrastEpocher(InfoNCEEpocher):
         sim_coef = generate_similarity_masks(proj_feature_tf, proj_tf_feature)
         regularized_loss = self._infonce_criterion2(proj_tf_feature, proj_feature_tf,
                                                     pos_weight=sim_coef)
-        self.meters[f"{feature_name}_dense/origin_mi"].add(unregularized_loss.item())
-        self.meters[f"{feature_name}_dense/weight_mi"].add(regularized_loss.item())
+        self.meters[f"{feature_name}_dense/hardcore_mi"].add(unregularized_loss.item())
+        self.meters[f"{feature_name}_dense/soften_mi"].add(regularized_loss.item())
 
         config = get_config(scope="base")
         reg_weight = float(config["ProjectorParams"]["DenseParams"]["softweight"])
@@ -162,12 +162,12 @@ class EncoderDenseMixupContrastEpocher(InfoNCEEpocher):
         # todo: adding try except within a context manager
         for f in config["ProjectorParams"]["GlobalParams"]["feature_names"] or []:
             m = "global"
-            meters.register_meter(f"{f}_{m}/origin_mi", AverageValueMeter(), )
-            meters.register_meter(f"{f}_{m}/weight_mi", AverageValueMeter(), )
+            meters.register_meter(f"{f}_{m}/hardcode_mi", AverageValueMeter(), )
+            meters.register_meter(f"{f}_{m}/mixup_mi", AverageValueMeter(), )
         for f in config["ProjectorParams"]["DenseParams"]["feature_names"] or []:
             m = "dense"
-            meters.register_meter(f"{f}_{m}/origin_mi", AverageValueMeter(), )
-            meters.register_meter(f"{f}_{m}/weight_mi", AverageValueMeter(), )
+            meters.register_meter(f"{f}_{m}/hardcode_mi", AverageValueMeter(), )
+            meters.register_meter(f"{f}_{m}/mixup_mi", AverageValueMeter(), )
 
         return meters
 
@@ -258,6 +258,7 @@ class EncoderDenseMixupContrastEpocher(InfoNCEEpocher):
             feature_name=feature_name,
             proj_tf_feature=proj_tf_feature,
             proj_feature_tf=proj_feature_tf,
+            proj_feature_mixup=proj_mixup_feature,
             partition_group=partition_group,
             label_group=label_group
         )
@@ -276,12 +277,68 @@ class EncoderDenseMixupContrastEpocher(InfoNCEEpocher):
             label_dist1=oh_target,
             label_dist2=mixed_oh_target,
         )
-        regularized_loss = self._infonce_criterion2(proj_tf_feature, proj_feature_tf,
+        regularized_loss = self._infonce_criterion2(proj_tf_feature, proj_feature_mixup,
                                                     pos_weight=sim_coef)
 
         config = get_config(scope="base")
         reg_weight = float(config["ProjectorParams"]["GlobalParams"]["softweight"])
-        self.meters[f"{feature_name}_global/origin_mi"].add(unregularized_loss.item())
-        self.meters[f"{feature_name}_global/weight_mi"].add(regularized_loss.item())
+        self.meters[f"{feature_name}_global/hardcode_mi"].add(unregularized_loss.item())
+        self.meters[f"{feature_name}_global/mixup_mi"].add(regularized_loss.item())
+
+        return unregularized_loss + reg_weight * regularized_loss
+
+    def _dense_based_infonce(self, *, feature_name, proj_tf_feature, proj_feature_tf, proj_feature_mixup=None,
+                             partition_group, label_group) -> Tensor:
+        if "Conv" in feature_name:
+            # this is the dense feature from encoder
+            return self._dense_infonce_for_encoder(
+                feature_name=feature_name,
+                proj_tf_feature=proj_tf_feature,
+                proj_feature_tf=proj_feature_tf,
+                proj_feature_mixup=proj_feature_mixup,
+                partition_group=partition_group,
+                label_group=label_group
+            )
+        return self._dense_infonce_for_decoder(
+            feature_name=feature_name,
+            proj_tf_feature=proj_tf_feature,
+            proj_feature_tf=proj_feature_tf,
+            partition_group=partition_group,
+            label_group=label_group
+        )
+
+    def _dense_infonce_for_encoder(self, *, feature_name, proj_tf_feature, proj_feature_tf, proj_feature_mixup=None,
+                                   partition_group, label_group):
+        # get unregularized loss based on index of the dense feature map.
+        unregularized_loss = super()._dense_infonce_for_encoder(feature_name=feature_name,
+                                                                proj_tf_feature=proj_tf_feature,
+                                                                proj_feature_tf=proj_feature_tf,
+                                                                partition_group=partition_group,
+                                                                label_group=label_group)
+        # repeat a bit
+        assert "Conv" in feature_name, feature_name
+        b, c, *hw = proj_tf_feature.shape
+        proj_tf_feature, proj_feature_tf = self._reshape_dense_feature(proj_tf_feature, proj_feature_tf)
+        proj_feature_mixup = proj_feature_mixup.view(b, c, -1).permute(0, 2, 1)
+
+        b, hw, c = proj_feature_tf.shape
+
+        if not (is_normalized(proj_feature_tf, dim=2) and is_normalized(proj_feature_tf, dim=2)):
+            proj_feature_tf = Normalize(dim=2)(proj_feature_tf)
+            proj_tf_feature = Normalize(dim=2)(proj_tf_feature)
+            proj_feature_mixup = Normalize(dim=2)(proj_feature_mixup)
+
+        proj_feature_tf, proj_tf_feature, proj_feature_mixup = proj_feature_tf.reshape(-1, c), \
+                                                               proj_tf_feature.reshape(-1, c), \
+                                                               proj_feature_mixup.reshape(-1, c)
+
+        sim_coef = generate_similarity_masks(proj_feature_tf, proj_feature_mixup)
+        regularized_loss = self._infonce_criterion2(proj_feature_tf, proj_feature_mixup,
+                                                    pos_weight=sim_coef)
+        self.meters[f"{feature_name}_dense/hardcode_mi"].add(unregularized_loss.item())
+        self.meters[f"{feature_name}_dense/mixup_mi"].add(regularized_loss.item())
+
+        config = get_config(scope="base")
+        reg_weight = float(config["ProjectorParams"]["DenseParams"]["softweight"])
 
         return unregularized_loss + reg_weight * regularized_loss
