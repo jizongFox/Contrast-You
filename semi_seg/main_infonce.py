@@ -3,15 +3,16 @@ import random
 from copy import deepcopy
 from pathlib import Path
 
+import numpy as np  # noqa
+from deepclustering2.configparser import ConfigManger
+from deepclustering2.loss import KL_div
+from deepclustering2.utils import set_benchmark, gethash, yaml_load
 from loguru import logger
 
 from contrastyou import PROJECT_PATH
 from contrastyou.arch import UNet
 from contrastyou.arch.unet import arch_order
 from contrastyou.helper import extract_model_state_dict
-from deepclustering2.configparser import ConfigManger
-from deepclustering2.loss import KL_div
-from deepclustering2.utils import set_benchmark, gethash, yaml_load
 from semi_seg.dsutils import get_dataloaders
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, FineTuneTrainer
 
@@ -45,7 +46,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=False)
 
     trainer_name = config["Trainer"]["name"]
-    assert trainer_name in ("infoncepretrain", "experimentpretrain"), trainer_name
+    assert trainer_name in ("infoncepretrain", "experimentpretrain", "experimentmixuppretrain"), trainer_name
 
     Trainer = trainer_zoos[trainer_name]
 

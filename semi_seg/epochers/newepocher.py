@@ -1,17 +1,33 @@
-from typing import List
+from typing import List, Any
 
 import numpy as np
 import torch
 from deepclustering2.configparser._utils import get_config  # noqa
 from deepclustering2.meters2 import MeterInterface, AverageValueMeter
 from deepclustering2.type import T_loss
+from deepclustering2.utils import simplex, class2one_hot, one_hot
+from loguru import logger
+from sklearn.preprocessing import LabelEncoder
 from torch import Tensor
 
+from contrastyou.featextractor import FeatureExtractorWithIndex as FeatureExtractor
+from contrastyou.helper import weighted_average_iter
 from contrastyou.losses.contrast_loss import SupConLoss3, is_normalized
 from contrastyou.losses.iic_loss import _ntuple  # noqa
 from contrastyou.projectors.nn import Normalize
+from . import unl_extractor, ProjectionHead
 from .comparable import InfoNCEEpocher
 from .._utils import ContrastiveProjectorWrapper
+
+__variable_dict = {}
+
+
+def register_variable(*, name: str, object_: Any):
+    __variable_dict[name] = object_
+
+
+def get_variable(*, name: str):
+    return __variable_dict[name]
 
 
 @torch.no_grad()
@@ -20,6 +36,28 @@ def generate_similarity_masks(norm_feature1: Tensor, norm_feature2: Tensor):
     sim_matrix -= -1
     sim_matrix /= 2
     return sim_matrix
+
+
+@torch.no_grad()
+def generate_similarity_weightmatrix_based_on_labels(label_dist1, label_dist2):
+    assert simplex(label_dist1, axis=1) and simplex(label_dist2, axis=1)
+    _norm_class = Normalize(dim=1)
+    norm_dist1, norm_dist2 = _norm_class(label_dist1), _norm_class(label_dist2)
+    sim_distance = norm_dist1.mm(norm_dist2.t())
+    assert torch.logical_and(sim_distance >= 0, sim_distance <= 1).any()
+    return sim_distance
+
+
+@torch.no_grad()
+def generate_mixup_image(image_list1: Tensor, image_list2: Tensor, label_list1: Tensor, label_list2: Tensor):
+    b, c, *hw = image_list1.shape
+    assert one_hot(label_list1) and one_hot(label_list2)
+    mu = torch.rand(b, 1, 1, 1, device=image_list1.device)
+    mixed_image = image_list1 * mu + image_list2 * (1 - mu)
+    assert torch.logical_and(mixed_image >= 0, mixed_image <= 1).all()  # make sure that
+    mixed_target = mu.squeeze()[..., None] * label_list1 + (1 - mu.squeeze()[..., None]) * label_list2
+    assert simplex(mixed_target), mixed_target
+    return mixed_image, mixed_target
 
 
 class EncoderDenseContrastEpocher(InfoNCEEpocher):
@@ -31,7 +69,7 @@ class EncoderDenseContrastEpocher(InfoNCEEpocher):
               infoNCE_criterion: T_loss = None, **kwargs):
         super()._init(reg_weight=reg_weight, projectors_wrapper=projectors_wrapper, infoNCE_criterion=infoNCE_criterion,
                       **kwargs)
-        self._infonce_criterion2 = SupConLoss3()
+        self._infonce_criterion2 = SupConLoss3()  # adding a soften loss
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super(EncoderDenseContrastEpocher, self)._configure_meters(meters)
@@ -116,30 +154,134 @@ class EncoderDenseMixupContrastEpocher(InfoNCEEpocher):
               infoNCE_criterion: T_loss = None, **kwargs):
         super()._init(reg_weight=reg_weight, projectors_wrapper=projectors_wrapper, infoNCE_criterion=infoNCE_criterion,
                       **kwargs)
-        self._infonce_criterion2 = SupConLoss3()
+        self._infonce_criterion2 = SupConLoss3()  # adding a soften loss
+
+    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters = super(EncoderDenseMixupContrastEpocher, self)._configure_meters(meters)
+        config = get_config(scope="base")
+        # todo: adding try except within a context manager
+        for f in config["ProjectorParams"]["GlobalParams"]["feature_names"] or []:
+            m = "global"
+            meters.register_meter(f"{f}_{m}/origin_mi", AverageValueMeter(), )
+            meters.register_meter(f"{f}_{m}/weight_mi", AverageValueMeter(), )
+        for f in config["ProjectorParams"]["DenseParams"]["feature_names"] or []:
+            m = "dense"
+            meters.register_meter(f"{f}_{m}/origin_mi", AverageValueMeter(), )
+            meters.register_meter(f"{f}_{m}/weight_mi", AverageValueMeter(), )
+
+        return meters
+
+    def run(self, *args, **kwargs):
+        with FeatureExtractor(self._model, self._feature_position) as self._fextractor_mixup:  # noqa
+            logger.debug(f"create feature extractor with mixup for {', '.join(self._feature_position)} ")
+            return super(EncoderDenseMixupContrastEpocher, self).run(*args, **kwargs)  # noqa
+
+    def forward_pass(self, *args, **kwargs):
+        self._fextractor_mixup.clear()
+        return super(EncoderDenseMixupContrastEpocher, self).forward_pass(*args, **kwargs)
 
     def regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int,
-                       label_group: List[str], partition_group: List[str], unlabeled_image=None, **kwargs):
+                       label_group: List[str], partition_group: List[str], unlabeled_image=None,
+                       unlabeled_image_tf=None, **kwargs):
+        def prepare_mixup():
+            # creating mixup images and labels =====
+            b, c, h, w = unlabeled_image.shape
+            rand_index = torch.Tensor(np.random.permutation(list(range(b)))).long().to(self.device)
+            label = torch.from_numpy(LabelEncoder().fit(partition_group).transform(partition_group)).to(self.device)
+            oh_label = class2one_hot(label, C=4).float()
+
+            mixed_image, mixed_oh_target = generate_mixup_image(image_list1=unlabeled_image_tf,
+                                                                image_list2=unlabeled_image_tf[rand_index],
+                                                                label_list1=oh_label, label_list2=oh_label[rand_index])
+            # pass the mixup image to the network
+            with self._fextractor_mixup.enable_register(), self._fextractor.disable_register():
+                _ = self._model(mixed_image)
+
+            register_variable(name="oh_target", object_=oh_label)
+            register_variable(name="mixed_oh_target", object_=mixed_oh_target)
+
+        prepare_mixup()
+
         reg_loss = super(EncoderDenseMixupContrastEpocher, self).regularization(
-            unlabeled_tf_logits=unlabeled_tf_logits,
-            unlabeled_logits_tf=unlabeled_logits_tf,
-            seed=seed, label_group=label_group, partition_group=partition_group
-        )
-        # creating mixup images
-        b, c, h, w = unlabeled_image.shape
-        rand_index = np.random.permutation(list(range(b)))
-        rand_index_ = rand_index[::-1].copy()
-        mu = torch.rand(b, 1, 1, 1, device=self.device)
-        assert torch.logical_and(mu >= 0, mu <= 1).any()
-        mixed_image = mu * unlabeled_image[torch.from_numpy(rand_index)] + \
-                      (1 - mu) * unlabeled_image[torch.from_numpy(rand_index_)]
-
-        assert torch.logical_and(mixed_image >= 0, mixed_image <= 1).all()  # make sure that
-
-        mixed_logits = self._model(mixed_image)
+            unlabeled_tf_logits=unlabeled_tf_logits, unlabeled_logits_tf=unlabeled_logits_tf,
+            seed=seed, label_group=label_group, partition_group=partition_group, unlabeled_image=unlabeled_image,
+            unlabeled_image_tf=unlabeled_image_tf, **kwargs)
 
         return reg_loss
 
     def _dense_infonce_for_decoder(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
                                    label_group):
         raise RuntimeError(f"{self.__class__.__name__} does not support contrasting on dense feature from decoder")
+
+    def _regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group,
+                        partition_group, **kwargs):
+        feature_names = self._fextractor._feature_names  # noqa
+        n_uls = len(unlabeled_tf_logits) * 2
+
+        losses = [
+            self.generate_infonce(
+                feature_name=n, features=f, mixup_feature=mixup, projector=p, seed=seed,
+                partition_group=partition_group,
+                label_group=label_group) for n, f, mixup, p in
+            zip(self._fextractor.feature_names, unl_extractor(self._fextractor, n_uls=n_uls), self._fextractor_mixup,
+                self._projectors_wrapper)
+        ]
+        reg_loss = weighted_average_iter(losses, self._feature_importance)
+        self.meters["mi"].add(-reg_loss.item())
+        self.meters["individual_mis"].add(**dict(zip(
+            [f"{p}|{i}" for i, p in enumerate(self._feature_position)],
+            [-x.item() for x in losses]
+        )))
+        return reg_loss
+
+    def generate_infonce(self, *, feature_name, features, mixup_feature=None, projector, seed, partition_group,
+                         label_group) -> Tensor:
+        # note that mixup_feature is created from `unlabeled_image_tf`
+        proj_tf_feature, proj_feature_tf = self.unlabeled_projection(
+            unl_features=features, projector=projector, seed=seed
+        )
+        # manually create the projected mixup features.
+        proj_mixup_feature = projector(mixup_feature)
+
+        if isinstance(projector, ProjectionHead):
+            # it goes to **global** representation here.
+            return self._global_infonce(
+                feature_name=feature_name,
+                proj_tf_feature=proj_tf_feature,
+                proj_feature_tf=proj_feature_tf,
+                proj_feature_mixup=proj_mixup_feature,
+                partition_group=partition_group,
+                label_group=label_group
+            )
+        # it goes to a **dense** representation on pixels
+        return self._dense_based_infonce(
+            feature_name=feature_name,
+            proj_tf_feature=proj_tf_feature,
+            proj_feature_tf=proj_feature_tf,
+            partition_group=partition_group,
+            label_group=label_group
+        )
+
+    def _global_infonce(self, *, feature_name, proj_tf_feature, proj_feature_tf, proj_feature_mixup=None,
+                        partition_group, label_group) -> Tensor:
+        unregularized_loss = super()._global_infonce(
+            feature_name=feature_name, proj_tf_feature=proj_tf_feature,
+            proj_feature_tf=proj_feature_tf, partition_group=partition_group,
+            label_group=label_group
+        )
+
+        oh_target = get_variable(name="oh_target")
+        mixed_oh_target = get_variable(name="mixed_oh_target")
+        sim_coef = generate_similarity_weightmatrix_based_on_labels(
+            label_dist1=oh_target,
+            label_dist2=mixed_oh_target,
+        )
+        regularized_loss = self._infonce_criterion2(proj_tf_feature, proj_feature_tf,
+                                                    pos_weight=sim_coef)
+
+        config = get_config(scope="base")
+        reg_weight = float(config["ProjectorParams"]["GlobalParams"]["softweight"])
+        self.meters[f"{feature_name}_global/origin_mi"].add(unregularized_loss.item())
+        self.meters[f"{feature_name}_global/weight_mi"].add(regularized_loss.item())
+
+        return unregularized_loss + reg_weight * regularized_loss

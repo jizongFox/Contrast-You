@@ -23,7 +23,7 @@ class ConsistencyTrainEpocher(TrainEpocher, __AssertWithUnLabeledData):
         return meters
 
     # noinspection Mypy
-    def regularization(
+    def _regularization(
         self,
         *,
         unlabeled_tf_logits: Tensor,
@@ -52,7 +52,7 @@ class MITrainEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnLabeled
         meters.register_meter("individual_mis", MultipleAverageValueMeter())
         return meters
 
-    def regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, **kwargs):
+    def _regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, **kwargs):
         feature_names = self._fextractor._feature_names  # noqa
         n_uls = len(unlabeled_tf_logits) * 2
 
@@ -102,16 +102,16 @@ class ConsistencyMIEpocher(MITrainEpocher, __AssertWithUnLabeledData):
         meters.register_meter("cons_weight", AverageValueMeter())
         return meters
 
-    def regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, **kwargs):
+    def _regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, **kwargs):
         self.meters["mi_weight"].add(self._mi_weight)
         self.meters["cons_weight"].add(self._cons_weight)
-        iic_loss = MITrainEpocher.regularization(
+        iic_loss = MITrainEpocher._regularization(
             self,
             unlabeled_tf_logits=unlabeled_tf_logits,
             unlabeled_logits_tf=unlabeled_logits_tf,
             seed=seed
         )
-        cons_loss = ConsistencyTrainEpocher.regularization(
+        cons_loss = ConsistencyTrainEpocher._regularization(
             self,  # noqa
             unlabeled_tf_logits=unlabeled_tf_logits,
             unlabeled_logits_tf=unlabeled_logits_tf,

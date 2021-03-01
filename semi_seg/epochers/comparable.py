@@ -41,7 +41,7 @@ class MeanTeacherEpocher(TrainEpocher, __AssertWithUnLabeledData):
         self._model.train()
         self._teacher_model.train()
 
-    def regularization(
+    def _regularization(
         self,
         *,
         unlabeled_tf_logits: Tensor,
@@ -79,8 +79,8 @@ class UCMeanTeacherEpocher(MeanTeacherEpocher, __AssertWithUnLabeledData):
         meters.register_meter("uc_ratio", AverageValueMeter())
         return meters
 
-    def regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int,
-                       unlabeled_image: Tensor, unlabeled_image_tf: Tensor, **kwargs):
+    def _regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int,
+                        unlabeled_image: Tensor, unlabeled_image_tf: Tensor, **kwargs):
         @torch.no_grad()
         def get_teacher_pred_with_tf(uimage, noise=None):
             if noise is not None:
@@ -149,7 +149,7 @@ class MIMeanTeacherEpocher(MITrainEpocher, __AssertWithUnLabeledData):
         with FeatureExtractor(self._teacher_model, self._feature_position) as self._teacher_fextractor:  # noqa
             return super(MIMeanTeacherEpocher, self)._run()
 
-    def regularization(
+    def _regularization(
         self,
         *,
         unlabeled_tf_logits: Tensor,
@@ -191,7 +191,7 @@ class MIMeanTeacherEpocher(MITrainEpocher, __AssertWithUnLabeledData):
             self._feature_position,
             [-x.item() for x in loss_list]
         )))
-        uda_loss = ConsistencyTrainEpocher.regularization(
+        uda_loss = ConsistencyTrainEpocher._regularization(
             self,  # noqa
             unlabeled_tf_logits=unlabeled_tf_logits,
             unlabeled_logits_tf=teacher_logits_tf.detach(),
@@ -219,14 +219,14 @@ class MIDLPaperEpocher(ConsistencyTrainEpocher, __AssertWithUnLabeledData):
         meters.register_meter("iic_mi", AverageValueMeter())
         return meters
 
-    def regularization(
+    def _regularization(
         self,
         *,
         unlabeled_tf_logits: Tensor,
         unlabeled_logits_tf: Tensor,
         seed, **kwargs
     ):
-        uda_loss = super(MIDLPaperEpocher, self).regularization(
+        uda_loss = super(MIDLPaperEpocher, self)._regularization(
             unlabeled_tf_logits=unlabeled_tf_logits,
             unlabeled_logits_tf=unlabeled_logits_tf,
             seed=seed, **kwargs
@@ -247,7 +247,7 @@ class EntropyMinEpocher(TrainEpocher, __AssertWithUnLabeledData):
         meters.register_meter("entropy", AverageValueMeter())
         return meters
 
-    def regularization(
+    def _regularization(
         self,
         *,
         unlabeled_tf_logits: Tensor,
@@ -311,8 +311,8 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
         from contrastyou.epocher._utils import LocalLabelGenerator  # noqa
         return LocalLabelGenerator()
 
-    def regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group,
-                       partition_group, **kwargs):
+    def _regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group,
+                        partition_group, **kwargs):
         feature_names = self._fextractor._feature_names  # noqa
         n_uls = len(unlabeled_tf_logits) * 2
 

@@ -4,13 +4,6 @@ from contextlib import nullcontext
 from typing import Union, Tuple, Callable
 
 import torch
-from loguru import logger
-from torch import nn, Tensor
-from torch.utils.data.dataloader import DataLoader
-
-from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
-from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
-from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
 from deepclustering2.augment.tensor_augment import TensorRandomFlip
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.decorator.decorator import _disable_tracking_bn_stats  # noqa
@@ -22,6 +15,13 @@ from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.schedulers.customized_scheduler import WeightScheduler
 from deepclustering2.type import T_loader, T_loss, T_optim
 from deepclustering2.utils import class2one_hot, ExceptionIgnorer, warn_on_unused_kwargs
+from loguru import logger
+from torch import nn, Tensor
+from torch.utils.data.dataloader import DataLoader
+
+from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
+from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
+from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
 from semi_seg._utils import _num_class_mixin
 from ._helper import __AssertOnlyWithLabeledData
 
@@ -260,6 +260,9 @@ class TrainEpocher(Epocher):
         return image, target, filename, partition, group
 
     def regularization(self, **kwargs):
+        return self._regularization(**kwargs)
+
+    def _regularization(self, **kwargs):
         return torch.tensor(0, dtype=torch.float, device=self._device)
 
 

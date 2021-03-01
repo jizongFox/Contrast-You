@@ -4,15 +4,15 @@ from typing import Callable
 from typing import Union, List
 
 import torch
+from deepclustering2.decorator import FixRandomSeed
+from deepclustering2.meters2 import EpochResultDict, MeterInterface
+from deepclustering2.optim import get_lrs_from_optimizer
+from deepclustering2.tqdm import tqdm, item2str
 from loguru import logger
 from torch import nn, Tensor
 from torch.optim.optimizer import Optimizer
 
 from contrastyou.featextractor.unet import FeatureExtractorWithIndex as FeatureExtractor
-from deepclustering2.decorator import FixRandomSeed
-from deepclustering2.meters2 import EpochResultDict, MeterInterface
-from deepclustering2.optim import get_lrs_from_optimizer
-from deepclustering2.tqdm import tqdm, item2str
 
 
 class unl_extractor:
@@ -93,7 +93,8 @@ class _FeatureExtractorMixin:
 
     def forward_pass(self, *args, **kwargs):
         self._fextractor.clear()
-        return super(_FeatureExtractorMixin, self).forward_pass(*args, **kwargs)  # noqa
+        with self._fextractor.enable_register():
+            return super(_FeatureExtractorMixin, self).forward_pass(*args, **kwargs)  # noqa
 
 
 # ======== base pretrain epocher mixin ================
