@@ -74,8 +74,8 @@ def main_worker(rank, ngpus_per_node, config, port):  # noqa
 
     trainer.start_training()
 
-    if not is_pretrain:
-        trainer.inference()
+    # if not is_pretrain:
+    #     trainer.inference()
 
 
 if __name__ == '__main__':

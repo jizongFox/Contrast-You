@@ -73,7 +73,7 @@ multitask.add_argument("-g", "--group_sample_num", default=6, type=int)
 multitask.add_argument("--global_features", nargs="+", choices=["Conv5", "Conv4", "Conv3", "Conv2"],
                        default=["Conv5"], type=str, help="global_features")
 multitask.add_argument("--global_importance", nargs="+", type=float, default=[1.0, ], help="global importance")
-multitask.add_argument("--contrast_on", type=str, nargs="+", required=True, choices=["partition", "patient", "both"])
+multitask.add_argument("--contrast_on", type=str, nargs="+", required=True, choices=["partition", "patient", "cycle"])
 
 args = parser.parse_args()
 

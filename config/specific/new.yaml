@@ -1,6 +1,6 @@
 InfoNCEParameters:
   GlobalParams:
-    method_name: supcontrast
+    contrast_on:  partition
   DenseParams:
     include_all: true
   LossParams:
@@ -14,7 +14,6 @@ ProjectorParams:
     head_type: mlp
     normalize: true
     pool_name: adaptive_avg # adaptive_max #identical
-
     softweight: 0.1
 
   DenseParams:
