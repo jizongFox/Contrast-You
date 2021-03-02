@@ -1,6 +1,6 @@
 InfoNCEParameters:
   GlobalParams:
-    contrast_on: [partition, patient]
+    contrast_on: [ partition, patient, cycle ]
   DenseParams:
     include_all: true
   LossParams:
@@ -9,8 +9,8 @@ InfoNCEParameters:
 
 ProjectorParams:
   GlobalParams:
-    feature_names: [ Conv5, Conv5]
-    feature_importance: [ 1, 0.2 ]
+    feature_names: [ Conv5, Conv5, Conv5 ]
+    feature_importance: [ 1, 0.5, 0.1 ]
     head_type: mlp
     normalize: true
     pool_name: adaptive_avg # adaptive_max #identical

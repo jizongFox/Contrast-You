@@ -279,7 +279,7 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
     def set_global_contrast_method(self, *, contrast_on_list):
         assert isinstance(contrast_on_list, (tuple, list))
         for e in contrast_on_list:
-            assert e in ("partition", "patient", "both"), e
+            assert e in ("partition", "patient", "cycle"), e
         self.__encoder_contrast_name_list = contrast_on_list
         logger.debug("{} set global contrast method to be {}", self.__class__.__name__, ", ".join(contrast_on_list))
         self._encoder_contrastive_name_generator = cycle(self.__encoder_contrast_name_list)
@@ -310,14 +310,14 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
 
     @lru_cache()
     def global_label_generator(self, contrast_on: str):
-        from contrastyou.epocher._utils import GlobalLabelGenerator  # noqa
+        from contrastyou.epocher._utils import PartitionLabelGenerator, PatientLabelGenerator, ACDCCycleGenerator
         logger.debug("initialize {} label generator for encoder training", contrast_on)
         if contrast_on == "partition":
-            return GlobalLabelGenerator(contrastive_on_patient=False, contrastive_on_partition=True)
+            return PartitionLabelGenerator()
         elif contrast_on == "patient":
-            return GlobalLabelGenerator(True, False)
-        elif contrast_on == "both":
-            return GlobalLabelGenerator(True, True)
+            return PatientLabelGenerator()
+        elif contrast_on == "cycle":
+            return ACDCCycleGenerator()
         else:
             raise NotImplementedError(contrast_on)
 
@@ -410,7 +410,8 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
         # generate simclr or supcontrast labels
         contrast_on = next(self._encoder_contrastive_name_generator)
         labels = self.global_label_generator(contrast_on)(partition_list=partition_group,
-                                                          patient_list=label_group)
+                                                          patient_list=[p.split("_")[0] for p in label_group],
+                                                          experiment_list=[p.split("_")[1] for p in label_group])
         return self._infonce_criterion(proj_feature_tf, proj_tf_feature, target=labels)
 
     def _dense_based_infonce(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,

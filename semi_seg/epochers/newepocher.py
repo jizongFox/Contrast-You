@@ -1,4 +1,3 @@
-from functools import lru_cache
 from typing import List, Any
 
 import numpy as np
@@ -282,12 +281,10 @@ class EncoderDenseMixupContrastEpocher(InfoNCEEpocher):
             label_dist1=oh_target,
             label_dist2=oh_target,
         )
-        # two2two_coef = generate_similarity_weightmatrix_based_on_labels(
-        #     label_dist1=mixed_oh_target,
-        #     label_dist2=mixed_oh_target
-        # )
-        two2two_coef = None
-
+        two2two_coef = generate_similarity_weightmatrix_based_on_labels(
+            label_dist1=mixed_oh_target,
+            label_dist2=mixed_oh_target
+        )
         cross_coef = generate_similarity_weightmatrix_based_on_labels(
             label_dist1=oh_target,
             label_dist2=mixed_oh_target,
@@ -367,3 +364,4 @@ class EncoderDenseMixupContrastEpocher(InfoNCEEpocher):
 
 class EncoderMultiTaskContrastiveEpocher(InfoNCEEpocher):
     pass
+
