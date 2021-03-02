@@ -1,6 +1,7 @@
 import math
 from abc import abstractmethod
 from functools import lru_cache, partial
+from itertools import cycle
 from typing import Callable, Iterable
 
 import torch
@@ -262,6 +263,10 @@ class EntropyMinEpocher(TrainEpocher, __AssertWithUnLabeledData):
 class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnLabeledData):
     """base epocher class for infonce like method"""
 
+    def __init__(self, *args, **kwargs):
+        super(_InfoNCEBasedEpocher, self).__init__(*args, **kwargs)
+        self.__set_global_contrast_done__ = False
+
     def _init(self, *, reg_weight: float, projectors_wrapper: ContrastiveProjectorWrapper = None,
               infoNCE_criterion: T_loss = None, **kwargs):
         assert projectors_wrapper is not None and infoNCE_criterion is not None, (projectors_wrapper, infoNCE_criterion)
@@ -270,18 +275,26 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
 
         self._projectors_wrapper: ContrastiveProjectorWrapper = projectors_wrapper  # noqa
         self._infonce_criterion: T_loss = infoNCE_criterion  # noqa
-        self.__encoder_method_name__ = "supcontrast"
 
-    def set_global_contrast_method(self, *, method_name):
-        assert method_name in ("simclr", "supcontrast")
-        self.__encoder_method_name__ = method_name
-        logger.debug("{} set global contrast method to be {}", self.__class__.__name__, method_name)
+    def set_global_contrast_method(self, *, contrast_on_list):
+        assert isinstance(contrast_on_list, (tuple, list))
+        for e in contrast_on_list:
+            assert e in ("partition", "patient", "both"), e
+        self.__encoder_contrast_name_list = contrast_on_list
+        logger.debug("{} set global contrast method to be {}", self.__class__.__name__, ", ".join(contrast_on_list))
+        self._encoder_contrastive_name_generator = cycle(self.__encoder_contrast_name_list)
+        self.__set_global_contrast_done__ = True
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super()._configure_meters(meters)
         meters.register_meter("mi", AverageValueMeter())
         meters.register_meter("individual_mis", MultipleAverageValueMeter())
         return meters
+
+    def run(self, *args, **kwargs):
+        if not self.__set_global_contrast_done__:
+            raise RuntimeError(f"`set_global_contrast_method` should be called first for {self.__class__.__name__}.")
+        return super(_InfoNCEBasedEpocher, self).run(*args, **kwargs)
 
     def unlabeled_projection(self, unl_features, projector, seed):
         unlabeled_features, unlabeled_tf_features = torch.chunk(unl_features, 2, dim=0)
@@ -296,15 +309,17 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
         return proj_tf_feature, proj_feature_tf
 
     @lru_cache()
-    def global_label_generator(self, gmethod: str):
+    def global_label_generator(self, contrast_on: str):
         from contrastyou.epocher._utils import GlobalLabelGenerator  # noqa
-        logger.debug("initialize {} label generator for encoder training", self.__encoder_method_name__)
-        if gmethod == "supcontrast":
-            return GlobalLabelGenerator()
-        elif gmethod == "simclr":
+        logger.debug("initialize {} label generator for encoder training", contrast_on)
+        if contrast_on == "partition":
+            return GlobalLabelGenerator(contrastive_on_patient=False, contrastive_on_partition=True)
+        elif contrast_on == "patient":
+            return GlobalLabelGenerator(True, False)
+        elif contrast_on == "both":
             return GlobalLabelGenerator(True, True)
         else:
-            raise NotImplementedError(gmethod)
+            raise NotImplementedError(contrast_on)
 
     @lru_cache()
     def local_label_generator(self):
@@ -393,8 +408,9 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
         assert is_normalized(proj_feature_tf) and is_normalized(proj_feature_tf)
 
         # generate simclr or supcontrast labels
-        labels = self.global_label_generator(self.__encoder_method_name__)(partition_list=partition_group,
-                                                                           patient_list=label_group)
+        contrast_on = next(self._encoder_contrastive_name_generator)
+        labels = self.global_label_generator(contrast_on)(partition_list=partition_group,
+                                                          patient_list=label_group)
         return self._infonce_criterion(proj_feature_tf, proj_tf_feature, target=labels)
 
     def _dense_based_infonce(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,

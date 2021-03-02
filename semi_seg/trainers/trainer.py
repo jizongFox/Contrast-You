@@ -95,6 +95,7 @@ class IICTrainer(_FeatureExtractor, SemiTrainer):
              "weight_decay": optim_config["weight_decay"]}
         )
 
+
 # using MINE as estimation
 class MineTrainer(IICTrainer):
     def _init(self):
@@ -140,7 +141,10 @@ class InfoNCETrainer(_FeatureExtractor, SemiTrainer):
 
         super(InfoNCETrainer, self)._init()
         _infonce_config = deepcopy(self._config["InfoNCEParameters"])
-        self.__encoder_method__ = _infonce_config["GlobalParams"].pop("method_name", "supcontrast")
+        self.__encoder_method__ = _infonce_config["GlobalParams"].pop("contrast_on", "partition")
+        if isinstance(self.__encoder_method__, str):
+            self.__encoder_method__ = [self.__encoder_method__, ] * len(global_features)
+        assert len(self.__encoder_method__) == len(global_features), self.__encoder_method__
 
         self._projector = ContrastiveProjectorWrapper()
         if len(global_features) > 0:
@@ -160,7 +164,7 @@ class InfoNCETrainer(_FeatureExtractor, SemiTrainer):
     def _run_epoch(self, epocher: InfoNCEEpocher, *args, **kwargs) -> EpochResultDict:
         epocher.init(reg_weight=self._reg_weight, projectors_wrapper=self._projector,
                      infoNCE_criterion=self._criterion)
-        epocher.set_global_contrast_method(method_name=self.__encoder_method__)
+        epocher.set_global_contrast_method(contrast_on_list=self.__encoder_method__)
         result = epocher.run()
         return result
 

@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import List, Any
 
 import numpy as np
@@ -362,3 +363,7 @@ class EncoderDenseMixupContrastEpocher(InfoNCEEpocher):
         reg_weight = float(config["ProjectorParams"]["DenseParams"]["softweight"])
 
         return unregularized_loss + reg_weight * regularized_loss
+
+
+class EncoderMultiTaskContrastiveEpocher(InfoNCEEpocher):
+    pass

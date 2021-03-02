@@ -130,15 +130,15 @@ class FeatureExtractorWithIndex(FeatureExtractor):
             if len(extracted_list) > 0:
                 yield torch.cat(list(v.feature.values()), dim=0)
             else:
-                raise RuntimeError(
-                    f"{self.__class__.__name__} found no element been registered. Call `enable_register within a context manager should be perform first.`")
+                raise RuntimeError(f"{self.__class__.__name__} found no element been registered. "
+                                   f"Call `with enable_register(): within a context manager should be perform first.`")
 
 
 @contextmanager
 def enable_register(feature_extractor: FeatureExtractor):
     if not hasattr(feature_extractor, "_feature_exactors"):
         raise RuntimeError(f"{feature_extractor.__class__.__name__} should be put in with first")
-    previous_state = list(feature_extractor._feature_exactors.values())[0].enable
+    previous_state = list(feature_extractor._feature_exactors.values())[0].enable  # noqa
     for v in feature_extractor._feature_exactors.values():  # noqa
         v.set_enable(enable=True)
     yield feature_extractor

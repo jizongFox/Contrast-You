@@ -18,7 +18,8 @@ base_trainer_zoos = {
     "infonce": InfoNCETrainer,
     "prototype": PrototypeTrainer,
     "experiment": ExperimentalTrainer,
-    "mixup": ExperimentalTrainerwithMixUp
+    "mixup": ExperimentalTrainerwithMixUp,
+    "multitask": ExperimentalTrainerwithMultiTask,
 
 }
 pre_trainer_zoos = {
@@ -26,7 +27,8 @@ pre_trainer_zoos = {
     "iicpretrain": PretrainIICTrainer,
     "infoncepretrain": PretrainInfoNCETrainer,
     "experimentpretrain": PretrainExperimentalTrainer,
-    "experimentmixuppretrain": PretrainExperimentalMixupTrainer
+    "experimentmixuppretrain": PretrainExperimentalMixupTrainer,
+    "experimentmultitaskpretrain": PretrainExperimentalMultiTaskTrainer
 }
 
 trainer_zoos = {**base_trainer_zoos, **pre_trainer_zoos}

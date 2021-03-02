@@ -32,7 +32,7 @@ UnlabeledData:
   num_workers: 5
 
 Trainer:
-  name: partial
+  name: directtrain
   save_dir: tmp
   device: cuda
   num_batches: 500
