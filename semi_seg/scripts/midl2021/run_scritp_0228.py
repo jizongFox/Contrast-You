@@ -184,7 +184,7 @@ Proposed_mixup_jobs = [
     f"python main_infonce.py {ProposedParams} Trainer.name=experimentmixuppretrain  "
     f" ProjectorParams.GlobalParams.feature_names=[Conv5]"
     f" ProjectorParams.GlobalParams.feature_importance=[1.0]"
-    f" Trainer.save_dir={save_dir}/mixup/global/conv5/softweight_{args.softenweight}"
+    f" Trainer.save_dir={save_dir}/mixup/conv5/global/softweight_{args.softenweight}"
     f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/new.yaml",
 
     # contrastive learning with pretrain Conv5+
