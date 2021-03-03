@@ -11,7 +11,7 @@ Trainer:
 
 Optim:
   name: Adam
-  lr: 0.000002
+  lr: 0.0000005
   weight_decay: 0.0
 
 ContrastiveLoaderParams:

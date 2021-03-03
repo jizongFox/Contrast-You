@@ -48,7 +48,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
     assert trainer_name in ("finetune", "directtrain"), trainer_name
     base_model_checkpoint = deepcopy(model.state_dict())
 
-    for labeled_ratio in (0.01, 0.02, 0.03, 0.04, 0.05, 1.0):
+    for labeled_ratio in (0.01,  0.03,  0.05, 1.0):
         model.load_state_dict(base_model_checkpoint)
 
         config["Data"]["labeled_data_ratio"] = labeled_ratio

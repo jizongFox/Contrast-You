@@ -15,7 +15,7 @@ parser.add_argument("-s", "--random_seed", default=1, type=int, help="random see
 parser.add_argument("--group_sample_num", "-g", default=6, type=int, help="group_sample_num for contrastive loader")
 parser.add_argument("--save_dir", required=True, type=str, help="save_dir for the save folder")
 parser.add_argument("--time", default=4, type=int, help="demanding time")
-# parser.add_argument("--lr", default=None, type=str, help="learning rate")
+parser.add_argument("--lr", default=None, type=str, help="learning rate")
 parser.add_argument("--on-local", default=False, action="store_true", help="run on local")
 
 args = parser.parse_args()
@@ -27,7 +27,7 @@ group_sample_num = args.group_sample_num
 
 __git_hash__ = gethash(__file__)
 
-# lr: str = args.lr or f"{lr_zooms[args.dataset_name]:.10f}"
+lr: str = args.lr or f"{lr_zooms[args.dataset_name]:.10f}"
 
 save_dir = args.save_dir
 
@@ -39,14 +39,16 @@ SharedParams = f" Data.name={args.dataset_name}" \
 
 TrainerParams = SharedParams
 
-PretrainParams = SharedParams + f" ContrastiveLoaderParams.group_sample_num={group_sample_num}"
+PretrainParams = SharedParams + f" ContrastiveLoaderParams.group_sample_num={group_sample_num}" \
+                                f" Optim.lr={lr} "
 
 save_dir += ("/" + "/".join(
     [
         f"githash_{__git_hash__[:7]}",
         args.dataset_name,
         f"sample_num_{group_sample_num}",
-        f"random_seed_{random_seed}"
+        f"random_seed_{random_seed}",
+        f"lr_{lr}"
     ]))
 
 baseline = [
