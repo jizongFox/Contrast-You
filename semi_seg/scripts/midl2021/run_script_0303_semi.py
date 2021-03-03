@@ -13,7 +13,6 @@ parser.add_argument("-b", "--num_batches", default=500, type=int, help="num batc
 parser.add_argument("-e", "--max_epoch", default=100, type=int, help="max epoch")
 parser.add_argument("-l", "--label_ratio", default=0.01, type=float, help="labeled_ratio")
 parser.add_argument("-s", "--random_seed", default=1, type=int, help="random seed")
-parser.add_argument("--group_sample_num", "-g", default=6, type=int, help="group_sample_num for contrastive loader")
 parser.add_argument("--save_dir", required=True, type=str, help="save_dir for the save folder")
 parser.add_argument("--time", default=4, type=int, help="demanding time")
 parser.add_argument("--lr", default=None, type=str, help="learning rate")
@@ -24,7 +23,6 @@ args = parser.parse_args()
 num_batches = args.num_batches
 random_seed = args.random_seed
 max_epoch = args.max_epoch
-group_sample_num = args.group_sample_num
 
 __git_hash__ = gethash(__file__)
 
@@ -37,6 +35,7 @@ SharedParams = f" Data.name={args.dataset_name}" \
                f" Trainer.num_batches={num_batches} " \
                f" Arch.num_classes={dataset_name2class_numbers[args.dataset_name]} " \
                f" RandomSeed={random_seed} " \
+               f" Trainer.two_stage_training=true " \
                f" Data.labeled_data_ratio={args.label_ratio} " \
                f" Data.unlabeled_data_ratio={1 - args.label_ratio} "
 
@@ -48,7 +47,6 @@ save_dir += ("/" + "/".join(
     [
         f"githash_{__git_hash__[:7]}",
         args.dataset_name,
-        f"sample_num_{group_sample_num}",
         f"random_seed_{random_seed}"
     ]))
 
@@ -66,7 +64,7 @@ proposed = [
     # contrastive learning with pretrain Conv5
     f"python main_infonce.py {PretrainParams} Trainer.name=infonce  "
     f" ProjectorParams.GlobalParams.feature_names=[Conv5,Conv5,Conv5]"
-    f" ProjectorParams.GlobalParams.feature_importance=[1.0,0.5,0.1]"
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0,1.0,1.0]"
     f" InfoNCEParameters.GlobalParams.contrast_on=[partition,patient,cycle]"
     f" InfoNCEParameters.weight=0.1 "
     f" Trainer.save_dir={save_dir}/proposed/conv5/global/weight_0.1 "
@@ -74,7 +72,7 @@ proposed = [
 
     f"python main_infonce.py {PretrainParams} Trainer.name=infonce  "
     f" ProjectorParams.GlobalParams.feature_names=[Conv5,Conv5,Conv5]"
-    f" ProjectorParams.GlobalParams.feature_importance=[1.0,0.5,0.1]"
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0,1.0,1.0]"
     f" InfoNCEParameters.GlobalParams.contrast_on=[partition,patient,cycle]"
     f" InfoNCEParameters.weight=0.01 "
     f" Trainer.save_dir={save_dir}/proposed/conv5/global/weight_0.01 "
@@ -82,7 +80,7 @@ proposed = [
 
     f"python main_infonce.py {PretrainParams} Trainer.name=infonce  "
     f" ProjectorParams.GlobalParams.feature_names=[Conv5,Conv5,Conv5]"
-    f" ProjectorParams.GlobalParams.feature_importance=[1.0,0.5,0.1]"
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0,1.0,1.0]"
     f" InfoNCEParameters.GlobalParams.contrast_on=[partition,patient,cycle]"
     f" InfoNCEParameters.weight=1.0 "
     f" Trainer.save_dir={save_dir}/proposed/conv5/global/weight_1.0 "
@@ -90,7 +88,7 @@ proposed = [
 
     f"python main_infonce.py {PretrainParams} Trainer.name=infonce  "
     f" ProjectorParams.GlobalParams.feature_names=[Conv5,Conv5,Conv5]"
-    f" ProjectorParams.GlobalParams.feature_importance=[1.0,0.5,0.1]"
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0,1.0,1.0]"
     f" InfoNCEParameters.GlobalParams.contrast_on=[partition,patient,cycle]"
     f" InfoNCEParameters.weight=5.0 "
     f" Trainer.save_dir={save_dir}/proposed/conv5/global/weight_5.0 "
