@@ -13,6 +13,7 @@ from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, MeterInt
 from deepclustering2.models import ema_updater as EMA_Updater
 from deepclustering2.schedulers.customized_scheduler import RampScheduler
 from deepclustering2.type import T_loss
+from deepclustering2.writer.SummaryWriter import get_tb_writer
 from loguru import logger
 from torch import Tensor
 from torch import nn
@@ -412,6 +413,12 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
         labels = self.global_label_generator(contrast_on)(partition_list=partition_group,
                                                           patient_list=[p.split("_")[0] for p in label_group],
                                                           experiment_list=[p.split("_")[1] for p in label_group])
+        if self.cur_batch_num == 0:  # noqa
+            with self._infonce_criterion.register_writer(
+                get_tb_writer(), epoch=self._cur_epoch,
+                extra_tag=f"{feature_name}/{contrast_on}"
+            ):
+                return self._infonce_criterion(proj_feature_tf, proj_tf_feature, target=labels)
         return self._infonce_criterion(proj_feature_tf, proj_tf_feature, target=labels)
 
     def _dense_based_infonce(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
@@ -451,6 +458,13 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
         _config = get_config(scope="base")
         include_all = _config["InfoNCEParameters"]["DenseParams"].get("include_all", False)
         if include_all:
+            if self.cur_batch_num == 0:  # noqa
+                with self._infonce_criterion.register_writer(
+                    get_tb_writer(),
+                    epoch=self._cur_epoch,
+                    extra_tag=f"{feature_name}/dense"
+                ):
+                    return self._infonce_criterion(proj_feature_tf.reshape(-1, c), proj_tf_feature.reshape(-1, c))
             return self._infonce_criterion(proj_feature_tf.reshape(-1, c), proj_tf_feature.reshape(-1, c))
         else:
             raise RuntimeError("experimental results show that using batch-wise is better")

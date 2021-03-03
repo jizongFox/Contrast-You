@@ -173,7 +173,8 @@ class TrainEpocher(Epocher):
         model.train()
 
     def _run_semi(self, *args, **kwargs) -> EpochResultDict:
-        for i, labeled_data, unlabeled_data in zip(self._indicator, self._labeled_loader, self._unlabeled_loader):
+        for self.cur_batch_num, labeled_data, unlabeled_data in zip(self._indicator, self._labeled_loader,
+                                                                    self._unlabeled_loader):
             seed = random.randint(0, int(1e7))
             labeled_image, labeled_target, labeled_filename, _, label_group = \
                 self._unzip_data(labeled_data, self._device)
@@ -288,7 +289,7 @@ class FineTuneEpocher(TrainEpocher, __AssertOnlyWithLabeledData):
         return self._run_only_label(*args, **kwargs)
 
     def _run_only_label(self, *args, **kwargs) -> EpochResultDict:
-        for i, labeled_data in zip(self._indicator, self._labeled_loader):
+        for self.cur_batch_num, labeled_data in zip(self._indicator, self._labeled_loader):
             labeled_image, labeled_target, labeled_filename, _, label_group = \
                 self._unzip_data(labeled_data, self._device)
             label_logits: Tensor = self.forward_pass(labeled_image=labeled_image)  # noqa

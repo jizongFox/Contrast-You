@@ -130,7 +130,7 @@ class _PretrainEpocherMixin:
         return self._run_pretrain(*args, **kwargs)
 
     def _run_pretrain(self, *args, **kwargs):
-        for i, data in zip(self._indicator, self._chain_dataloader):
+        for self.cur_batch_num, data in zip(self._indicator, self._chain_dataloader):
             seed = random.randint(0, int(1e7))
             unlabeled_image, unlabeled_target, unlabeled_filename, unl_partition, unl_group = \
                 self._unzip_data(data, self._device)

@@ -37,9 +37,10 @@ SharedParams = f" Data.name={args.dataset_name}" \
                f" Arch.num_classes={dataset_name2class_numbers[args.dataset_name]} " \
                f" RandomSeed={random_seed} "
 
-TrainerParams = SharedParams + f" Optim.lr={lr_zooms[args.dataset_name]:.10f} "
+TrainerParams = SharedParams
 
-PretrainParams = SharedParams + f" ContrastiveLoaderParams.group_sample_num={group_sample_num}"
+PretrainParams = SharedParams + f" ContrastiveLoaderParams.group_sample_num={group_sample_num}" \
+                                f" Optim.lr={lr_zooms[args.dataset_name]:.10f} "
 
 save_dir += ("/" + "/".join(
     [
@@ -63,7 +64,7 @@ proposed = [
     # contrastive learning with pretrain Conv5
     f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
     f" ProjectorParams.GlobalParams.feature_names=[Conv5,Conv5,Conv5]"
-    f" ProjectorParams.GlobalParams.feature_importance=[1.0,0.5,0.1]"
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0,1.0,1.0]"
     f" InfoNCEParameters.GlobalParams.contrast_on=[partition,patient,cycle]"
     f" Trainer.save_dir={save_dir}/proposed/conv5/global "
     f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infoncemultitask.yaml",
@@ -71,7 +72,7 @@ proposed = [
     # contrastive learning with pretrain Conv5+
     f"python main_infonce.py {PretrainParams} Trainer.name=infoncepretrain  "
     f" ProjectorParams.GlobalParams.feature_names=[Conv5,Conv5,Conv5]"
-    f" ProjectorParams.GlobalParams.feature_importance=[1.0,0.5,0.1]"
+    f" ProjectorParams.GlobalParams.feature_importance=[1.0,1.0,1.0]"
     f" InfoNCEParameters.GlobalParams.contrast_on=[partition,patient,cycle]"
     f" ProjectorParams.DenseParams.feature_names=[Conv5] "
     f" ProjectorParams.DenseParams.feature_importance=[0.001] "
