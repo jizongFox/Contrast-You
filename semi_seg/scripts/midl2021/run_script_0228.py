@@ -3,8 +3,7 @@ from itertools import cycle
 
 from deepclustering2.cchelper import JobSubmiter
 from deepclustering2.utils import gethash
-
-from semi_seg.scripts.helper import dataset_name2class_numbers, lr_zooms
+from semi_seg.scripts.helper import dataset_name2class_numbers, ft_lr_zooms, pre_lr_zooms
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -16,9 +15,10 @@ comm_parser.add_argument("-e", "--max_epoch", default=100, type=int, help="max e
 comm_parser.add_argument("-s", "--random_seed", default=1, type=int, help="random seed")
 comm_parser.add_argument("--save_dir", required=True, type=str, help="save_dir for the save folder")
 comm_parser.add_argument("--lr", default=None, type=str, help="learning rate")
+comm_parser.add_argument("--pre_lr", default=None, type=str, help="learning rate")
 comm_parser.add_argument("--on-local", default=False, action="store_true", help="run on local")
 comm_parser.add_argument("--time", type=int, default=4, help="submitted time to CC")
-comm_parser.add_argument("--show_cmd",  default=False, action="store_true", help="only show generated cmd.")
+comm_parser.add_argument("--show_cmd", default=False, action="store_true", help="only show generated cmd.")
 
 subparser = parser.add_subparsers(dest='stage')
 baseline = subparser.add_parser("baseline")
@@ -82,7 +82,8 @@ num_batches = args.num_batches
 random_seed = args.random_seed
 max_epoch = args.max_epoch
 dataset_name = args.dataset_name
-lr: str = args.lr or f"{lr_zooms[args.dataset_name]:.10f}"
+lr: str = args.lr or f"{ft_lr_zooms[args.dataset_name]:.10f}"
+pre_lr: str = args.pre_lr or f"{pre_lr_zooms[args.dataset_name]:.10f}"
 num_classes = dataset_name2class_numbers[args.dataset_name]
 __git_hash__ = gethash(__file__)
 
@@ -101,14 +102,13 @@ SharedParams = f" Data.name={dataset_name}" \
                f" Arch.num_classes={num_classes} " \
                f" RandomSeed={random_seed} "
 
-TrainerParams = SharedParams + f" Optim.lr={lr_zooms[args.dataset_name]:.10f} "
-
 
 def _assert_equality(feature_name, importance):
     assert len(feature_name) == len(importance)
 
 
 if args.stage == "baseline":
+    TrainerParams = SharedParams + f" Optim.lr={ft_lr_zooms[args.dataset_name]:.10f} "
     job_array = [
         f"python main_finetune.py {TrainerParams} Trainer.name=finetune Trainer.save_dir={save_dir}/baseline "
     ]
@@ -122,7 +122,9 @@ elif args.stage == "infonce":
     dimportance = args.dense_importance
 
     InfoNCEParams = SharedParams + f" ContrastiveLoaderParams.group_sample_num={group_sample_num} " \
-                                   f" Trainer.name=infoncepretrain "
+                                   f" Trainer.name=infoncepretrain " \
+                                   f" Optim.ft_lr={lr} " \
+                                   f" Optim.pre_lr={pre_lr} "
     save_dir += f"/sample_num_{group_sample_num}"
 
 
@@ -158,7 +160,9 @@ elif args.stage == "softeninfonce":
     weights = args.softenweight
 
     InfoNCEParams = SharedParams + f" ContrastiveLoaderParams.group_sample_num={group_sample_num} " \
-                                   f" Trainer.name=experimentpretrain "
+                                   f" Trainer.name=experimentpretrain " \
+                                   f" Optim.ft_lr={lr} " \
+                                   f" Optim.pre_lr={pre_lr} "
     save_dir += f"/sample_num_{group_sample_num}"
 
 
@@ -196,7 +200,9 @@ elif args.stage == "mixup":
     weights = args.softenweight
 
     InfoNCEParams = SharedParams + f" ContrastiveLoaderParams.group_sample_num={group_sample_num} " \
-                                   f" Trainer.name=experimentmixuppretrain "
+                                   f" Trainer.name=experimentmixuppretrain " \
+                                   f" Optim.ft_lr={lr} " \
+                                   f" Optim.pre_lr={pre_lr} "
     save_dir += f"/sample_num_{group_sample_num}"
 
 
@@ -236,8 +242,11 @@ elif args.stage == "multitask":
 
     InfoNCEParams = SharedParams + f" ContrastiveLoaderParams.group_sample_num={group_sample_num} " \
                                    f" Trainer.name=experimentmultitaskpretrain " \
-                                   f" InfoNCEParameters.GlobalParams.contrast_on=[{','.join(contrast_on)}] "
-    save_dir += f"/sample_num_{group_sample_num}"
+                                   f" InfoNCEParameters.GlobalParams.contrast_on=[{','.join(contrast_on)}] " \
+                                   f" Optim.ft_lr={lr} " \
+                                   f" Optim.pre_lr={pre_lr} "
+    save_dir += f"/sample_num_{group_sample_num}/" \
+                f"contrast_on_{'_'.join(contrast_on)}"
 
 
     def _infonce_script(InfoNCEParams, gfeature_name, gimportance, dfeature_name, dimportance, ):

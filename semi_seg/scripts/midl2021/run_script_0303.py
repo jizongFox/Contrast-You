@@ -4,7 +4,7 @@ from itertools import cycle
 from deepclustering2.cchelper import JobSubmiter
 from deepclustering2.utils import gethash
 
-from semi_seg.scripts.helper import dataset_name2class_numbers, lr_zooms
+from semi_seg.scripts.helper import dataset_name2class_numbers, ft_lr_zooms
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -27,7 +27,7 @@ group_sample_num = args.group_sample_num
 
 __git_hash__ = gethash(__file__)
 
-lr: str = args.lr or f"{lr_zooms[args.dataset_name]:.10f}"
+lr: str = args.lr or f"{ft_lr_zooms[args.dataset_name]:.10f}"
 
 save_dir = args.save_dir
 

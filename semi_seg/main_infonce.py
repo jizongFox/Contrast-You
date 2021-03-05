@@ -4,15 +4,14 @@ from copy import deepcopy
 from pathlib import Path
 
 import numpy as np  # noqa
-from deepclustering2.configparser import ConfigManger
-from deepclustering2.loss import KL_div
-from deepclustering2.utils import set_benchmark, gethash, yaml_load
-from loguru import logger
-
 from contrastyou import PROJECT_PATH
 from contrastyou.arch import UNet
 from contrastyou.arch.unet import arch_order
 from contrastyou.helper import extract_model_state_dict
+from deepclustering2.configparser import ConfigManger
+from deepclustering2.loss import KL_div
+from deepclustering2.utils import set_benchmark, gethash, yaml_load
+from loguru import logger
 from semi_seg.dsutils import get_dataloaders
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, FineTuneTrainer
 
@@ -25,6 +24,11 @@ def main():
     config_manager = ConfigManger(base_path=Path(PROJECT_PATH) / "config/base.yaml")
     with config_manager(scope="base") as config:
         port = random.randint(10000, 60000)
+        parsed_config = config_manager.parsed_config
+        if "Optim" in parsed_config and "lr" in parsed_config["Optim"]:
+            raise RuntimeError("`Optim.lr` should not be provided in this interface, "
+                               "Provide `Optim.pre_lr` and `Optim.ft_lr` instead ")
+
         main_worker(0, 1, config, config_manager, port)
 
 
@@ -52,6 +56,13 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
 
     is_pretrain: bool = trainer_name in pre_trainer_zoos
 
+    pre_lr = config["Optim"].pop("pre_lr", None)
+    ft_lr = config["Optim"].pop("ft_lr", None)
+
+    if is_pretrain:
+        if pre_lr is not None:
+            config["Optim"]["lr"] = float(pre_lr)
+
     trainer = Trainer(
         model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
         val_loader=val_loader, sup_criterion=KL_div(verbose=False),
@@ -78,7 +89,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
             trainer.enable_bn(from_=from_, util_=util_):
             trainer.start_training()
 
-        for labeled_ratio in (0.01,  0.03,  0.05, 1.0):
+        for labeled_ratio in (0.01, 0.03, 0.05, 1.0):
             model.load_state_dict(extract_model_state_dict(
                 os.path.join(trainer._save_dir, "last.pth")),  # noqa
                 strict=True
@@ -100,7 +111,9 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
                     model.component_names.index(from_) <= model.component_names.index(f) <= model.component_names.index(
                         util_)
                 ]
-            # update trainer
+            if ft_lr is not None:
+                config["Optim"]["lr"] = float(ft_lr)
+                # update trainer
             base_config["Trainer"].update(config["Trainer"])
 
             labeled_loader, unlabeled_loader, val_loader = get_dataloaders(base_config)

@@ -1,22 +1,19 @@
 import os
-
-from scipy.sparse import issparse  # noqa
-
-_ = issparse  # noqa
-from contrastyou.helper import extract_model_state_dict
-from deepclustering2.loss import KL_div
 import random
+import warnings
+from copy import deepcopy
 from pathlib import Path
+
 from contrastyou import PROJECT_PATH
 from contrastyou.arch import UNet
+from contrastyou.helper import extract_model_state_dict
 from deepclustering2.configparser import ConfigManger
+from deepclustering2.loss import KL_div
 from deepclustering2.utils import gethash
 from deepclustering2.utils import set_benchmark
-from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos
-from semi_seg.dsutils import get_dataloaders
 from loguru import logger
-from copy import deepcopy
-import warnings
+from semi_seg.dsutils import get_dataloaders
+from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos
 
 warnings.filterwarnings("ignore")
 

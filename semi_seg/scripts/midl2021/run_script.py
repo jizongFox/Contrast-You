@@ -2,7 +2,7 @@ import argparse
 from itertools import cycle
 
 from deepclustering2.cchelper import JobSubmiter
-from semi_seg.scripts.helper import dataset_name2class_numbers, lr_zooms
+from semi_seg.scripts.helper import dataset_name2class_numbers, ft_lr_zooms
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -29,7 +29,7 @@ label_ratio = args.label_ratio
 
 save_dir_main = args.save_dir
 
-lr: str = args.lr or f"{lr_zooms[args.dataset_name]:.10f}"
+lr: str = args.lr or f"{ft_lr_zooms[args.dataset_name]:.10f}"
 
 save_dir = args.save_dir
 
@@ -47,7 +47,7 @@ SharedParams = f" Data.labeled_data_ratio={label_ratio} " \
                f" Trainer.feature_names=[{','.join(features)}] " \
                f" Trainer.feature_importance=[{','.join(importance_weights)}] "
 
-TrainerParams = SharedParams + f" Optim.lr={lr_zooms[args.dataset_name]:.10f} "
+TrainerParams = SharedParams + f" Optim.lr={ft_lr_zooms[args.dataset_name]:.10f} "
 
 PretrainParams = SharedParams + f"InfoNCEParameters.DecoderParams.output_size=[{output_size},{output_size}]"
 
