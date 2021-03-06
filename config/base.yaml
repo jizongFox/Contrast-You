@@ -13,7 +13,7 @@ Optim:
   weight_decay: 0.00001
 
 Scheduler:
-  multiplier: 400
+  multiplier: 200
   warmup_max: 10
 
 Data:

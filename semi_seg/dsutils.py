@@ -1,14 +1,13 @@
 from copy import deepcopy
 
+from contrastyou import DATA_PATH
+from contrastyou.datasets import ACDCSemiInterface, SpleenSemiInterface, ProstateSemiInterface, MMWHSSemiInterface
 from deepclustering2.dataloader.distributed import InfiniteDistributedSampler
 from deepclustering2.dataloader.sampler import InfiniteRandomSampler
 from deepclustering2.dataset import PatientSampler
 from loguru import logger
-from torch.utils.data import DataLoader
-
-from contrastyou import DATA_PATH
-from contrastyou.datasets import ACDCSemiInterface, SpleenSemiInterface, ProstateSemiInterface, MMWHSSemiInterface
 from semi_seg.augment import ACDCStrongTransforms, SpleenStrongTransforms, ProstateStrongTransforms
+from torch.utils.data import DataLoader
 
 dataset_zoos = {
     "acdc": ACDCSemiInterface,
@@ -44,7 +43,8 @@ def get_dataloaders(config, group_val_patient=True):
         unlabeled_transform=augmentinferface.pretrain,
         val_transform=augmentinferface.val
     )
-
+    logger.debug(
+        f"labeled group length:{len(label_set.get_group_list())}, : {','.join(sorted(label_set.get_group_list()))}")
     # labeled loader is with normal 2d slicing and InfiniteRandomSampler
     labeled_sampler = InfiniteRandomSampler(
         label_set,

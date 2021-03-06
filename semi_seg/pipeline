@@ -6,7 +6,7 @@ set -e
 
 python main.py Trainer.max_epoch=${max_epoch} Trainer.num_batches=${num_batches} \
   Arch.num_classes=4 RandomSeed=1 \
-  ContrastiveLoaderParams.group_sample_num=3 Trainer.name=infoncepretrain \
+  ContrastiveLoaderParams.group_sample_num=8 Trainer.name=infoncepretrain \
   ProjectorParams.GlobalParams.feature_names=[Conv5,Conv5,Conv5] \
   ProjectorParams.GlobalParams.feature_importance=[1.0,1.0,1.0] \
   Trainer.save_dir=${save_dir}/pretrain --opt_config_path ../config/specific/pretrain.yaml ../config/specific/new.yaml

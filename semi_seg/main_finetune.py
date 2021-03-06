@@ -10,8 +10,7 @@ from pathlib import Path
 from contrastyou import PROJECT_PATH
 from contrastyou.arch import UNet
 from deepclustering2.configparser import ConfigManger
-from deepclustering2.utils import gethash
-from deepclustering2.utils import set_benchmark
+from deepclustering2.utils import gethash, fix_all_seed
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, DirectTrainer
 from semi_seg.dsutils import get_dataloaders
 from loguru import logger
@@ -34,7 +33,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
     base_save_dir = str(config["Trainer"]["save_dir"])
     logger.add(os.path.join("runs", base_save_dir, "loguru.log"), level="TRACE", diagnose=True, )
 
-    set_benchmark(config.get("RandomSeed", 1))
+    fix_all_seed(config.get("RandomSeed", 1))
 
     config_arch = deepcopy(config["Arch"])
     model_checkpoint = config_arch.pop("checkpoint", None)

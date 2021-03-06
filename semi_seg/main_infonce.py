@@ -10,7 +10,7 @@ from contrastyou.arch.unet import arch_order
 from contrastyou.helper import extract_model_state_dict
 from deepclustering2.configparser import ConfigManger
 from deepclustering2.loss import KL_div
-from deepclustering2.utils import set_benchmark, gethash, yaml_load
+from deepclustering2.utils import set_benchmark, gethash, yaml_load, fix_all_seed
 from loguru import logger
 from semi_seg.dsutils import get_dataloaders
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, FineTuneTrainer
@@ -37,7 +37,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
     base_save_dir = str(config["Trainer"]["save_dir"])
     logger.add(os.path.join("runs", base_save_dir, "loguru.log"), level="TRACE", diagnose=True)
 
-    set_benchmark(config.get("RandomSeed", 1))
+    fix_all_seed(config.get("RandomSeed", 1))
 
     labeled_loader, unlabeled_loader, val_loader = get_dataloaders(config)
 

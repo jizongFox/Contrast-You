@@ -1,9 +1,9 @@
 #!/bin/bash
-batch_size=30
-epoch=1
+batch_size=200
+epoch=120
 rand_seed=10
 save_dir=test_pipeline
-group_num=6
+group_num=3
 comm_cmd=" --on-local"
 
 python run_script_0228.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${batch_size} -e ${epoch} -s ${rand_seed} --time=2 \
@@ -74,3 +74,6 @@ python run_script_0228.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${batch_
 
  python run_script_0228.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${batch_size} -e ${epoch} -s ${rand_seed} --time=4 \
  multitask --global_features Conv5  --global_importance 1  --contrast_on cycle  -g=${group_num}
+
+ python run_script_0228.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${batch_size} -e ${epoch} -s ${rand_seed} --time=4 \
+   multitask --global_features Conv5 Conv5 Conv5 --global_importance 1 0.1 0.1 --contrast_on partition patient cycle -g=${group_num}
