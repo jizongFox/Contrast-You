@@ -3,14 +3,14 @@ import random
 from copy import deepcopy
 from pathlib import Path
 
-from deepclustering2.configparser import ConfigManger
-from deepclustering2.loss import KL_div
-from deepclustering2.utils import gethash, fix_all_seed
 from loguru import logger
 
 from contrastyou import PROJECT_PATH
 from contrastyou.arch import UNet
 from contrastyou.helper import extract_model_state_dict
+from deepclustering2.configparser import ConfigManger
+from deepclustering2.loss import KL_div
+from deepclustering2.utils import gethash, fix_all_seed
 from semi_seg.dsutils import get_dataloaders
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, DirectTrainer
 
@@ -45,7 +45,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
     assert trainer_name in ("finetune", "directtrain"), trainer_name
     base_model_checkpoint = deepcopy(model.state_dict())
 
-    for labeled_ratio in (0.01, 0.03, 0.05, 1.0):
+    for labeled_ratio in (0.01, 0.015, 0.025, 1.0):
         model.load_state_dict(base_model_checkpoint)
 
         config["Data"]["labeled_data_ratio"] = labeled_ratio

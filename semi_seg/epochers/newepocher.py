@@ -4,7 +4,6 @@ import numpy as np
 import torch
 from deepclustering2.configparser._utils import get_config  # noqa
 from deepclustering2.meters2 import MeterInterface, AverageValueMeter
-from deepclustering2.type import T_loss
 from deepclustering2.utils import simplex, class2one_hot, one_hot
 from loguru import logger
 from sklearn.preprocessing import LabelEncoder
@@ -17,7 +16,6 @@ from contrastyou.losses.iic_loss import _ntuple  # noqa
 from contrastyou.projectors.nn import Normalize
 from . import unl_extractor, ProjectionHead
 from .comparable import InfoNCEEpocher
-from .._utils import ContrastiveProjectorWrapper
 
 
 @torch.no_grad()
@@ -50,35 +48,35 @@ def generate_mixup_image(image_list1: Tensor, image_list2: Tensor, label_list1: 
     return mixed_image, mixed_target
 
 
+def config_meter_with_soften_setting(meters):
+    config = get_config(scope="base")
+    for f in config["ProjectorParams"]["GlobalParams"]["feature_names"] or []:
+        m = "global"
+        meters.register_meter(f"{f}_{m}/hardcode_mi", AverageValueMeter(), )
+        meters.register_meter(f"{f}_{m}/soften_mi", AverageValueMeter(), )
+    for f in config["ProjectorParams"]["DenseParams"]["feature_names"] or []:
+        m = "dense"
+        meters.register_meter(f"{f}_{m}/hardcore_mi", AverageValueMeter(), )
+        meters.register_meter(f"{f}_{m}/soften_mi", AverageValueMeter(), )
+    return meters
+
+
 class EncoderDenseContrastEpocher(InfoNCEEpocher):
     """
     adding a soften loss for both global and dense features.
     """
 
-    def _init(self, *, reg_weight: float, projectors_wrapper: ContrastiveProjectorWrapper = None,
-              infoNCE_criterion: T_loss = None, **kwargs):
-        super()._init(reg_weight=reg_weight, projectors_wrapper=projectors_wrapper, infoNCE_criterion=infoNCE_criterion,
-                      **kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._infonce_criterion2 = SupConLoss3()  # adding a soften loss
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super(EncoderDenseContrastEpocher, self)._configure_meters(meters)
-        config = get_config(scope="base")
-        # todo: adding try except within a context manager
-        for f in config["ProjectorParams"]["GlobalParams"]["feature_names"] or []:
-            m = "global"
-            meters.register_meter(f"{f}_{m}/hardcode_mi", AverageValueMeter(), )
-            meters.register_meter(f"{f}_{m}/soften_mi", AverageValueMeter(), )
-        for f in config["ProjectorParams"]["DenseParams"]["feature_names"] or []:
-            m = "dense"
-            meters.register_meter(f"{f}_{m}/hardcore_mi", AverageValueMeter(), )
-            meters.register_meter(f"{f}_{m}/soften_mi", AverageValueMeter(), )
-
+        meters = config_meter_with_soften_setting(meters)
         return meters
 
     def _global_infonce(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
                         label_group) -> Tensor:
-
         # global loss with hard coded loss.
         unregulated_loss = super(EncoderDenseContrastEpocher, self)._global_infonce(
             feature_name=feature_name,
@@ -107,11 +105,13 @@ class EncoderDenseContrastEpocher(InfoNCEEpocher):
     def _dense_infonce_for_encoder(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
                                    label_group):
         # get unregularized loss based on index of the dense feature map.
-        unregularized_loss = super()._dense_infonce_for_encoder(feature_name=feature_name,
-                                                                proj_tf_feature=proj_tf_feature,
-                                                                proj_feature_tf=proj_feature_tf,
-                                                                partition_group=partition_group,
-                                                                label_group=label_group)
+        unregularized_loss = super()._dense_infonce_for_encoder(
+            feature_name=feature_name,
+            proj_tf_feature=proj_tf_feature,
+            proj_feature_tf=proj_feature_tf,
+            partition_group=partition_group,
+            label_group=label_group
+        )
         # repeat a bit
         assert "Conv" in feature_name, feature_name
 
@@ -144,25 +144,13 @@ class EncoderDenseMixupContrastEpocher(InfoNCEEpocher):
     This epocher inherits the infoNCE epocher and then apply mixup for it.
     """
 
-    def _init(self, *, reg_weight: float, projectors_wrapper: ContrastiveProjectorWrapper = None,
-              infoNCE_criterion: T_loss = None, **kwargs):
-        super()._init(reg_weight=reg_weight, projectors_wrapper=projectors_wrapper, infoNCE_criterion=infoNCE_criterion,
-                      **kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._infonce_criterion2 = SupConLoss4()  # adding a soften loss
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super(EncoderDenseMixupContrastEpocher, self)._configure_meters(meters)
-        config = get_config(scope="base")
-        # todo: adding try except within a context manager
-        for f in config["ProjectorParams"]["GlobalParams"]["feature_names"] or []:
-            m = "global"
-            meters.register_meter(f"{f}_{m}/hardcode_mi", AverageValueMeter(), )
-            meters.register_meter(f"{f}_{m}/mixup_mi", AverageValueMeter(), )
-        for f in config["ProjectorParams"]["DenseParams"]["feature_names"] or []:
-            m = "dense"
-            meters.register_meter(f"{f}_{m}/hardcode_mi", AverageValueMeter(), )
-            meters.register_meter(f"{f}_{m}/mixup_mi", AverageValueMeter(), )
-
+        meters = config_meter_with_soften_setting(meters)
         return meters
 
     def run(self, *args, **kwargs):
@@ -177,6 +165,7 @@ class EncoderDenseMixupContrastEpocher(InfoNCEEpocher):
     def regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int,
                        label_group: List[str], partition_group: List[str], unlabeled_image=None,
                        unlabeled_image_tf=None, **kwargs):
+        # adding mixup here.
         def prepare_mixup():
             # creating mixup images and labels =====
             b, c, h, w = unlabeled_image.shape
@@ -188,8 +177,9 @@ class EncoderDenseMixupContrastEpocher(InfoNCEEpocher):
                                                                 image_list2=unlabeled_image_tf[rand_index],
                                                                 label_list1=oh_label, label_list2=oh_label[rand_index])
             # pass the mixup image to the network
-            with self._fextractor_mixup.enable_register(), self._fextractor.disable_register():
-                _ = self._model(mixed_image)
+            with self._fextractor.disable_register():
+                with self._fextractor_mixup.enable_register():
+                    _ = self._model(mixed_image)
 
             register_variable(name="oh_target", object_=oh_label)
             register_variable(name="mixed_oh_target", object_=mixed_oh_target)
@@ -202,10 +192,6 @@ class EncoderDenseMixupContrastEpocher(InfoNCEEpocher):
             unlabeled_image_tf=unlabeled_image_tf, **kwargs)
 
         return reg_loss
-
-    def _dense_infonce_for_decoder(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
-                                   label_group):
-        raise RuntimeError(f"{self.__class__.__name__} does not support contrasting on dense feature from decoder")
 
     def _regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group,
                         partition_group, **kwargs):
@@ -227,6 +213,10 @@ class EncoderDenseMixupContrastEpocher(InfoNCEEpocher):
             [-x.item() for x in losses]
         )))
         return reg_loss
+
+    def _dense_infonce_for_decoder(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
+                                   label_group):
+        raise RuntimeError(f"{self.__class__.__name__} does not support contrasting on dense feature from decoder")
 
     def generate_infonce(self, *, feature_name, features, mixup_feature=None, projector, seed, partition_group,
                          label_group) -> Tensor:

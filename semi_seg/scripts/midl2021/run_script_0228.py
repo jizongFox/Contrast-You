@@ -285,6 +285,7 @@ for j in job_array:
             "source ../venv/bin/activate ",
             "export OMP_NUM_THREADS=1",
             "export PYTHONOPTIMIZE=1",
+            "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
             # "export LOGURU_LEVEL=INFO"
         ]
     )

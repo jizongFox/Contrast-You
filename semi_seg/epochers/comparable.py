@@ -27,21 +27,12 @@ from contrastyou.losses.iic_loss import _ntuple
 from contrastyou.projectors.heads import ProjectionHead
 from contrastyou.projectors.nn import Normalize
 from semi_seg._utils import ContrastiveProjectorWrapper
-from ._helper import unl_extractor, __AssertWithUnLabeledData, _FeatureExtractorMixin
+from ._helper import unl_extractor, __AssertWithUnLabeledData, _FeatureExtractorMixin, _MeanTeacherMixin
 from .base import TrainEpocher
 from .miepocher import MITrainEpocher, ConsistencyTrainEpocher
 
 
-class MeanTeacherEpocher(TrainEpocher, __AssertWithUnLabeledData):
-
-    def _init(self, *, reg_weight: float, teacher_model: nn.Module, reg_criterion: T_loss,  # noqa
-              ema_updater: EMA_Updater, **kwargs):  # noqa
-        super()._init(reg_weight=reg_weight, **kwargs)
-        self._reg_criterion = reg_criterion  # noqa
-        self._teacher_model = teacher_model  # noqa
-        self._ema_updater = ema_updater  # noqa
-        self._model.train()
-        self._teacher_model.train()
+class MeanTeacherEpocher(_MeanTeacherMixin, TrainEpocher, __AssertWithUnLabeledData):
 
     def _regularization(
         self,
@@ -52,23 +43,17 @@ class MeanTeacherEpocher(TrainEpocher, __AssertWithUnLabeledData):
         unlabeled_image: Tensor,
         unlabeled_image_tf: Tensor, **kwargs
     ):
-        with torch.no_grad():
-            teacher_unlabeled_logit = self._teacher_model(unlabeled_image)
-        with FixRandomSeed(seed):
-            teacher_unlabeled_logit_tf = torch.stack(
-                [self._affine_transformer(x) for x in teacher_unlabeled_logit], dim=0)
-
-        # compare teacher_unlabeled_logit_tf and student unlabeled_tf_logits
-        reg_loss = self._reg_criterion(unlabeled_tf_logits.softmax(1), teacher_unlabeled_logit_tf.softmax(1).detach())
-        # update teacher model here.
-        self._ema_updater(self._teacher_model, self._model)
-        return reg_loss
+        mt_reg = self._mt_regularization(
+            unlabeled_tf_logits=unlabeled_tf_logits,
+            seed=seed, unlabeled_image=unlabeled_image
+        )
+        return mt_reg
 
 
 class UCMeanTeacherEpocher(MeanTeacherEpocher, __AssertWithUnLabeledData):
 
-    def _init(self, *, reg_weight: float, teacher_model: nn.Module, reg_criterion: T_loss, ema_updater: EMA_Updater,
-              threshold: RampScheduler = None, **kwargs):
+    def _init(self, *, reg_weight: float, teacher_model: nn.Module, reg_criterion: T_loss,  # noqa
+              ema_updater: EMA_Updater, threshold: RampScheduler = None, **kwargs):  # noqa
         super()._init(reg_weight=reg_weight, teacher_model=teacher_model, reg_criterion=reg_criterion,
                       ema_updater=ema_updater, **kwargs)
         assert isinstance(threshold, RampScheduler), threshold
@@ -83,6 +68,7 @@ class UCMeanTeacherEpocher(MeanTeacherEpocher, __AssertWithUnLabeledData):
 
     def _regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int,
                         unlabeled_image: Tensor, unlabeled_image_tf: Tensor, **kwargs):
+        # override completely the reguarization function.
         @torch.no_grad()
         def get_teacher_pred_with_tf(uimage, noise=None):
             if noise is not None:

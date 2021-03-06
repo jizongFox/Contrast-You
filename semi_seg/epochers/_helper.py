@@ -8,6 +8,8 @@ from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.meters2 import EpochResultDict, MeterInterface
 from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.tqdm import tqdm, item2str
+from deepclustering2.type import T_loss
+from deepclustering2.models import ema_updater as EMA_Updater
 from loguru import logger
 from torch import nn, Tensor
 from torch.optim.optimizer import Optimizer
@@ -95,6 +97,39 @@ class _FeatureExtractorMixin:
         self._fextractor.clear()
         with self._fextractor.enable_register():
             return super(_FeatureExtractorMixin, self).forward_pass(*args, **kwargs)  # noqa
+
+
+# mean teacher mixin
+class _MeanTeacherMixin:
+    _affine_transformer: Callable[[Tensor], Tensor]
+    _model: nn.Module
+
+    def _init(self, *, teacher_model: nn.Module, reg_criterion: T_loss,
+              ema_updater: EMA_Updater, **kwargs):
+        super(_MeanTeacherMixin, self)._init(**kwargs)  # noqa
+        self._reg_criterion = reg_criterion  # noqa
+        self._teacher_model = teacher_model  # noqa
+        self._ema_updater = ema_updater  # noqa
+        self._teacher_model.train()
+
+    def _mt_regularization(
+        self,
+        *,
+        unlabeled_tf_logits: Tensor,
+        seed: int,
+        unlabeled_image: Tensor,
+    ):
+        with torch.no_grad():
+            teacher_unlabeled_logit = self._teacher_model(unlabeled_image)
+        with FixRandomSeed(seed):
+            teacher_unlabeled_logit_tf = torch.stack(
+                [self._affine_transformer(x) for x in teacher_unlabeled_logit], dim=0)
+
+        # compare teacher_unlabeled_logit_tf and student unlabeled_tf_logits
+        reg_loss = self._reg_criterion(unlabeled_tf_logits.softmax(1), teacher_unlabeled_logit_tf.softmax(1).detach())
+        # update teacher model here.
+        self._ema_updater(self._teacher_model, self._model)
+        return reg_loss
 
 
 # ======== base pretrain epocher mixin ================

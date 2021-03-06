@@ -1,6 +1,7 @@
 #!/bin/bash
-batch_size=200
-epoch=120
+set -e pipefail
+batch_size=2
+epoch=2
 rand_seed=10
 save_dir=test_pipeline
 group_num=3
