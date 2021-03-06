@@ -4,14 +4,15 @@ from copy import deepcopy
 from pathlib import Path
 
 import numpy as np  # noqa
+from deepclustering2.configparser import ConfigManger
+from deepclustering2.loss import KL_div
+from deepclustering2.utils import gethash, yaml_load, fix_all_seed
+from loguru import logger
+
 from contrastyou import PROJECT_PATH
 from contrastyou.arch import UNet
 from contrastyou.arch.unet import arch_order
 from contrastyou.helper import extract_model_state_dict
-from deepclustering2.configparser import ConfigManger
-from deepclustering2.loss import KL_div
-from deepclustering2.utils import set_benchmark, gethash, yaml_load, fix_all_seed
-from loguru import logger
 from semi_seg.dsutils import get_dataloaders
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, FineTuneTrainer
 

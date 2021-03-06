@@ -3,12 +3,14 @@ import collections
 import functools
 import warnings
 from contextlib import contextmanager
-from typing import Union, Dict
+from typing import Union, Dict, Any
 
 import matplotlib.pyplot as plt
 import torch
 from torch.utils.data import Dataset
 from torch.utils.data.dataloader import DataLoader, _BaseDataLoaderIter  # noqa
+
+__variable_dict = {}
 
 
 def flatten_dict(d, parent_key="", sep="_"):
@@ -136,3 +138,11 @@ def deprecated(func):
         return func(*args, **kwargs)
 
     return new_func
+
+
+def register_variable(*, name: str, object_: Any):
+    __variable_dict[name] = object_
+
+
+def get_variable(*, name: str):
+    return __variable_dict[name]

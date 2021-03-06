@@ -1,4 +1,4 @@
-from typing import List, Any
+from typing import List
 
 import numpy as np
 import torch
@@ -11,23 +11,13 @@ from sklearn.preprocessing import LabelEncoder
 from torch import Tensor
 
 from contrastyou.featextractor import FeatureExtractorWithIndex as FeatureExtractor
-from contrastyou.helper import weighted_average_iter
+from contrastyou.helper import weighted_average_iter, register_variable, get_variable
 from contrastyou.losses.contrast_loss import SupConLoss3, is_normalized, SupConLoss4
 from contrastyou.losses.iic_loss import _ntuple  # noqa
 from contrastyou.projectors.nn import Normalize
 from . import unl_extractor, ProjectionHead
 from .comparable import InfoNCEEpocher
 from .._utils import ContrastiveProjectorWrapper
-
-__variable_dict = {}
-
-
-def register_variable(*, name: str, object_: Any):
-    __variable_dict[name] = object_
-
-
-def get_variable(*, name: str):
-    return __variable_dict[name]
 
 
 @torch.no_grad()
@@ -364,4 +354,3 @@ class EncoderDenseMixupContrastEpocher(InfoNCEEpocher):
 
 class EncoderMultiTaskContrastiveEpocher(InfoNCEEpocher):
     pass
-

@@ -9,6 +9,7 @@ comm_cmd=" --on-local"
 python run_script_0228.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${batch_size} -e ${epoch} -s ${rand_seed} --time=2 \
  baseline
 
+
 ## infonce only global
 #python run_script_0228.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${batch_size} -e ${epoch} -s ${rand_seed} --time=3 \
 #   infonce --global_features Conv5 --global_importance 1

@@ -1,20 +1,18 @@
 import os
-
-from scipy.sparse import issparse  # noqa
-
-_ = issparse  # noqa
-from contrastyou.helper import extract_model_state_dict
-from deepclustering2.loss import KL_div
 import random
+from copy import deepcopy
 from pathlib import Path
+
+from deepclustering2.configparser import ConfigManger
+from deepclustering2.loss import KL_div
+from deepclustering2.utils import gethash, fix_all_seed
+from loguru import logger
+
 from contrastyou import PROJECT_PATH
 from contrastyou.arch import UNet
-from deepclustering2.configparser import ConfigManger
-from deepclustering2.utils import gethash, fix_all_seed
-from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, DirectTrainer
+from contrastyou.helper import extract_model_state_dict
 from semi_seg.dsutils import get_dataloaders
-from loguru import logger
-from copy import deepcopy
+from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, DirectTrainer
 
 cur_githash = gethash(__file__)  # noqa
 
