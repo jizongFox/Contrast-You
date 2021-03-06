@@ -1,6 +1,6 @@
 InfoNCEParameters:
   GlobalParams:
-    contrast_on:  partition
+    contrast_on: partition
   DenseParams:
     include_all: true
   LossParams:
@@ -27,4 +27,6 @@ ProjectorParams:
     spatial_size: 16
     softweight: 0.01
 
-
+Trainer:
+  pre_max_epoch: null
+  ft_max_epoch: null

@@ -26,3 +26,7 @@ ProjectorParams:
     pool_name: identical # adaptive_max #identical
     spatial_size: 16
     pool_method: adaptive_avg
+
+Trainer:
+  pre_max_epoch: null
+  ft_max_epoch: null

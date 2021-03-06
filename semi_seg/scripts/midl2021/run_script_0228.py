@@ -11,7 +11,6 @@ comm_parser = parser.add_argument_group("common options")
 
 comm_parser.add_argument("-n", "--dataset_name", default="acdc", type=str, help="dataset name")
 comm_parser.add_argument("-b", "--num_batches", default=500, type=int, help="num batches")
-comm_parser.add_argument("-e", "--max_epoch", default=100, type=int, help="max epoch")
 comm_parser.add_argument("-s", "--random_seed", default=1, type=int, help="random seed")
 comm_parser.add_argument("--save_dir", required=True, type=str, help="save_dir for the save folder")
 comm_parser.add_argument("--lr", default=None, type=str, help="learning rate")
@@ -28,7 +27,7 @@ mixup = subparser.add_parser("mixup")
 multitask = subparser.add_parser("multitask")
 
 # baseline
-
+baseline.add_argument("-fe", "--ft_max_epoch", type=str, default="null", help="finetune max_epoch")
 
 # infonce
 infonce.add_argument("-g", "--group_sample_num", default=6, type=int)
@@ -39,6 +38,8 @@ infonce.add_argument("--global_importance", nargs="+", type=float, default=[1.0,
 infonce.add_argument("--dense_features", nargs="+", choices=["Conv5", "Conv4", "Conv3", "Conv2"], default=[],
                      type=str, help="dense_features")
 infonce.add_argument("--dense_importance", nargs="+", type=float, default=[], help="dense importance")
+infonce.add_argument("-pe", "--pre_max_epoch", type=str, default="null", help="pretrain max_epoch")
+infonce.add_argument("-fe", "--ft_max_epoch", type=str, default="null", help="finetune max_epoch")
 
 # soften infonce
 softeninfonce.add_argument("-g", "--group_sample_num", default=6, type=int)
@@ -53,6 +54,8 @@ softeninfonce.add_argument("--dense_features", nargs="+", choices=["Conv5", "Con
 softeninfonce.add_argument("--dense_importance", nargs="+", type=float, default=[], help="dense importance")
 softeninfonce.add_argument("--softenweight", nargs="+", type=float, default=[0.005, ],
                            help="weight between hard and soften")
+softeninfonce.add_argument("-pe", "--pre_max_epoch", type=str, default="null", help="pretrain max_epoch")
+softeninfonce.add_argument("-fe", "--ft_max_epoch", type=str, default="null", help="finetune max_epoch")
 
 # mixup
 mixup.add_argument("-g", "--group_sample_num", default=6, type=int)
@@ -67,6 +70,8 @@ mixup.add_argument("--dense_features", nargs="+", choices=["Conv5", "Conv4", "Co
 mixup.add_argument("--dense_importance", nargs="+", type=float, default=[], help="dense importance")
 mixup.add_argument("--softenweight", nargs="+", type=float, default=[0.005, ],
                    help="weight between hard and soften")
+mixup.add_argument("-pe", "--pre_max_epoch", type=str, default="null", help="pretrain max_epoch")
+mixup.add_argument("-fe", "--ft_max_epoch", type=str, default="null", help="finetune max_epoch")
 
 # multitask
 multitask.add_argument("-g", "--group_sample_num", default=6, type=int)
@@ -74,13 +79,14 @@ multitask.add_argument("--global_features", nargs="+", choices=["Conv5", "Conv4"
                        default=["Conv5"], type=str, help="global_features")
 multitask.add_argument("--global_importance", nargs="+", type=float, default=[1.0, ], help="global importance")
 multitask.add_argument("--contrast_on", type=str, nargs="+", required=True, choices=["partition", "patient", "cycle"])
+multitask.add_argument("-pe", "--pre_max_epoch", type=str, default="null", help="pretrain max_epoch")
+multitask.add_argument("-fe", "--ft_max_epoch", type=str, default="null", help="finetune max_epoch")
 
 args = parser.parse_args()
 
 # setting common params
 num_batches = args.num_batches
 random_seed = args.random_seed
-max_epoch = args.max_epoch
 dataset_name = args.dataset_name
 lr: str = args.lr or f"{ft_lr_zooms[args.dataset_name]:.10f}"
 pre_lr: str = args.pre_lr or f"{pre_lr_zooms[args.dataset_name]:.10f}"
@@ -97,7 +103,6 @@ save_dir += ("/" + "/".join(
     ]))
 
 SharedParams = f" Data.name={dataset_name}" \
-               f" Trainer.max_epoch={max_epoch} " \
                f" Trainer.num_batches={num_batches} " \
                f" Arch.num_classes={num_classes} " \
                f" RandomSeed={random_seed} "
@@ -108,7 +113,9 @@ def _assert_equality(feature_name, importance):
 
 
 if args.stage == "baseline":
-    TrainerParams = SharedParams + f" Optim.lr={ft_lr_zooms[args.dataset_name]:.10f} "
+    max_epoch = args.ft_max_epoch
+    TrainerParams = SharedParams + f" Optim.lr={lr} " \
+                                   f" Trainer.max_epoch={max_epoch} "
     job_array = [
         f"python main_finetune.py {TrainerParams} Trainer.name=finetune Trainer.save_dir={save_dir}/baseline "
     ]
@@ -120,11 +127,15 @@ elif args.stage == "infonce":
     gimportance = args.global_importance
     dfeature = args.dense_features
     dimportance = args.dense_importance
+    pre_max_epoch = args.pre_max_epoch
+    ft_max_epoch = args.ft_max_epoch
 
     InfoNCEParams = SharedParams + f" ContrastiveLoaderParams.group_sample_num={group_sample_num} " \
                                    f" Trainer.name=infoncepretrain " \
                                    f" Optim.ft_lr={lr} " \
-                                   f" Optim.pre_lr={pre_lr} "
+                                   f" Optim.pre_lr={pre_lr} " \
+                                   f" Trainer.pre_max_epoch={pre_max_epoch} " \
+                                   f" Trainer.ft_max_epoch={ft_max_epoch} "
     save_dir += f"/sample_num_{group_sample_num}"
 
 
@@ -158,11 +169,15 @@ elif args.stage == "softeninfonce":
     dfeature = args.dense_features
     dimportance = args.dense_importance
     weights = args.softenweight
+    pre_max_epoch = args.pre_max_epoch
+    ft_max_epoch = args.ft_max_epoch
 
     InfoNCEParams = SharedParams + f" ContrastiveLoaderParams.group_sample_num={group_sample_num} " \
                                    f" Trainer.name=experimentpretrain " \
                                    f" Optim.ft_lr={lr} " \
-                                   f" Optim.pre_lr={pre_lr} "
+                                   f" Optim.pre_lr={pre_lr} " \
+                                   f" Trainer.pre_max_epoch={pre_max_epoch} " \
+                                   f" Trainer.ft_max_epoch={ft_max_epoch} "
     save_dir += f"/sample_num_{group_sample_num}"
 
 
@@ -198,11 +213,15 @@ elif args.stage == "mixup":
     dfeature = args.dense_features
     dimportance = args.dense_importance
     weights = args.softenweight
+    pre_max_epoch = args.pre_max_epoch
+    ft_max_epoch = args.ft_max_epoch
 
     InfoNCEParams = SharedParams + f" ContrastiveLoaderParams.group_sample_num={group_sample_num} " \
                                    f" Trainer.name=experimentmixuppretrain " \
                                    f" Optim.ft_lr={lr} " \
-                                   f" Optim.pre_lr={pre_lr} "
+                                   f" Optim.pre_lr={pre_lr} " \
+                                   f" Trainer.pre_max_epoch={pre_max_epoch} " \
+                                   f" Trainer.ft_max_epoch={ft_max_epoch} "
     save_dir += f"/sample_num_{group_sample_num}"
 
 
@@ -238,13 +257,18 @@ elif args.stage == "multitask":
     dfeature = []
     dimportance = []
     contrast_on = args.contrast_on
+    pre_max_epoch = args.pre_max_epoch
+    ft_max_epoch = args.ft_max_epoch
+
     assert len(gfeature) == len(contrast_on)
 
     InfoNCEParams = SharedParams + f" ContrastiveLoaderParams.group_sample_num={group_sample_num} " \
                                    f" Trainer.name=experimentmultitaskpretrain " \
                                    f" InfoNCEParameters.GlobalParams.contrast_on=[{','.join(contrast_on)}] " \
                                    f" Optim.ft_lr={lr} " \
-                                   f" Optim.pre_lr={pre_lr} "
+                                   f" Optim.pre_lr={pre_lr} " \
+                                   f" Trainer.pre_max_epoch={pre_max_epoch} " \
+                                   f" Trainer.ft_max_epoch={ft_max_epoch} "
     save_dir += f"/sample_num_{group_sample_num}/" \
                 f"contrast_on_{'_'.join(contrast_on)}"
 

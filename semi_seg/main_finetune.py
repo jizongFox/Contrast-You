@@ -4,7 +4,7 @@ from copy import deepcopy
 from pathlib import Path
 
 from loguru import logger
-
+import numpy # noqa
 from contrastyou import PROJECT_PATH
 from contrastyou.arch import UNet
 from contrastyou.helper import extract_model_state_dict

@@ -28,7 +28,10 @@ def main():
         parsed_config = config_manager.parsed_config
         if "Optim" in parsed_config and "lr" in parsed_config["Optim"]:
             raise RuntimeError("`Optim.lr` should not be provided in this interface, "
-                               "Provide `Optim.pre_lr` and `Optim.ft_lr` instead ")
+                               "Provide `Optim.pre_lr` and `Optim.ft_lr` instead.")
+        if "max_epoch" in parsed_config["Trainer"]:
+            raise RuntimeError("Trainer.max_epoch should not be provided,"
+                               "Provide `Trainer.pre_max_epoch` and `Trainer.ft_max_epoch` instead.")
 
         main_worker(0, 1, config, config_manager, port)
 
@@ -42,8 +45,8 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
     trainer_name = config["Trainer"]["name"]
     assert trainer_name in ("infoncepretrain", "experimentpretrain", "experimentmixuppretrain"), trainer_name  # noqa
 
-    pre_lr = config["Optim"].pop("pre_lr", None)
-    ft_lr = config["Optim"].pop("ft_lr", None)
+    pre_lr, ft_lr = config["Optim"].pop("pre_lr", None), config["Optim"].pop("ft_lr", None)
+    pre_max_epoch, ft_max_epoch = config["Trainer"].pop("pre_max_epoch"), config["Trainer"].pop("ft_max_epoch")
 
     def pretrain():
         labeled_loader, unlabeled_loader, val_loader = get_dataloaders(config)
@@ -60,6 +63,8 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
 
         if pre_lr is not None:
             config["Optim"]["lr"] = float(pre_lr)
+        if pre_max_epoch is not None:
+            config["Trainer"]["max_epoch"] = int(pre_max_epoch)
 
         trainer = Trainer(
             model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
@@ -108,9 +113,11 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
                     util_)
             ]
         if ft_lr is not None:
-            config["Optim"]["lr"] = float(ft_lr)
-            # update trainer
+            base_config["Optim"]["lr"] = float(ft_lr)
+        # update trainer
         base_config["Trainer"].update(config["Trainer"])
+        if ft_max_epoch is not None:
+            base_config["Trainer"]["max_epoch"] = int(ft_max_epoch)
 
         labeled_loader, unlabeled_loader, val_loader = get_dataloaders(base_config)
 
