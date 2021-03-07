@@ -5,15 +5,6 @@ from itertools import cycle
 from typing import Callable, Iterable
 
 import torch
-from deepclustering2.configparser._utils import get_config  # noqa
-from deepclustering2.decorator import FixRandomSeed
-from deepclustering2.decorator.decorator import _disable_tracking_bn_stats as disable_bn  # noqa
-from deepclustering2.loss import Entropy
-from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, MeterInterface, MultipleAverageValueMeter
-from deepclustering2.models import ema_updater as EMA_Updater
-from deepclustering2.schedulers.customized_scheduler import RampScheduler
-from deepclustering2.type import T_loss
-from deepclustering2.writer.SummaryWriter import get_tb_writer
 from loguru import logger
 from torch import Tensor
 from torch import nn
@@ -26,6 +17,15 @@ from contrastyou.losses.contrast_loss import is_normalized
 from contrastyou.losses.iic_loss import _ntuple
 from contrastyou.projectors.heads import ProjectionHead
 from contrastyou.projectors.nn import Normalize
+from deepclustering2.configparser._utils import get_config  # noqa
+from deepclustering2.decorator import FixRandomSeed
+from deepclustering2.decorator.decorator import _disable_tracking_bn_stats as disable_bn  # noqa
+from deepclustering2.loss import Entropy
+from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, MeterInterface, MultipleAverageValueMeter
+from deepclustering2.models import ema_updater as EMA_Updater
+from deepclustering2.schedulers.customized_scheduler import RampScheduler
+from deepclustering2.type import T_loss
+from deepclustering2.writer.SummaryWriter import get_tb_writer
 from semi_seg._utils import ContrastiveProjectorWrapper
 from ._helper import unl_extractor, __AssertWithUnLabeledData, _FeatureExtractorMixin, _MeanTeacherMixin
 from .base import TrainEpocher
@@ -378,12 +378,14 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
         This class take the feature maps (global and/or dense) to perform contrastive pretraining.
         Dense feature and global feature can take from the same position and multiple times.
     """
-    from contrastyou.losses.contrast_loss import SupConLoss2
-    _infonce_criterion: SupConLoss2
+    # from contrastyou.losses.contrast_loss import SupConLoss2
+    from contrastyou.losses.contrast_loss2 import SupConLoss1
+    _infonce_criterion: SupConLoss1
 
     def _assertion(self):
-        from contrastyou.losses.contrast_loss import SupConLoss2
-        if not isinstance(self._infonce_criterion, SupConLoss2):
+        # from contrastyou.losses.contrast_loss import SupConLoss2
+        from contrastyou.losses.contrast_loss2 import SupConLoss1
+        if not isinstance(self._infonce_criterion, SupConLoss1):
             raise RuntimeError(f"{self.__class__.__name__} only support `SupConLoss2`, "
                                f"given {type(self._infonce_criterion)}")
         super(InfoNCEEpocher, self)._assertion()

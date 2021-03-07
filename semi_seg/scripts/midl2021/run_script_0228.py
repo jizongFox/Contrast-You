@@ -58,6 +58,8 @@ class BindContrastive(_BindOptions):
                                default=[],
                                type=str, help="dense_features")
         subparser.add_argument("--dense_importance", nargs="+", type=float, default=[], help="dense importance")
+        subparser.add_argument("--exclude_pos", action="store_true", default=False,
+                               help="exclude other pos examples to debias contrastive learning")
 
     def parse(self, args):
         group_sample_num = args.group_sample_num
@@ -78,6 +80,9 @@ class BindContrastive(_BindOptions):
         self.add(f"ProjectorParams.GlobalParams.feature_importance=[{_gimportance}]")
         self.add(f"ProjectorParams.DenseParams.feature_names=[{_dfeature_name}]")
         self.add(f"ProjectorParams.DenseParams.feature_importance=[{_dimportance}]")
+
+        exclude_pos = "true" if args.exclude_pos else "false"
+        self.add(f"InfoNCEParameters.LossParams.exclude_other_pos={exclude_pos}")
 
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -170,7 +175,9 @@ elif args.stage == "infonce":
     dfeature_names = args.dense_features
     dimportance = args.dense_importance
 
-    save_dir += f"/sample_num_{group_sample_num}"
+    exclude_pos = args.exclude_pos
+
+    save_dir += f"/sample_num_{group_sample_num}/exclude_pos_{str(exclude_pos)}"
 
     subpath = f"global_{'_'.join([*gfeature_names, *[str(x) for x in gimportance]])}/" \
               f"dense_{'_'.join([*dfeature_names, *[str(x) for x in dimportance]])}"
@@ -230,7 +237,10 @@ elif args.stage == "multitask":
     contrast_on = args.contrast_on
     assert len(gfeature_names) == len(contrast_on)
 
+    exclude_pos = args.exclude_pos
+
     save_dir += f"/sample_num_{group_sample_num}/" \
+                f"exclude_pos_{str(exclude_pos)}/" \
                 f"contrast_on_{'_'.join(contrast_on)}"
 
     subpath = f"global_{'_'.join([*gfeature_names, *[str(x) for x in gimportance]])}/" \
