@@ -46,7 +46,8 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
     assert trainer_name in ("infoncepretrain", "experimentpretrain", "experimentmixuppretrain"), trainer_name  # noqa
 
     pre_lr, ft_lr = config["Optim"].pop("pre_lr", None), config["Optim"].pop("ft_lr", None)
-    pre_max_epoch, ft_max_epoch = config["Trainer"].pop("pre_max_epoch"), config["Trainer"].pop("ft_max_epoch")
+    pre_max_epoch, ft_max_epoch = config["Trainer"].pop("pre_max_epoch", None), \
+                                  config["Trainer"].pop("ft_max_epoch", None)
 
     def pretrain():
         labeled_loader, unlabeled_loader, val_loader = get_dataloaders(config)
@@ -90,7 +91,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
             trainer.start_training()
         return trainer, model, (from_, util_)
 
-    def finetune(labeled_ratio):
+    def finetune(l_ratio):
         model.load_state_dict(extract_model_state_dict(
             os.path.join(pre_trainer._save_dir, "last.pth")),  # noqa
             strict=True
@@ -99,8 +100,8 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         base_config = config_manager.base_config
         # in the cmd, one can change `Data` and `Trainer`
         base_config["Data"]["name"] = config["Data"]["name"]
-        base_config["Data"]["labeled_data_ratio"] = labeled_ratio
-        base_config["Data"]["unlabeled_data_ratio"] = 1 - labeled_ratio
+        base_config["Data"]["labeled_data_ratio"] = l_ratio
+        base_config["Data"]["unlabeled_data_ratio"] = 1 - l_ratio
         # modifying the optimizer options
         use_different_lr = config["Use_diff_lr"]
         if use_different_lr:
@@ -125,7 +126,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
             model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
             val_loader=val_loader, sup_criterion=KL_div(verbose=False),
             configuration={**base_config, **{"GITHASH": cur_githash}},
-            save_dir=os.path.join(base_save_dir, "tra", f"ratio_{str(labeled_ratio)}"),
+            save_dir=os.path.join(base_save_dir, "tra", f"ratio_{str(l_ratio)}"),
             **{k: v for k, v in base_config["Trainer"].items() if k != "save_dir"}
         )
         finetune_trainer.init()

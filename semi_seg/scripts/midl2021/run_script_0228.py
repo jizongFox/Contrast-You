@@ -3,18 +3,91 @@ from itertools import cycle
 
 from deepclustering2.cchelper import JobSubmiter
 from deepclustering2.utils import gethash
-from semi_seg.scripts.helper import dataset_name2class_numbers, ft_lr_zooms, pre_lr_zooms
+from semi_seg.scripts.helper import dataset_name2class_numbers, ft_lr_zooms
+
+
+class _BindOptions:
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.OptionalScripts = []
+
+    @staticmethod
+    def bind(subparser):
+        ...
+
+    def parse(self, args):
+        ...
+
+    def add(self, string):
+        self.OptionalScripts.append(string)
+
+    def get_option_str(self):
+        return " ".join(self.OptionalScripts)
+
+
+class BindPretrainFinetune(_BindOptions):
+    @staticmethod
+    def bind(subparser):
+        subparser.add_argument("--pre_lr", default="null", type=str, help="pretrain learning rate")
+        subparser.add_argument("--ft_lr", default="null", type=str, help="finetune learning rate")
+        subparser.add_argument("-pe", "--pre_max_epoch", type=str, default="null", help="pretrain max_epoch")
+        subparser.add_argument("-fe", "--ft_max_epoch", type=str, default="null", help="finetune max_epoch")
+
+    def parse(self, args):
+        pre_lr = args.pre_lr
+        self.add(f"Optim.pre_lr={pre_lr}")
+        ft_lr = args.ft_lr
+        self.add(f"Optim.ft_lr={ft_lr}")
+        pre_max_epoch = args.pre_max_epoch
+        ft_max_epoch = args.ft_max_epoch
+        self.add(f"Trainer.pre_max_epoch={pre_max_epoch}")
+        self.add(f"Trainer.ft_max_epoch={ft_max_epoch}")
+
+
+class BindContrastive(_BindOptions):
+    @staticmethod
+    def bind(subparser):
+        subparser.add_argument("-g", "--group_sample_num", default=6, type=int)
+        subparser.add_argument("--global_features", nargs="+", choices=["Conv5", "Conv4", "Conv3", "Conv2"],
+                               default=["Conv5"],
+                               type=str, help="global_features")
+        subparser.add_argument("--global_importance", nargs="+", type=float, default=[1.0, ], help="global importance")
+
+        subparser.add_argument("--dense_features", nargs="+", choices=["Conv5", "Conv4", "Conv3", "Conv2"],
+                               default=[],
+                               type=str, help="dense_features")
+        subparser.add_argument("--dense_importance", nargs="+", type=float, default=[], help="dense importance")
+
+    def parse(self, args):
+        group_sample_num = args.group_sample_num
+        self.add(f"ContrastiveLoaderParams.group_sample_num={group_sample_num}")
+        gfeature_name = args.global_features
+        gimportance = args.global_importance
+        dfeature_name = args.dense_features
+        dimportance = args.dense_importance
+        _assert_equality(gfeature_name, gimportance)
+        _assert_equality(dfeature_name, dimportance)
+
+        _gfeature_name = ",".join(gfeature_name)
+        _gimportance = ",".join([str(x) for x in gimportance])
+        _dfeature_name = ",".join(dfeature_name)
+        _dimportance = ",".join([str(x) for x in dimportance])
+
+        self.add(f"ProjectorParams.GlobalParams.feature_names=[{_gfeature_name}]")
+        self.add(f"ProjectorParams.GlobalParams.feature_importance=[{_gimportance}]")
+        self.add(f"ProjectorParams.DenseParams.feature_names=[{_dfeature_name}]")
+        self.add(f"ProjectorParams.DenseParams.feature_importance=[{_dimportance}]")
+
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
 comm_parser = parser.add_argument_group("common options")
 
 comm_parser.add_argument("-n", "--dataset_name", default="acdc", type=str, help="dataset name")
-comm_parser.add_argument("-b", "--num_batches", default=500, type=int, help="num batches")
+comm_parser.add_argument("-b", "--num_batches", default=200, type=int, help="num batches")
 comm_parser.add_argument("-s", "--random_seed", default=1, type=int, help="random seed")
 comm_parser.add_argument("--save_dir", required=True, type=str, help="save_dir for the save folder")
-comm_parser.add_argument("--lr", default=None, type=str, help="learning rate")
-comm_parser.add_argument("--pre_lr", default=None, type=str, help="learning rate")
 comm_parser.add_argument("--on-local", default=False, action="store_true", help="run on local")
 comm_parser.add_argument("--time", type=int, default=4, help="submitted time to CC")
 comm_parser.add_argument("--show_cmd", default=False, action="store_true", help="only show generated cmd.")
@@ -27,72 +100,37 @@ mixup = subparser.add_parser("mixup")
 multitask = subparser.add_parser("multitask")
 
 # baseline
-baseline.add_argument("-fe", "--ft_max_epoch", type=str, default="null", help="finetune max_epoch")
+baseline.add_argument("-e", "--max_epoch", type=str, default=75, help="max_epoch")
+baseline.add_argument("--lr", type=str, default=None, help="learning rate")
 
 # infonce
-infonce.add_argument("-g", "--group_sample_num", default=6, type=int)
-infonce.add_argument("--global_features", nargs="+", choices=["Conv5", "Conv4", "Conv3", "Conv2"], default=["Conv5"],
-                     type=str, help="global_features")
-infonce.add_argument("--global_importance", nargs="+", type=float, default=[1.0, ], help="global importance")
-
-infonce.add_argument("--dense_features", nargs="+", choices=["Conv5", "Conv4", "Conv3", "Conv2"], default=[],
-                     type=str, help="dense_features")
-infonce.add_argument("--dense_importance", nargs="+", type=float, default=[], help="dense importance")
-infonce.add_argument("-pe", "--pre_max_epoch", type=str, default="null", help="pretrain max_epoch")
-infonce.add_argument("-fe", "--ft_max_epoch", type=str, default="null", help="finetune max_epoch")
+BindPretrainFinetune.bind(infonce)
+BindContrastive.bind(infonce)
 
 # soften infonce
-softeninfonce.add_argument("-g", "--group_sample_num", default=6, type=int)
-softeninfonce.add_argument("--global_features", nargs="+", choices=["Conv5", "Conv4", "Conv3", "Conv2"],
-                           default=["Conv5"],
-                           type=str, help="global_features")
-softeninfonce.add_argument("--global_importance", nargs="+", type=float, default=[1.0, ], help="global importance")
-
-softeninfonce.add_argument("--dense_features", nargs="+", choices=["Conv5", "Conv4", "Conv3", "Conv2"],
-                           default=[],
-                           type=str, help="dense_features")
-softeninfonce.add_argument("--dense_importance", nargs="+", type=float, default=[], help="dense importance")
+BindPretrainFinetune.bind(softeninfonce)
+BindContrastive.bind(softeninfonce)
 softeninfonce.add_argument("--softenweight", nargs="+", type=float, default=[0.005, ],
                            help="weight between hard and soften")
-softeninfonce.add_argument("-pe", "--pre_max_epoch", type=str, default="null", help="pretrain max_epoch")
-softeninfonce.add_argument("-fe", "--ft_max_epoch", type=str, default="null", help="finetune max_epoch")
 
 # mixup
-mixup.add_argument("-g", "--group_sample_num", default=6, type=int)
-mixup.add_argument("--global_features", nargs="+", choices=["Conv5", "Conv4", "Conv3", "Conv2"],
-                   default=["Conv5"],
-                   type=str, help="global_features")
-mixup.add_argument("--global_importance", nargs="+", type=float, default=[1.0, ], help="global importance")
-
-mixup.add_argument("--dense_features", nargs="+", choices=["Conv5", "Conv4", "Conv3", "Conv2"],
-                   default=[],
-                   type=str, help="dense_features")
-mixup.add_argument("--dense_importance", nargs="+", type=float, default=[], help="dense importance")
+BindPretrainFinetune.bind(mixup)
+BindContrastive.bind(mixup)
 mixup.add_argument("--softenweight", nargs="+", type=float, default=[0.005, ],
                    help="weight between hard and soften")
-mixup.add_argument("-pe", "--pre_max_epoch", type=str, default="null", help="pretrain max_epoch")
-mixup.add_argument("-fe", "--ft_max_epoch", type=str, default="null", help="finetune max_epoch")
 
 # multitask
-multitask.add_argument("-g", "--group_sample_num", default=6, type=int)
-multitask.add_argument("--global_features", nargs="+", choices=["Conv5", "Conv4", "Conv3", "Conv2"],
-                       default=["Conv5"], type=str, help="global_features")
-multitask.add_argument("--global_importance", nargs="+", type=float, default=[1.0, ], help="global importance")
+BindPretrainFinetune.bind(multitask)
+BindContrastive.bind(multitask)
 multitask.add_argument("--contrast_on", type=str, nargs="+", required=True, choices=["partition", "patient", "cycle"])
-multitask.add_argument("-pe", "--pre_max_epoch", type=str, default="null", help="pretrain max_epoch")
-multitask.add_argument("-fe", "--ft_max_epoch", type=str, default="null", help="finetune max_epoch")
-
 args = parser.parse_args()
 
 # setting common params
+__git_hash__ = gethash(__file__)
+dataset_name = args.dataset_name
 num_batches = args.num_batches
 random_seed = args.random_seed
-dataset_name = args.dataset_name
-lr: str = args.lr or f"{ft_lr_zooms[args.dataset_name]:.10f}"
-pre_lr: str = args.pre_lr or f"{pre_lr_zooms[args.dataset_name]:.10f}"
 num_classes = dataset_name2class_numbers[args.dataset_name]
-__git_hash__ = gethash(__file__)
-
 save_dir = args.save_dir
 
 save_dir += ("/" + "/".join(
@@ -113,90 +151,59 @@ def _assert_equality(feature_name, importance):
 
 
 if args.stage == "baseline":
-    max_epoch = args.ft_max_epoch
-    TrainerParams = SharedParams + f" Optim.lr={lr} " \
-                                   f" Trainer.max_epoch={max_epoch} "
+    max_epoch = args.max_epoch
+    lr = args.lr or f"{ft_lr_zooms[args.dataset_name]:.10f}"
     job_array = [
-        f"python main_finetune.py {TrainerParams} Trainer.name=finetune Trainer.save_dir={save_dir}/baseline "
+        f"python main_finetune.py {SharedParams} Optim.lr={lr} Trainer.max_epoch={max_epoch} "
+        f"Trainer.name=finetune Trainer.save_dir={save_dir}/baseline "
     ]
 
 elif args.stage == "infonce":
+    parser1 = BindPretrainFinetune()
+    parser1.parse(args)
+    parser2 = BindContrastive()
+    parser2.parse(args)
 
     group_sample_num = args.group_sample_num
-    gfeature = args.global_features
+    gfeature_names = args.global_features
     gimportance = args.global_importance
-    dfeature = args.dense_features
+    dfeature_names = args.dense_features
     dimportance = args.dense_importance
-    pre_max_epoch = args.pre_max_epoch
-    ft_max_epoch = args.ft_max_epoch
 
-    InfoNCEParams = SharedParams + f" ContrastiveLoaderParams.group_sample_num={group_sample_num} " \
-                                   f" Trainer.name=infoncepretrain " \
-                                   f" Optim.ft_lr={lr} " \
-                                   f" Optim.pre_lr={pre_lr} " \
-                                   f" Trainer.pre_max_epoch={pre_max_epoch} " \
-                                   f" Trainer.ft_max_epoch={ft_max_epoch} "
     save_dir += f"/sample_num_{group_sample_num}"
 
+    subpath = f"global_{'_'.join([*gfeature_names, *[str(x) for x in gimportance]])}/" \
+              f"dense_{'_'.join([*dfeature_names, *[str(x) for x in dimportance]])}"
+    string = f"python main_infonce.py Trainer.name=infoncepretrain {SharedParams} {parser1.get_option_str()} " \
+             f" {parser2.get_option_str()} " \
+             f" Trainer.save_dir={save_dir}/infonce/{subpath}/ " \
+             f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml"
 
-    def _infonce_script(InfoNCEParams, gfeature_name, gimportance, dfeature_name, dimportance):
-        _assert_equality(gfeature_name, gimportance)
-        _assert_equality(dfeature_name, dimportance)
-
-        gfeature_name_ = ",".join(gfeature_name)
-        gimportance_ = ",".join([str(x) for x in gimportance])
-        dfeature_name_ = ",".join(dfeature_name)
-        dimportance_ = ",".join([str(x) for x in dimportance])
-        subpath = f"global_{'_'.join([*gfeature_name, *[str(x) for x in gimportance]])}/" \
-                  f"dense_{'_'.join([*dfeature_name, *[str(x) for x in dimportance]])}"
-
-        string = f"python main_infonce.py {InfoNCEParams} " \
-                 f" ProjectorParams.GlobalParams.feature_names=[{gfeature_name_}]" \
-                 f" ProjectorParams.GlobalParams.feature_importance=[{gimportance_}]" \
-                 f" ProjectorParams.DenseParams.feature_names=[{dfeature_name_}] " \
-                 f" ProjectorParams.DenseParams.feature_importance=[{dimportance_}] " \
-                 f" Trainer.save_dir={save_dir}/infonce/{subpath}/ " \
-                 f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml"
-        return string
-
-
-    job_array = [_infonce_script(InfoNCEParams, gfeature, gimportance, dfeature, dimportance)]
+    job_array = [string]
 
 elif args.stage == "softeninfonce":
+    parser1 = BindPretrainFinetune()
+    parser1.parse(args)
+    parser2 = BindContrastive()
+    parser2.parse(args)
+
     group_sample_num = args.group_sample_num
-    gfeature = args.global_features
+    gfeature_names = args.global_features
     gimportance = args.global_importance
-    dfeature = args.dense_features
+    dfeature_names = args.dense_features
     dimportance = args.dense_importance
     weights = args.softenweight
-    pre_max_epoch = args.pre_max_epoch
-    ft_max_epoch = args.ft_max_epoch
 
-    InfoNCEParams = SharedParams + f" ContrastiveLoaderParams.group_sample_num={group_sample_num} " \
-                                   f" Trainer.name=experimentpretrain " \
-                                   f" Optim.ft_lr={lr} " \
-                                   f" Optim.pre_lr={pre_lr} " \
-                                   f" Trainer.pre_max_epoch={pre_max_epoch} " \
-                                   f" Trainer.ft_max_epoch={ft_max_epoch} "
     save_dir += f"/sample_num_{group_sample_num}"
 
 
-    def _infonce_script(InfoNCEParams, gfeature_name, gimportance, dfeature_name, dimportance, weight):
-        _assert_equality(gfeature_name, gimportance)
-        _assert_equality(dfeature_name, dimportance)
-        gfeature_name_ = ",".join(gfeature_name)
-        gimportance_ = ",".join([str(x) for x in gimportance])
-        dfeature_name_ = ",".join(dfeature_name)
-        dimportance_ = ",".join([str(x) for x in dimportance])
-        subpath = f"global_{'_'.join([*gfeature_name, *[str(x) for x in gimportance]])}/" \
-                  f"dense_{'_'.join([*dfeature_name, *[str(x) for x in dimportance]])}/" \
+    def _infonce_script(weight):
+        subpath = f"global_{'_'.join([*gfeature_names, *[str(x) for x in gimportance]])}/" \
+                  f"dense_{'_'.join([*dfeature_names, *[str(x) for x in dimportance]])}/" \
                   f"weight_{str(weight)}"
 
-        string = f"python main_infonce.py {InfoNCEParams} " \
-                 f" ProjectorParams.GlobalParams.feature_names=[{gfeature_name_}]" \
-                 f" ProjectorParams.GlobalParams.feature_importance=[{gimportance_}]" \
-                 f" ProjectorParams.DenseParams.feature_names=[{dfeature_name_}] " \
-                 f" ProjectorParams.DenseParams.feature_importance=[{dimportance_}] " \
+        string = f"python main_infonce.py {SharedParams} Trainer.name=experimentpretrain " \
+                 f"{parser1.get_option_str()} {parser2.get_option_str()}" \
                  f" ProjectorParams.GlobalParams.softweight={str(weight)} " \
                  f" ProjectorParams.DenseParams.softweight={str(weight)} " \
                  f" Trainer.save_dir={save_dir}/softeninfonce/{subpath}/ " \
@@ -204,96 +211,38 @@ elif args.stage == "softeninfonce":
         return string
 
 
-    job_array = [_infonce_script(InfoNCEParams, gfeature, gimportance, dfeature, dimportance, w) for w in weights]
+    job_array = [_infonce_script(w) for w in weights]
 
 elif args.stage == "mixup":
-    group_sample_num = args.group_sample_num
-    gfeature = args.global_features
-    gimportance = args.global_importance
-    dfeature = args.dense_features
-    dimportance = args.dense_importance
-    weights = args.softenweight
-    pre_max_epoch = args.pre_max_epoch
-    ft_max_epoch = args.ft_max_epoch
-
-    InfoNCEParams = SharedParams + f" ContrastiveLoaderParams.group_sample_num={group_sample_num} " \
-                                   f" Trainer.name=experimentmixuppretrain " \
-                                   f" Optim.ft_lr={lr} " \
-                                   f" Optim.pre_lr={pre_lr} " \
-                                   f" Trainer.pre_max_epoch={pre_max_epoch} " \
-                                   f" Trainer.ft_max_epoch={ft_max_epoch} "
-    save_dir += f"/sample_num_{group_sample_num}"
-
-
-    def _infonce_script(InfoNCEParams, gfeature_name, gimportance, dfeature_name, dimportance, weight):
-        _assert_equality(gfeature_name, gimportance)
-        _assert_equality(dfeature_name, dimportance)
-        gfeature_name_ = ",".join(gfeature_name)
-        gimportance_ = ",".join([str(x) for x in gimportance])
-        dfeature_name_ = ",".join(dfeature_name)
-        dimportance_ = ",".join([str(x) for x in dimportance])
-        subpath = f"global_{'_'.join([*gfeature_name, *[str(x) for x in gimportance]])}/" \
-                  f"dense_{'_'.join([*dfeature_name, *[str(x) for x in dimportance]])}/" \
-                  f"weight_{str(weight)}"
-
-        string = f"python main_infonce.py {InfoNCEParams} " \
-                 f" ProjectorParams.GlobalParams.feature_names=[{gfeature_name_}]" \
-                 f" ProjectorParams.GlobalParams.feature_importance=[{gimportance_}]" \
-                 f" ProjectorParams.DenseParams.feature_names=[{dfeature_name_}] " \
-                 f" ProjectorParams.DenseParams.feature_importance=[{dimportance_}] " \
-                 f" ProjectorParams.GlobalParams.softweight={str(weight)} " \
-                 f" ProjectorParams.DenseParams.softweight={str(weight)} " \
-                 f" Trainer.save_dir={save_dir}/mixup/{subpath}/ " \
-                 f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/new.yaml"
-        return string
-
-
-    job_array = [_infonce_script(InfoNCEParams, gfeature, gimportance, dfeature, dimportance, w) for w in weights]
+    raise NotImplementedError(args.stage)
 
 elif args.stage == "multitask":
+    parser1 = BindPretrainFinetune()
+    parser1.parse(args)
+    parser2 = BindContrastive()
+    parser2.parse(args)
+
     group_sample_num = args.group_sample_num
-    gfeature = args.global_features
+    gfeature_names = args.global_features
     gimportance = args.global_importance
-    dfeature = []
-    dimportance = []
+    dfeature_names = args.dense_features
+    dimportance = args.dense_importance
     contrast_on = args.contrast_on
-    pre_max_epoch = args.pre_max_epoch
-    ft_max_epoch = args.ft_max_epoch
+    assert len(gfeature_names) == len(contrast_on)
 
-    assert len(gfeature) == len(contrast_on)
-
-    InfoNCEParams = SharedParams + f" ContrastiveLoaderParams.group_sample_num={group_sample_num} " \
-                                   f" Trainer.name=experimentmultitaskpretrain " \
-                                   f" InfoNCEParameters.GlobalParams.contrast_on=[{','.join(contrast_on)}] " \
-                                   f" Optim.ft_lr={lr} " \
-                                   f" Optim.pre_lr={pre_lr} " \
-                                   f" Trainer.pre_max_epoch={pre_max_epoch} " \
-                                   f" Trainer.ft_max_epoch={ft_max_epoch} "
     save_dir += f"/sample_num_{group_sample_num}/" \
                 f"contrast_on_{'_'.join(contrast_on)}"
 
+    subpath = f"global_{'_'.join([*gfeature_names, *[str(x) for x in gimportance]])}/" \
+              f"dense_{'_'.join([*dfeature_names, *[str(x) for x in dimportance]])}"
+    string = f"python main_infonce.py Trainer.name=experimentmultitaskpretrain" \
+             f" InfoNCEParameters.GlobalParams.contrast_on=[{','.join(contrast_on)}] " \
+             f" {SharedParams} {parser1.get_option_str()} " \
+             f" {parser2.get_option_str()} " \
+             f" Trainer.save_dir={save_dir}/infonce/{subpath}/ " \
+             f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infoncemultitask.yaml"
 
-    def _infonce_script(InfoNCEParams, gfeature_name, gimportance, dfeature_name, dimportance, ):
-        _assert_equality(gfeature_name, gimportance)
-        _assert_equality(dfeature_name, dimportance)
-        gfeature_name_ = ",".join(gfeature_name)
-        gimportance_ = ",".join([str(x) for x in gimportance])
-        dfeature_name_ = ",".join(dfeature_name)
-        dimportance_ = ",".join([str(x) for x in dimportance])
-        subpath = f"global_{'_'.join([*gfeature_name, *[str(x) for x in gimportance]])}/" \
-                  f"dense_{'_'.join([*dfeature_name, *[str(x) for x in dimportance]])}"
-
-        string = f"python main_infonce.py {InfoNCEParams} " \
-                 f" ProjectorParams.GlobalParams.feature_names=[{gfeature_name_}]" \
-                 f" ProjectorParams.GlobalParams.feature_importance=[{gimportance_}]" \
-                 f" ProjectorParams.DenseParams.feature_names=[{dfeature_name_}] " \
-                 f" ProjectorParams.DenseParams.feature_importance=[{dimportance_}] " \
-                 f" Trainer.save_dir={save_dir}/multitask/{subpath}/ " \
-                 f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infoncemultitask.yaml"
-        return string
-
-
-    job_array = [_infonce_script(InfoNCEParams, gfeature, gimportance, dfeature, dimportance)]
+    job_array = [string]
 
 else:
     raise NotImplementedError(args.stage)

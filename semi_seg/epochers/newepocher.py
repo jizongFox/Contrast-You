@@ -2,9 +2,6 @@ from typing import List
 
 import numpy as np
 import torch
-from deepclustering2.configparser._utils import get_config  # noqa
-from deepclustering2.meters2 import MeterInterface, AverageValueMeter
-from deepclustering2.utils import simplex, class2one_hot, one_hot
 from loguru import logger
 from sklearn.preprocessing import LabelEncoder
 from torch import Tensor
@@ -14,6 +11,9 @@ from contrastyou.helper import weighted_average_iter, register_variable, get_var
 from contrastyou.losses.contrast_loss import SupConLoss3, is_normalized, SupConLoss4
 from contrastyou.losses.iic_loss import _ntuple  # noqa
 from contrastyou.projectors.nn import Normalize
+from deepclustering2.configparser._utils import get_config  # noqa
+from deepclustering2.meters2 import MeterInterface, AverageValueMeter
+from deepclustering2.utils import simplex, class2one_hot, one_hot
 from . import unl_extractor, ProjectionHead
 from .comparable import InfoNCEEpocher
 
@@ -61,14 +61,47 @@ def config_meter_with_soften_setting(meters):
     return meters
 
 
-class EncoderDenseContrastEpocher(InfoNCEEpocher):
+class _SoftenContrastMixin:
+    meters: MeterInterface
+
+    def __init__(self, *args, **kwargs):
+        super(_SoftenContrastMixin, self).__init__(*args, **kwargs)
+        self._infonce_criterion2 = SupConLoss3()  # adding a soften loss
+
+    def _global_infonce_soft(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
+                             label_group) -> Tensor:
+        sim_coef = self.generate_similarity(proj_tf_feature, proj_feature_tf)
+        regularized_loss = self._infonce_criterion2(proj_tf_feature, proj_feature_tf,
+                                                    pos_weight=sim_coef)
+        return regularized_loss
+
+    @staticmethod
+    def generate_similarity(proj_tf_feature, proj_feature_tf):
+        return generate_similarity_masks(proj_tf_feature, proj_feature_tf)
+
+    def _dense_infonce_for_encoder_soft(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
+                                        label_group):
+        assert "Conv" in feature_name, feature_name
+
+        proj_tf_feature, proj_feature_tf = self._reshape_dense_feature(proj_tf_feature, proj_feature_tf)  # noqa
+
+        b, hw, c = proj_feature_tf.shape
+
+        if not (is_normalized(proj_feature_tf, dim=2) and is_normalized(proj_feature_tf, dim=2)):
+            proj_feature_tf = Normalize(dim=2)(proj_feature_tf)
+            proj_tf_feature = Normalize(dim=2)(proj_tf_feature)
+        proj_feature_tf, proj_tf_feature = proj_feature_tf.reshape(-1, c), proj_tf_feature.reshape(-1, c)
+        sim_coef = self.generate_similarity(proj_feature_tf, proj_tf_feature)
+        regularized_loss = self._infonce_criterion2(proj_tf_feature, proj_feature_tf,
+                                                    pos_weight=sim_coef)
+
+        return regularized_loss
+
+
+class EncoderDenseContrastEpocher(_SoftenContrastMixin, InfoNCEEpocher):
     """
     adding a soften loss for both global and dense features.
     """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._infonce_criterion2 = SupConLoss3()  # adding a soften loss
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super(EncoderDenseContrastEpocher, self)._configure_meters(meters)
@@ -77,30 +110,27 @@ class EncoderDenseContrastEpocher(InfoNCEEpocher):
 
     def _global_infonce(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
                         label_group) -> Tensor:
-        # global loss with hard coded loss.
-        unregulated_loss = super(EncoderDenseContrastEpocher, self)._global_infonce(
+        naive_global_infonce = super(_SoftenContrastMixin, self)._global_infonce(
             feature_name=feature_name,
             proj_tf_feature=proj_tf_feature,
             proj_feature_tf=proj_feature_tf,
             partition_group=partition_group,
             label_group=label_group
         )
-
-        def soft_global_infonce(soft_criterion: SupConLoss3):
-            sim_coef = generate_similarity_masks(proj_tf_feature, proj_feature_tf)
-            regularized_loss = soft_criterion(proj_tf_feature, proj_feature_tf,
-                                              pos_weight=sim_coef)
-            return regularized_loss
-
-        regularized_loss = soft_global_infonce(self._infonce_criterion2)
-
-        self.meters[f"{feature_name}_global/hardcode_mi"].add(unregulated_loss.item())
-        self.meters[f"{feature_name}_global/soften_mi"].add(regularized_loss.item())
+        soften_global_infonce = self._global_infonce_soft(
+            feature_name=feature_name,
+            proj_tf_feature=proj_tf_feature,
+            proj_feature_tf=proj_feature_tf,
+            partition_group=partition_group,
+            label_group=label_group
+        )
+        self.meters[f"{feature_name}_global/hardcode_mi"].add(naive_global_infonce.item())
+        self.meters[f"{feature_name}_global/soften_mi"].add(soften_global_infonce.item())
 
         config = get_config(scope="base")
         reg_weight = float(config["ProjectorParams"]["GlobalParams"]["softweight"])
 
-        return unregulated_loss + reg_weight * regularized_loss
+        return naive_global_infonce + reg_weight * soften_global_infonce
 
     def _dense_infonce_for_encoder(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
                                    label_group):
@@ -112,20 +142,14 @@ class EncoderDenseContrastEpocher(InfoNCEEpocher):
             partition_group=partition_group,
             label_group=label_group
         )
-        # repeat a bit
-        assert "Conv" in feature_name, feature_name
+        regularized_loss = self._dense_infonce_for_encoder_soft(
+            feature_name=feature_name,
+            proj_tf_feature=proj_tf_feature,
+            proj_feature_tf=proj_feature_tf,
+            partition_group=partition_group,
+            label_group=label_group
+        )
 
-        proj_tf_feature, proj_feature_tf = self._reshape_dense_feature(proj_tf_feature, proj_feature_tf)
-
-        b, hw, c = proj_feature_tf.shape
-
-        if not (is_normalized(proj_feature_tf, dim=2) and is_normalized(proj_feature_tf, dim=2)):
-            proj_feature_tf = Normalize(dim=2)(proj_feature_tf)
-            proj_tf_feature = Normalize(dim=2)(proj_tf_feature)
-        proj_feature_tf, proj_tf_feature = proj_feature_tf.reshape(-1, c), proj_tf_feature.reshape(-1, c)
-        sim_coef = generate_similarity_masks(proj_feature_tf, proj_tf_feature)
-        regularized_loss = self._infonce_criterion2(proj_tf_feature, proj_feature_tf,
-                                                    pos_weight=sim_coef)
         self.meters[f"{feature_name}_dense/hardcore_mi"].add(unregularized_loss.item())
         self.meters[f"{feature_name}_dense/soften_mi"].add(regularized_loss.item())
 
