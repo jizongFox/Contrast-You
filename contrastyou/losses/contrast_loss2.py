@@ -5,11 +5,11 @@ from typing import Tuple
 import matplotlib
 import matplotlib.pyplot as plt
 import torch
+from deepclustering2.writer import SummaryWriter
 from loguru import logger
 from torch import Tensor, nn
 
 from contrastyou.losses._archive import SupConLoss
-from deepclustering2.writer import SummaryWriter
 
 
 @contextmanager
@@ -94,16 +94,17 @@ class SupConLoss1(nn.Module):
         self.pos_mask = pos_mask
         self.neg_mask = neg_mask
         # ================= end =======================
+        pos_count, neg_count = pos_mask.sum(1), neg_mask.sum(1)
+        pos_sum = (sim_exp * pos_mask).sum(1, keepdim=True).repeat(1, batch_size * 2)
         neg_sum = (sim_exp * neg_mask).sum(1, keepdim=True).repeat(1, batch_size * 2)
         if self._exclude_pos:
-            pos_sum = sim_exp
+            neg_ratio = neg_count.float() / (pos_count + neg_count).float()
+            log_pos_div_sum_pos_neg = sim_logits - torch.log(
+                sim_exp + neg_sum / (neg_ratio + 1e-4)[..., None].repeat(1, batch_size * 2) + 1e-16)
         else:
-            pos_sum = (sim_exp * pos_mask).sum(1, keepdim=True).repeat(1, batch_size * 2)
-
-        log_pos_div_sum_pos_neg = sim_logits - torch.log(pos_sum + neg_sum + 1e-16)
+            log_pos_div_sum_pos_neg = sim_logits - torch.log(pos_sum + neg_sum + 1e-16)
 
         # over positive mask
-        pos_count = pos_mask.sum(1)
         loss = (log_pos_div_sum_pos_neg * pos_mask).sum(1) / pos_count
         loss = -loss.mean()
 
@@ -144,9 +145,9 @@ class SupConLoss1(nn.Module):
 if __name__ == '__main__':
     from torch.nn.functional import normalize
 
-    feature1 = normalize(torch.randn(100, 256, device="cuda"), dim=1)
-    feature2 = normalize(torch.randn(100, 256, device="cuda"), dim=1)
-    target = [random.choice([0, 1, 2]) for i in range(100)]
+    feature1 = normalize(torch.randn(10, 256, device="cuda"), dim=1)
+    feature2 = normalize(torch.randn(10, 256, device="cuda"), dim=1)
+    target = [random.choice([0, 1, 2]) for i in range(10)]
     criterion1 = SupConLoss(temperature=0.07, base_temperature=0.07)
     criterion2 = SupConLoss1(temperature=0.07, exclude_other_pos=True)
     loss1 = criterion1(torch.stack([feature1, feature2], dim=1), labels=target)
