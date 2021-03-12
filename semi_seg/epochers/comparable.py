@@ -1,17 +1,10 @@
 import math
 from abc import abstractmethod
 from functools import lru_cache, partial
+from itertools import cycle
 from typing import Callable, Iterable
 
 import torch
-from deepclustering2.configparser._utils import get_config  # noqa
-from deepclustering2.decorator import FixRandomSeed
-from deepclustering2.decorator.decorator import _disable_tracking_bn_stats as disable_bn  # noqa
-from deepclustering2.loss import Entropy
-from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, MeterInterface, MultipleAverageValueMeter
-from deepclustering2.models import ema_updater as EMA_Updater
-from deepclustering2.schedulers.customized_scheduler import RampScheduler
-from deepclustering2.type import T_loss
 from loguru import logger
 from torch import Tensor
 from torch import nn
@@ -24,48 +17,43 @@ from contrastyou.losses.contrast_loss import is_normalized
 from contrastyou.losses.iic_loss import _ntuple
 from contrastyou.projectors.heads import ProjectionHead
 from contrastyou.projectors.nn import Normalize
+from deepclustering2.configparser._utils import get_config  # noqa
+from deepclustering2.decorator import FixRandomSeed
+from deepclustering2.decorator.decorator import _disable_tracking_bn_stats as disable_bn  # noqa
+from deepclustering2.loss import Entropy
+from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, MeterInterface, MultipleAverageValueMeter
+from deepclustering2.models import ema_updater as EMA_Updater
+from deepclustering2.schedulers.customized_scheduler import RampScheduler
+from deepclustering2.type import T_loss
+from deepclustering2.writer.SummaryWriter import get_tb_writer
 from semi_seg._utils import ContrastiveProjectorWrapper
-from ._helper import unl_extractor, __AssertWithUnLabeledData, _FeatureExtractorMixin
+from ._helper import unl_extractor, __AssertWithUnLabeledData, _FeatureExtractorMixin, _MeanTeacherMixin
 from .base import TrainEpocher
 from .miepocher import MITrainEpocher, ConsistencyTrainEpocher
 
 
-class MeanTeacherEpocher(TrainEpocher, __AssertWithUnLabeledData):
+class MeanTeacherEpocher(_MeanTeacherMixin, TrainEpocher, __AssertWithUnLabeledData):
 
-    def _init(self, *, reg_weight: float, teacher_model: nn.Module, reg_criterion: T_loss,  # noqa
-              ema_updater: EMA_Updater, **kwargs):  # noqa
-        super()._init(reg_weight=reg_weight, **kwargs)
-        self._reg_criterion = reg_criterion  # noqa
-        self._teacher_model = teacher_model  # noqa
-        self._ema_updater = ema_updater  # noqa
-        self._model.train()
-        self._teacher_model.train()
-
-    def regularization(
+    def _regularization(
         self,
+        *,
         unlabeled_tf_logits: Tensor,
         unlabeled_logits_tf: Tensor,
         seed: int,
         unlabeled_image: Tensor,
-        unlabeled_image_tf: Tensor, *args, **kwargs
+        unlabeled_image_tf: Tensor, **kwargs
     ):
-        with torch.no_grad():
-            teacher_unlabeled_logit = self._teacher_model(unlabeled_image)
-        with FixRandomSeed(seed):
-            teacher_unlabeled_logit_tf = torch.stack(
-                [self._affine_transformer(x) for x in teacher_unlabeled_logit], dim=0)
-
-        # compare teacher_unlabeled_logit_tf and student unlabeled_tf_logits
-        reg_loss = self._reg_criterion(unlabeled_tf_logits.softmax(1), teacher_unlabeled_logit_tf.softmax(1).detach())
-        # update teacher model here.
-        self._ema_updater(self._teacher_model, self._model)
-        return reg_loss
+        mt_reg = self._mt_regularization(
+            unlabeled_tf_logits=unlabeled_tf_logits,
+            seed=seed, unlabeled_image=unlabeled_image
+        )
+        return mt_reg
 
 
 class UCMeanTeacherEpocher(MeanTeacherEpocher, __AssertWithUnLabeledData):
 
-    def _init(self, *, reg_weight: float, teacher_model: nn.Module, reg_criterion: T_loss, ema_updater: EMA_Updater,
-              threshold: RampScheduler = None, **kwargs):
+    def _init(self, *, reg_weight: float, teacher_model: nn.Module, reg_criterion: T_loss,  # noqa
+              ema_updater: EMA_Updater, threshold: RampScheduler = None, **kwargs):  # noqa
         super()._init(reg_weight=reg_weight, teacher_model=teacher_model, reg_criterion=reg_criterion,
                       ema_updater=ema_updater, **kwargs)
         assert isinstance(threshold, RampScheduler), threshold
@@ -78,8 +66,9 @@ class UCMeanTeacherEpocher(MeanTeacherEpocher, __AssertWithUnLabeledData):
         meters.register_meter("uc_ratio", AverageValueMeter())
         return meters
 
-    def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int,
-                       unlabeled_image: Tensor, unlabeled_image_tf: Tensor, *args, **kwargs):
+    def _regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int,
+                        unlabeled_image: Tensor, unlabeled_image_tf: Tensor, **kwargs):
+        # override completely the reguarization function.
         @torch.no_grad()
         def get_teacher_pred_with_tf(uimage, noise=None):
             if noise is not None:
@@ -148,14 +137,15 @@ class MIMeanTeacherEpocher(MITrainEpocher, __AssertWithUnLabeledData):
         with FeatureExtractor(self._teacher_model, self._feature_position) as self._teacher_fextractor:  # noqa
             return super(MIMeanTeacherEpocher, self)._run()
 
-    def regularization(
+    def _regularization(
         self,
+        *,
         unlabeled_tf_logits: Tensor,
         unlabeled_logits_tf: Tensor,
         seed: int,
         unlabeled_image: Tensor = None,
         unlabeled_image_tf: Tensor = None,
-        *args, **kwargs
+        **kwargs
     ):
         feature_names = self._fextractor._feature_names  # noqa
         n_uls = len(unlabeled_tf_logits) * 2
@@ -189,11 +179,11 @@ class MIMeanTeacherEpocher(MITrainEpocher, __AssertWithUnLabeledData):
             self._feature_position,
             [-x.item() for x in loss_list]
         )))
-        uda_loss = ConsistencyTrainEpocher.regularization(
+        uda_loss = ConsistencyTrainEpocher._regularization(
             self,  # noqa
-            unlabeled_tf_logits,
-            teacher_logits_tf.detach(),
-            seed,
+            unlabeled_tf_logits=unlabeled_tf_logits,
+            unlabeled_logits_tf=teacher_logits_tf.detach(),
+            seed=seed,
         )
 
         # update ema
@@ -217,16 +207,17 @@ class MIDLPaperEpocher(ConsistencyTrainEpocher, __AssertWithUnLabeledData):
         meters.register_meter("iic_mi", AverageValueMeter())
         return meters
 
-    def regularization(
+    def _regularization(
         self,
+        *,
         unlabeled_tf_logits: Tensor,
         unlabeled_logits_tf: Tensor,
-        seed, *args, **kwargs
+        seed, **kwargs
     ):
-        uda_loss = super(MIDLPaperEpocher, self).regularization(
+        uda_loss = super(MIDLPaperEpocher, self)._regularization(
             unlabeled_tf_logits=unlabeled_tf_logits,
             unlabeled_logits_tf=unlabeled_logits_tf,
-            seed=seed, *args, **kwargs
+            seed=seed, **kwargs
         )
         iic_loss = self._iic_segcriterion(unlabeled_tf_logits.softmax(1), unlabeled_logits_tf.softmax(1).detach())
         self.meters["iic_mi"].add(iic_loss.item())
@@ -244,11 +235,12 @@ class EntropyMinEpocher(TrainEpocher, __AssertWithUnLabeledData):
         meters.register_meter("entropy", AverageValueMeter())
         return meters
 
-    def regularization(
+    def _regularization(
         self,
+        *,
         unlabeled_tf_logits: Tensor,
         unlabeled_logits_tf: Tensor,
-        seed, *args, **kwargs
+        seed, **kwargs
     ):
         reg_loss = self._entropy_criterion(unlabeled_logits_tf.softmax(1))
         self.meters["entropy"].add(reg_loss.item())
@@ -258,6 +250,10 @@ class EntropyMinEpocher(TrainEpocher, __AssertWithUnLabeledData):
 class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnLabeledData):
     """base epocher class for infonce like method"""
 
+    def __init__(self, *args, **kwargs):
+        super(_InfoNCEBasedEpocher, self).__init__(*args, **kwargs)
+        self.__set_global_contrast_done__ = False
+
     def _init(self, *, reg_weight: float, projectors_wrapper: ContrastiveProjectorWrapper = None,
               infoNCE_criterion: T_loss = None, **kwargs):
         assert projectors_wrapper is not None and infoNCE_criterion is not None, (projectors_wrapper, infoNCE_criterion)
@@ -266,18 +262,26 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
 
         self._projectors_wrapper: ContrastiveProjectorWrapper = projectors_wrapper  # noqa
         self._infonce_criterion: T_loss = infoNCE_criterion  # noqa
-        self.__encoder_method_name__ = "supcontrast"
 
-    def set_global_contrast_method(self, *, method_name):
-        assert method_name in ("simclr", "supcontrast")
-        self.__encoder_method_name__ = method_name
-        logger.debug("{} set global contrast method to be {}", self.__class__.__name__, method_name)
+    def set_global_contrast_method(self, *, contrast_on_list):
+        assert isinstance(contrast_on_list, (tuple, list))
+        for e in contrast_on_list:
+            assert e in ("partition", "patient", "cycle"), e
+        self.__encoder_contrast_name_list = contrast_on_list
+        logger.debug("{} set global contrast method to be {}", self.__class__.__name__, ", ".join(contrast_on_list))
+        self._encoder_contrastive_name_generator = cycle(self.__encoder_contrast_name_list)
+        self.__set_global_contrast_done__ = True
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super()._configure_meters(meters)
         meters.register_meter("mi", AverageValueMeter())
         meters.register_meter("individual_mis", MultipleAverageValueMeter())
         return meters
+
+    def run(self, *args, **kwargs):
+        if not self.__set_global_contrast_done__:
+            raise RuntimeError(f"`set_global_contrast_method` should be called first for {self.__class__.__name__}.")
+        return super(_InfoNCEBasedEpocher, self).run(*args, **kwargs)
 
     def unlabeled_projection(self, unl_features, projector, seed):
         unlabeled_features, unlabeled_tf_features = torch.chunk(unl_features, 2, dim=0)
@@ -292,23 +296,25 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
         return proj_tf_feature, proj_feature_tf
 
     @lru_cache()
-    def global_label_generator(self, gmethod: str):
-        from contrastyou.epocher._utils import GlobalLabelGenerator  # noqa
-        logger.debug("initialize {} label generator for encoder training", self.__encoder_method_name__)
-        if gmethod == "supcontrast":
-            return GlobalLabelGenerator()
-        elif gmethod == "simclr":
-            return GlobalLabelGenerator(True, True)
+    def global_label_generator(self, contrast_on: str):
+        from contrastyou.epocher._utils import PartitionLabelGenerator, PatientLabelGenerator, ACDCCycleGenerator
+        logger.debug("initialize {} label generator for encoder training", contrast_on)
+        if contrast_on == "partition":
+            return PartitionLabelGenerator()
+        elif contrast_on == "patient":
+            return PatientLabelGenerator()
+        elif contrast_on == "cycle":
+            return ACDCCycleGenerator()
         else:
-            raise NotImplementedError(gmethod)
+            raise NotImplementedError(contrast_on)
 
     @lru_cache()
     def local_label_generator(self):
         from contrastyou.epocher._utils import LocalLabelGenerator  # noqa
         return LocalLabelGenerator()
 
-    def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group,
-                       partition_group, *args, **kwargs):
+    def _regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group,
+                        partition_group, **kwargs):
         feature_names = self._fextractor._feature_names  # noqa
         n_uls = len(unlabeled_tf_logits) * 2
 
@@ -368,13 +374,18 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
 
 
 class InfoNCEEpocher(_InfoNCEBasedEpocher):
-    """INFONCE that implements SIMCLR and SupContrast"""
-    from contrastyou.losses.contrast_loss import SupConLoss2
-    _infonce_criterion: SupConLoss2
+    """INFONCE that implements SIMCLR and SupContrast
+        This class take the feature maps (global and/or dense) to perform contrastive pretraining.
+        Dense feature and global feature can take from the same position and multiple times.
+    """
+    # from contrastyou.losses.contrast_loss import SupConLoss2
+    from contrastyou.losses.contrast_loss2 import SupConLoss1
+    _infonce_criterion: SupConLoss1
 
     def _assertion(self):
-        from contrastyou.losses.contrast_loss import SupConLoss2
-        if not isinstance(self._infonce_criterion, SupConLoss2):
+        # from contrastyou.losses.contrast_loss import SupConLoss2
+        from contrastyou.losses.contrast_loss2 import SupConLoss1
+        if not isinstance(self._infonce_criterion, SupConLoss1):
             raise RuntimeError(f"{self.__class__.__name__} only support `SupConLoss2`, "
                                f"given {type(self._infonce_criterion)}")
         super(InfoNCEEpocher, self)._assertion()
@@ -386,8 +397,16 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
         assert is_normalized(proj_feature_tf) and is_normalized(proj_feature_tf)
 
         # generate simclr or supcontrast labels
-        labels = self.global_label_generator(self.__encoder_method_name__)(partition_list=partition_group,
-                                                                           patient_list=label_group)
+        contrast_on = next(self._encoder_contrastive_name_generator)
+        labels = self.global_label_generator(contrast_on)(partition_list=partition_group,
+                                                          patient_list=[p.split("_")[0] for p in label_group],
+                                                          experiment_list=[p.split("_")[1] for p in label_group])
+        if self.cur_batch_num == 0:  # noqa
+            with self._infonce_criterion.register_writer(
+                get_tb_writer(), epoch=self._cur_epoch,
+                extra_tag=f"{feature_name}/{contrast_on}"
+            ):
+                return self._infonce_criterion(proj_feature_tf, proj_tf_feature, target=labels)
         return self._infonce_criterion(proj_feature_tf, proj_tf_feature, target=labels)
 
     def _dense_based_infonce(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
@@ -427,6 +446,13 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
         _config = get_config(scope="base")
         include_all = _config["InfoNCEParameters"]["DenseParams"].get("include_all", False)
         if include_all:
+            if self.cur_batch_num == 0:  # noqa
+                with self._infonce_criterion.register_writer(
+                    get_tb_writer(),
+                    epoch=self._cur_epoch,
+                    extra_tag=f"{feature_name}/dense"
+                ):
+                    return self._infonce_criterion(proj_feature_tf.reshape(-1, c), proj_tf_feature.reshape(-1, c))
             return self._infonce_criterion(proj_feature_tf.reshape(-1, c), proj_tf_feature.reshape(-1, c))
         else:
             raise RuntimeError("experimental results show that using batch-wise is better")
@@ -441,7 +467,7 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
         output_size = (12, 12)
         method = config["ProjectorParams"]["DenseParams"]["pool_method"]
 
-        sampled_norm_tf_feature, sampled_norm_feature_tf = self._feature_map_tailoring(
+        sampled_norm_tf_feature, sampled_norm_feature_tf = self._dense_featuremap_tailoring(
             proj_tf_feature=proj_tf_feature,
             proj_feature_tf=proj_feature_tf,
             output_size=output_size,
@@ -453,8 +479,8 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
         n_tf_feature, n_feature_tf = self._reshape_dense_feature(sampled_norm_tf_feature, sampled_norm_feature_tf)
         return self._infonce_criterion(n_tf_feature.reshape(-1, c), n_feature_tf.reshape(-1, c))
 
-    def _feature_map_tailoring(self, *, proj_tf_feature: Tensor, proj_feature_tf: Tensor, output_size=(9, 9),
-                               method="adaptive_avg"):
+    def _dense_featuremap_tailoring(self, *, proj_tf_feature: Tensor, proj_feature_tf: Tensor, output_size=(9, 9),
+                                    method="adaptive_avg"):
         """
         it consists of
         1. downsampling the feature map to a pre-defined size

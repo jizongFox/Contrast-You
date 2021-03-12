@@ -1,6 +1,7 @@
 from contrastyou.datasets._seg_datset import ContrastBatchSampler  # noqa
+
 from ._helper import _PretrainTrainerMixin
-from .proposedtrainer import ExperimentalTrainer, ExperimentalTrainer2
+from .proposedtrainer import ExperimentalTrainer, ExperimentalTrainerwithMixUp, ExperimentalTrainerwithMultiTask
 from .trainer import InfoNCETrainer, IICTrainer, UDAIICTrainer
 
 
@@ -32,8 +33,15 @@ class PretrainExperimentalTrainer(_PretrainTrainerMixin, ExperimentalTrainer):
         super(PretrainExperimentalTrainer, self)._set_epocher_class(epocher_class)
 
 
-class PretrainExperimentalTrainer2(_PretrainTrainerMixin, ExperimentalTrainer2):
-    from ..epochers.pretrain import ExperimentalPretrainEpocher2
+class PretrainExperimentalMixupTrainer(_PretrainTrainerMixin, ExperimentalTrainerwithMixUp):
+    from ..epochers.pretrain import ExperimentalPretrainMixinEpocher
 
-    def _set_epocher_class(self, epocher_class=ExperimentalPretrainEpocher2):
-        super(PretrainExperimentalTrainer2, self)._set_epocher_class(epocher_class)
+    def _set_epocher_class(self, epocher_class=ExperimentalPretrainMixinEpocher):
+        super(PretrainExperimentalMixupTrainer, self)._set_epocher_class(epocher_class)
+
+
+class PretrainExperimentalMultiTaskTrainer(_PretrainTrainerMixin, ExperimentalTrainerwithMultiTask):
+    from ..epochers.pretrain import ExperimentPretrainMultiTaskEpocher
+
+    def _set_epocher_class(self, epocher_class=ExperimentPretrainMultiTaskEpocher):
+        super(PretrainExperimentalMultiTaskTrainer, self)._set_epocher_class(epocher_class)

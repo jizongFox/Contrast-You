@@ -3,16 +3,20 @@ Trainer:
   feature_names: [ "Conv5", ]
   feature_importance: [ 1, ]
   device: cuda
-  num_batches: 500
-  max_epoch: 100
+  num_batches: 200
+  max_epoch: 120
   two_stage_training: false
   grad_from: null
   grad_util: null
 
 Optim:
   name: Adam
-  lr: 0.000002
+  lr: 0.0000005
   weight_decay: 0.0
+
+Scheduler:
+  multiplier: 400
+  warmup_max: 10
 
 ContrastiveLoaderParams:
   group_sample_num: 7

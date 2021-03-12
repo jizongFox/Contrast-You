@@ -3,23 +3,30 @@ from itertools import cycle
 
 from deepclustering2.cchelper import JobSubmiter
 from deepclustering2.utils import gethash
+from semi_seg.scripts.helper import dataset_name2class_numbers, ft_lr_zooms
 
-from semi_seg.scripts.helper import dataset_name2class_numbers, lr_zooms
 
-parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+def get_args():
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-parser.add_argument("-n", "--dataset_name", default="acdc", type=str, help="dataset name")
-parser.add_argument("-b", "--num_batches", default=500, type=int, help="num batches")
-parser.add_argument("-e", "--max_epoch", default=100, type=int, help="max epoch")
-parser.add_argument("-s", "--random_seed", default=1, type=int, help="random seed")
-parser.add_argument("--group_sample_num", "-g", default=6, type=int, help="group_sample_num for contrastive loader")
-parser.add_argument("--save_dir", required=True, type=str, help="save_dir for the save folder")
-parser.add_argument("--time", default=4, type=int, help="demanding time")
-parser.add_argument("--lr", default=None, type=str, help="learning rate")
-parser.add_argument("--on-local", default=False, action="store_true", help="run on local")
-parser.add_argument("--stage", required=True, type=str, choices=["baseline", "decoder"], help="training stage")
-parser.add_argument("--decoder_pool", default="adaptive_avg", choices=["adaptive_avg", "adaptive_max", "bilinear"])
-args = parser.parse_args()
+    parser.add_argument("-n", "--dataset_name", default="acdc", type=str, help="dataset name")
+    parser.add_argument("-b", "--num_batches", default=500, type=int, help="num batches")
+    parser.add_argument("-e", "--max_epoch", default=100, type=int, help="max epoch")
+    parser.add_argument("-s", "--random_seed", default=1, type=int, help="random seed")
+    parser.add_argument("--group_sample_num", "-g", default=6, type=int, help="group_sample_num for contrastive loader")
+    parser.add_argument("--save_dir", required=True, type=str, help="save_dir for the save folder")
+    parser.add_argument("--time", default=4, type=int, help="demanding time")
+    parser.add_argument("--lr", default=None, type=str, help="learning rate")
+    parser.add_argument("--on-local", default=False, action="store_true", help="run on local")
+    parser.add_argument("--stage", required=True, type=str, choices=["baseline", "decoder"], help="training stage")
+    parser.add_argument("--decoder_pool", default="adaptive_avg", choices=["adaptive_avg", "adaptive_max", "bilinear"])
+    parser.add_argument("--diff_lr", default=False, action="store_true",
+                        help="if use different lr for encoder and decoder for finetune")
+    args = parser.parse_args()
+    return args
+
+
+args = get_args()
 
 num_batches = args.num_batches
 random_seed = args.random_seed
@@ -27,7 +34,7 @@ max_epoch = args.max_epoch
 group_sample_num = args.group_sample_num
 
 __githash__ = gethash(__file__)
-lr: str = args.lr or f"{lr_zooms[args.dataset_name]:.10f}"
+lr: str = args.lr or f"{ft_lr_zooms[args.dataset_name]:.10f}"
 
 save_dir = args.save_dir
 
@@ -37,9 +44,10 @@ SharedParams = f" Data.name={args.dataset_name}" \
                f" Arch.num_classes={dataset_name2class_numbers[args.dataset_name]} " \
                f" RandomSeed={random_seed} "
 
-TrainerParams = SharedParams + f" Optim.lr={lr_zooms[args.dataset_name]:.10f} "
+TrainerParams = SharedParams + f" Optim.lr={ft_lr_zooms[args.dataset_name]:.10f} "
 
-PretrainParams = SharedParams + f" ContrastiveLoaderParams.group_sample_num={group_sample_num}"
+PretrainParams = SharedParams + f" ContrastiveLoaderParams.group_sample_num={group_sample_num} " \
+                                f" Use_diff_lr={'true' if args.diff_lr else 'false'}"
 
 save_dir += ("/" + "/".join(
     [f"githash_{__githash__[:7]}", args.dataset_name, f"sample_num_{group_sample_num}", f"random_seed_{random_seed}"]))

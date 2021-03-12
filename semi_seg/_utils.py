@@ -66,7 +66,7 @@ class ContrastiveProjectorWrapper(_ProjectorWrapperBase):
         self.__index += 1
 
     def _register_dense_projector(self, *, feature_name: str, output_dim: int = 64, head_type: str,
-                                  normalize: bool = False, pool_name="adaptive_avg", spatial_size=(16, 16)):
+                                  normalize: bool = False, pool_name="adaptive_avg", spatial_size=(16, 16), **kwargs):
         input_dim = UNet.dimension_dict[feature_name]
         projector = DenseProjectionHead(input_dim=input_dim, output_dim=output_dim, head_type=head_type,
                                         normalize=normalize,
@@ -79,7 +79,8 @@ class ContrastiveProjectorWrapper(_ProjectorWrapperBase):
                                   head_type: Union[str, List[str]],
                                   output_dim: Union[int, List[int]] = 256,
                                   normalize: Union[bool, List[bool]] = True,
-                                  pool_name: Union[str, List[str]]):
+                                  pool_name: Union[str, List[str]],
+                                  **kwargs):
         if isinstance(feature_names, str):
             feature_names = [feature_names, ]
         self._global_feature_names = feature_names

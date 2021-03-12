@@ -4,15 +4,17 @@ from typing import Callable
 from typing import Union, List
 
 import torch
-from loguru import logger
-from torch import nn, Tensor
-from torch.optim.optimizer import Optimizer
-
-from contrastyou.featextractor.unet import FeatureExtractor
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.meters2 import EpochResultDict, MeterInterface
 from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.tqdm import tqdm, item2str
+from deepclustering2.type import T_loss
+from deepclustering2.models import ema_updater as EMA_Updater
+from loguru import logger
+from torch import nn, Tensor
+from torch.optim.optimizer import Optimizer
+
+from contrastyou.featextractor.unet import FeatureExtractorWithIndex as FeatureExtractor
 
 
 class unl_extractor:
@@ -93,7 +95,41 @@ class _FeatureExtractorMixin:
 
     def forward_pass(self, *args, **kwargs):
         self._fextractor.clear()
-        return super(_FeatureExtractorMixin, self).forward_pass(*args, **kwargs)  # noqa
+        with self._fextractor.enable_register():
+            return super(_FeatureExtractorMixin, self).forward_pass(*args, **kwargs)  # noqa
+
+
+# mean teacher mixin
+class _MeanTeacherMixin:
+    _affine_transformer: Callable[[Tensor], Tensor]
+    _model: nn.Module
+
+    def _init(self, *, teacher_model: nn.Module, reg_criterion: T_loss,
+              ema_updater: EMA_Updater, **kwargs):
+        super(_MeanTeacherMixin, self)._init(**kwargs)  # noqa
+        self._reg_criterion = reg_criterion  # noqa
+        self._teacher_model = teacher_model  # noqa
+        self._ema_updater = ema_updater  # noqa
+        self._teacher_model.train()
+
+    def _mt_regularization(
+        self,
+        *,
+        unlabeled_tf_logits: Tensor,
+        seed: int,
+        unlabeled_image: Tensor,
+    ):
+        with torch.no_grad():
+            teacher_unlabeled_logit = self._teacher_model(unlabeled_image)
+        with FixRandomSeed(seed):
+            teacher_unlabeled_logit_tf = torch.stack(
+                [self._affine_transformer(x) for x in teacher_unlabeled_logit], dim=0)
+
+        # compare teacher_unlabeled_logit_tf and student unlabeled_tf_logits
+        reg_loss = self._reg_criterion(unlabeled_tf_logits.softmax(1), teacher_unlabeled_logit_tf.softmax(1).detach())
+        # update teacher model here.
+        self._ema_updater(self._teacher_model, self._model)
+        return reg_loss
 
 
 # ======== base pretrain epocher mixin ================
@@ -124,12 +160,12 @@ class _PretrainEpocherMixin:
         self._chain_dataloader = chain_dataloader
 
     def _run(self, *args, **kwargs) -> EpochResultDict:
-        self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer)[0])
+        self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer))
         assert self._model.training, self._model.training
-        return self.__run_pretrain(*args, **kwargs)
+        return self._run_pretrain(*args, **kwargs)
 
-    def __run_pretrain(self, *args, **kwargs):
-        for i, data in zip(self._indicator, self._chain_dataloader):
+    def _run_pretrain(self, *args, **kwargs):
+        for self.cur_batch_num, data in zip(self._indicator, self._chain_dataloader):
             seed = random.randint(0, int(1e7))
             unlabeled_image, unlabeled_target, unlabeled_filename, unl_partition, unl_group = \
                 self._unzip_data(data, self._device)

@@ -1,244 +1,370 @@
-import math
-from functools import lru_cache
+from typing import List
 
 import numpy as np
 import torch
 from loguru import logger
+from sklearn.preprocessing import LabelEncoder
 from torch import Tensor
 
+from contrastyou.featextractor import FeatureExtractorWithIndex as FeatureExtractor
+from contrastyou.helper import weighted_average_iter, register_variable, get_variable
+from contrastyou.losses.contrast_loss import SupConLoss3, is_normalized, SupConLoss4
 from contrastyou.losses.iic_loss import _ntuple  # noqa
-from deepclustering2.type import T_loss
+from contrastyou.projectors.nn import Normalize
+from deepclustering2.configparser._utils import get_config  # noqa
+from deepclustering2.meters2 import MeterInterface, AverageValueMeter
+from deepclustering2.utils import simplex, class2one_hot, one_hot
+from . import unl_extractor, ProjectionHead
 from .comparable import InfoNCEEpocher
-from .._utils import ContrastiveProjectorWrapper
 
 
-class ProposedEpocher1(InfoNCEEpocher):
+@torch.no_grad()
+def generate_similarity_masks(norm_feature1: Tensor, norm_feature2: Tensor):
+    sim_matrix = norm_feature1.mm(norm_feature2.transpose(1, 0))  # ranging from -1 to 1
+    sim_matrix -= -1
+    sim_matrix /= 2
+    return sim_matrix
 
-    def _init(self, *, reg_weight: float, projectors_wrapper: ContrastiveProjectorWrapper = None,
-              infoNCE_criterion: T_loss = None, kernel_size: int = 1, margin: int = 3, neigh_weight: float = None,
-              **kwargs):
-        super(ProposedEpocher1, self)._init(reg_weight=reg_weight, projectors_wrapper=projectors_wrapper,
-                                            infoNCE_criterion=infoNCE_criterion, **kwargs)
-        self._kernel_size = kernel_size  # noqa
-        self._margin = margin  # noqa
-        assert 0 <= neigh_weight <= 1, neigh_weight
-        self._neigh_weight = neigh_weight  # noqa
-        if self._neigh_weight == 1:
-            logger.debug("{}, only considering neighor term", self.__class__.__name__, )
-        elif self._neigh_weight == 0:
-            logger.debug("{}, only considering content term", self.__class__.__name__, )
-        else:
-            logger.debug("{}, considers neighor term: {} and content term: {}", self.__class__.__name__,
-                         self._neigh_weight, 1 - self._neigh_weight)
+
+@torch.no_grad()
+def generate_similarity_weightmatrix_based_on_labels(label_dist1, label_dist2):
+    assert simplex(label_dist1, axis=1) and simplex(label_dist2, axis=1)
+    _norm_class = Normalize(dim=1)
+    norm_dist1, norm_dist2 = _norm_class(label_dist1), _norm_class(label_dist2)
+    sim_distance = norm_dist1.mm(norm_dist2.t())
+    assert torch.logical_and(sim_distance >= 0, sim_distance <= 1).any()
+    return sim_distance
+
+
+@torch.no_grad()
+def generate_mixup_image(image_list1: Tensor, image_list2: Tensor, label_list1: Tensor, label_list2: Tensor):
+    b, c, *hw = image_list1.shape
+    assert one_hot(label_list1) and one_hot(label_list2)
+    mu = torch.rand(b, 1, 1, 1, device=image_list1.device)
+    mixed_image = image_list1 * mu + image_list2 * (1 - mu)
+    assert torch.logical_and(mixed_image >= 0, mixed_image <= 1).all()  # make sure that
+    mixed_target = mu.squeeze()[..., None] * label_list1 + (1 - mu.squeeze()[..., None]) * label_list2
+    assert simplex(mixed_target), mixed_target
+    return mixed_image, mixed_target
+
+
+def config_meter_with_soften_setting(meters):
+    config = get_config(scope="base")
+    for f in config["ProjectorParams"]["GlobalParams"]["feature_names"] or []:
+        m = "global"
+        meters.register_meter(f"{f}_{m}/hardcode_mi", AverageValueMeter(), )
+        meters.register_meter(f"{f}_{m}/soften_mi", AverageValueMeter(), )
+    for f in config["ProjectorParams"]["DenseParams"]["feature_names"] or []:
+        m = "dense"
+        meters.register_meter(f"{f}_{m}/hardcore_mi", AverageValueMeter(), )
+        meters.register_meter(f"{f}_{m}/soften_mi", AverageValueMeter(), )
+    return meters
+
+
+class _SoftenContrastMixin:
+    meters: MeterInterface
+
+    def __init__(self, *args, **kwargs):
+        super(_SoftenContrastMixin, self).__init__(*args, **kwargs)
+        self._infonce_criterion2 = SupConLoss3()  # adding a soften loss
+
+    def _global_infonce_soft(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
+                             label_group) -> Tensor:
+        sim_coef = self.generate_similarity(proj_tf_feature, proj_feature_tf)
+        regularized_loss = self._infonce_criterion2(proj_tf_feature, proj_feature_tf,
+                                                    pos_weight=sim_coef)
+        return regularized_loss
+
+    @staticmethod
+    def generate_similarity(proj_tf_feature, proj_feature_tf):
+        return generate_similarity_masks(proj_tf_feature, proj_feature_tf)
+
+    def _dense_infonce_for_encoder_soft(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
+                                        label_group):
+        assert "Conv" in feature_name, feature_name
+
+        proj_tf_feature, proj_feature_tf = self._reshape_dense_feature(proj_tf_feature, proj_feature_tf)  # noqa
+
+        b, hw, c = proj_feature_tf.shape
+
+        if not (is_normalized(proj_feature_tf, dim=2) and is_normalized(proj_feature_tf, dim=2)):
+            proj_feature_tf = Normalize(dim=2)(proj_feature_tf)
+            proj_tf_feature = Normalize(dim=2)(proj_tf_feature)
+        proj_feature_tf, proj_tf_feature = proj_feature_tf.reshape(-1, c), proj_tf_feature.reshape(-1, c)
+        sim_coef = self.generate_similarity(proj_feature_tf, proj_tf_feature)
+        regularized_loss = self._infonce_criterion2(proj_tf_feature, proj_feature_tf,
+                                                    pos_weight=sim_coef)
+
+        return regularized_loss
+
+
+class EncoderDenseContrastEpocher(_SoftenContrastMixin, InfoNCEEpocher):
+    """
+    adding a soften loss for both global and dense features.
+    """
+
+    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters = super(EncoderDenseContrastEpocher, self)._configure_meters(meters)
+        meters = config_meter_with_soften_setting(meters)
+        return meters
+
+    def _global_infonce(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
+                        label_group) -> Tensor:
+        naive_global_infonce = super(_SoftenContrastMixin, self)._global_infonce(
+            feature_name=feature_name,
+            proj_tf_feature=proj_tf_feature,
+            proj_feature_tf=proj_feature_tf,
+            partition_group=partition_group,
+            label_group=label_group
+        )
+        soften_global_infonce = self._global_infonce_soft(
+            feature_name=feature_name,
+            proj_tf_feature=proj_tf_feature,
+            proj_feature_tf=proj_feature_tf,
+            partition_group=partition_group,
+            label_group=label_group
+        )
+        self.meters[f"{feature_name}_global/hardcode_mi"].add(naive_global_infonce.item())
+        self.meters[f"{feature_name}_global/soften_mi"].add(soften_global_infonce.item())
+
+        config = get_config(scope="base")
+        reg_weight = float(config["ProjectorParams"]["GlobalParams"]["softweight"])
+
+        return naive_global_infonce + reg_weight * soften_global_infonce
+
+    def _dense_infonce_for_encoder(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
+                                   label_group):
+        # get unregularized loss based on index of the dense feature map.
+        unregularized_loss = super()._dense_infonce_for_encoder(
+            feature_name=feature_name,
+            proj_tf_feature=proj_tf_feature,
+            proj_feature_tf=proj_feature_tf,
+            partition_group=partition_group,
+            label_group=label_group
+        )
+        regularized_loss = self._dense_infonce_for_encoder_soft(
+            feature_name=feature_name,
+            proj_tf_feature=proj_tf_feature,
+            proj_feature_tf=proj_feature_tf,
+            partition_group=partition_group,
+            label_group=label_group
+        )
+
+        self.meters[f"{feature_name}_dense/hardcore_mi"].add(unregularized_loss.item())
+        self.meters[f"{feature_name}_dense/soften_mi"].add(regularized_loss.item())
+
+        config = get_config(scope="base")
+        reg_weight = float(config["ProjectorParams"]["DenseParams"]["softweight"])
+
+        return unregularized_loss + reg_weight * regularized_loss
 
     def _dense_infonce_for_decoder(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
                                    label_group):
-        b, c, *hw = proj_feature_tf.shape
-        nearby_mask = self.generate_relation_masks(
-            output_size=(math.sqrt(np.product(hw)), math.sqrt(hw)), kernel_size=self._kernel_size, margin=self._margin
+        raise RuntimeError(f"{self.__class__.__name__} does not support contrasting on dense feature from decoder")
+
+
+class EncoderDenseMixupContrastEpocher(InfoNCEEpocher):
+    """
+    This epocher inherits the infoNCE epocher and then apply mixup for it.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._infonce_criterion2 = SupConLoss4()  # adding a soften loss
+
+    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters = super(EncoderDenseMixupContrastEpocher, self)._configure_meters(meters)
+        meters = config_meter_with_soften_setting(meters)
+        return meters
+
+    def run(self, *args, **kwargs):
+        with FeatureExtractor(self._model, self._feature_position) as self._fextractor_mixup:  # noqa
+            logger.debug(f"create feature extractor with mixup for {', '.join(self._feature_position)} ")
+            return super(EncoderDenseMixupContrastEpocher, self).run(*args, **kwargs)  # noqa
+
+    def forward_pass(self, *args, **kwargs):
+        self._fextractor_mixup.clear()
+        return super(EncoderDenseMixupContrastEpocher, self).forward_pass(*args, **kwargs)
+
+    def regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int,
+                       label_group: List[str], partition_group: List[str], unlabeled_image=None,
+                       unlabeled_image_tf=None, **kwargs):
+        # adding mixup here.
+        def prepare_mixup():
+            # creating mixup images and labels =====
+            b, c, h, w = unlabeled_image.shape
+            rand_index = torch.Tensor(np.random.permutation(list(range(b)))).long().to(self.device)
+            label = torch.from_numpy(LabelEncoder().fit(partition_group).transform(partition_group)).to(self.device)
+            oh_label = class2one_hot(label, C=4).float()
+
+            mixed_image, mixed_oh_target = generate_mixup_image(image_list1=unlabeled_image_tf,
+                                                                image_list2=unlabeled_image_tf[rand_index],
+                                                                label_list1=oh_label, label_list2=oh_label[rand_index])
+            # pass the mixup image to the network
+            with self._fextractor.disable_register():
+                with self._fextractor_mixup.enable_register():
+                    _ = self._model(mixed_image)
+
+            register_variable(name="oh_target", object_=oh_label)
+            register_variable(name="mixed_oh_target", object_=mixed_oh_target)
+
+        prepare_mixup()
+
+        reg_loss = super(EncoderDenseMixupContrastEpocher, self).regularization(
+            unlabeled_tf_logits=unlabeled_tf_logits, unlabeled_logits_tf=unlabeled_logits_tf,
+            seed=seed, label_group=label_group, partition_group=partition_group, unlabeled_image=unlabeled_image,
+            unlabeled_image_tf=unlabeled_image_tf, **kwargs)
+
+        return reg_loss
+
+    def _regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group,
+                        partition_group, **kwargs):
+        feature_names = self._fextractor._feature_names  # noqa
+        n_uls = len(unlabeled_tf_logits) * 2
+
+        losses = [
+            self.generate_infonce(
+                feature_name=n, features=f, mixup_feature=mixup, projector=p, seed=seed,
+                partition_group=partition_group,
+                label_group=label_group) for n, f, mixup, p in
+            zip(self._fextractor.feature_names, unl_extractor(self._fextractor, n_uls=n_uls), self._fextractor_mixup,
+                self._projectors_wrapper)
+        ]
+        reg_loss = weighted_average_iter(losses, self._feature_importance)
+        self.meters["mi"].add(-reg_loss.item())
+        self.meters["individual_mis"].add(**dict(zip(
+            [f"{p}|{i}" for i, p in enumerate(self._feature_position)],
+            [-x.item() for x in losses]
+        )))
+        return reg_loss
+
+    def _dense_infonce_for_decoder(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
+                                   label_group):
+        raise RuntimeError(f"{self.__class__.__name__} does not support contrasting on dense feature from decoder")
+
+    def generate_infonce(self, *, feature_name, features, mixup_feature=None, projector, seed, partition_group,
+                         label_group) -> Tensor:
+        # note that mixup_feature is created from `unlabeled_image_tf`
+        proj_tf_feature, proj_feature_tf = self.unlabeled_projection(
+            unl_features=features, projector=projector, seed=seed
         )
-        sim_mask = self.generate_similarity_masks(norm_feature1=proj_feature_tf, norm_feature2=proj_tf_feature)
+        # manually create the projected mixup features.
+        proj_mixup_feature = projector(mixup_feature)
 
-    @lru_cache()
-    def generate_relation_masks(self, output_size, kernel_size=1, margin=1) -> Tensor:
-        _pair = _ntuple(2)
-        output_size = _pair(output_size)
-        size = output_size[0] * output_size[1]
-        mask = torch.zeros(size, size, dtype=torch.float, device=self._device)
-        for i in range(output_size[0]):
-            for j in range(output_size[1]):
-                relation = torch.zeros(*output_size, dtype=torch.float, device=self._device)
-                relation[
-                max(i - kernel_size - margin, 0):i + kernel_size + margin,
-                max(j - kernel_size - margin, 0):j + kernel_size + margin
-                ] = -1
-                relation[max(i - kernel_size, 0):i + kernel_size, max(j - kernel_size, 0):j + kernel_size] = 1
-                mask[i * output_size[0] + j] = relation.view(1, -1)
-        return mask
+        if isinstance(projector, ProjectionHead):
+            # it goes to **global** representation here.
+            return self._global_infonce(
+                feature_name=feature_name,
+                proj_tf_feature=proj_tf_feature,
+                proj_feature_tf=proj_feature_tf,
+                proj_feature_mixup=proj_mixup_feature,
+                partition_group=partition_group,
+                label_group=label_group
+            )
+        # it goes to a **dense** representation on pixels
+        return self._dense_based_infonce(
+            feature_name=feature_name,
+            proj_tf_feature=proj_tf_feature,
+            proj_feature_tf=proj_feature_tf,
+            proj_feature_mixup=proj_mixup_feature,
+            partition_group=partition_group,
+            label_group=label_group
+        )
 
-    @torch.no_grad()
-    def generate_similarity_masks(self, norm_feature1: Tensor, norm_feature2: Tensor):
-        sim_matrix = norm_feature1.bmm(norm_feature2.transpose(2, 1))  # ranging from -1 to 1
-        sim_matrix -= sim_matrix.min()
-        sim_matrix /= 2
-        for i in range(sim_matrix.size(1)):
-            sim_matrix[:, i, i] = 1
+    def _global_infonce(self, *, feature_name, proj_tf_feature, proj_feature_tf, proj_feature_mixup=None,
+                        partition_group, label_group) -> Tensor:
+        unregularized_loss = super()._global_infonce(
+            feature_name=feature_name, proj_tf_feature=proj_tf_feature,
+            proj_feature_tf=proj_feature_tf, partition_group=partition_group,
+            label_group=label_group
+        )
 
-        new_matrix = torch.zeros_like(sim_matrix).fill_(-1)
-        new_matrix[sim_matrix > 0.95] = 1
-        new_matrix[sim_matrix < 0.65] = 0
-        return new_matrix
+        oh_target = get_variable(name="oh_target")
+        mixed_oh_target = get_variable(name="mixed_oh_target")
+        one2one_coef = generate_similarity_weightmatrix_based_on_labels(
+            label_dist1=oh_target,
+            label_dist2=oh_target,
+        )
+        two2two_coef = generate_similarity_weightmatrix_based_on_labels(
+            label_dist1=mixed_oh_target,
+            label_dist2=mixed_oh_target
+        )
+        cross_coef = generate_similarity_weightmatrix_based_on_labels(
+            label_dist1=oh_target,
+            label_dist2=mixed_oh_target,
+        )
+        self._infonce_criterion2: SupConLoss4
+        regularized_loss = self._infonce_criterion2(
+            proj_feat1=proj_tf_feature, proj_feat2=proj_feature_mixup,
+            one2one_weight=one2one_coef, two2two_weight=two2two_coef, one2two_weight=cross_coef,
+        )
+
+        config = get_config(scope="base")
+        reg_weight = float(config["ProjectorParams"]["GlobalParams"]["softweight"])
+        self.meters[f"{feature_name}_global/hardcode_mi"].add(unregularized_loss.item())
+        self.meters[f"{feature_name}_global/mixup_mi"].add(regularized_loss.item())
+
+        return unregularized_loss + reg_weight * regularized_loss
+
+    def _dense_based_infonce(self, *, feature_name, proj_tf_feature, proj_feature_tf, proj_feature_mixup=None,
+                             partition_group, label_group) -> Tensor:
+        if "Conv" in feature_name:
+            # this is the dense feature from encoder
+            return self._dense_infonce_for_encoder(
+                feature_name=feature_name,
+                proj_tf_feature=proj_tf_feature,
+                proj_feature_tf=proj_feature_tf,
+                proj_feature_mixup=proj_feature_mixup,
+                partition_group=partition_group,
+                label_group=label_group
+            )
+        return self._dense_infonce_for_decoder(
+            feature_name=feature_name,
+            proj_tf_feature=proj_tf_feature,
+            proj_feature_tf=proj_feature_tf,
+            partition_group=partition_group,
+            label_group=label_group
+        )
+
+    def _dense_infonce_for_encoder(self, *, feature_name, proj_tf_feature, proj_feature_tf, proj_feature_mixup=None,
+                                   partition_group, label_group):
+        # get unregularized loss based on index of the dense feature map.
+        unregularized_loss = super()._dense_infonce_for_encoder(feature_name=feature_name,
+                                                                proj_tf_feature=proj_tf_feature,
+                                                                proj_feature_tf=proj_feature_tf,
+                                                                partition_group=partition_group,
+                                                                label_group=label_group)
+        # repeat a bit
+        assert "Conv" in feature_name, feature_name
+        b, c, *hw = proj_tf_feature.shape
+        proj_tf_feature, proj_feature_tf = self._reshape_dense_feature(proj_tf_feature, proj_feature_tf)
+        proj_feature_mixup = proj_feature_mixup.view(b, c, -1).permute(0, 2, 1)
+
+        b, hw, c = proj_feature_tf.shape
+
+        if not (is_normalized(proj_feature_tf, dim=2) and is_normalized(proj_feature_tf, dim=2)):
+            proj_feature_tf = Normalize(dim=2)(proj_feature_tf)
+            proj_tf_feature = Normalize(dim=2)(proj_tf_feature)
+            proj_feature_mixup = Normalize(dim=2)(proj_feature_mixup)
+
+        proj_feature_tf, proj_tf_feature, proj_feature_mixup = proj_feature_tf.reshape(-1, c), \
+                                                               proj_tf_feature.reshape(-1, c), \
+                                                               proj_feature_mixup.reshape(-1, c)
+
+        one2one_coef = generate_similarity_masks(proj_feature_tf, proj_feature_tf)
+        two2two_coef = None
+        cross_coef = generate_similarity_masks(proj_feature_tf, proj_feature_mixup)
+        regularized_loss = self._infonce_criterion2(
+            proj_feat1=proj_tf_feature, proj_feat2=proj_feature_mixup,
+            one2one_weight=one2one_coef, two2two_weight=two2two_coef, one2two_weight=cross_coef, )
+        self.meters[f"{feature_name}_dense/hardcode_mi"].add(unregularized_loss.item())
+        self.meters[f"{feature_name}_dense/mixup_mi"].add(regularized_loss.item())
+
+        config = get_config(scope="base")
+        reg_weight = float(config["ProjectorParams"]["DenseParams"]["softweight"])
+
+        return unregularized_loss + reg_weight * regularized_loss
 
 
-class ProposedEpocher2(InfoNCEEpocher):
-
-    def _assertion(self):
-        from contrastyou.losses.contrast_loss import SupConLoss3
-        if not isinstance(self._infonce_criterion, SupConLoss3):
-            raise RuntimeError(f"{self.__class__.__name__} only support `SupConLoss3`, "
-                               f"given {type(self._infonce_criterion)}")
-        super(InfoNCEEpocher, self)._assertion()
-
-# class NewEpocher(_InfoNCEBasedEpocher):
-#     """This epocher takes binary masks defined as the two priors
-#     infonce_criterion should be set as `SupConLoss2`
-#     """
-#
-#     def _init(self, *, reg_weight: float, projectors_wrapper: ContrastiveProjectorWrapper = None,
-#               infoNCE_criterion: T_loss = None, kernel_size: int = 1, margin: int = 3, neigh_weight: float = None,
-#               **kwargs):
-#         super(NewEpocher, self)._init(reg_weight=reg_weight, projectors_wrapper=projectors_wrapper,
-#                                       infoNCE_criterion=infoNCE_criterion, **kwargs)
-#
-#         self._kernel_size = kernel_size  # noqa
-#         self._margin = margin  # noqa
-#         assert 0 <= neigh_weight <= 1, neigh_weight
-#         self._neigh_weight = neigh_weight  # noqa
-#         if self._neigh_weight == 1:
-#             logger.debug("{}, only considering neighor term", self.__class__.__name__, )
-#         elif self._neigh_weight == 0:
-#             logger.debug("{}, only considering content term", self.__class__.__name__, )
-#         else:
-#             logger.debug("{}, considers neighor term: {} and content term: {}", self.__class__.__name__,
-#                          self._neigh_weight, 1 - self._neigh_weight)
-#         self._infonce_criterion: SupConLoss2
-#
-#     def _assertion(self):
-#         if not isinstance(self._infonce_criterion, SupConLoss2):
-#             raise RuntimeError(f"{self.__class__.__name__} only support `SupConLoss2`, "
-#                                f"given {type(self._infonce_criterion)}")
-#         super(NewEpocher, self)._assertion()
-#
-#     def generate_infonce(self, *, feature_name, features, projector, seed, partition_group, label_group):
-#
-#         proj_tf_feature, proj_feature_tf = self.unlabeled_projection(unl_features=features, projector=projector,
-#                                                                      seed=seed)
-#         # normalization and label generation goes differently here.
-#         if isinstance(projector, ProjectionHead):
-#             norm_tf_feature, norm_feature_tf = proj_tf_feature, proj_feature_tf
-#             assert len(norm_tf_feature.shape) == 2, norm_tf_feature.shape
-#             assert is_normalized(norm_feature_tf) and is_normalized(norm_feature_tf)
-#             labels = self.global_label_generator(self.__encoder_method_name__)(partition_list=partition_group,
-#                                                                                patient_list=label_group)
-#             return self._infonce_criterion(norm_feature_tf, norm_tf_feature, target=labels)
-#
-#         elif isinstance(projector, DenseProjectionHead):
-#             norm_tf_feature, norm_feature_tf = proj_tf_feature, proj_feature_tf
-#             b, c, *hw = norm_tf_feature.shape
-#             norm_tf_feature = norm_tf_feature.view(b, c, -1).permute(0, 2, 1)
-#             norm_feature_tf = norm_feature_tf.view(b, c, -1).permute(0, 2, 1)
-#
-#             mask = self.generate_relation_masks(proj_feature_tf.shape[-2:], kernel_size=self._kernel_size,
-#                                                 margin=self._margin)
-#
-#             position_mi = average_iter(
-#                 [self._infonce_criterion(x, y, mask=mask) for x, y in zip(norm_tf_feature, norm_feature_tf)]
-#             )
-#             content_mi = torch.tensor(0.0, dtype=torch.float, device=self.device)
-#             if self._neigh_weight < 1:
-#                 relative_mask = self.generate_similarity_masks(norm_tf_feature, norm_feature_tf)
-#
-#                 content_mi = average_iter(
-#                     [self._infonce_criterion(x, y, mask=_mask) for x, y, _mask in
-#                      zip(norm_tf_feature, norm_feature_tf, relative_mask)]
-#                 )
-#             return position_mi * self._neigh_weight + content_mi * (1 - self._neigh_weight)
-#         else:
-#             raise NotImplementedError(type(projector))
-#
-#     @lru_cache()
-#     def generate_relation_masks(self, output_size, kernel_size=1, margin=1) -> Tensor:
-#         _pair = _ntuple(2)
-#         output_size = _pair(output_size)
-#         size = output_size[0] * output_size[1]
-#         mask = torch.zeros(size, size, dtype=torch.float, device=self._device)
-#         for i in range(output_size[0]):
-#             for j in range(output_size[1]):
-#                 relation = torch.zeros(*output_size, dtype=torch.float, device=self._device)
-#                 relation[
-#                 max(i - kernel_size - margin, 0):i + kernel_size + margin,
-#                 max(j - kernel_size - margin, 0):j + kernel_size + margin
-#                 ] = -1
-#                 relation[max(i - kernel_size, 0):i + kernel_size, max(j - kernel_size, 0):j + kernel_size] = 1
-#                 mask[i * output_size[0] + j] = relation.view(1, -1)
-#         return mask
-#
-#     @torch.no_grad()
-#     def generate_similarity_masks(self, norm_feature1: Tensor, norm_feature2: Tensor):
-#         sim_matrix = norm_feature1.bmm(norm_feature2.transpose(2, 1))  # ranging from -1 to 1
-#         sim_matrix -= sim_matrix.min()
-#         sim_matrix /= 2
-#         for i in range(sim_matrix.size(1)):
-#             sim_matrix[:, i, i] = 1
-#
-#         new_matrix = torch.zeros_like(sim_matrix).fill_(-1)
-#         new_matrix[sim_matrix > 0.95] = 1
-#         new_matrix[sim_matrix < 0.65] = 0
-#         return new_matrix
-
-#
-# class NewEpocher2(NewEpocher):
-#     """This epocher is going to do feature clustering on UNet intermediate layers, instead of using MI"""
-#
-#     def generate_infonce(self, *, features, projector, seed, partition_group, label_group):
-#         unlabeled_features, unlabeled_tf_features = torch.chunk(features, 2, dim=0)
-#         with FixRandomSeed(seed):
-#             unlabeled_features_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_features], dim=0)
-#         assert unlabeled_tf_features.shape == unlabeled_tf_features.shape, \
-#             (unlabeled_tf_features.shape, unlabeled_tf_features.shape)
-#
-#         proj_tf_feature, proj_feature_tf = torch.chunk(
-#             projector(torch.cat([unlabeled_tf_features, unlabeled_features_tf], dim=0)), 2, dim=0
-#         )
-#         # normalization and label generation goes differently here.
-#         if isinstance(projector, ProjectionHead):
-#             norm_tf_feature, norm_feature_tf = proj_tf_feature, proj_feature_tf
-#             assert len(norm_tf_feature.shape) == 2, norm_tf_feature.shape
-#             assert is_normalized(norm_feature_tf) and is_normalized(norm_feature_tf)
-#             labels = self.global_label_generator(self.__encoder_method_name__)(partition_list=partition_group,
-#                                                                                patient_list=label_group)
-#             return self._infonce_criterion(norm_feature_tf, norm_tf_feature, target=labels)
-#
-#         elif isinstance(projector, DenseProjectionHead):
-#             norm_tf_feature, norm_feature_tf = proj_tf_feature, proj_feature_tf
-#             b, c, *hw = norm_tf_feature.shape
-#             norm_tf_feature = norm_tf_feature.view(b, c, -1).permute(0, 2, 1)
-#             norm_feature_tf = norm_feature_tf.view(b, c, -1).permute(0, 2, 1)
-#
-#             pos_mask, neg_mask = self.generate_relation_masks(proj_feature_tf.shape[-2:],
-#                                                               kernel_size=self._kernel_size,
-#                                                               margin=self._margin)
-#
-#             position_mi = average_iter(
-#                 [self._infonce_criterion(x, y, pos_weight=pos_mask, neg_weight=neg_mask) for x, y in
-#                  zip(norm_tf_feature, norm_feature_tf)]
-#             )
-#             content_mi = torch.tensor(0.0, dtype=torch.float, device=self.device)
-#             if self._neigh_weight < 1:
-#                 relative_mask = self.generate_similarity_masks(norm_tf_feature, norm_feature_tf)
-#
-#                 content_mi = average_iter(
-#                     [self._infonce_criterion(x, y, mask=_mask) for x, y, _mask in
-#                      zip(norm_tf_feature, norm_feature_tf, relative_mask)]
-#                 )
-#             return position_mi * self._neigh_weight + content_mi * (1 - self._neigh_weight)
-#         else:
-#             raise NotImplementedError(type(projector))
-#
-#     @lru_cache()
-#     def generate_relation_masks(self, output_size, kernel_size=1, margin=1) -> Tuple[Tensor, Tensor]:
-#         _pair = _ntuple(2)
-#         output_size = _pair(output_size)
-#         size = output_size[0] * output_size[1]
-#         import numpy as np
-#         from scipy.ndimage import gaussian_filter
-#         mask = np.zeros([size, size])
-#         for i in range(output_size[0]):
-#             for j in range(output_size[1]):
-#                 relation = np.zeros(output_size)
-#                 relation[i, j] = 1
-#                 filtered_relation = gaussian_filter(relation, sigma=kernel_size)
-#                 filtered_relation /= filtered_relation.max()  # noqa
-#                 mask[i * output_size[0] + j] = filtered_relation.reshape(1, -1)
-#         mask = torch.from_numpy(mask).float().to(self._device)
-#         return mask, 1 - mask
+class EncoderMultiTaskContrastiveEpocher(InfoNCEEpocher):
+    pass

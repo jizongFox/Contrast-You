@@ -3,10 +3,10 @@ import warnings
 from typing import List, Union
 
 import numpy as np
-from skimage.io import imsave
-from torch import Tensor
-
 from deepclustering2.type import to_device, torch
+from skimage.io import imsave
+from sklearn.preprocessing import LabelEncoder
+from torch import Tensor
 
 
 def unique_mapping(name_list):
@@ -57,6 +57,7 @@ class GlobalLabelGenerator:
 
     def __call__(self, partition_list: List[str], patient_list: List[str]) -> List[int]:
         assert len(partition_list) == len(patient_list), (len(partition_list), len(patient_list))
+        # patient_list = [p.split("_")[0] for p in partition_list]
         batch_size = len(partition_list)
 
         final_string = [""] * batch_size
@@ -74,7 +75,8 @@ class LocalLabelGenerator(GlobalLabelGenerator):
     def __init__(self, ) -> None:
         super().__init__(True, True)
 
-    def __call__(self, partition_list: List[str], patient_list: List[str], location_list: List[str]) -> List[int]:
+    def __call__(self, partition_list: List[str], patient_list: List[str], location_list: List[str] = None) -> List[
+        int]:
         partition_list = [str(x) for x in partition_list]
         patient_list = [str(x) for x in patient_list]
         location_list = [str(x) for x in location_list]
@@ -84,6 +86,21 @@ class LocalLabelGenerator(GlobalLabelGenerator):
         assert len(location_list) == len(partition_list)
 
         return super().__call__(_string_list_adding(patient_list, partition_list), location_list)
+
+
+class PartitionLabelGenerator:
+    def __call__(self, partition_list: List[str], **kwargs):
+        return LabelEncoder().fit(partition_list).transform(partition_list).tolist()
+
+
+class PatientLabelGenerator:
+    def __call__(self, patient_list: List[str], **kwargs):
+        return LabelEncoder().fit(patient_list).transform(patient_list).tolist()
+
+
+class ACDCCycleGenerator:
+    def __call__(self, experiment_list: List[str], **kwargs):
+        return [0 if e == "00" else 1 for e in experiment_list]
 
 
 def _write_single_png(mask: Tensor, save_dir: str, filename: str):
@@ -113,7 +130,7 @@ def write_img_target(image: Tensor, target: Tensor, save_dir: str, filenames: Un
     target = target.squeeze()
     assert image.shape == target.shape
     for img, f in zip(image, filenames):
-        _write_single_png(img*255, os.path.join(save_dir, "img"), f)
+        _write_single_png(img * 255, os.path.join(save_dir, "img"), f)
     for targ, f in zip(target, filenames):
         _write_single_png(targ, os.path.join(save_dir, "gt"), f)
 

@@ -1,14 +1,13 @@
 from copy import deepcopy
 
-from loguru import logger
-from torch.utils.data import DataLoader
-
 from contrastyou import DATA_PATH
 from contrastyou.datasets import ACDCSemiInterface, SpleenSemiInterface, ProstateSemiInterface, MMWHSSemiInterface
 from deepclustering2.dataloader.distributed import InfiniteDistributedSampler
 from deepclustering2.dataloader.sampler import InfiniteRandomSampler
 from deepclustering2.dataset import PatientSampler
+from loguru import logger
 from semi_seg.augment import ACDCStrongTransforms, SpleenStrongTransforms, ProstateStrongTransforms
+from torch.utils.data import DataLoader
 
 dataset_zoos = {
     "acdc": ACDCSemiInterface,
@@ -31,16 +30,21 @@ def get_dataloaders(config, group_val_patient=True):
     assert dataset_name in dataset_zoos.keys(), config["Data"]
     datainterface = dataset_zoos[dataset_name]
     augmentinferface = augment_zoos[dataset_name]
-
-    data_manager = datainterface(root_dir=DATA_PATH, labeled_data_ratio=config["Data"]["labeled_data_ratio"],
-                                 unlabeled_data_ratio=config["Data"]["unlabeled_data_ratio"], verbose=False)
+    labeled_data_ratio = config["Data"]["labeled_data_ratio"]
+    unlabeled_data_ratio = config["Data"]["unlabeled_data_ratio"]
+    if labeled_data_ratio + unlabeled_data_ratio != 1:
+        RuntimeError(f"labeled and unlabeled data should be set properly, "
+                     f"given {labeled_data_ratio} and {unlabeled_data_ratio}")
+    data_manager = datainterface(root_dir=DATA_PATH, labeled_data_ratio=labeled_data_ratio,
+                                 unlabeled_data_ratio=unlabeled_data_ratio, verbose=False)
 
     label_set, unlabel_set, val_set = data_manager._create_semi_supervised_datasets(  # noqa
         labeled_transform=augmentinferface.pretrain,
         unlabeled_transform=augmentinferface.pretrain,
         val_transform=augmentinferface.val
     )
-
+    logger.debug(
+        f"labeled group length:{len(label_set.get_group_list())}, : {','.join(sorted(label_set.get_group_list()))}")
     # labeled loader is with normal 2d slicing and InfiniteRandomSampler
     labeled_sampler = InfiniteRandomSampler(
         label_set,

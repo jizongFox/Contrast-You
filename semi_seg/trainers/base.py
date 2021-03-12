@@ -14,7 +14,7 @@ from deepclustering2.meters2 import StorageIncomeDict
 from deepclustering2.schedulers import GradualWarmupScheduler
 from deepclustering2.trainer2 import Trainer
 from deepclustering2.type import T_loader, T_loss
-from semi_seg.epochers import TrainEpocher, EvalEpocher, FineTuneEpocher, InferenceEpocher
+from semi_seg.epochers import TrainEpocher, EvalEpocher, FineTuneEpocher, InferenceEpocher, chain
 
 
 class SemiTrainer(Trainer):
@@ -30,6 +30,8 @@ class SemiTrainer(Trainer):
         self._sup_criterion = sup_criterion
         self.__initialized__ = False
         self._feature_importance, self.feature_positions = None, None
+        # this flag is set to indicate if optimizer is with different learning rate.
+        self._pre_param_optimizer_flag = False
 
     # initialization
     def init(self):
@@ -46,23 +48,56 @@ class SemiTrainer(Trainer):
         scheduler_dict = self._config.get("Scheduler", None)
         if scheduler_dict is None:
             return
-        else:
-            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-                self._optimizer,
-                T_max=self._config["Trainer"]["max_epoch"] - self._config["Scheduler"]["warmup_max"],
-                eta_min=1e-7
-            )
-            scheduler = GradualWarmupScheduler(optimizer, scheduler_dict["multiplier"],
-                                               total_epoch=scheduler_dict["warmup_max"],
-                                               after_scheduler=scheduler)
-            self._scheduler = scheduler
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            self._optimizer,
+            T_max=self._config["Trainer"]["max_epoch"] - self._config["Scheduler"]["warmup_max"],
+            eta_min=1e-7
+        )
+        scheduler = GradualWarmupScheduler(optimizer, scheduler_dict["multiplier"],
+                                           total_epoch=scheduler_dict["warmup_max"],
+                                           after_scheduler=scheduler)
+        self._scheduler = scheduler
 
     def _init_optimizer(self):
+        if "OptimizerSupplementary" in self._config:
+            return self._init_optimizer_advance()
+        return self._init_optimizer_base()
+
+    def _init_optimizer_base(self):
         optim_dict = self._config["Optim"]
         self._optimizer = optim.__dict__[optim_dict["name"]](
             params=self._model.parameters(),
             **{k: v for k, v in optim_dict.items() if k != "name"}
         )
+
+    def _init_optimizer_advance(self):
+        optim_dict = self._config["OptimizerSupplementary"]
+        base_lr = optim_dict["base"]["lr"]
+        base_wd = optim_dict["base"].get("weight_decay", 0.0)
+        specific_dict = optim_dict["group"]
+        specific_names = specific_dict["feature_names"]
+        specific_lr = specific_dict["lr"]
+        specific_wd = specific_dict["weight_decay"]
+        specific_params = chain(*[getattr(self._model, f).parameters() for f in specific_names])
+
+        base_params = chain(*[getattr(self._model, f).parameters() for f in self._model.component_names if
+                              f not in specific_names])
+
+        if len(specific_names) > 0:
+            logger.debug("initializing optimizer with lr:{}, wd: {} for {}", specific_lr, specific_wd,
+                         ", ".join(specific_names))
+
+        self._optimizer = optim.__dict__[optim_dict["name"]](
+            params=[
+                {"params": specific_params, "lr": specific_lr, "weight_decay": specific_wd},
+                {"params": base_params}
+            ],
+            lr=base_lr,
+            weight_decay=base_wd,
+        )
+        logger.debug("initializing optimizer with lr:{}, wd: {} for {}", base_lr, base_wd,
+                     ", ".join([f for f in self._model.component_names if f not in specific_names]))
+        self._pre_param_optimizer_flag = True
 
     # run epoch
     def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = TrainEpocher):
