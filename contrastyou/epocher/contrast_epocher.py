@@ -14,7 +14,7 @@ from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.type import T_loader, T_loss
 from ._utils import preprocess_input_with_twice_transformation, unfold_position, GlobalLabelGenerator, \
     LocalLabelGenerator
-from ..arch import UNetFeatureExtractor
+UNetFeatureExtractor=None
 
 
 class PretrainEncoderEpoch(_Epocher):

@@ -14,6 +14,8 @@ parser.add_argument("--save_dir", default=None, type=str)
 parser.add_argument("--time", default=4, type=int)
 parser.add_argument("--distributed", action="store_true", default=False, help="enable distributed training")
 parser.add_argument("--num_gpus", default=1, type=int, help="gpu numbers")
+parser.add_argument("--features", nargs="+", choices=["Conv5", "Up_conv3", "Up_conv2"], default=["Conv5"])
+parser.add_argument("--two_stage_training", default=False, action="store_true", help="two_stage_training")
 
 args = parser.parse_args()
 
@@ -26,6 +28,10 @@ num_batches = args.num_batches
 random_seed = args.random_seed
 
 labeled_data_ratio = args.label_ratio
+features = args.features
+importance_weights = [str(1.0) if f == "Conv5" else str(0.5) for f in features]
+
+two_stage_training = args.two_stage_training
 
 dataset_name2class_numbers = {
     "acdc": 4,
@@ -39,6 +45,8 @@ lr_zooms = {"acdc": 0.0000001,
 save_dir_main = args.save_dir if args.save_dir else "main_result_folder"
 save_dir = f"{save_dir_main}/{args.dataset_name}/" \
            f"label_data_ration_{labeled_data_ratio}/" \
+           f"feature_{'_'.join(features)}/" \
+           f"{'two' if two_stage_training else 'single'}_stage_training/" \
            f"random_seed_{random_seed}"
 
 common_opts = f" Data.labeled_data_ratio={args.label_ratio} " \
@@ -49,74 +57,59 @@ common_opts = f" Data.labeled_data_ratio={args.label_ratio} " \
               f" Arch.num_classes={dataset_name2class_numbers[args.dataset_name]} " \
               f" Optim.lr={lr_zooms[args.dataset_name]:.10f} " \
               f" RandomSeed={random_seed} " \
-              f" DistributedTrain={args.distributed}"
+              f" DistributedTrain={args.distributed} " \
+              f" Trainer.feature_names=[{','.join(features)}] " \
+              f" Trainer.feature_importance=[{','.join(importance_weights)}] " \
+              f" Trainer.two_stage_training={two_stage_training} "
+
+pretrain_opts = f" PretrainConfig.Trainer.feature_names=[{','.join(features)}] " \
+                f" PretrainConfig.Trainer.feature_importance=[{','.join(importance_weights)}] "
 
 jobs = [
     # baseline
-    f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/infoNCE/ps  ",
+    f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/ps  ",
 
-    f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/infoNCE/fs "
+    f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/fs "
     f" Data.labeled_data_ratio=1 Data.unlabeled_data_ratio=0",
 
     # only labeled data
-    f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/infoNCE/ps_only_label "
+    f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/ps_only_label "
     f" Trainer.only_labeled_data=true ",
 
-    f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/infoNCE/fs_only_label "
-    f" Data.labeled_data_ratio=1 Data.unlabeled_data_ratio=0 Trainer.only_labeled_data=true",
-
-    # # infoNCE
-    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/0.5 "
-    f" InfoNCEParameters.weight=0.5 ",
-    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/0.1 "
+    # infoNCE with joint training
+    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/joint/0.1 "
     f" InfoNCEParameters.weight=0.1 ",
-    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/1.0 "
+    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/joint/1.0 "
     f" InfoNCEParameters.weight=1.0 ",
-    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/5.0 "
-    f" InfoNCEParameters.weight=5.0 ",
-    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/0.05 "
-    f" InfoNCEParameters.weight=0.05 ",
-    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/0.01 "
+    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/joint/10.0 "
+    f" InfoNCEParameters.weight=10.0 ",
+    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/joint/0.01 "
     f" InfoNCEParameters.weight=0.01 ",
-    f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/normal/0.001 "
-    f" InfoNCEParameters.weight=0.001 ",
-    #
-    # # ablation study on infoNCE
-    # f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/ablation/infonce/0.5_conv5 "
-    # f" InfoNCEParameters.weight=0.5 Trainer.feature_names=[Conv5,] Trainer.feature_importance=[1.0,] ",
-    #
-    # f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/ablation/infonce/0.5_upConv3 "
-    # f" InfoNCEParameters.weight=0.5 Trainer.feature_names=[Up_conv3,] Trainer.feature_importance=[1.0,] ",
-    #
-    # f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/ablation/infonce/0.5_upConv2 "
-    # f" InfoNCEParameters.weight=0.5 Trainer.feature_names=[Up_conv2,] Trainer.feature_importance=[1.0,] ",
-    #
-    # f" python main.py {common_opts} Trainer.name=infonce Trainer.save_dir={save_dir}/infoNCE/ablation/infonce/0.5_all "
-    # f" InfoNCEParameters.weight=0.5 "
-    # f"Trainer.feature_names=[Conv5,Up_conv3,Up_conv2,] Trainer.feature_importance=[1.0,1.0,1.0] ",
-    #
-    # pretrain+ partial
-    f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/conv5 "
-    f" PretrainConfig.Trainer.feature_names=[Conv5,] PretrainConfig.Trainer.feature_importance=[1.0,] "
-    f" PretrainConfig.use_pretrain=true ",
 
-    f" python main.py {common_opts} Trainer.name=partial  Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/upConv3 "
-    f" PretrainConfig.Trainer.feature_names=[Up_conv3,] PretrainConfig.Trainer.feature_importance=[1.0,] "
-    f" PretrainConfig.use_pretrain=true ",
+    # infoNCE with pretrain
+    f" python main.py {common_opts + pretrain_opts} PretrainConfig.Trainer.name=infoncepretrain "
+    f" Trainer.save_dir={save_dir}/infoNCE/pretrain/ ",
 
-    f" python main.py {common_opts} Trainer.name=partial  Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/upConv2 "
-    f" PretrainConfig.Trainer.feature_names=[Up_conv2,] PretrainConfig.Trainer.feature_importance=[1.0,] "
-    f" PretrainConfig.use_pretrain=true ",
+    # new with joint training
+    f" python main.py {common_opts} Trainer.name=experiment Trainer.save_dir={save_dir}/experiment/joint/0.1 "
+    f" InfoNCEParameters.weight=0.1 ",
+    f" python main.py {common_opts} Trainer.name=experiment Trainer.save_dir={save_dir}/experiment/joint/1.0 "
+    f" InfoNCEParameters.weight=1.0 ",
+    f" python main.py {common_opts} Trainer.name=experiment Trainer.save_dir={save_dir}/experiment/joint/10.0 "
+    f" InfoNCEParameters.weight=10.0 ",
+    f" python main.py {common_opts} Trainer.name=experiment Trainer.save_dir={save_dir}/experiment/joint/0.01 "
+    f" InfoNCEParameters.weight=0.01 ",
 
-    f" python main.py {common_opts} Trainer.name=partial Trainer.save_dir={save_dir}/infoNCE/pretrain_finetune/all "
-    f" PretrainConfig.Trainer.feature_names=[Conv5,Up_conv3,Up_conv2] PretrainConfig.Trainer.feature_importance=[1.0,1.0,1.0] "
-    f" PretrainConfig.use_pretrain=true ",
+    # new with pretrain
+    f" python main.py {common_opts + pretrain_opts} PretrainConfig.Trainer.name=experimentpretrain "
+    f" Trainer.save_dir={save_dir}/experiment/pretrain/ ",
+
 ]
 
 # CC things
 accounts = cycle(["def-chdesa", "def-mpederso", "rrg-mpederso"])
 
-jobsubmiter = JobSubmiter(project_path="../", on_local=False, time=args.time, gres=f"gpu:{args.num_gpus}")
+jobsubmiter = JobSubmiter(project_path="../", on_local=True, time=args.time, gres=f"gpu:{args.num_gpus}")
 for j in jobs:
     jobsubmiter.prepare_env(
         [

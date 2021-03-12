@@ -10,7 +10,7 @@ from deepclustering2.dataloader.sampler import InfiniteRandomSampler
 from deepclustering2.loss import KL_div
 from deepclustering2.utils import set_benchmark
 from semi_seg._utils import ClusterProjectorWrapper, IICLossWrapper, ContrastiveProjectorWrapper
-from semi_seg.epochers import TrainEpocher, EvalEpocher, UDATrainEpocher, IICTrainEpocher, UDAIICEpocher
+from semi_seg.epochers import TrainEpocher, EvalEpocher, ConsistencyTrainEpocher, MITrainEpocher, ConsistencyMIEpocher
 from semi_seg.tests._helper import create_dataset
 
 
@@ -53,11 +53,11 @@ class TestPartialEpocher(TestCase):
         print(val_result)
 
     def test_uda_epocher(self):
-        uda_trainer = UDATrainEpocher(self.net, self.optimizer, self.labeled_loader, self.unlabeled_loader,
-                                      sup_criterion=KL_div(), reg_criterion=nn.MSELoss(), reg_weight=0.1,
-                                      num_batches=self._num_batches, cur_epoch=0, device="cuda",
-                                      feature_position=self._feature_position,
-                                      feature_importance=self._feature_importance)
+        uda_trainer = ConsistencyTrainEpocher(self.net, self.optimizer, self.labeled_loader, self.unlabeled_loader,
+                                              sup_criterion=KL_div(), reg_criterion=nn.MSELoss(), reg_weight=0.1,
+                                              num_batches=self._num_batches, cur_epoch=0, device="cuda",
+                                              feature_position=self._feature_position,
+                                              feature_importance=self._feature_importance)
         uda_result = uda_trainer.run()
         print(uda_result)
 
@@ -68,11 +68,11 @@ class TestPartialEpocher(TestCase):
         projector_wrapper.init_encoder(self._feature_position, )
         projector_wrapper.init_decoder(self._feature_position, )
 
-        iic_epocher = IICTrainEpocher(model=self.net, optimizer=self.optimizer, labeled_loader=self.labeled_loader,
-                                      unlabeled_loader=self.unlabeled_loader, sup_criterion=KL_div(),
-                                      num_batches=self._num_batches, cur_epoch=0, device="cuda",
-                                      feature_position=self._feature_position,
-                                      feature_importance=self._feature_importance)
+        iic_epocher = MITrainEpocher(model=self.net, optimizer=self.optimizer, labeled_loader=self.labeled_loader,
+                                     unlabeled_loader=self.unlabeled_loader, sup_criterion=KL_div(),
+                                     num_batches=self._num_batches, cur_epoch=0, device="cuda",
+                                     feature_position=self._feature_position,
+                                     feature_importance=self._feature_importance)
         iic_epocher.init(reg_weight=1.0, projectors_wrapper=projector_wrapper,
                          IIDSegCriterionWrapper=iic_segment_criterion)
         result_dict = iic_epocher.run()
@@ -81,7 +81,7 @@ class TestPartialEpocher(TestCase):
     def test_udaiic_epocher(self):
         iic_segment_criterion = IIDSegmentationSmallPathLoss(padding=1, patch_size=64)
         projectors_wrapper = _LocalClusterWrappaer(self._feature_position, num_subheads=10, num_clusters=10).to("cuda")
-        udaiic_epocher = UDAIICEpocher(
+        udaiic_epocher = ConsistencyMIEpocher(
             self.net, optimizer=self.optimizer, labeled_loader=self.labeled_loader,
             unlabeled_loader=self.unlabeled_loader, sup_criterion=KL_div(), iic_weight=0.1,
             cons_weight=0.2,
@@ -154,12 +154,12 @@ class TestPreTrainEpocher(TestCase):
         epocher.run()
 
     def test_iictrainerepocher(self):
-        from semi_seg.epochers.pretrain import IICPretrainEpocher
-        epocher = IICPretrainEpocher(model=self.net, optimizer=self.optimizer, labeled_loader=self.labeled_loader,
-                                     unlabeled_loader=self.unlabeled_loader, sup_criterion=nn.MSELoss(),
-                                     num_batches=self._num_batches, cur_epoch=0, device="cuda",
-                                     feature_position=self._feature_position,
-                                     feature_importance=self._feature_importance)
+        from semi_seg.epochers.pretrain import MIPretrainEpocher
+        epocher = MIPretrainEpocher(model=self.net, optimizer=self.optimizer, labeled_loader=self.labeled_loader,
+                                    unlabeled_loader=self.unlabeled_loader, sup_criterion=nn.MSELoss(),
+                                    num_batches=self._num_batches, cur_epoch=0, device="cuda",
+                                    feature_position=self._feature_position,
+                                    feature_importance=self._feature_importance)
 
         reg_weight: float = 1
         projectors_wrapper: ClusterProjectorWrapper = ClusterProjectorWrapper()  # noqa

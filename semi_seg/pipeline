@@ -1,0 +1,76 @@
+#!/bin/bash
+max_epoch=$1
+num_batches=$2
+save_dir=$3
+set -e
+
+python main.py Trainer.max_epoch=${max_epoch} Trainer.num_batches=${num_batches} \
+  Arch.num_classes=4 RandomSeed=1 \
+  ContrastiveLoaderParams.group_sample_num=8 Trainer.name=infoncepretrain \
+  ProjectorParams.GlobalParams.feature_names=[Conv5,Conv5,Conv5] \
+  ProjectorParams.GlobalParams.feature_importance=[1.0,1.0,1.0] \
+  Trainer.save_dir=${save_dir}/pretrain --opt_config_path ../config/specific/pretrain.yaml ../config/specific/new.yaml
+
+python main.py Trainer.max_epoch=${max_epoch} Trainer.num_batches=${num_batches} \
+  Arch.num_classes=4 RandomSeed=1 \
+  Trainer.name=finetune \
+  Data.labeled_data_ratio=0.01 \
+  Data.unlabeled_data_ratio=0.99 \
+  Trainer.save_dir=${save_dir}/scratch/baseline
+
+python main.py Trainer.max_epoch=${max_epoch} Trainer.num_batches=${num_batches} \
+  Arch.num_classes=4 RandomSeed=1 \
+  Trainer.name=meanteacher \
+  Trainer.two_stage_training=true \
+  Data.labeled_data_ratio=0.01 \
+  Data.unlabeled_data_ratio=0.99 \
+  MeanTeacherParameters.weight=0.5 \
+  Trainer.save_dir=${save_dir}/scratch/mt_0.5 --opt_config_path ../config/specific/mt.yaml
+
+python main.py Trainer.max_epoch=${max_epoch} Trainer.num_batches=${num_batches} \
+  Arch.num_classes=4 RandomSeed=1 \
+  Trainer.name=finetune \
+  Data.labeled_data_ratio=0.01 \
+  Data.unlabeled_data_ratio=0.99 \
+  Arch.checkpoint=runs/${save_dir}/pretrain/last.pth \
+  Trainer.save_dir=${save_dir}/ft
+
+python main.py Trainer.max_epoch=${max_epoch} Trainer.num_batches=${num_batches} \
+  Arch.num_classes=4 RandomSeed=1 \
+  Trainer.name=meanteacher \
+  Trainer.two_stage_training=true \
+  Data.labeled_data_ratio=0.01 \
+  Data.unlabeled_data_ratio=0.99 \
+  MeanTeacherParameters.weight=5 \
+  Arch.checkpoint=runs/${save_dir}/pretrain/last.pth \
+  Trainer.save_dir=${save_dir}/mt/5 --opt_config_path ../config/specific/mt.yaml
+
+python main.py Trainer.max_epoch=${max_epoch} Trainer.num_batches=${num_batches} \
+  Arch.num_classes=4 RandomSeed=1 \
+  Trainer.name=meanteacher \
+  Trainer.two_stage_training=true \
+  Data.labeled_data_ratio=0.01 \
+  Data.unlabeled_data_ratio=0.99 \
+  MeanTeacherParameters.weight=1 \
+  Arch.checkpoint=runs/${save_dir}/pretrain/last.pth \
+  Trainer.save_dir=${save_dir}/mt/1 --opt_config_path ../config/specific/mt.yaml
+
+python main.py Trainer.max_epoch=${max_epoch} Trainer.num_batches=${num_batches} \
+  Arch.num_classes=4 RandomSeed=1 \
+  Trainer.name=meanteacher \
+  Trainer.two_stage_training=true \
+  Data.labeled_data_ratio=0.01 \
+  Data.unlabeled_data_ratio=0.99 \
+  MeanTeacherParameters.weight=0.5 \
+  Arch.checkpoint=runs/${save_dir}/pretrain/last.pth \
+  Trainer.save_dir=${save_dir}/mt/0.5 --opt_config_path ../config/specific/mt.yaml
+
+python main.py Trainer.max_epoch=${max_epoch} Trainer.num_batches=${num_batches} \
+  Arch.num_classes=4 RandomSeed=1 \
+  Trainer.name=meanteacher \
+  Trainer.two_stage_training=true \
+  Data.labeled_data_ratio=0.01 \
+  Data.unlabeled_data_ratio=0.99 \
+  MeanTeacherParameters.weight=0.1 \
+  Arch.checkpoint=runs/${save_dir}/pretrain/last.pth \
+  Trainer.save_dir=${save_dir}/mt/0.1 --opt_config_path ../config/specific/mt.yaml

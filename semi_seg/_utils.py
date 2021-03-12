@@ -1,7 +1,6 @@
 from itertools import repeat
 from typing import List, Union
 
-import torch
 from torch import nn, Tensor
 from torch._six import container_abcs
 
@@ -9,9 +8,10 @@ from contrastyou.arch import UNet
 from contrastyou.losses.iic_loss import IIDLoss as _IIDLoss, IIDSegmentationSmallPathLoss
 from contrastyou.losses.pica_loss import PUILoss, PUISegLoss
 from contrastyou.losses.wrappers import LossWrapperBase
-from contrastyou.projectors.heads import LocalClusterHead as _LocalClusterHead, ClusterHead as _EncoderClusterHead, \
-    ProjectionHead as _ProjectionHead, LocalProjectionHead as _LocalProjectionHead
-from contrastyou.projectors.wrappers import ProjectorWrapperBase, CombineWrapperBase
+from contrastyou.projectors.heads import DenseClusterHead as _LocalClusterHead, ClusterHead as _EncoderClusterHead, \
+    DenseProjectionHead
+from contrastyou.projectors.heads import ProjectionHead
+from contrastyou.projectors.wrappers import _ProjectorWrapperBase, CombineWrapperBase  # noqa
 
 
 def get_model(model):
@@ -20,20 +20,6 @@ def get_model(model):
     elif isinstance(model, nn.Module):
         return model
     raise TypeError(type(model))
-
-
-class _num_class_mixin:
-    _model: nn.Module
-
-    @property
-    def num_classes(self):
-        return get_model(self._model).num_classes
-
-
-class IIDLoss(_IIDLoss):
-
-    def forward(self, x_out: Tensor, x_tf_out: Tensor):
-        return super().forward(x_out, x_tf_out)[0]
 
 
 def _filter_encodernames(feature_list):
@@ -56,105 +42,89 @@ def _nlist(n):
     return parse
 
 
-class _FeatureCollector:
-    def __call__(self, _, input, result):
-        self.feature = result
+class _num_class_mixin:
+    _model: nn.Module
 
-    def clear(self):
-        pass
-
-
-class _FeatureCollectorWithIndex:
-
-    def __init__(self) -> None:
-        self.__n = 0
-        self.feature = dict()
-
-    def __call__(self, _, input, result):
-        self.feature[self.__n] = result
-        self.__n += 1
-
-    def clear(self):
-        self.__n = 0
-        del self.feature
-        self.feature = dict()
+    @property
+    def num_classes(self):
+        return get_model(self._model).num_classes
 
 
-class FeatureExtractor(nn.Module):
+class ContrastiveProjectorWrapper(_ProjectorWrapperBase):
 
-    def __init__(self, net: UNet, feature_names: Union[List[str], str]) -> None:
+    def __init__(self):
         super().__init__()
-        self._net = net
+        self.__index = 0
+
+    def _register_global_projector(self, *, feature_name: str, head_type: str, output_dim: int = 256, normalize=True,
+                                   pool_name: str):
+        input_dim = UNet.dimension_dict[feature_name]
+
+        projector = ProjectionHead(input_dim=input_dim, head_type=head_type, normalize=normalize, pool_name=pool_name,
+                                   output_dim=output_dim)
+        self._projectors[f"{self.__index}|{feature_name}"] = projector
+        self.__index += 1
+
+    def _register_dense_projector(self, *, feature_name: str, output_dim: int = 64, head_type: str,
+                                  normalize: bool = False, pool_name="adaptive_avg", spatial_size=(16, 16), **kwargs):
+        input_dim = UNet.dimension_dict[feature_name]
+        projector = DenseProjectionHead(input_dim=input_dim, output_dim=output_dim, head_type=head_type,
+                                        normalize=normalize,
+                                        pool_name=pool_name, spatial_size=spatial_size)
+        self._projectors[f"{self.__index}|{feature_name}"] = projector
+        self.__index += 1
+
+    def register_global_projector(self, *,
+                                  feature_names: Union[str, List[str]],
+                                  head_type: Union[str, List[str]],
+                                  output_dim: Union[int, List[int]] = 256,
+                                  normalize: Union[bool, List[bool]] = True,
+                                  pool_name: Union[str, List[str]],
+                                  **kwargs):
         if isinstance(feature_names, str):
             feature_names = [feature_names, ]
-        self._feature_names = feature_names
-        for f in self._feature_names:
-            assert f in UNet().component_names, f
+        self._global_feature_names = feature_names
+        n = len(self._global_feature_names)
+        n_pair = _nlist(n)
+        head_type_ = n_pair(head_type)
+        normalize_ = n_pair(normalize)
+        pool_name_ = n_pair(pool_name)
+        output_dim_ = n_pair(output_dim)
+        for i, (f, h, n, p, o) in enumerate(
+            zip(feature_names, head_type_, normalize_, pool_name_, output_dim_)):
+            self._register_global_projector(feature_name=f, head_type=h, output_dim=o, normalize=n, pool_name=p)
 
-    def __enter__(self):
-        self._feature_exactors = {}
-        self._hook_handlers = {}
-        net = get_model(self._net)
-        for f in self._feature_names:
-            extractor = self._create_collector()
-            handler = getattr(net, f).register_forward_hook(extractor)
-            self._feature_exactors[f] = extractor
-            self._hook_handlers[f] = handler
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        for k, v in self._hook_handlers.items():
-            v.remove()
-        del self._feature_exactors, self._hook_handlers
-
-    def __getitem__(self, item):
-        if item in self._feature_exactors:
-            return self._feature_exactors[item].feature
-        return super().__getitem__(item)
-
-    def get_feature_from_num(self, num):
-        feature = self._feature_names[num]
-        return self[feature]
-
-    def __iter__(self):
-        for k, v in self._feature_exactors.items():
-            yield v.feature
-
-    def _create_collector(self):
-        return _FeatureCollector()
-
-    def clear(self):
-        pass
+    def register_dense_projector(self, *, feature_names: str, output_dim: int = 64, head_type: str,
+                                 normalize: bool = False, pool_name="adaptive_avg", spatial_size=(16, 16), **kwargs
+                                 ):
+        if isinstance(feature_names, str):
+            feature_names = [feature_names, ]
+        self._dense_feature_names = feature_names
+        n = len(self._dense_feature_names)
+        n_pair = _nlist(n)
+        head_type_ = n_pair(head_type)
+        normalize_ = n_pair(normalize)
+        pool_name_ = n_pair(pool_name)
+        output_dim_ = n_pair(output_dim)
+        spatial_size_ = n_pair(spatial_size)
+        for i, (f, h, n, p, o, s) in enumerate(
+            zip(feature_names, head_type_, normalize_, pool_name_, output_dim_, spatial_size_)):
+            self._register_dense_projector(feature_name=f, head_type=h, output_dim=o, normalize=n, pool_name=p,
+                                           spatial_size=s, )
 
 
-class FeatureExtractorWithIndex(FeatureExtractor):
-    """
-    This module enhance the FeatureExtractor to provide multiple forward record with `clear` method
-    """
-
-    def _create_collector(self):
-        return _FeatureCollectorWithIndex()
-
-    def clear(self):
-        for k, v in self._feature_exactors.items():
-            v.clear()
-
-    def __iter__(self):
-        for k, v in self._feature_exactors.items():
-            yield torch.cat(list(v.feature.values()), dim=0)
-
-
-class _LocalClusterWrappaer(ProjectorWrapperBase):
+# decoder IIC projectors
+class _LocalClusterWrapper(_ProjectorWrapperBase):
     def __init__(
-            self,
-            feature_names: Union[str, List[str]],
-            head_types: Union[str, List[str]] = "linear",
-            num_subheads: Union[int, List[int]] = 5,
-            num_clusters: Union[int, List[int]] = 10,
-            normalize: Union[bool, List[bool]] = False,
-            temperature: Union[float, List[float]] = 1.0,
+        self,
+        feature_names: Union[str, List[str]],
+        head_types: Union[str, List[str]] = "linear",
+        num_subheads: Union[int, List[int]] = 5,
+        num_clusters: Union[int, List[int]] = 10,
+        normalize: Union[bool, List[bool]] = False,
+        temperature: Union[float, List[float]] = 1.0,
     ) -> None:
-        super(_LocalClusterWrappaer, self).__init__()
+        super(_LocalClusterWrapper, self).__init__()
         if isinstance(feature_names, str):
             feature_names = [feature_names, ]
         self._feature_names = feature_names
@@ -183,12 +153,14 @@ class _LocalClusterWrappaer(ProjectorWrapperBase):
         return _LocalClusterHead(*args, **kwargs)
 
 
-class _EncoderClusterWrapper(_LocalClusterWrappaer):
+# encoder IIC projectors
+class _EncoderClusterWrapper(_LocalClusterWrapper):
     @staticmethod
     def _create_clusterheads(*args, **kwargs):
         return _EncoderClusterHead(*args, **kwargs)
 
 
+# encoder and decoder projectors for IIC
 class ClusterProjectorWrapper(CombineWrapperBase):
 
     def __init__(self):
@@ -197,13 +169,13 @@ class ClusterProjectorWrapper(CombineWrapperBase):
         self._decoder_names = []
 
     def init_encoder(
-            self,
-            feature_names: Union[str, List[str]],
-            head_types: Union[str, List[str]] = "linear",
-            num_subheads: Union[int, List[int]] = 5,
-            num_clusters: Union[int, List[int]] = 10,
-            normalize: Union[bool, List[bool]] = False,
-            temperature: Union[float, List[float]] = 1.0
+        self,
+        feature_names: Union[str, List[str]],
+        head_types: Union[str, List[str]] = "linear",
+        num_subheads: Union[int, List[int]] = 5,
+        num_clusters: Union[int, List[int]] = 10,
+        normalize: Union[bool, List[bool]] = False,
+        temperature: Union[float, List[float]] = 1.0
     ):
         self._encoder_names = _filter_encodernames(feature_names)
         encoder_projectors = _EncoderClusterWrapper(
@@ -220,7 +192,7 @@ class ClusterProjectorWrapper(CombineWrapperBase):
                      temperature: Union[float, List[float]] = 1.0
                      ):
         self._decoder_names = _filter_decodernames(feature_names)
-        decoder_projectors = _LocalClusterWrappaer(
+        decoder_projectors = _LocalClusterWrapper(
             self._decoder_names, head_types, num_subheads,
             num_clusters, normalize, temperature)
         self._projector_list.append(decoder_projectors)
@@ -230,75 +202,14 @@ class ClusterProjectorWrapper(CombineWrapperBase):
         return self._encoder_names + self._decoder_names
 
 
-class _ContrastiveEncodeProjectorWrapper(ProjectorWrapperBase):
+# loss function
+class IIDLoss(_IIDLoss):
 
-    def __init__(
-            self,
-            feature_names: Union[str, List[str]],
-            head_types: Union[str, List[str]],
-            normalize: Union[bool, List[bool]] = True,
-    ):
-        super().__init__()
-        if isinstance(feature_names, str):
-            feature_names = [feature_names, ]
-        self._feature_names = feature_names
-        n = len(self._feature_names)
-        n_pair = _nlist(n)
-        self._head_types = n_pair(head_types)
-        self._normalize = n_pair(normalize)
-        for f, h, n in zip(self._feature_names, self._head_types, self._normalize):
-            self._projectors[f] = self._create_head(
-                input_dim=UNet.dimension_dict[f],
-                head_type=h,
-                output_dim=256,
-                normalize=n
-            )
-
-    @staticmethod
-    def _create_head(input_dim, output_dim, head_type, normalize):
-        return _ProjectionHead(input_dim=input_dim, output_dim=output_dim, head_type=head_type, normalize=normalize)
+    def forward(self, x_out: Tensor, x_tf_out: Tensor):
+        return super().forward(x_out, x_tf_out)[0]
 
 
-class _ContrastiveDecoderProjectorWrapper(_ContrastiveEncodeProjectorWrapper):
-    @staticmethod
-    def _create_head(input_dim, output_dim, head_type, normalize):
-        return _LocalProjectionHead(input_dim=input_dim, head_type=head_type, output_size=(2, 2), normalize=normalize)
-
-
-class ContrastiveProjectorWrapper(CombineWrapperBase):
-
-    def __init__(self):
-        super().__init__()
-        self._encoder_names = []
-        self._decoder_names = []
-
-    def init_encoder(
-            self,
-            feature_names: Union[str, List[str]],
-            head_types: Union[str, List[str]] = "mlp",
-            normalize: Union[bool, List[bool]] = True,
-    ):
-        self._encoder_names = _filter_encodernames(feature_names)
-        encoder_projectors = _ContrastiveEncodeProjectorWrapper(
-            feature_names=self._encoder_names, head_types=head_types, normalize=normalize)
-        self._projector_list.append(encoder_projectors)
-
-    def init_decoder(
-            self,
-            feature_names: Union[str, List[str]],
-            head_types: Union[str, List[str]] = "mlp",
-            normalize: Union[bool, List[bool]] = True,
-    ):
-        self._decoder_names = _filter_decodernames(feature_names)
-        decoder_projectors = _ContrastiveDecoderProjectorWrapper(
-            self._decoder_names, head_types, normalize=normalize)
-        self._projector_list.append(decoder_projectors)
-
-    @property
-    def feature_names(self):
-        return self._encoder_names + self._decoder_names
-
-
+# IIC loss for encoder and decoder
 class IICLossWrapper(LossWrapperBase):
 
     def __init__(self,
@@ -324,6 +235,7 @@ class IICLossWrapper(LossWrapperBase):
         return self._encoder_features + self._decoder_features
 
 
+# PICA loss for encoder and decoder
 class PICALossWrapper(LossWrapperBase):
 
     def __init__(self,

@@ -12,22 +12,21 @@ from torch.nn import functional as F
 
 from contrastyou.epocher._utils import unfold_position  # noqa
 from contrastyou.helper import weighted_average_iter, pairwise_distances as _pairwise_distance
-from contrastyou.projectors.heads import ProjectionHead, LocalProjectionHead
+from contrastyou.projectors.heads import ProjectionHead, DenseProjectionHead
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.meters2 import MeterInterface, AverageValueMeter
 from deepclustering2.type import T_loss
 from semi_seg._utils import ContrastiveProjectorWrapper as PrototypeProjectorWrapper
+from ._helper import unl_extractor, _FeatureExtractorMixin
 from .base import TrainEpocher
-from .helper import unl_extractor
-from .miepocher import UDATrainEpocher
+from .miepocher import ConsistencyTrainEpocher
 
 
 # I think this only works for pretrain-finetune framework
-class PrototypeEpocher(TrainEpocher):
-    only_with_labeled_data = False
+class PrototypeEpocher(_FeatureExtractorMixin, TrainEpocher):
 
-    def init(self, *, reg_weight: float, prototype_projector: PrototypeProjectorWrapper = None, feature_buffers=None,
-             infoNCE_criterion: T_loss = None, **kwargs):
+    def _init(self, *, reg_weight: float, prototype_projector: PrototypeProjectorWrapper = None, feature_buffers=None,
+              infoNCE_criterion: T_loss = None, **kwargs):
         """
         :param reg_weight:  regularization weight
         :param prototype_projector: prototype projector to logits
@@ -38,7 +37,7 @@ class PrototypeEpocher(TrainEpocher):
         """
         assert prototype_projector is not None, prototype_projector
         assert infoNCE_criterion is not None, infoNCE_criterion
-        super().init(reg_weight=reg_weight, **kwargs)
+        super()._init(reg_weight=reg_weight, **kwargs)
         self._projectors_wrapper = prototype_projector  # noqa
         self._feature_buffers: Optional[Dict[str, Dict[str, Tensor]]] = feature_buffers  # noqa
         self._infonce_criterion = infoNCE_criterion  # noqa
@@ -82,8 +81,8 @@ class PrototypeEpocher(TrainEpocher):
     def get_kmeans(self, feature_position):
         return self._kmeans_collection[feature_position]
 
-    def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group,
-                       partition_group, unlabeled_filename, labeled_filename, *args, **kwargs):
+    def _regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group,
+                        partition_group, unlabeled_filename, labeled_filename, **kwargs):
 
         feature_names = self._fextractor._feature_names  # noqa
         n_uls = len(unlabeled_tf_logits) * 2
@@ -109,7 +108,7 @@ class PrototypeEpocher(TrainEpocher):
                                                    F.normalize(proj_feature_tf, p=2, dim=1)
                 assert len(norm_tf_feature.shape) == 2, norm_tf_feature.shape
                 labels = self.global_label_generator(partition_list=partition_group, patient_list=label_group)
-            elif isinstance(projector, LocalProjectionHead):
+            elif isinstance(projector, DenseProjectionHead):
                 proj_feature_tf_unfold, positional_label = unfold_position(proj_feature_tf,
                                                                            partition_num=proj_feature_tf.shape[-2:])
                 proj_tf_feature_unfold, _ = unfold_position(proj_tf_feature, partition_num=proj_tf_feature.shape[-2:])
@@ -151,15 +150,15 @@ class PrototypeEpocher(TrainEpocher):
         return LocalLabelGenerator()
 
 
-class DifferentiablePrototypeEpocher(UDATrainEpocher):
+class DifferentiablePrototypeEpocher(_FeatureExtractorMixin, ConsistencyTrainEpocher):
     """
     This Epocher is only for updating the encoder descriptor, using different ways
     https://arxiv.org/abs/2005.04966
     """
 
-    def init(self, *, uda_weight: float, cluster_weight: float, prototype_vectors: Tensor = None,
-             prototype_nums=100, **kwargs):
-        super(DifferentiablePrototypeEpocher, self).init(reg_weight=1.0, reg_criterion=nn.MSELoss())
+    def _init(self, *, uda_weight: float, cluster_weight: float, prototype_vectors: Tensor = None,
+              prototype_nums=100, **kwargs):
+        super(DifferentiablePrototypeEpocher, self)._init(reg_weight=1.0, reg_criterion=nn.MSELoss())
         assert self._feature_position == [
             "Conv5"], f"Only support Conv5 for current simplification, given {','.join(self._feature_position)}"
 
@@ -173,10 +172,12 @@ class DifferentiablePrototypeEpocher(UDATrainEpocher):
         meters.register_meter("prototype_prototype", AverageValueMeter())
         return meters
 
-    def regularization(self, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group=None,
-                       partition_group=None, unlabeled_filename=None, labeled_filename=None, *args, **kwargs):
-        uda_loss = super(DifferentiablePrototypeEpocher, self).regularization(
-            unlabeled_tf_logits, unlabeled_logits_tf, seed
+    def _regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group=None,
+                        partition_group=None, unlabeled_filename=None, labeled_filename=None, **kwargs):
+        uda_loss = super(DifferentiablePrototypeEpocher, self)._regularization(
+            unlabeled_tf_logits=unlabeled_tf_logits,
+            unlabeled_logits_tf=unlabeled_logits_tf,
+            seed=seed
         )
 
         def get_loss(feature):

@@ -3,7 +3,7 @@ from unittest import TestCase
 import torch
 
 from contrastyou.arch import UNet
-from semi_seg._utils import FeatureExtractor, _LocalClusterWrappaer, ClusterProjectorWrapper, IICLossWrapper, FeatureExtractorWithIndex
+from semi_seg._utils import FeatureExtractor, _LocalClusterWrapper, ClusterProjectorWrapper, IICLossWrapper, FeatureExtractorWithIndex
 
 
 class TestFeatureExtractor(TestCase):
@@ -52,8 +52,8 @@ class TestLocalClusterWrapper(TestCase):
         self._num_clusters = [11, 12, 13]
 
     def test_clusterwrapper(self):
-        self._wrapper = _LocalClusterWrappaer(self._feature_names, num_subheads=self._num_subheads,
-                                              num_clusters=self._num_clusters)
+        self._wrapper = _LocalClusterWrapper(self._feature_names, num_subheads=self._num_subheads,
+                                             num_clusters=self._num_clusters)
         with FeatureExtractor(self._net, self._feature_names) as feature_extractor:
             segment = self._net(self._image)
             for i, (feature, projector) in enumerate(zip(feature_extractor, self._wrapper)):

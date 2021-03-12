@@ -10,7 +10,7 @@ from deepclustering2.loss import KL_div
 from deepclustering2.utils import yaml_load
 from semi_seg._utils import ClusterProjectorWrapper, IICLossWrapper
 from semi_seg.dsutils import get_dataloaders
-from semi_seg.epochers.miepocher import IICTrainEpocher
+from semi_seg.epochers.miepocher import MITrainEpocher
 from semi_seg.epochers.protoepocher import DifferentiablePrototypeEpocher
 
 
@@ -38,7 +38,7 @@ class TestIICEpocher(TestCase):
             lr=1e-3)
 
     def test_iic_epocher(self):
-        epocher = IICTrainEpocher(
+        epocher = MITrainEpocher(
             model=self._model, optimizer=self._optimizer, labeled_loader=iter(self._labeled_loader),
             unlabeled_loader=iter(self._unlabeled_loader), sup_criterion=self._sup_criterion, num_batches=100,
             cur_epoch=0, device=self._device, feature_position=self._feature_position,

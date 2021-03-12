@@ -1,28 +1,24 @@
 import os
-from functools import partial
 from pathlib import Path
 from typing import Tuple, Type
 
 import torch
+from loguru import logger
 from torch import nn
 from torch import optim
 
 from contrastyou import PROJECT_PATH
-from contrastyou.helper import get_dataset
 from deepclustering2 import optim
 from deepclustering2.meters2 import EpochResultDict
 from deepclustering2.meters2 import StorageIncomeDict
 from deepclustering2.schedulers import GradualWarmupScheduler
 from deepclustering2.trainer2 import Trainer
 from deepclustering2.type import T_loader, T_loss
-from semi_seg.epochers import InferenceEpocher
-from semi_seg.epochers import TrainEpocher, EvalEpocher, InfoNCEPretrainEpocher
+from semi_seg.epochers import TrainEpocher, EvalEpocher, FineTuneEpocher, InferenceEpocher, chain
 
 
 class SemiTrainer(Trainer):
     RUN_PATH = str(Path(PROJECT_PATH) / "semi_seg" / "runs")  # noqa
-    _only_labeled_data = False
-    _train_with_two_stage = False
 
     def __init__(self, model: nn.Module, labeled_loader: T_loader, unlabeled_loader: T_loader,
                  val_loader: T_loader, sup_criterion: T_loss, save_dir: str = "base", max_epoch: int = 100,
@@ -32,44 +28,76 @@ class SemiTrainer(Trainer):
         self._unlabeled_loader = unlabeled_loader
         self._val_loader = val_loader
         self._sup_criterion = sup_criterion
+        self.__initialized__ = False
+        self._feature_importance, self.feature_positions = None, None
+        # this flag is set to indicate if optimizer is with different learning rate.
+        self._pre_param_optimizer_flag = False
 
     # initialization
     def init(self):
         self._init()
         self._init_optimizer()
         self._init_scheduler(self._optimizer)
+        self.__initialized__ = True
 
     def _init(self):
-        self.set_feature_positions(self._config["Trainer"]["feature_names"])
-        feature_importance = self._config["Trainer"]["feature_importance"]
-        assert isinstance(feature_importance, list), type(feature_importance)
-        feature_importance = [float(x) for x in feature_importance]
-        self._feature_importance = [x / sum(feature_importance) for x in feature_importance]
-        assert len(self._feature_importance) == len(self.feature_positions), \
-            (self._feature_importance, self.feature_positions)
         self._disable_bn = self._config["Trainer"].get("disable_bn_track_for_unlabeled_data", False)
+        self._train_with_two_stage = self._config["Trainer"].get("two_stage_training", False)
 
     def _init_scheduler(self, optimizer):
         scheduler_dict = self._config.get("Scheduler", None)
         if scheduler_dict is None:
             return
-        else:
-            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-                self._optimizer,
-                T_max=self._config["Trainer"]["max_epoch"] - self._config["Scheduler"]["warmup_max"],
-                eta_min=1e-7
-            )
-            scheduler = GradualWarmupScheduler(optimizer, scheduler_dict["multiplier"],
-                                               total_epoch=scheduler_dict["warmup_max"],
-                                               after_scheduler=scheduler)
-            self._scheduler = scheduler
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            self._optimizer,
+            T_max=self._config["Trainer"]["max_epoch"] - self._config["Scheduler"]["warmup_max"],
+            eta_min=1e-7
+        )
+        scheduler = GradualWarmupScheduler(optimizer, scheduler_dict["multiplier"],
+                                           total_epoch=scheduler_dict["warmup_max"],
+                                           after_scheduler=scheduler)
+        self._scheduler = scheduler
 
     def _init_optimizer(self):
+        if "OptimizerSupplementary" in self._config:
+            return self._init_optimizer_advance()
+        return self._init_optimizer_base()
+
+    def _init_optimizer_base(self):
         optim_dict = self._config["Optim"]
         self._optimizer = optim.__dict__[optim_dict["name"]](
             params=self._model.parameters(),
             **{k: v for k, v in optim_dict.items() if k != "name"}
         )
+
+    def _init_optimizer_advance(self):
+        optim_dict = self._config["OptimizerSupplementary"]
+        base_lr = optim_dict["base"]["lr"]
+        base_wd = optim_dict["base"].get("weight_decay", 0.0)
+        specific_dict = optim_dict["group"]
+        specific_names = specific_dict["feature_names"]
+        specific_lr = specific_dict["lr"]
+        specific_wd = specific_dict["weight_decay"]
+        specific_params = chain(*[getattr(self._model, f).parameters() for f in specific_names])
+
+        base_params = chain(*[getattr(self._model, f).parameters() for f in self._model.component_names if
+                              f not in specific_names])
+
+        if len(specific_names) > 0:
+            logger.debug("initializing optimizer with lr:{}, wd: {} for {}", specific_lr, specific_wd,
+                         ", ".join(specific_names))
+
+        self._optimizer = optim.__dict__[optim_dict["name"]](
+            params=[
+                {"params": specific_params, "lr": specific_lr, "weight_decay": specific_wd},
+                {"params": base_params}
+            ],
+            lr=base_lr,
+            weight_decay=base_wd,
+        )
+        logger.debug("initializing optimizer with lr:{}, wd: {} for {}", base_lr, base_wd,
+                     ", ".join([f for f in self._model.component_names if f not in specific_names]))
+        self._pre_param_optimizer_flag = True
 
     # run epoch
     def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = TrainEpocher):
@@ -85,18 +113,13 @@ class SemiTrainer(Trainer):
             model=self._model, optimizer=self._optimizer, labeled_loader=self._labeled_loader,
             unlabeled_loader=self._unlabeled_loader, sup_criterion=self._sup_criterion, num_batches=self._num_batches,
             cur_epoch=self._cur_epoch, device=self._device, feature_position=self.feature_positions,
-            feature_importance=self._feature_importance
+            feature_importance=self._feature_importance, train_with_two_stage=self._train_with_two_stage,
+            disable_bn_track_for_unlabeled_data=self._disable_bn
         )
-        if self._only_labeled_data:
-            epocher.only_with_labeled_data = True
-        if self._train_with_two_stage:
-            epocher.train_with_two_stage = True
-        # manually hack the setting of disable_bn option
-        epocher.init = partial(epocher.init, disable_bn_track_for_unlabeled_data=self._disable_bn)
         return epocher
 
     def _run_epoch(self, epocher: TrainEpocher, *args, **kwargs) -> EpochResultDict:
-        epocher.init(reg_weight=0.0, disable_bn_track_for_unlabeled_data=self._disable_bn)  # partial supervision without regularization
+        epocher.init(reg_weight=0.0, **kwargs)  # partial supervision without regularization
         result = epocher.run()
         return result
 
@@ -106,6 +129,11 @@ class SemiTrainer(Trainer):
                              cur_epoch=self._cur_epoch, device=self._device)
         result, cur_score = evaler.run()
         return result, cur_score
+
+    def start_training(self, *args, **kwargs):
+        if not self.__initialized__:
+            raise RuntimeError(f"call self.init() first to initialize {self.__class__.__name__}")
+        return super(SemiTrainer, self).start_training()
 
     def _start_training(self):
         for self._cur_epoch in range(self._start_epoch, self._max_epoch):
@@ -117,7 +145,7 @@ class SemiTrainer(Trainer):
                 with torch.no_grad():
                     eval_result, cur_score = self.eval_epoch()
             # update lr_scheduler
-            if hasattr(self, "_scheduler"):
+            if hasattr(self, "_scheduler") and hasattr(self._scheduler, "step") and callable(self._scheduler.step):
                 self._scheduler.step()
             if self.on_master():
                 storage_per_epoch = StorageIncomeDict(tra=train_result, val=eval_result)
@@ -152,19 +180,17 @@ class SemiTrainer(Trainer):
         return result, cur_score
 
     def set_feature_positions(self, feature_positions):
+        logger.info("set {} feature_position as: [{}]", self.__class__.__name__, ", ".join(feature_positions))
         self.feature_positions = feature_positions  # noqa
-
-    def set_only_labeled_data(self, enable: bool):
-        self._only_labeled_data = enable  # noqa
-
-    def set_train_with_two_stage(self, enable: bool):
-        self._train_with_two_stage = enable
 
 
 class FineTuneTrainer(SemiTrainer):
-    _only_labeled_data = True
-    pass
+
+    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = FineTuneEpocher):
+        super()._set_epocher_class(epocher_class)
 
 
+class DirectTrainer(SemiTrainer):
 
-
+    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = FineTuneEpocher):
+        super()._set_epocher_class(epocher_class)

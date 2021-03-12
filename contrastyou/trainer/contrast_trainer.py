@@ -11,7 +11,7 @@ from contrastyou.arch import UNet, UNetFeatureExtractor
 from contrastyou.epocher import PretrainEncoderEpoch, PretrainDecoderEpoch, SimpleFineTuneEpoch, MeanTeacherEpocher
 from contrastyou.epocher.base_epocher import EvalEpoch
 from contrastyou.losses.contrast_loss import SupConLoss
-from contrastyou.projectors.heads import ProjectionHead, LocalProjectionHead
+from contrastyou.projectors.heads import ProjectionHead, DenseProjectionHead
 from deepclustering2.loss import KL_div
 from deepclustering2.meters2 import Storage, StorageIncomeDict
 from deepclustering2.schedulers import GradualWarmupScheduler
@@ -123,7 +123,7 @@ class ContrastTrainer(Trainer):
         # if disable_encoder's gradient
         self._enable_grad_from = enable_grad_from
 
-        self._projector = LocalProjectionHead(projector_input_dim, head_type=ptype, output_size=(4, 4))  # noqa
+        self._projector = DenseProjectionHead(projector_input_dim, head_type=ptype, output_size=(4, 4))  # noqa
         self._optimizer = torch.optim.Adam(itertools.chain(self._model.parameters(), self._projector.parameters()),
                                            lr=lr, weight_decay=weight_decay)
         self._scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
