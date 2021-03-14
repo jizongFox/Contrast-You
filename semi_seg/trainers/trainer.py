@@ -3,16 +3,16 @@ from itertools import chain
 from typing import Tuple, Type
 
 import torch
-from torch import nn
-from torch import optim
-
-from contrastyou.losses.contrast_loss2 import SupConLoss1 as SupConLoss
-from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
 from deepclustering2 import optim
 from deepclustering2.loss import KL_div
 from deepclustering2.meters2 import EpochResultDict
 from deepclustering2.models import ema_updater
 from deepclustering2.schedulers.customized_scheduler import RampScheduler
+from torch import nn
+from torch import optim
+
+from contrastyou.losses.contrast_loss2 import SupConLoss1 as SupConLoss
+from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
 from semi_seg._utils import ContrastiveProjectorWrapper
 from semi_seg.epochers import MITrainEpocher, ConsistencyMIEpocher, PrototypeEpocher
 from semi_seg.epochers import TrainEpocher, EvalEpocher, ConsistencyTrainEpocher, EntropyMinEpocher, MeanTeacherEpocher, \
@@ -300,6 +300,35 @@ class IICMeanTeacherTrainer(IICTrainer):
                              cur_epoch=self._cur_epoch, device=self._device)
         result, cur_score = evaler.run()
         return result, cur_score
+
+
+class InfoNCEMeanTeacherTrainer(InfoNCETrainer):
+    from ..epochers.comparable import InfoNCEMeanTeacherEpocher
+
+    def _init(self):
+        super()._init()  # initialize infonce
+        # initialize mt
+        if "MeanTeacherParameters" not in self._config:
+            raise RuntimeError("`MeanTeacherParameters` should be in self._config")
+        self._teacher_model = deepcopy(self._model)
+        for param in self._teacher_model.parameters():
+            param.detach_()
+        self._teacher_model.train()
+        config = deepcopy(self._config["MeanTeacherParameters"])
+        self._reg_criterion = {"mse": nn.MSELoss(), "kl": KL_div()}[config["name"]]
+        self._ema_updater = ema_updater(alpha=float(config["alpha"]), weight_decay=float(config["weight_decay"]))
+        self._mt_weight = float(config["weight"])
+
+    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = InfoNCEMeanTeacherEpocher):
+        return super(InfoNCEMeanTeacherTrainer, self)._set_epocher_class(epocher_class)
+
+    def _run_epoch(self, epocher: InfoNCEMeanTeacherEpocher, *args, **kwargs) -> EpochResultDict:
+        epocher.init(teacher_model=self._teacher_model, reg_criterion=self._reg_criterion,
+                     ema_updater=self._ema_updater, projectors_wrapper=self._projector,
+                     infoNCE_criterion=self._criterion, infonce_weight= self._reg_weight, mt_weight=self._mt_weight)
+        epocher.set_global_contrast_method(contrast_on_list=self.__encoder_method__)
+        result = epocher.run()
+        return result
 
 
 class PrototypeTrainer(SemiTrainer):

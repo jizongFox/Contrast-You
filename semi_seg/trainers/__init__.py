@@ -20,6 +20,7 @@ base_trainer_zoos = {
     "experiment": ExperimentalTrainer,
     "mixup": ExperimentalTrainerwithMixUp,
     "multitask": ExperimentalTrainerwithMultiTask,
+    "infoncemt":InfoNCEMeanTeacherTrainer
 
 }
 pre_trainer_zoos = {

@@ -5,18 +5,6 @@ from itertools import cycle
 from typing import Callable, Iterable
 
 import torch
-from loguru import logger
-from torch import Tensor
-from torch import nn
-from torch.nn import functional as F
-
-from contrastyou.epocher._utils import unfold_position  # noqa
-from contrastyou.featextractor.unet import FeatureExtractor
-from contrastyou.helper import average_iter, weighted_average_iter
-from contrastyou.losses.contrast_loss import is_normalized
-from contrastyou.losses.iic_loss import _ntuple
-from contrastyou.projectors.heads import ProjectionHead
-from contrastyou.projectors.nn import Normalize
 from deepclustering2.configparser._utils import get_config  # noqa
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.decorator.decorator import _disable_tracking_bn_stats as disable_bn  # noqa
@@ -26,6 +14,17 @@ from deepclustering2.models import ema_updater as EMA_Updater
 from deepclustering2.schedulers.customized_scheduler import RampScheduler
 from deepclustering2.type import T_loss
 from deepclustering2.writer.SummaryWriter import get_tb_writer
+from loguru import logger
+from torch import Tensor
+from torch import nn
+from torch.nn import functional as F
+
+from contrastyou.featextractor.unet import FeatureExtractor
+from contrastyou.helper import average_iter, weighted_average_iter
+from contrastyou.losses.contrast_loss import is_normalized
+from contrastyou.losses.iic_loss import _ntuple  # noqa
+from contrastyou.projectors.heads import ProjectionHead
+from contrastyou.projectors.nn import Normalize
 from semi_seg._utils import ContrastiveProjectorWrapper
 from ._helper import unl_extractor, __AssertWithUnLabeledData, _FeatureExtractorMixin, _MeanTeacherMixin
 from .base import TrainEpocher
@@ -47,6 +46,7 @@ class MeanTeacherEpocher(_MeanTeacherMixin, TrainEpocher, __AssertWithUnLabeledD
             unlabeled_tf_logits=unlabeled_tf_logits,
             seed=seed, unlabeled_image=unlabeled_image
         )
+        self.update_meanteacher(self._teacher_model, self._model)
         return mt_reg
 
 
@@ -107,9 +107,8 @@ class UCMeanTeacherEpocher(MeanTeacherEpocher, __AssertWithUnLabeledData):
 class MIMeanTeacherEpocher(MITrainEpocher, __AssertWithUnLabeledData):
 
     def _init(self, *, mi_estimator_array: Iterable[Callable[[Tensor, Tensor], Tensor]],
-              teacher_model: nn.Module = None,
-              ema_updater: EMA_Updater = None, mt_weight: float = None, mi_weight: float = None, enforce_matching=False,
-              reg_criterion: T_loss = None, **kwargs):
+              teacher_model: nn.Module = None, ema_updater: EMA_Updater = None, mt_weight: float = None,
+              mi_weight: float = None, enforce_matching=False, reg_criterion: T_loss = None, **kwargs):
         super(MIMeanTeacherEpocher, self)._init(reg_weight=1.0, mi_estimator_array=mi_estimator_array,
                                                 enforce_matching=enforce_matching, **kwargs)
         assert reg_criterion is not None
@@ -179,7 +178,7 @@ class MIMeanTeacherEpocher(MITrainEpocher, __AssertWithUnLabeledData):
             self._feature_position,
             [-x.item() for x in loss_list]
         )))
-        uda_loss = ConsistencyTrainEpocher._regularization(
+        uda_loss = ConsistencyTrainEpocher._regularization(  # noqa
             self,  # noqa
             unlabeled_tf_logits=unlabeled_tf_logits,
             unlabeled_logits_tf=teacher_logits_tf.detach(),
@@ -228,7 +227,7 @@ class EntropyMinEpocher(TrainEpocher, __AssertWithUnLabeledData):
 
     def init(self, *, reg_weight: float, **kwargs):
         super().init(reg_weight=reg_weight, **kwargs)
-        self._entropy_criterion = Entropy()  # noqa
+        self._entropy_criterion = Entropy()
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super(EntropyMinEpocher, self)._configure_meters(meters)
@@ -525,3 +524,36 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
                 relation[i, j] = 1
                 mask[i * output_size[0] + j] = relation.view(1, -1)
         return mask
+
+
+class InfoNCEMeanTeacherEpocher(_MeanTeacherMixin, InfoNCEEpocher):
+
+    def _init(self, *, infonce_weight: float = None, mt_weight: float = None,
+              projectors_wrapper: ContrastiveProjectorWrapper = None,
+              infoNCE_criterion: T_loss = None, teacher_model: nn.Module, reg_criterion: T_loss,
+              ema_updater: EMA_Updater, **kwargs):
+        super()._init(teacher_model=teacher_model, reg_criterion=reg_criterion, ema_updater=ema_updater,
+                      reg_weight=1.0, projectors_wrapper=projectors_wrapper, infoNCE_criterion=infoNCE_criterion,
+                      **kwargs)
+        if self._reg_weight != 1.0:
+            raise RuntimeError(self._reg_weight)
+        assert isinstance(infonce_weight, (int, float))
+        assert isinstance(mt_weight, (int, float))
+
+        self._infonce_w = infonce_weight
+        self._mt_w = mt_weight
+
+    def _regularization(self, *, unlabeled_image=None,
+                        unlabeled_tf_logits: Tensor,
+                        unlabeled_logits_tf: Tensor,
+                        seed: int, label_group,
+                        partition_group, **kwargs):
+        infonce_reg = super(InfoNCEMeanTeacherEpocher, self)._regularization(
+            unlabeled_tf_logits=unlabeled_tf_logits,
+            unlabeled_logits_tf=unlabeled_logits_tf, seed=seed,
+            label_group=label_group,
+            partition_group=partition_group)
+        mt_reg = self._mt_regularization(unlabeled_tf_logits=unlabeled_tf_logits,
+                                         seed=seed,
+                                         unlabeled_image=unlabeled_image)
+        return self._infonce_w * infonce_reg + self._mt_w * mt_reg

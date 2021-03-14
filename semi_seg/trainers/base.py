@@ -67,7 +67,7 @@ class SemiTrainer(Trainer):
         optim_dict = self._config["Optim"]
         self._optimizer = optim.__dict__[optim_dict["name"]](
             params=self._model.parameters(),
-            **{k: v for k, v in optim_dict.items() if k != "name"}
+            **{k: v for k, v in optim_dict.items() if k != "name" and k !="pre_lr" and k!="ft_lr"}
         )
 
     def _init_optimizer_advance(self):
