@@ -2,16 +2,15 @@ from functools import partial
 from pathlib import Path
 from typing import List, Dict, Any, Callable
 
+from contrastyou.arch.unet import enable_grad, enable_bn_tracking
+from contrastyou.datasets._seg_datset import ContrastBatchSampler  # noqa
+from contrastyou.helper import get_dataset
 from deepclustering2.meters2 import StorageIncomeDict, Storage, EpochResultDict
 from deepclustering2.tqdm import item2str
 from deepclustering2.writer import SummaryWriter
 from loguru import logger
 from torch import nn
 from torch.utils.data.dataloader import _BaseDataLoaderIter as BaseDataLoaderIter, DataLoader  # noqa
-
-from contrastyou.arch.unet import enable_grad, enable_bn_tracking
-from contrastyou.datasets._seg_datset import ContrastBatchSampler  # noqa
-from contrastyou.helper import get_dataset
 
 
 def _get_contrastive_dataloader(partial_loader, config):

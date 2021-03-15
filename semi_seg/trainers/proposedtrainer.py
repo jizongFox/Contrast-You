@@ -14,10 +14,13 @@ class ExperimentalTrainer(InfoNCETrainer):
         super(ExperimentalTrainer, self)._set_epocher_class(epocher_class)
 
     def _run_epoch(self, epocher: EncoderDenseContrastEpocher, *args, **kwargs) -> EpochResultDict:
+        self._criterion.epoch_start()
         epocher.init(reg_weight=self._reg_weight, projectors_wrapper=self._projector,
                      infoNCE_criterion=self._criterion)
         epocher.set_global_contrast_method(contrast_on_list=self.__encoder_method__)
         result = epocher.run()
+        criterion_result = self._criterion.epoch_end()
+        result.update({"supcon":criterion_result})
         return result
 
 

@@ -5,11 +5,12 @@ from typing import Tuple
 import matplotlib
 import matplotlib.pyplot as plt
 import torch
+from deepclustering2.configparser._utils import get_config  # noqa
+from deepclustering2.meters2 import AverageValueMeter
+from deepclustering2.schedulers.customized_scheduler import LinearScheduler
 from deepclustering2.writer import SummaryWriter
 from loguru import logger
 from torch import Tensor, nn
-
-from contrastyou.losses._archive import SupConLoss
 
 
 @contextmanager
@@ -41,7 +42,7 @@ class SupConLoss1(nn.Module):
         self._exclude_pos = exclude_other_pos
         logger.info(f"initializing {self.__class__.__name__} with t: {self._t}, exclude_pos: {self._exclude_pos}")
 
-    def forward(self, proj_feat1, proj_feat2, target=None, mask: Tensor = None):
+    def forward(self, proj_feat1, proj_feat2, target=None, mask: Tensor = None, **kwargs):
         batch_size = proj_feat1.size(0)
         if mask is not None:
             assert mask.shape == torch.Size([batch_size, batch_size])
@@ -59,9 +60,9 @@ class SupConLoss1(nn.Module):
             # only postive masks are diagnal of the sim_matrix
             pos_mask = torch.eye(batch_size, dtype=torch.float, device=proj_feat2.device)  # SIMCLR
             neg_mask = 1 - pos_mask
-        return self._forward(proj_feat1, proj_feat2, pos_mask.float(), neg_mask.float())
+        return self._forward(proj_feat1, proj_feat2, pos_mask.float(), neg_mask.float(), **kwargs)
 
-    def _forward(self, proj_feat1, proj_feat2, pos_mask, neg_mask):
+    def _forward(self, proj_feat1, proj_feat2, pos_mask, neg_mask, **kwargs):
         """
         Here the proj_feat1 and proj_feat2 should share the same mask within and cross proj_feat1 and proj_feat2
         :param proj_feat1:
@@ -141,8 +142,162 @@ class SupConLoss1(nn.Module):
             dest = "/".join([x for x in [extra_tag, "neg_mask"] if x is not None])
             writer.add_figure(tag=dest, figure=fig1, global_step=epoch)
 
+    def epoch_start(self):
+        pass
+
+    def epoch_end(self):
+        return {}
+
+
+class SelfPacedSupConLoss(nn.Module):
+    def __init__(self, temperature=0.07, weight_update="hard", **kwargs):
+        super().__init__()
+        self._t = temperature
+        self._weight_update = weight_update
+        self.__gamma = 1e6
+        logger.info(f"initializing {self.__class__.__name__} with t: {self._t} ")
+        self._chosen_percentage_meter = AverageValueMeter()
+        config = get_config(scope="base")
+        if "SelfPacedParams" in config:
+            self._scheduler = LinearScheduler(max_epoch=config["Trainer"]["max_epoch"], **config["SelfPacedParams"])
+        else:
+            self._scheduler = LinearScheduler(max_epoch=config["Trainer"]["max_epoch"], begin_value=1e6, end_value=1e6)
+
+    def forward(self, proj_feat1, proj_feat2, target=None, mask: Tensor = None, **kwargs):
+        batch_size = proj_feat1.size(0)
+        if mask is not None:
+            assert mask.shape == torch.Size([batch_size, batch_size])
+            pos_mask = mask == 1
+            neg_mask = mask == 0
+
+        elif target is not None:
+            if isinstance(target, list):
+                target = torch.Tensor(target).to(device=proj_feat2.device)
+            mask = torch.eq(target[..., None], target[None, ...])
+
+            pos_mask = mask == True
+            neg_mask = mask == False
+        else:
+            # only postive masks are diagnal of the sim_matrix
+            pos_mask = torch.eye(batch_size, dtype=torch.float, device=proj_feat2.device)  # SIMCLR
+            neg_mask = 1 - pos_mask
+        gamma = self.__gamma
+        return self._forward(proj_feat1, proj_feat2, pos_mask.float(), neg_mask.float(), gamma=gamma, **kwargs)
+
+    def _forward(self, proj_feat1, proj_feat2, pos_mask, neg_mask, gamma=1e6, **kwargs):
+        """
+        Here the proj_feat1 and proj_feat2 should share the same mask within and cross proj_feat1 and proj_feat2
+        :param proj_feat1:
+        :param proj_feat2:
+        :return:
+        """
+        assert is_normalized(proj_feat1) and is_normalized(proj_feat2), f"features need to be normalized first"
+        assert proj_feat1.shape == proj_feat2.shape, (proj_feat1.shape, proj_feat2.shape)
+
+        batch_size = len(proj_feat1)
+        unselect_diganal_mask = 1 - torch.eye(
+            batch_size * 2, batch_size * 2, dtype=torch.float, device=proj_feat2.device
+        )
+
+        # upscale
+        pos_mask = pos_mask.repeat(2, 2)
+        neg_mask = neg_mask.repeat(2, 2)
+
+        pos_mask *= unselect_diganal_mask
+        neg_mask *= unselect_diganal_mask
+
+        # 2n X 2n
+        sim_exp, sim_logits = exp_sim_temperature(proj_feat1, proj_feat2, self._t)
+        assert pos_mask.shape == sim_exp.shape == neg_mask.shape, (pos_mask.shape, sim_exp.shape, neg_mask.shape)
+
+        # =============================================
+        # in order to have a hook for further processing
+        self.sim_exp = sim_exp
+        self.sim_logits = sim_logits
+        self.pos_mask = pos_mask
+        self.neg_mask = neg_mask
+        # ================= end =======================
+        pos_count, neg_count = pos_mask.sum(1), neg_mask.sum(1)
+        pos_sum = (sim_exp * pos_mask).sum(1, keepdim=True).repeat(1, batch_size * 2)
+        neg_sum = (sim_exp * neg_mask).sum(1, keepdim=True).repeat(1, batch_size * 2)
+
+        log_pos_div_sum_pos_neg = sim_logits - torch.log(pos_sum + neg_sum + 1e-16)
+        assert log_pos_div_sum_pos_neg.shape == torch.Size([batch_size * 2, batch_size * 2])
+
+        log_pos_div_sum_pos_neg = self._selfpaced_weighted_loss(log_pos_div_sum_pos_neg, gamma)
+
+        # over positive mask
+        loss = (log_pos_div_sum_pos_neg * pos_mask).sum(1) / pos_count
+        loss = -loss.mean()
+
+        if torch.isnan(loss):
+            raise RuntimeError(loss)
+        return loss
+
+    def _selfpaced_weighted_loss(self, loglikelihoodmatrix, gamma):
+        l_i_j = -loglikelihoodmatrix.detach()
+        weight: Tensor
+        if self._weight_update == "hard":
+            weight = (l_i_j <= gamma).float()
+        else:
+            weight = torch.max(1 - 1 / gamma * l_i_j, torch.zeros_like(l_i_j))
+        self.weight = weight
+        assert torch.logical_and(weight >= 0, weight <= 1).any()
+        self._chosen_percentage_meter.add(weight.mean().item())
+
+        return loglikelihoodmatrix * weight
+
+    @contextmanager
+    def register_writer(self, writer: SummaryWriter, epoch=0, extra_tag=None):
+        yield
+        sim_exp = self.sim_exp.detach().cpu().numpy()
+        sim_logits = self.sim_logits.detach().cpu().numpy()
+        pos_mask = self.pos_mask.detach().cpu().numpy()
+        neg_mask = self.neg_mask.detach().cpu().numpy()
+        weight_mask = self.weight.detach().cpu().numpy()
+        with _switch_plt_backend("agg"):
+            fig1 = plt.figure()
+            plt.imshow(sim_exp, cmap="gray")
+            plt.colorbar()
+            dest = "/".join([x for x in [extra_tag, "sim_exp"] if x is not None])
+            writer.add_figure(tag=dest, figure=fig1, global_step=epoch)
+            fig1 = plt.figure()
+            plt.imshow(sim_logits, cmap="gray")
+            plt.colorbar()
+            dest = "/".join([x for x in [extra_tag, "sim_logits"] if x is not None])
+            writer.add_figure(tag=dest, figure=fig1, global_step=epoch)
+            fig1 = plt.figure()
+            plt.imshow(pos_mask, cmap="gray")
+            plt.colorbar()
+            dest = "/".join([x for x in [extra_tag, "pos_mask"] if x is not None])
+            writer.add_figure(tag=dest, figure=fig1, global_step=epoch)
+            fig1 = plt.figure()
+            plt.imshow(neg_mask, cmap="gray")
+            plt.colorbar()
+            dest = "/".join([x for x in [extra_tag, "neg_mask"] if x is not None])
+            writer.add_figure(tag=dest, figure=fig1, global_step=epoch)
+            fig1 = plt.figure()
+            plt.imshow(weight_mask, cmap="gray")
+            plt.colorbar()
+            dest = "/".join([x for x in [extra_tag, "self-paced"] if x is not None])
+            writer.add_figure(tag=dest, figure=fig1, global_step=epoch)
+
+    def epoch_start(self):
+        gamma = self._scheduler.value
+        self.set_gamma(gamma)
+        self._chosen_percentage_meter.reset()
+
+    def epoch_end(self):
+        self._scheduler.step()
+        return self._chosen_percentage_meter.summary()
+
+    def set_gamma(self, gamma):
+        logger.debug(f"{self.__class__.__name__} set gamma as {gamma}")
+        self.__gamma = gamma
+
 
 if __name__ == '__main__':
+    """ verify the SupContrastLoss1 
     from torch.nn.functional import normalize
 
     feature1 = normalize(torch.randn(10, 256, device="cuda"), dim=1)
@@ -153,3 +308,21 @@ if __name__ == '__main__':
     loss1 = criterion1(torch.stack([feature1, feature2], dim=1), labels=target)
     loss2 = criterion2(feature1, feature2, target=target)
     assert loss1.allclose(loss2), (loss1, loss2)
+    """
+    """ verify the Self-pacedSupcontrast loss"""
+    from torch.nn.functional import normalize
+
+    anchor1 = torch.randn(1, 256, device="cuda")
+    anchor2 = torch.randn(1, 256, device="cuda")
+    anchor3 = torch.randn(1, 256, device="cuda")
+
+    feature1 = torch.cat([anchor1 * (1 - alpha) + anchor2 * alpha for alpha in torch.linspace(0, 1, steps=100)], dim=0)
+    feature2 = torch.cat([anchor1 * (1 - alpha) + anchor3 * alpha for alpha in torch.linspace(0, 1, steps=100)], dim=0)
+    feature1, feature2 = normalize(feature1, ), normalize(feature2)
+
+    target = [random.choice([0, 1, 2]) for i in range(100)]
+    self_paced_criterion = SelfPacedSupConLoss(temperature=0.07, weight_update="hard")
+    loss1 = self_paced_criterion(feature1, feature2, target=target, gamma=1e6)
+    criterion2 = SupConLoss1(temperature=0.07)
+    loss2 = criterion2(feature1, feature2, target=target)
+    assert torch.allclose(loss2, loss1)

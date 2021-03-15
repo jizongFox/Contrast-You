@@ -377,14 +377,13 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
         This class take the feature maps (global and/or dense) to perform contrastive pretraining.
         Dense feature and global feature can take from the same position and multiple times.
     """
-    # from contrastyou.losses.contrast_loss import SupConLoss2
-    from contrastyou.losses.contrast_loss2 import SupConLoss1
+    from contrastyou.losses.contrast_loss import SupConLoss2 as SupConLoss1
     _infonce_criterion: SupConLoss1
 
     def _assertion(self):
         # from contrastyou.losses.contrast_loss import SupConLoss2
-        from contrastyou.losses.contrast_loss2 import SupConLoss1
-        if not isinstance(self._infonce_criterion, SupConLoss1):
+        from contrastyou.losses.contrast_loss2 import SupConLoss1, SelfPacedSupConLoss
+        if not isinstance(self._infonce_criterion, (SupConLoss1, SelfPacedSupConLoss)):
             raise RuntimeError(f"{self.__class__.__name__} only support `SupConLoss2`, "
                                f"given {type(self._infonce_criterion)}")
         super(InfoNCEEpocher, self)._assertion()
@@ -543,6 +542,12 @@ class InfoNCEMeanTeacherEpocher(_MeanTeacherMixin, InfoNCEEpocher):
         self._infonce_w = infonce_weight
         self._mt_w = mt_weight
 
+    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters = super(InfoNCEMeanTeacherEpocher, self)._configure_meters(meters)
+        meters.register_meter("mt_w", AverageValueMeter())
+        meters.register_meter("mi_w", AverageValueMeter())
+        return meters
+
     def _regularization(self, *, unlabeled_image=None,
                         unlabeled_tf_logits: Tensor,
                         unlabeled_logits_tf: Tensor,
@@ -556,4 +561,8 @@ class InfoNCEMeanTeacherEpocher(_MeanTeacherMixin, InfoNCEEpocher):
         mt_reg = self._mt_regularization(unlabeled_tf_logits=unlabeled_tf_logits,
                                          seed=seed,
                                          unlabeled_image=unlabeled_image)
+        self.update_meanteacher(teacher_model=self._teacher_model, student_model=self._model)
+        self.meters["mi_w"].add(self._infonce_w)
+        self.meters["mt_w"].add(self._mt_w)
+
         return self._infonce_w * infonce_reg + self._mt_w * mt_reg

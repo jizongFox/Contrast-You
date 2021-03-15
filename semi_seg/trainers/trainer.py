@@ -11,7 +11,7 @@ from deepclustering2.schedulers.customized_scheduler import RampScheduler
 from torch import nn
 from torch import optim
 
-from contrastyou.losses.contrast_loss2 import SupConLoss1 as SupConLoss
+from contrastyou.losses.contrast_loss2 import SelfPacedSupConLoss as SupConLoss
 from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
 from semi_seg._utils import ContrastiveProjectorWrapper
 from semi_seg.epochers import MITrainEpocher, ConsistencyMIEpocher, PrototypeEpocher
@@ -162,10 +162,13 @@ class InfoNCETrainer(_FeatureExtractor, SemiTrainer):
         super()._set_epocher_class(epocher_class)
 
     def _run_epoch(self, epocher: InfoNCEEpocher, *args, **kwargs) -> EpochResultDict:
+        self._criterion.epoch_start()
         epocher.init(reg_weight=self._reg_weight, projectors_wrapper=self._projector,
                      infoNCE_criterion=self._criterion)
         epocher.set_global_contrast_method(contrast_on_list=self.__encoder_method__)
         result = epocher.run()
+        criterion_result = self._criterion.epoch_end()
+        result.update({"supcon": criterion_result})
         return result
 
     def _init_optimizer(self):
@@ -325,7 +328,7 @@ class InfoNCEMeanTeacherTrainer(InfoNCETrainer):
     def _run_epoch(self, epocher: InfoNCEMeanTeacherEpocher, *args, **kwargs) -> EpochResultDict:
         epocher.init(teacher_model=self._teacher_model, reg_criterion=self._reg_criterion,
                      ema_updater=self._ema_updater, projectors_wrapper=self._projector,
-                     infoNCE_criterion=self._criterion, infonce_weight= self._reg_weight, mt_weight=self._mt_weight)
+                     infoNCE_criterion=self._criterion, infonce_weight=self._reg_weight, mt_weight=self._mt_weight)
         epocher.set_global_contrast_method(contrast_on_list=self.__encoder_method__)
         result = epocher.run()
         return result
