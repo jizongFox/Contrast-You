@@ -3,87 +3,9 @@ from itertools import cycle
 
 from deepclustering2.cchelper import JobSubmiter
 from deepclustering2.utils import gethash
-from semi_seg.scripts.helper import dataset_name2class_numbers, ft_lr_zooms
 
-
-class _BindOptions:
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.OptionalScripts = []
-
-    @staticmethod
-    def bind(subparser):
-        ...
-
-    def parse(self, args):
-        ...
-
-    def add(self, string):
-        self.OptionalScripts.append(string)
-
-    def get_option_str(self):
-        return " ".join(self.OptionalScripts)
-
-
-class BindPretrainFinetune(_BindOptions):
-    @staticmethod
-    def bind(subparser):
-        subparser.add_argument("--pre_lr", default="null", type=str, help="pretrain learning rate")
-        subparser.add_argument("--ft_lr", default="null", type=str, help="finetune learning rate")
-        subparser.add_argument("-pe", "--pre_max_epoch", type=str, default="null", help="pretrain max_epoch")
-        subparser.add_argument("-fe", "--ft_max_epoch", type=str, default="null", help="finetune max_epoch")
-
-    def parse(self, args):
-        pre_lr = args.pre_lr
-        self.add(f"Optim.pre_lr={pre_lr}")
-        ft_lr = args.ft_lr
-        self.add(f"Optim.ft_lr={ft_lr}")
-        pre_max_epoch = args.pre_max_epoch
-        ft_max_epoch = args.ft_max_epoch
-        self.add(f"Trainer.pre_max_epoch={pre_max_epoch}")
-        self.add(f"Trainer.ft_max_epoch={ft_max_epoch}")
-
-
-class BindContrastive(_BindOptions):
-    @staticmethod
-    def bind(subparser):
-        subparser.add_argument("-g", "--group_sample_num", default=6, type=int)
-        subparser.add_argument("--global_features", nargs="+", choices=["Conv5", "Conv4", "Conv3", "Conv2"],
-                               default=["Conv5"],
-                               type=str, help="global_features")
-        subparser.add_argument("--global_importance", nargs="+", type=float, default=[1.0, ], help="global importance")
-
-        subparser.add_argument("--dense_features", nargs="+", choices=["Conv5", "Conv4", "Conv3", "Conv2"],
-                               default=[],
-                               type=str, help="dense_features")
-        subparser.add_argument("--dense_importance", nargs="+", type=float, default=[], help="dense importance")
-        subparser.add_argument("--exclude_pos", action="store_true", default=False,
-                               help="exclude other pos examples to debias contrastive learning")
-
-    def parse(self, args):
-        group_sample_num = args.group_sample_num
-        self.add(f"ContrastiveLoaderParams.group_sample_num={group_sample_num}")
-        gfeature_name = args.global_features
-        gimportance = args.global_importance
-        dfeature_name = args.dense_features
-        dimportance = args.dense_importance
-        _assert_equality(gfeature_name, gimportance)
-        _assert_equality(dfeature_name, dimportance)
-
-        _gfeature_name = ",".join(gfeature_name)
-        _gimportance = ",".join([str(x) for x in gimportance])
-        _dfeature_name = ",".join(dfeature_name)
-        _dimportance = ",".join([str(x) for x in dimportance])
-
-        self.add(f"ProjectorParams.GlobalParams.feature_names=[{_gfeature_name}]")
-        self.add(f"ProjectorParams.GlobalParams.feature_importance=[{_gimportance}]")
-        self.add(f"ProjectorParams.DenseParams.feature_names=[{_dfeature_name}]")
-        self.add(f"ProjectorParams.DenseParams.feature_importance=[{_dimportance}]")
-
-        exclude_pos = "true" if args.exclude_pos else "false"
-        self.add(f"InfoNCEParameters.LossParams.exclude_other_pos={exclude_pos}")
-
+from semi_seg.scripts.helper import dataset_name2class_numbers, ft_lr_zooms, BindPretrainFinetune, BindContrastive, \
+    BindSelfPaced
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -103,6 +25,7 @@ infonce = subparser.add_parser("infonce")
 softeninfonce = subparser.add_parser("softeninfonce")
 mixup = subparser.add_parser("mixup")
 multitask = subparser.add_parser("multitask")
+selfpaced = subparser.add_parser("selfpaced")
 
 # baseline
 baseline.add_argument("-e", "--max_epoch", type=str, default=75, help="max_epoch")
@@ -128,6 +51,13 @@ mixup.add_argument("--softenweight", nargs="+", type=float, default=[0.005, ],
 BindPretrainFinetune.bind(multitask)
 BindContrastive.bind(multitask)
 multitask.add_argument("--contrast_on", type=str, nargs="+", required=True, choices=["partition", "patient", "cycle"])
+
+# self-paced
+BindPretrainFinetune.bind(selfpaced)
+BindContrastive.bind(selfpaced)
+BindSelfPaced.bind(selfpaced)
+selfpaced.add_argument("--contrast_on", type=str, nargs="+", required=True, choices=["partition", "patient", "cycle"])
+
 args = parser.parse_args()
 
 # setting common params
@@ -149,11 +79,6 @@ SharedParams = f" Data.name={dataset_name}" \
                f" Trainer.num_batches={num_batches} " \
                f" Arch.num_classes={num_classes} " \
                f" RandomSeed={random_seed} "
-
-
-def _assert_equality(feature_name, importance):
-    assert len(feature_name) == len(importance)
-
 
 if args.stage == "baseline":
     max_epoch = args.max_epoch
@@ -252,6 +177,38 @@ elif args.stage == "multitask":
              f" Trainer.save_dir={save_dir}/infonce/{subpath}/ " \
              f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infoncemultitask.yaml"
 
+    job_array = [string]
+elif args.stage == "selfpaced":
+    parser1 = BindPretrainFinetune()
+    parser1.parse(args)
+    parser2 = BindContrastive()
+    parser2.parse(args)
+    parser3 = BindSelfPaced()
+    parser3.parse(args)
+
+    group_sample_num = args.group_sample_num
+    gfeature_names = args.global_features
+    gimportance = args.global_importance
+    dfeature_names = args.dense_features
+    dimportance = args.dense_importance
+    contrast_on = args.contrast_on
+    assert len(gfeature_names) == len(contrast_on)
+    begin_value, end_value = args.begin_value, args.end_value
+
+    exclude_pos = args.exclude_pos
+
+    save_dir += f"/sample_num_{group_sample_num}/" \
+                f"exclude_pos_{str(exclude_pos)}/" \
+                f"contrast_on_{'_'.join(contrast_on)}"
+
+    subpath = f"global_{'_'.join([*gfeature_names, *[str(x) for x in gimportance]])}/" \
+              f"dense_{'_'.join([*dfeature_names, *[str(x) for x in dimportance]])}"
+    string = f"python main_infonce.py Trainer.name=experimentmultitaskpretrain" \
+             f" InfoNCEParameters.GlobalParams.contrast_on=[{','.join(contrast_on)}] " \
+             f" {SharedParams} {parser1.get_option_str()} " \
+             f" {parser2.get_option_str()} " \
+             f" Trainer.save_dir={save_dir}/selfpaced/{subpath}/{begin_value}_{end_value} " \
+             f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/selfpaced_infonce.yaml"
     job_array = [string]
 
 else:
