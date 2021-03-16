@@ -26,7 +26,8 @@ from contrastyou.losses.iic_loss import _ntuple  # noqa
 from contrastyou.projectors.heads import ProjectionHead
 from contrastyou.projectors.nn import Normalize
 from semi_seg._utils import ContrastiveProjectorWrapper
-from ._helper import unl_extractor, __AssertWithUnLabeledData, _FeatureExtractorMixin, _MeanTeacherMixin
+from ._helper import unl_extractor, __AssertWithUnLabeledData
+from ._mixins import _FeatureExtractorMixin, _MeanTeacherMixin
 from .base import TrainEpocher
 from .miepocher import MITrainEpocher, ConsistencyTrainEpocher
 

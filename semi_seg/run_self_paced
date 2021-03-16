@@ -3,6 +3,7 @@ num_batches=200
 pre_max_epoch=120
 ft_max_epoch=80
 save_dir=0315
+
 python main_finetune.py Data.name=acdc Trainer.num_batches=${num_batches} Arch.num_classes=4 RandomSeed=10 Optim.lr=0.0000001000 \
   Trainer.max_epoch=${ft_max_epoch} Trainer.name=finetune Trainer.save_dir=${save_dir}/githash_1942a72/acdc/random_seed_10/baseline
 

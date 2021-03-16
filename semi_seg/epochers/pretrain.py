@@ -1,4 +1,4 @@
-from ._helper import _PretrainEpocherMixin
+from ._mixins import _PretrainEpocherMixin
 from .comparable import InfoNCEEpocher
 from .miepocher import MITrainEpocher, ConsistencyMIEpocher
 from .newepocher import EncoderDenseContrastEpocher, EncoderDenseMixupContrastEpocher, \

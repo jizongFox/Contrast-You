@@ -4,7 +4,8 @@ from deepclustering2.meters2 import AverageValueMeter, MeterInterface
 from deepclustering2.type import T_loss
 from torch import Tensor
 
-from ._helper import __AssertWithUnLabeledData, _ConsistencyMixin, _MIMixin
+from ._helper import __AssertWithUnLabeledData
+from ._mixins import _ConsistencyMixin, _MIMixin
 from .base import TrainEpocher
 
 
