@@ -1,13 +1,15 @@
 #!/bin/bash
-set -e pipefail
+
 rand_seed=10
-save_dir=0317
+save_dir=0318
 group_num=10
 num_batches=200
 pre_max_epoch=120
 ft_max_epoch=80
+method=hard
 comm_cmd=" --on-local "
 
+set -e pipefail
 python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=2 \
   baseline -e ${ft_max_epoch}
 
@@ -28,26 +30,26 @@ python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${n
 function run_selfpaced {
   python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=4 \
   selfpaced --global_features Conv5 --global_importance 1 --contrast_on partition -g=${group_num} \
-  -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value $1 --end_value $2
+  -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value $1 --end_value $2 --method $3
 
 python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=4 \
   selfpaced --global_features Conv5 --global_importance 1 --contrast_on patient -g=${group_num} \
-  -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value $1 --end_value $2
+  -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value $1 --end_value $2 --method $3
 
 python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=4 \
   selfpaced --global_features Conv5 --global_importance 1 --contrast_on cycle -g=${group_num} \
-  -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value $1 --end_value $2
+  -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value $1 --end_value $2 --method $3
 }
-run_selfpaced 1 16
-run_selfpaced 1 14
-run_selfpaced 2 14
-run_selfpaced 2 16
-run_selfpaced 4 6
-run_selfpaced 4 8
-run_selfpaced 4 10
-run_selfpaced 4 12
-run_selfpaced 4 14
-run_selfpaced 4 16
-run_selfpaced 4 20
-run_selfpaced 4 40
+run_selfpaced 1 16 $method
+run_selfpaced 1 14 $method
+run_selfpaced 2 14 $method
+run_selfpaced 2 16 $method
+run_selfpaced 4 6 $method
+run_selfpaced 4 8 $method
+run_selfpaced 4 10 $method
+run_selfpaced 4 12 $method
+run_selfpaced 4 14 $method
+run_selfpaced 4 16 $method
+run_selfpaced 4 20 $method
+run_selfpaced 4 40 $method
 

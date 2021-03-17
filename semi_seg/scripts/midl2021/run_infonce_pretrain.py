@@ -193,12 +193,14 @@ elif args.stage == "selfpaced":
     contrast_on = args.contrast_on
     assert len(gfeature_names) == len(contrast_on)
     begin_value, end_value = args.begin_value, args.end_value
+    method = args.method
 
     exclude_pos = args.exclude_pos
 
     save_dir += f"/sample_num_{group_sample_num}/" \
                 f"exclude_pos_{str(exclude_pos)}/" \
-                f"contrast_on_{'_'.join(contrast_on)}"
+                f"contrast_on_{'_'.join(contrast_on)}/" \
+                f"method_{method}"
 
     subpath = f"global_{'_'.join([*gfeature_names, *[str(x) for x in gimportance]])}/" \
               f"dense_{'_'.join([*dfeature_names, *[str(x) for x in dimportance]])}"

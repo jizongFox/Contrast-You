@@ -100,9 +100,12 @@ class BindSelfPaced(_BindOptions):
     def bind(subparser):
         subparser.add_argument("--begin_value", default=4.0, type=float, help="SelfPacedParams.begin_value")
         subparser.add_argument("--end_value", default=16, type=float, help="SelfPacedParams.end_value")
+        subparser.add_argument("--method", default="hard", type=str, help="SelfPacedParams.method")
 
     def parse(self, args):
         begin_value = args.begin_value
         end_value = args.end_value
+        method = args.method
         self.add(f"SelfPacedParams.begin_value={begin_value}")
         self.add(f"SelfPacedParams.end_value={end_value}")
+        self.add(f"SelfPacedParams.method={method}")

@@ -19,6 +19,7 @@ Trainer:
 SelfPacedParams:
   begin_value: 4
   end_value: 14
+  method: hard # soft
 
 ProjectorParams:
   GlobalParams:

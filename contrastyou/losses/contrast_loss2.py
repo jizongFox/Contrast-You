@@ -1,5 +1,6 @@
 import random
 from contextlib import contextmanager
+from copy import deepcopy
 from typing import Tuple
 
 import matplotlib
@@ -157,9 +158,12 @@ class SelfPacedSupConLoss(nn.Module):
         self.__gamma = 1e6
         logger.info(f"initializing {self.__class__.__name__} with t: {self._t} ")
         self._chosen_percentage_meter = AverageValueMeter()
-        config = get_config(scope="base")
+        config = deepcopy(get_config(scope="base"))
         if "SelfPacedParams" in config:
+            method = config["SelfPacedParams"].pop("method", "hard")
+            assert method in ("hard", "soft"), method
             self._scheduler = LinearScheduler(max_epoch=config["Trainer"]["max_epoch"], **config["SelfPacedParams"])
+            self._weight_update = method
         else:
             self._scheduler = LinearScheduler(max_epoch=config["Trainer"]["max_epoch"], begin_value=1e6, end_value=1e6)
         self._scheduler_tracker = AverageValueMeter()
