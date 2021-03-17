@@ -1,5 +1,4 @@
 import argparse
-from itertools import cycle
 
 from deepclustering2.cchelper import JobSubmiter
 from deepclustering2.utils import gethash
@@ -216,7 +215,18 @@ else:
     raise NotImplementedError(args.stage)
 
 # CC things
-accounts = cycle(["def-chdesa", "def-mpederso", "rrg-mpederso"])
+accounts = ["def-chdesa", "def-mpederso", "rrg-mpederso"]
+import numpy as np
+
+
+def account_iterable(name_list):
+    while True:
+        for i in np.random.permutation(name_list):
+            yield i
+
+
+accounts = account_iterable(accounts)
+# accounts = cycle(["def-chdesa", "def-mpederso", "rrg-mpederso"])
 
 job_submiter = JobSubmiter(project_path="../../", on_local=args.on_local, time=args.time, )
 
