@@ -26,27 +26,28 @@ python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${n
 
 #### self-paced
 function run_selfpaced {
-  python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=$1 \
+  python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=4 \
   selfpaced --global_features Conv5 --global_importance 1 --contrast_on partition -g=${group_num} \
   -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value $1 --end_value $2
 
-python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=$1 \
+python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=4 \
   selfpaced --global_features Conv5 --global_importance 1 --contrast_on patient -g=${group_num} \
   -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value $1 --end_value $2
 
-python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=$1 \
+python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=4 \
   selfpaced --global_features Conv5 --global_importance 1 --contrast_on cycle -g=${group_num} \
   -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value $1 --end_value $2
 }
-run_selfpaced 1 6
-run_selfpaced 1 8
-run_selfpaced 2 6
-run_selfpaced 2 8
+run_selfpaced 1 16
+run_selfpaced 1 14
+run_selfpaced 2 14
+run_selfpaced 2 16
 run_selfpaced 4 6
 run_selfpaced 4 8
-run_selfpaced 1 10
-run_selfpaced 1 12
 run_selfpaced 4 10
 run_selfpaced 4 12
+run_selfpaced 4 14
+run_selfpaced 4 16
+run_selfpaced 4 20
 run_selfpaced 4 40
 
