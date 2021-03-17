@@ -162,6 +162,7 @@ class SelfPacedSupConLoss(nn.Module):
             self._scheduler = LinearScheduler(max_epoch=config["Trainer"]["max_epoch"], **config["SelfPacedParams"])
         else:
             self._scheduler = LinearScheduler(max_epoch=config["Trainer"]["max_epoch"], begin_value=1e6, end_value=1e6)
+        self._scheduler_tracker = AverageValueMeter()
 
     def forward(self, proj_feat1, proj_feat2, target=None, mask: Tensor = None, **kwargs):
         batch_size = proj_feat1.size(0)
@@ -284,12 +285,14 @@ class SelfPacedSupConLoss(nn.Module):
 
     def epoch_start(self):
         gamma = self._scheduler.value
+        self._scheduler_tracker.add(gamma)
         self.set_gamma(gamma)
         self._chosen_percentage_meter.reset()
 
     def epoch_end(self):
         self._scheduler.step()
-        return self._chosen_percentage_meter.summary()
+        return {"chosen_percentage": self._chosen_percentage_meter.summary(),
+                "gamma": self._scheduler_tracker.summary()}
 
     def set_gamma(self, gamma):
         logger.debug(f"{self.__class__.__name__} set gamma as {gamma}")

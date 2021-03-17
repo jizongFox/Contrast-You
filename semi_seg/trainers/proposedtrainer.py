@@ -20,7 +20,7 @@ class ExperimentalTrainer(InfoNCETrainer):
         epocher.set_global_contrast_method(contrast_on_list=self.__encoder_method__)
         result = epocher.run()
         criterion_result = self._criterion.epoch_end()
-        result.update({"supcon":criterion_result})
+        result.update(criterion_result)
         return result
 
 

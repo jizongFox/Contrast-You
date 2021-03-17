@@ -207,6 +207,7 @@ elif args.stage == "selfpaced":
              f" InfoNCEParameters.GlobalParams.contrast_on=[{','.join(contrast_on)}] " \
              f" {SharedParams} {parser1.get_option_str()} " \
              f" {parser2.get_option_str()} " \
+             f" {parser3.get_option_str()} " \
              f" Trainer.save_dir={save_dir}/selfpaced/{subpath}/{begin_value}_{end_value} " \
              f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/selfpaced_infonce.yaml"
     job_array = [string]
