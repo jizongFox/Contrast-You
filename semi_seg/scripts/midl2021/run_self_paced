@@ -1,11 +1,11 @@
 #!/bin/bash
 
 rand_seed=10
-save_dir=0318
-group_num=10
-num_batches=200
-pre_max_epoch=120
-ft_max_epoch=80
+save_dir=test
+group_num=2
+num_batches=20
+pre_max_epoch=3
+ft_max_epoch=1
 method=hard
 comm_cmd=" --on-local "
 
@@ -13,17 +13,17 @@ set -e pipefail
 python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=2 \
   baseline -e ${ft_max_epoch}
 
-#### multitask
+###### multitask
 python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=4 \
-  multitask --global_features Conv5 --global_importance 1 --contrast_on partition -g=${group_num} \
+  infonce --global_features Conv5 --global_importance 1 --contrast_on partition -g=${group_num} \
+  -pe ${pre_max_epoch} -fe ${ft_max_epoch}
+#
+python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=4 \
+  infonce --global_features Conv5 --global_importance 1 --contrast_on patient -g=${group_num} \
   -pe ${pre_max_epoch} -fe ${ft_max_epoch}
 
 python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=4 \
-  multitask --global_features Conv5 --global_importance 1 --contrast_on patient -g=${group_num} \
-  -pe ${pre_max_epoch} -fe ${ft_max_epoch}
-
-python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=4 \
-  multitask --global_features Conv5 --global_importance 1 --contrast_on cycle -g=${group_num} \
+  infonce --global_features Conv5 --global_importance 1 --contrast_on cycle -g=${group_num} \
   -pe ${pre_max_epoch} -fe ${ft_max_epoch}
 
 #### self-paced
@@ -52,4 +52,4 @@ run_selfpaced 4 14 $method
 run_selfpaced 4 16 $method
 run_selfpaced 4 20 $method
 run_selfpaced 4 40 $method
-
+#

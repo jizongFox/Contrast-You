@@ -22,7 +22,7 @@ from torch.utils.data.dataloader import DataLoader
 from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
 from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
 from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
-from semi_seg._utils import _num_class_mixin
+from semi_seg.utils import _num_class_mixin
 from ._helper import __AssertOnlyWithLabeledData
 
 
@@ -46,7 +46,6 @@ class Epocher(_num_class_mixin, _Epocher):
 
     def forward_pass(self, *args, **kwargs):
         return self._forward_pass(*args, **kwargs)
-
 
 
 # ======== validation epochers =============

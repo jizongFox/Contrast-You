@@ -76,10 +76,10 @@ class ContrastiveProjectorWrapper(_ProjectorWrapperBase):
 
     def register_global_projector(self, *,
                                   feature_names: Union[str, List[str]],
-                                  head_type: Union[str, List[str]],
+                                  head_type: Union[str, List[str]] = "mlp",
                                   output_dim: Union[int, List[int]] = 256,
                                   normalize: Union[bool, List[bool]] = True,
-                                  pool_name: Union[str, List[str]],
+                                  pool_name: Union[str, List[str]] = "adaptive_avg",
                                   **kwargs):
         if isinstance(feature_names, str):
             feature_names = [feature_names, ]

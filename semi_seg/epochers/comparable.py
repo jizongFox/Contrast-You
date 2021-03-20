@@ -2,7 +2,7 @@ import math
 from abc import abstractmethod
 from functools import lru_cache, partial
 from itertools import cycle
-from typing import Callable, Iterable
+from typing import Callable, Iterable, List
 
 import torch
 from deepclustering2.configparser._utils import get_config  # noqa
@@ -21,11 +21,11 @@ from torch.nn import functional as F
 
 from contrastyou.featextractor.unet import FeatureExtractor
 from contrastyou.helper import average_iter, weighted_average_iter
-from contrastyou.losses.contrast_loss import is_normalized
+from contrastyou.losses.contrast_loss2 import is_normalized, SupConLoss1
 from contrastyou.losses.iic_loss import _ntuple  # noqa
 from contrastyou.projectors.heads import ProjectionHead
 from contrastyou.projectors.nn import Normalize
-from semi_seg._utils import ContrastiveProjectorWrapper
+from semi_seg.utils import ContrastiveProjectorWrapper
 from ._helper import unl_extractor, __AssertWithUnLabeledData
 from ._mixins import _FeatureExtractorMixin, _MeanTeacherMixin
 from .base import TrainEpocher
@@ -255,13 +255,17 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
         self.__set_global_contrast_done__ = False
 
     def _init(self, *, reg_weight: float, projectors_wrapper: ContrastiveProjectorWrapper = None,
-              infoNCE_criterion: T_loss = None, **kwargs):
+              infoNCE_criterion: List[T_loss] = None, **kwargs):
         assert projectors_wrapper is not None and infoNCE_criterion is not None, (projectors_wrapper, infoNCE_criterion)
         super()._init(reg_weight=reg_weight, **kwargs)
         assert projectors_wrapper is not None and infoNCE_criterion is not None, (projectors_wrapper, infoNCE_criterion)
+        # here we take the infonce as the criterion array (list)
+        config = get_config(scope="base")
+        assert len(config["ProjectorParams"]["GlobalParams"]["feature_names"]) == len(infoNCE_criterion)
 
         self._projectors_wrapper: ContrastiveProjectorWrapper = projectors_wrapper  # noqa
-        self._infonce_criterion: T_loss = infoNCE_criterion  # noqa
+        self._encoder_criterion_generator: T_loss = cycle(infoNCE_criterion)  # noqa
+        self._normal_criterion: T_loss = SupConLoss1()
 
     def set_global_contrast_method(self, *, contrast_on_list):
         assert isinstance(contrast_on_list, (tuple, list))
@@ -379,15 +383,7 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
         Dense feature and global feature can take from the same position and multiple times.
     """
     from contrastyou.losses.contrast_loss import SupConLoss2 as SupConLoss1
-    _infonce_criterion: SupConLoss1
-
-    def _assertion(self):
-        # from contrastyou.losses.contrast_loss import SupConLoss2
-        from contrastyou.losses.contrast_loss2 import SupConLoss1, SelfPacedSupConLoss
-        if not isinstance(self._infonce_criterion, (SupConLoss1, SelfPacedSupConLoss)):
-            raise RuntimeError(f"{self.__class__.__name__} only support `SupConLoss2`, "
-                               f"given {type(self._infonce_criterion)}")
-        super(InfoNCEEpocher, self)._assertion()
+    _encoder_criterion_generator: List[SupConLoss1]
 
     def _global_infonce(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
                         label_group) -> Tensor:
@@ -397,16 +393,17 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
 
         # generate simclr or supcontrast labels
         contrast_on = next(self._encoder_contrastive_name_generator)
+        criterion = next(self._encoder_criterion_generator)  # only for encoder
         labels = self.global_label_generator(contrast_on)(partition_list=partition_group,
                                                           patient_list=[p.split("_")[0] for p in label_group],
                                                           experiment_list=[p.split("_")[1] for p in label_group])
         if self.cur_batch_num == 0:  # noqa
-            with self._infonce_criterion.register_writer(
+            with criterion.register_writer(
                 get_tb_writer(), epoch=self._cur_epoch,
                 extra_tag=f"{feature_name}/{contrast_on}"
             ):
-                return self._infonce_criterion(proj_feature_tf, proj_tf_feature, target=labels)
-        return self._infonce_criterion(proj_feature_tf, proj_tf_feature, target=labels)
+                return criterion(proj_feature_tf, proj_tf_feature, target=labels)
+        return criterion(proj_feature_tf, proj_tf_feature, target=labels)
 
     def _dense_based_infonce(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
                              label_group) -> Tensor:
@@ -446,13 +443,13 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
         include_all = _config["InfoNCEParameters"]["DenseParams"].get("include_all", False)
         if include_all:
             if self.cur_batch_num == 0:  # noqa
-                with self._infonce_criterion.register_writer(
+                with self._normal_criterion.register_writer(
                     get_tb_writer(),
                     epoch=self._cur_epoch,
                     extra_tag=f"{feature_name}/dense"
                 ):
-                    return self._infonce_criterion(proj_feature_tf.reshape(-1, c), proj_tf_feature.reshape(-1, c))
-            return self._infonce_criterion(proj_feature_tf.reshape(-1, c), proj_tf_feature.reshape(-1, c))
+                    return self._normal_criterion(proj_feature_tf.reshape(-1, c), proj_tf_feature.reshape(-1, c))
+            return self._normal_criterion(proj_feature_tf.reshape(-1, c), proj_tf_feature.reshape(-1, c))
         else:
             raise RuntimeError("experimental results show that using batch-wise is better")
 
@@ -476,7 +473,7 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
         assert is_normalized(sampled_norm_tf_feature) and is_normalized(sampled_norm_feature_tf)
 
         n_tf_feature, n_feature_tf = self._reshape_dense_feature(sampled_norm_tf_feature, sampled_norm_feature_tf)
-        return self._infonce_criterion(n_tf_feature.reshape(-1, c), n_feature_tf.reshape(-1, c))
+        return self._normal_criterion(n_tf_feature.reshape(-1, c), n_feature_tf.reshape(-1, c))
 
     def _dense_featuremap_tailoring(self, *, proj_tf_feature: Tensor, proj_feature_tf: Tensor, output_size=(9, 9),
                                     method="adaptive_avg"):

@@ -8,7 +8,7 @@ from contrastyou import CONFIG_PATH
 from contrastyou.arch import UNet
 from deepclustering2.loss import KL_div
 from deepclustering2.utils import yaml_load
-from semi_seg._utils import ClusterProjectorWrapper, IICLossWrapper
+from semi_seg.utils import ClusterProjectorWrapper, IICLossWrapper
 from semi_seg.dsutils import get_dataloaders
 from semi_seg.epochers.miepocher import MITrainEpocher
 from semi_seg.epochers.protoepocher import DifferentiablePrototypeEpocher

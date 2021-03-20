@@ -9,7 +9,7 @@ from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
 from deepclustering2.dataloader.sampler import InfiniteRandomSampler
 from deepclustering2.loss import KL_div
 from deepclustering2.utils import set_benchmark
-from semi_seg._utils import ClusterProjectorWrapper, IICLossWrapper, ContrastiveProjectorWrapper
+from semi_seg.utils import ClusterProjectorWrapper, IICLossWrapper, ContrastiveProjectorWrapper
 from semi_seg.epochers import TrainEpocher, EvalEpocher, ConsistencyTrainEpocher, MITrainEpocher, ConsistencyMIEpocher
 from semi_seg.tests._helper import create_dataset
 

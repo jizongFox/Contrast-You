@@ -1,40 +1,33 @@
 from contrastyou.arch import UNet
 from contrastyou.projectors.heads import ProjectionHead, DenseProjectionHead
 
-from ._utils import encoder_names
 from .base import _SingleEstimator
 
 
 # todo: unclear to see what would happen.
-class InfoNCEEtimator(_SingleEstimator):
+class InfoNCEEstimator(_SingleEstimator):
     """IICEestimator is the estimator for one single layer for the Unet"""
     __projector_initialized = False
     __criterion_initialized = False
 
-    def init_projector(self, *,
-                       layer_name: str,
-                       head_type: str = "linear",
-                       normalize: bool = False):
-        super().__init__()
-        self._layer_name = layer_name
-        self._head_type = head_type
-        self._normalize = normalize
+    def _register_global_projector(self, *, feature_name: str, head_type: str, output_dim: int = 256, normalize=True,
+                                   pool_name: str):
+        input_dim = UNet.dimension_dict[feature_name]
 
-        input_dim = UNet.dimension_dict[layer_name]
-
-        CLUSTERHEAD = ProjectionHead if self._layer_name in encoder_names else DenseProjectionHead
-
-        self._projector = CLUSTERHEAD(input_dim=input_dim, num_clusters=num_cluster,
-                                      num_subheads=num_subhead, head_type=head_type, T=temperature,
-                                      normalize=normalize)
-
+        projector = ProjectionHead(input_dim=input_dim, head_type=head_type, normalize=normalize, pool_name=pool_name,
+                                   output_dim=output_dim)
+        self._projector = projector
         self.__projector_initialized = True
 
-    def init_criterion(self, *, padding: int, patch_size: int):
-        if self._layer_name in encoder_names:
-            self._criterion = IIDLoss()
-        else:
-            self._criterion = IIDSegmentationSmallPathLoss(padding=padding, patch_size=patch_size)
+    def _register_dense_projector(self, *, feature_name: str, output_dim: int = 64, head_type: str,
+                                  normalize: bool = False, pool_name="adaptive_avg", spatial_size=(16, 16), **kwargs):
+        input_dim = UNet.dimension_dict[feature_name]
+        self._projector = DenseProjectionHead(input_dim=input_dim, output_dim=output_dim, head_type=head_type,
+                                              normalize=normalize,
+                                              pool_name=pool_name, spatial_size=spatial_size)
+        self.__projector_initialized = True
+
+    def init_criterion(self, *, name: str, criterion_params=None):
 
         self.__criterion_initialized = True
 

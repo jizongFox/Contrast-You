@@ -1,26 +1,21 @@
 from copy import deepcopy
-from itertools import chain
 from typing import Tuple, Type
 
-import torch
-from deepclustering2 import optim
 from deepclustering2.loss import KL_div
 from deepclustering2.meters2 import EpochResultDict
 from deepclustering2.models import ema_updater
 from deepclustering2.schedulers.customized_scheduler import RampScheduler
 from torch import nn
-from torch import optim
 
 from contrastyou.losses.contrast_loss2 import SelfPacedSupConLoss as SupConLoss
 from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
-from semi_seg._utils import ContrastiveProjectorWrapper
-from semi_seg.epochers import MITrainEpocher, ConsistencyMIEpocher, PrototypeEpocher
+from semi_seg.epochers import MITrainEpocher, ConsistencyMIEpocher
 from semi_seg.epochers import TrainEpocher, EvalEpocher, ConsistencyTrainEpocher, EntropyMinEpocher, MeanTeacherEpocher, \
-    MIMeanTeacherEpocher, MIDLPaperEpocher, InfoNCEEpocher, DifferentiablePrototypeEpocher, \
-    UCMeanTeacherEpocher
+    MIMeanTeacherEpocher, MIDLPaperEpocher, InfoNCEEpocher, UCMeanTeacherEpocher
 from semi_seg.miestimator.iicestimator import IICEstimatorArray
 from semi_seg.trainers._helper import _FeatureExtractor
 from semi_seg.trainers.base import SemiTrainer
+from semi_seg.utils import ContrastiveProjectorWrapper, _nlist
 
 
 class UDATrainer(SemiTrainer):
@@ -124,8 +119,8 @@ class InfoNCETrainer(_FeatureExtractor, SemiTrainer):
 
         global_importance = global_importance[:len(global_features)]
 
-        dense_features = _projector_config["DenseParams"]["feature_names"] or []
-        dense_importance = _projector_config["DenseParams"].pop("feature_importance") or []
+        dense_features = _projector_config.get("DenseParams", {}).get("feature_names") or []
+        dense_importance = _projector_config.get("DenseParams", {}).pop("feature_importance", None) or []
 
         if isinstance(dense_features, str):
             dense_features = [dense_features, ]
@@ -140,8 +135,9 @@ class InfoNCETrainer(_FeatureExtractor, SemiTrainer):
         self._config["FeatureExtractor"]["feature_importance"] = global_importance + dense_importance
 
         super(InfoNCETrainer, self)._init()
-        _infonce_config = deepcopy(self._config["InfoNCEParameters"])
-        self.__encoder_method__ = _infonce_config["GlobalParams"].pop("contrast_on", "partition")
+
+        _loss_config = _projector_config["LossParams"]
+        self.__encoder_method__ = _loss_config["contrast_on"]
         if isinstance(self.__encoder_method__, str):
             self.__encoder_method__ = [self.__encoder_method__, ] * len(global_features)
         assert len(self.__encoder_method__) == len(global_features), self.__encoder_method__
@@ -155,20 +151,37 @@ class InfoNCETrainer(_FeatureExtractor, SemiTrainer):
             self._projector.register_dense_projector(
                 **_projector_config["DenseParams"]
             )
-        self._criterion = SupConLoss(**_infonce_config["LossParams"])
-        self._reg_weight = float(_infonce_config["weight"])
+        self._encoder_criterion_list = self._define_encoder_criterion_list(
+            criterion_params=_loss_config,
+            n=len(global_features)
+        )
+
+        self._reg_weight = float(_projector_config["Weight"])
+
+    def _define_encoder_criterion_list(self, *, criterion_params: dict, n: int):
+        encoder_criterion = []
+        n_pair = _nlist(n)
+        for k, v in criterion_params.items():
+            criterion_params[k] = iter(n_pair(v))
+
+        for _ in range(n):
+            params = {k: next(v) for k, v in criterion_params.items()}
+            encoder_criterion.append(SupConLoss(**params))
+        return encoder_criterion
 
     def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = InfoNCEEpocher):
         super()._set_epocher_class(epocher_class)
 
     def _run_epoch(self, epocher: InfoNCEEpocher, *args, **kwargs) -> EpochResultDict:
-        self._criterion.epoch_start()
+        for c in self._encoder_criterion_list:
+            c.epoch_start()
         epocher.init(reg_weight=self._reg_weight, projectors_wrapper=self._projector,
-                     infoNCE_criterion=self._criterion)
+                     infoNCE_criterion=self._encoder_criterion_list)
         epocher.set_global_contrast_method(contrast_on_list=self.__encoder_method__)
         result = epocher.run()
-        criterion_result = self._criterion.epoch_end()
-        result.update(criterion_result)
+        for i, c in enumerate(self._encoder_criterion_list):
+            criterion_result = c.epoch_end()
+            result.update({k + f"{i}": v for k, v in criterion_result.items()})
         return result
 
     def _init_optimizer(self):
@@ -330,64 +343,5 @@ class InfoNCEMeanTeacherTrainer(InfoNCETrainer):
                      ema_updater=self._ema_updater, projectors_wrapper=self._projector,
                      infoNCE_criterion=self._criterion, infonce_weight=self._reg_weight, mt_weight=self._mt_weight)
         epocher.set_global_contrast_method(contrast_on_list=self.__encoder_method__)
-        result = epocher.run()
-        return result
-
-
-class PrototypeTrainer(SemiTrainer):
-
-    def _init(self):
-        super()._init()
-        config = deepcopy(self._config)["PrototypeParameters"]
-        self._projector = ContrastiveProjectorWrapper()
-        self._projector.init_encoder(feature_names=self.feature_positions, **config["EncoderParams"])
-        self._projector.init_decoder(feature_names=self.feature_positions, **config["DecoderParams"])
-
-        self._register_buffer("memory_bank", dict())
-        self._infonce_criterion = SupConLoss(**config["LossParams"])
-        self._reg_weight = float(config["weight"])
-
-    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = PrototypeEpocher):
-        super(PrototypeTrainer, self)._set_epocher_class(epocher_class)
-
-    def _run_epoch(self, epocher: PrototypeEpocher, *args, **kwargs) -> EpochResultDict:
-        epocher.init(reg_weight=self._reg_weight, prototype_projector=self._projector,
-                     feature_buffers=self.memory_bank,
-                     infoNCE_criterion=self._infonce_criterion)
-        result = epocher.run()
-        epocher.run_kmeans(self.memory_bank)
-        return result
-
-
-class DifferentiablePrototypeTrainer(SemiTrainer):
-
-    def _init(self):
-        super(DifferentiablePrototypeTrainer, self)._init()
-        config = deepcopy(self._config)["DPrototypeParameters"]
-        self._uda_weight = config["uda_weight"]
-        self._cluster_weight = config["cluster_weight"]
-        self._prototype_nums = config["prototype_nums"]
-        from contrastyou.arch import UNet
-        dim = UNet.dimension_dict[self.feature_positions[0]]
-        self._prototype_vectors = torch.randn(self._prototype_nums, dim, requires_grad=True,
-                                              device=self._device)  # noqa
-
-    def _init_optimizer(self):
-        optim_dict = self._config["Optim"]
-        self._optimizer = optim.__dict__[optim_dict["name"]](
-            params=chain(self._model.parameters(), (self._prototype_vectors,)),
-            **{k: v for k, v in optim_dict.items() if k != "name"}
-        )
-
-    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = DifferentiablePrototypeEpocher):
-        super(DifferentiablePrototypeTrainer, self)._set_epocher_class(epocher_class)
-
-    def _run_epoch(self, epocher: DifferentiablePrototypeEpocher, *args, **kwargs) -> EpochResultDict:
-        epocher.init(
-            prototype_nums=self._prototype_nums,
-            prototype_vectors=self._prototype_vectors,
-            cluster_weight=self._cluster_weight,
-            uda_weight=self._uda_weight
-        )
         result = epocher.run()
         return result

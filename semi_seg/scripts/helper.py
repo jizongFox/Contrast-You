@@ -60,52 +60,33 @@ class BindContrastive(_BindOptions):
     def bind(subparser):
         subparser.add_argument("-g", "--group_sample_num", default=6, type=int)
         subparser.add_argument("--global_features", nargs="+", choices=["Conv5", "Conv4", "Conv3", "Conv2"],
-                               default=["Conv5"],
-                               type=str, help="global_features")
+                               default=["Conv5"], type=str, help="global_features")
         subparser.add_argument("--global_importance", nargs="+", type=float, default=[1.0, ], help="global importance")
 
-        subparser.add_argument("--dense_features", nargs="+", choices=["Conv5", "Conv4", "Conv3", "Conv2"],
-                               default=[],
-                               type=str, help="dense_features")
-        subparser.add_argument("--dense_importance", nargs="+", type=float, default=[], help="dense importance")
-        subparser.add_argument("--exclude_pos", action="store_true", default=False,
-                               help="exclude other pos examples to debias contrastive learning")
+        subparser.add_argument("--contrast_on", "-c", nargs="+", type=str, required=True,
+                               choices=["partition", "cycle", "patient"])
 
     def parse(self, args):
-        group_sample_num = args.group_sample_num
-        self.add(f"ContrastiveLoaderParams.group_sample_num={group_sample_num}")
-        gfeature_name = args.global_features
-        gimportance = args.global_importance
-        dfeature_name = args.dense_features
-        dimportance = args.dense_importance
-        _assert_equality(gfeature_name, gimportance)
-        _assert_equality(dfeature_name, dimportance)
+        self.add(f"ContrastiveLoaderParams.group_sample_num={args.group_sample_num}")
+        _assert_equality(args.global_features, args.global_importance)
 
-        _gfeature_name = ",".join(gfeature_name)
-        _gimportance = ",".join([str(x) for x in gimportance])
-        _dfeature_name = ",".join(dfeature_name)
-        _dimportance = ",".join([str(x) for x in dimportance])
-
-        self.add(f"ProjectorParams.GlobalParams.feature_names=[{_gfeature_name}]")
-        self.add(f"ProjectorParams.GlobalParams.feature_importance=[{_gimportance}]")
-        self.add(f"ProjectorParams.DenseParams.feature_names=[{_dfeature_name}]")
-        self.add(f"ProjectorParams.DenseParams.feature_importance=[{_dimportance}]")
-
-        exclude_pos = "true" if args.exclude_pos else "false"
-        self.add(f"InfoNCEParameters.LossParams.exclude_other_pos={exclude_pos}")
+        self.add(f"ProjectorParams.GlobalParams.feature_names=[{','.join(args.global_features)}]")
+        self.add(
+            f"ProjectorParams.GlobalParams.feature_importance=[{','.join([str(x) for x in args.global_importance])}]")
+        self.add(f"ProjectorParams.LossParams.contrast_on=[{','.join(args.contrast_on)}]")
 
 
 class BindSelfPaced(_BindOptions):
     @staticmethod
     def bind(subparser):
-        subparser.add_argument("--begin_value", default=4.0, type=float, help="SelfPacedParams.begin_value")
-        subparser.add_argument("--end_value", default=16, type=float, help="SelfPacedParams.end_value")
-        subparser.add_argument("--method", default="hard", type=str, help="SelfPacedParams.method")
+        subparser.add_argument("--begin_value", default=[1000], type=float, nargs="+",
+                               help="ProjectorParams.LossParams.begin_value")
+        subparser.add_argument("--end_value", default=[1000], type=float, nargs="+",
+                               help="ProjectorParams.LossParams.end_value")
+        subparser.add_argument("--method", default="hard", type=str, nargs="+",
+                               help="ProjectorParams.LossParams.weight_update")
 
     def parse(self, args):
-        begin_value = args.begin_value
-        end_value = args.end_value
-        method = args.method
-        self.add(f"SelfPacedParams.begin_value={begin_value}")
-        self.add(f"SelfPacedParams.end_value={end_value}")
-        self.add(f"SelfPacedParams.method={method}")
+        self.add(f"ProjectorParams.LossParams.begin_value=[{','.join([str(x) for x in args.begin_value])}]")
+        self.add(f"ProjectorParams.LossParams.end_value=[{','.join([str(x) for x in args.end_value])}]")
+        self.add(f"ProjectorParams.LossParams.weight_update=[{','.join(args.method)}]")

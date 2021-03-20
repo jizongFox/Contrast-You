@@ -16,7 +16,7 @@ from contrastyou.projectors.heads import ProjectionHead, DenseProjectionHead
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.meters2 import MeterInterface, AverageValueMeter
 from deepclustering2.type import T_loss
-from semi_seg._utils import ContrastiveProjectorWrapper as PrototypeProjectorWrapper
+from semi_seg.utils import ContrastiveProjectorWrapper as PrototypeProjectorWrapper
 from ._helper import unl_extractor
 from ._mixins import _FeatureExtractorMixin
 from .base import TrainEpocher

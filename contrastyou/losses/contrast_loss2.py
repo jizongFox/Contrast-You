@@ -151,7 +151,11 @@ class SupConLoss1(nn.Module):
 
 
 class SelfPacedSupConLoss(nn.Module):
-    def __init__(self, temperature=0.07, weight_update="hard", **kwargs):
+    def __repr__(self):
+        message = f"{self.__class__.__name__} with T: {self._t}, method: {self._weight_update} gamma: {self.__gamma}"
+        return message
+
+    def __init__(self, temperature=0.07, weight_update="hard", begin_value=1e6, end_value=1e6, **kwargs):
         super().__init__()
         self._t = temperature
         self._weight_update = weight_update
@@ -159,13 +163,10 @@ class SelfPacedSupConLoss(nn.Module):
         logger.info(f"initializing {self.__class__.__name__} with t: {self._t} ")
         self._chosen_percentage_meter = AverageValueMeter()
         config = deepcopy(get_config(scope="base"))
-        if "SelfPacedParams" in config:
-            method = config["SelfPacedParams"].pop("method", "hard")
-            assert method in ("hard", "soft"), method
-            self._scheduler = LinearScheduler(max_epoch=config["Trainer"]["max_epoch"], **config["SelfPacedParams"])
-            self._weight_update = method
-        else:
-            self._scheduler = LinearScheduler(max_epoch=config["Trainer"]["max_epoch"], begin_value=1e6, end_value=1e6)
+
+        self._scheduler = LinearScheduler(max_epoch=config["Trainer"]["max_epoch"], begin_value=begin_value,
+                                          end_value=end_value)
+
         self._scheduler_tracker = AverageValueMeter()
 
     def forward(self, proj_feat1, proj_feat2, target=None, mask: Tensor = None, **kwargs):

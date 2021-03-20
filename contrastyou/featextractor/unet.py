@@ -63,28 +63,35 @@ class FeatureExtractor(nn.Module):
     def __init__(self, net: UNet, feature_names: Union[List[str], str]) -> None:
         super().__init__()
         self._net = net
+        self.feature_importance = None
         if isinstance(feature_names, str):
             feature_names = [feature_names, ]
         self._feature_names = feature_names
         for f in self._feature_names:
             assert f in net.component_names, f
+        self.bind()
 
-    def __enter__(self):
+    def bind(self):
         self._feature_exactors = {}
         self._hook_handlers = {}
-        from semi_seg._utils import get_model
+        from semi_seg.utils import get_model
         net = get_model(self._net)
         for i, f in enumerate(self._feature_names):
             extractor = self._create_collector()
             handler = getattr(net, f).register_forward_hook(extractor)
             self._feature_exactors[str(i) + "_" + f] = extractor
             self._hook_handlers[str(i) + "_" + f] = handler
-        return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def remove(self):
         for k, v in self._hook_handlers.items():
             v.remove()
         del self._feature_exactors, self._hook_handlers
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.remove()
 
     def __getitem__(self, item):
         if item in self._feature_exactors:

@@ -366,5 +366,3 @@ class EncoderDenseMixupContrastEpocher(InfoNCEEpocher):
         return unregularized_loss + reg_weight * regularized_loss
 
 
-class EncoderMultiTaskContrastiveEpocher(InfoNCEEpocher):
-    pass
