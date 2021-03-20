@@ -3,7 +3,6 @@ import argparse
 import numpy as np
 from deepclustering2.cchelper import JobSubmiter
 from deepclustering2.utils import gethash
-
 from semi_seg.scripts.helper import dataset_name2class_numbers, ft_lr_zooms, BindPretrainFinetune, BindContrastive, \
     BindSelfPaced
 
@@ -111,7 +110,6 @@ elif args.stage == "selfpaced":
 
     subpath = f"global_{'_'.join([*gfeature_names, *[str(x) for x in gimportance]])}/" \
               f"contrast_on_{'_'.join(contrast_on)}"
-
 
 
     def get_loss_str(begin_value, end_value):

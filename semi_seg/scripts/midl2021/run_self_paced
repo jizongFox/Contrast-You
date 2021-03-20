@@ -1,13 +1,13 @@
 #!/bin/bash
 
 rand_seed=10
-save_dir=test
-group_num=2
-num_batches=20
-pre_max_epoch=3
-ft_max_epoch=1
+save_dir=0320
+group_num=10
+num_batches=200
+pre_max_epoch=120
+ft_max_epoch=80
 method=hard
-comm_cmd=" --on-local "
+comm_cmd=" "
 
 set -e pipefail
 python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=2 \
@@ -52,4 +52,19 @@ run_selfpaced 4 14 $method
 run_selfpaced 4 16 $method
 run_selfpaced 4 20 $method
 run_selfpaced 4 40 $method
-#
+##
+
+function run_multi_selfpaced {
+  python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=4 \
+  infonce --global_features Conv5 Conv5 Conv5 --global_importance $1 $2 $3 --contrast_on partition patient cycle -g=${group_num} \
+  -pe ${pre_max_epoch} -fe ${ft_max_epoch}
+
+  python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=4 \
+  selfpaced --global_features Conv5 Conv5 Conv5 --global_importance $1 $2 $3 --contrast_on partition patient cycle -g=${group_num} \
+  -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value 4 4 4 --end_value 14 14 14 --method hard hard hard
+}
+run_multi_selfpaced 1 0.1 0.05
+run_multi_selfpaced 1 0.5 0.1
+run_multi_selfpaced 1 0.1 0.01
+run_multi_selfpaced 1 0.2 0.1
+run_multi_selfpaced 1 0.2 0.05
