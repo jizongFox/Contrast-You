@@ -1,7 +1,7 @@
 #!/bin/bash
 
 rand_seed=10
-save_dir=0320
+save_dir=0326
 group_num=10
 num_batches=200
 pre_max_epoch=120
@@ -40,18 +40,48 @@ python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${n
   selfpaced --global_features Conv5 --global_importance 1 --contrast_on cycle -g=${group_num} \
   -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value $1 --end_value $2 --method $3
 }
-run_selfpaced 1 16 $method
-run_selfpaced 1 14 $method
-run_selfpaced 2 14 $method
-run_selfpaced 2 16 $method
-run_selfpaced 4 6 $method
-run_selfpaced 4 8 $method
-run_selfpaced 4 10 $method
-run_selfpaced 4 12 $method
-run_selfpaced 4 14 $method
-run_selfpaced 4 16 $method
-run_selfpaced 4 20 $method
-run_selfpaced 4 40 $method
+run_selfpaced 2 14 hard
+run_selfpaced 2 16 hard
+
+
+run_selfpaced 4 6 hard
+run_selfpaced 4 8 hard
+run_selfpaced 4 12 hard
+run_selfpaced 4 13 hard
+run_selfpaced 4 14 hard
+run_selfpaced 4 16 hard
+run_selfpaced 4 18 hard
+
+run_selfpaced 3 12 hard
+run_selfpaced 3 13 hard
+run_selfpaced 3 14 hard
+run_selfpaced 3 16 hard
+run_selfpaced 3 18 hard
+
+run_selfpaced 5 12 hard
+run_selfpaced 5 13 hard
+run_selfpaced 5 14 hard
+run_selfpaced 5 16 hard
+run_selfpaced 5 18 hard
+
+run_selfpaced 4 40 hard
+
+
+
+run_selfpaced 5 20 soft
+run_selfpaced 5 30 soft
+run_selfpaced 5 40 soft
+run_selfpaced 5 50 soft
+run_selfpaced 5 10 soft
+
+run_selfpaced 4 20 soft
+run_selfpaced 4 30 soft
+run_selfpaced 4 40 soft
+run_selfpaced 4 50 soft
+run_selfpaced 4 10 soft
+
+
+
 ##
 
 function run_multi_selfpaced {
@@ -61,7 +91,7 @@ function run_multi_selfpaced {
 
   python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=4 \
   selfpaced --global_features Conv5 Conv5 Conv5 --global_importance $1 $2 $3 --contrast_on partition patient cycle -g=${group_num} \
-  -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value 4 4 4 --end_value 14 14 14 --method hard hard hard
+  -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value 4 4 4 --end_value 14 14 50 --method hard hard soft
 }
 run_multi_selfpaced 1 0.1 0.05
 run_multi_selfpaced 1 0.5 0.1
