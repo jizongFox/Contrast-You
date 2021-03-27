@@ -89,7 +89,7 @@ elif args.stage == "infonce":
     with dump_config(contrastive_params) as opt_config_path:
         job_array = [f" python main.py Trainer.name=infonce {SharedParams} "
                      f" Trainer.save_dir={save_dir}/infonce/weight_{info_weight}/tra/ratio_{str(x)} "
-                     f" ProjectorParams.Weight={info_weight} "
+                     f" ProjectorParams.Weight={info_weight:.10f} "
                      f" Data.labeled_data_ratio={x}  "
                      f" Data.unlabeled_data_ratio={1 - x} "
                      f" --opt_config_path {opt_config_path}" for x in labeled_ratios]
@@ -114,7 +114,7 @@ elif args.stage == "meantecherinfonce":
         job_array = [f" python main.py Trainer.name=infoncemt {SharedParams} "
                      f" Trainer.save_dir={save_dir}/infoncemt/info_{info_weight}_mt_{mt_weight}/tra/ratio_{str(x)} "
                      f" MeanTeacherParameters.weight={mt_weight:.10f} "
-                     f" ProjectorParams.Weight={info_weight} "
+                     f" ProjectorParams.Weight={info_weight:.10f} "
                      f" Data.labeled_data_ratio={x}  "
                      f" Data.unlabeled_data_ratio={1 - x} "
                      f" --opt_config_path {opt_config_path}" for x in labeled_ratios]

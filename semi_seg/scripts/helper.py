@@ -129,5 +129,5 @@ def dump_config(config: Dict[str, Any]):
     def remove():
         os.remove(tmp_path)
 
-    import atexit
-    atexit.register(remove)
+    # import atexit
+    # atexit.register(remove)

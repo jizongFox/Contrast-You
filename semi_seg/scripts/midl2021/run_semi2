@@ -1,0 +1,25 @@
+#!/bin/bash
+base_folder=/lustre04/scratch/jizong/Contrast-You/semi_seg/runs/0326/
+bash run_semi \
+  ${base_folder}/githash_912bc30/acdc/random_seed_10/sample_num_10/global_Conv5_1.0/contrast_on_partition/self-paced/method_hard/loss_params*4.0_14.0 \
+  contrast_on_parition/self
+
+bash run_semi \
+  ${base_folder}/githash_912bc30/acdc/random_seed_10/sample_num_10/global_Conv5_1.0/contrast_on_partition/infonce \
+  contrast_on_parition/infoce
+
+bash run_semi \
+  ${base_folder}/githash_912bc30/acdc/random_seed_10/sample_num_10/global_Conv5_1.0/contrast_on_cycle/self-paced/method_soft/loss_params*5.0_40.0 \
+  contrast_on_cycle/self
+
+bash run_semi \
+  ${base_folder}/githash_912bc30/acdc/random_seed_10/sample_num_10/global_Conv5_1.0/contrast_on_cycle/infonce \
+  contrast_on_cycle/infoce
+
+bash run_semi \
+  ${base_folder}/githash_912bc30/acdc/random_seed_10/sample_num_10/global_Conv5_1.0/contrast_on_patient/self-paced/method_hard/loss_params*4.0_12.0 \
+  contrast_on_patient/self
+
+bash run_semi \
+  ${base_folder}/githash_912bc30/acdc/random_seed_10/sample_num_10/global_Conv5_1.0/contrast_on_patient/infonce \
+  contrast_on_patient/infoce
