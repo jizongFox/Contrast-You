@@ -1,8 +1,8 @@
 local_folder=./runs
 #
 rsync -azP  --exclude "*/*.png" --exclude "*/*.pth"  --exclude "*/tra/*/*.pth" \
-  beluga:/lustre04/scratch/jizong/Contrast-You/semi_seg/runs/0320/ \
-  "${local_folder}/0320/"
+  beluga:/lustre04/scratch/jizong/Contrast-You/semi_seg/runs/0326/ \
+  "${local_folder}/0326/"
 
 #rsync -azP  --exclude "*/*.png"  --exclude "*/*.pth" \
 #  beluga:/lustre04/scratch/jizong/Contrast-You/semi_seg/runs/0312_2/ \

@@ -1,10 +1,10 @@
 import argparse
 
-import numpy as np
 from deepclustering2.cchelper import JobSubmiter
 from deepclustering2.utils import gethash
+
 from semi_seg.scripts.helper import dataset_name2class_numbers, ft_lr_zooms, BindPretrainFinetune, BindContrastive, \
-    BindSelfPaced
+    BindSelfPaced, accounts
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -65,6 +65,7 @@ if args.stage == "baseline":
         f"python main_finetune.py {SharedParams} Optim.lr={lr} Trainer.max_epoch={max_epoch} "
         f"Trainer.name=finetune Trainer.save_dir={save_dir}/baseline "
     ]
+
 
 elif args.stage == "infonce":
     parser1 = BindPretrainFinetune()
@@ -128,18 +129,6 @@ elif args.stage == "selfpaced":
 
 else:
     raise NotImplementedError(args.stage)
-
-# CC things
-accounts = ["def-chdesa", "def-mpederso", "rrg-mpederso"]
-
-
-def account_iterable(name_list):
-    while True:
-        for i in np.random.permutation(name_list):
-            yield i
-
-
-accounts = account_iterable(accounts)
 
 job_submiter = JobSubmiter(project_path="../../", on_local=args.on_local, time=args.time, )
 

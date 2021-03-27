@@ -1,3 +1,9 @@
+from contextlib import contextmanager
+from typing import Dict, Any
+
+import numpy as np
+from deepclustering2.utils import gethash, write_yaml
+
 dataset_name2class_numbers = {
     "acdc": 4,
     "prostate": 2,
@@ -10,6 +16,20 @@ ft_lr_zooms = {"acdc": 0.0000001,
                "mmwhs": 0.000001}
 
 pre_lr_zooms = {"acdc": 0.0000005, }
+
+# CC things
+__accounts = ["def-chdesa", "def-mpederso", "rrg-mpederso"]
+
+
+def account_iterable(name_list):
+    while True:
+        for i in np.random.permutation(name_list):
+            yield i
+
+
+accounts = account_iterable(__accounts)
+
+__git_hash__ = gethash(__file__)
 
 
 def _assert_equality(feature_name, importance):
@@ -90,3 +110,24 @@ class BindSelfPaced(_BindOptions):
         self.add(f"ProjectorParams.LossParams.begin_value=[{','.join([str(x) for x in args.begin_value])}]")
         self.add(f"ProjectorParams.LossParams.end_value=[{','.join([str(x) for x in args.end_value])}]")
         self.add(f"ProjectorParams.LossParams.weight_update=[{','.join(args.method)}]")
+
+
+class BindSemiSupervisedLearning(_BindOptions):
+    pass
+
+
+@contextmanager
+def dump_config(config: Dict[str, Any]):
+    import string
+    import random
+    import os
+    tmp_path = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5)) + ".yaml"
+    write_yaml(config, save_dir="./", save_name=tmp_path, force_overwrite=True)
+    tmp_path = os.path.abspath(tmp_path)
+    yield tmp_path
+
+    def remove():
+        os.remove(tmp_path)
+
+    import atexit
+    atexit.register(remove)

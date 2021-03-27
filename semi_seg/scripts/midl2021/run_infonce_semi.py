@@ -1,10 +1,11 @@
+# this script gives the checkpoint and perform semi-supervised learning accordingly.
+# involving 1 patient, 2 patient, 4 patient for ACDC dataset.
 import argparse
-from itertools import cycle
 
 from deepclustering2.cchelper import JobSubmiter
-from deepclustering2.utils import gethash
+from deepclustering2.utils import load_yaml
 
-from semi_seg.scripts.helper import dataset_name2class_numbers, ft_lr_zooms, BindPretrainFinetune, BindContrastive
+from semi_seg.scripts.helper import dataset_name2class_numbers, ft_lr_zooms, __git_hash__, accounts, dump_config
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -12,174 +13,111 @@ comm_parser = parser.add_argument_group("common options")
 
 comm_parser.add_argument("-n", "--dataset_name", default="acdc", type=str, help="dataset name")
 comm_parser.add_argument("-b", "--num_batches", default=200, type=int, help="num batches")
-comm_parser.add_argument("-s", "--random_seed", default=1, type=int, help="random seed")
+comm_parser.add_argument("-e", "--max_epoch", default=80, type=int, help="num batches")
+comm_parser.add_argument("-s", "--random_seed", default=10, type=int, help="random seed")
+comm_parser.add_argument("--lr", default=None, type=float, help="learning rate for semi supervised learning")
 comm_parser.add_argument("--save_dir", required=True, type=str, help="save_dir for the save folder")
 comm_parser.add_argument("--on-local", default=False, action="store_true", help="run on local")
 comm_parser.add_argument("--time", type=int, default=4, help="submitted time to CC")
 comm_parser.add_argument("--show_cmd", default=False, action="store_true", help="only show generated cmd.")
+comm_parser.add_argument("--arch_checkpoint", default="null", type=str, help="network checkpoint")
 
 subparser = parser.add_subparsers(dest='stage')
 baseline = subparser.add_parser("baseline")
+meanteacher = subparser.add_parser("meanteacher")
 infonce = subparser.add_parser("infonce")
-softeninfonce = subparser.add_parser("softeninfonce")
-mixup = subparser.add_parser("mixup")
-multitask = subparser.add_parser("multitask")
+meanteacherinfonce = subparser.add_parser("meantecherinfonce")
 
-# baseline
-baseline.add_argument("-e", "--max_epoch", type=str, default=75, help="max_epoch")
-baseline.add_argument("--lr", type=str, default=None, help="learning rate")
+# mean teacher
+meanteacher.add_argument("--mt_weight", default=1e-04, type=float, help="mean teacher weight coefficient")
 
 # infonce
-BindPretrainFinetune.bind(infonce)
-BindContrastive.bind(infonce)
+infonce.add_argument("--config_path", required=True, help="configuration for contrastive learning")
+infonce.add_argument("--info_weight", default=1e-04, type=float, help="infonce weight coefficient")
 
-# soften infonce
-BindPretrainFinetune.bind(softeninfonce)
-BindContrastive.bind(softeninfonce)
-softeninfonce.add_argument("--softenweight", nargs="+", type=float, default=[0.005, ],
-                           help="weight between hard and soften")
+# mean teacher + infonce
+meanteacherinfonce.add_argument("--mt_weight", default=1e-04, type=float, help="mean teacher weight coefficient")
+meanteacherinfonce.add_argument("--config_path", required=True, help="configuration for contrastive learning")
+meanteacherinfonce.add_argument("--info_weight", default=1e-04, type=float, help="infonce weight coefficient")
 
-# mixup
-BindPretrainFinetune.bind(mixup)
-BindContrastive.bind(mixup)
-mixup.add_argument("--softenweight", nargs="+", type=float, default=[0.005, ],
-                   help="weight between hard and soften")
-
-# multitask
-BindPretrainFinetune.bind(multitask)
-BindContrastive.bind(multitask)
-multitask.add_argument("--contrast_on", type=str, nargs="+", required=True, choices=["partition", "patient", "cycle"])
 args = parser.parse_args()
 
+labeled_ratios = [0.01, 0.015, 0.025]
+
 # setting common params
-__git_hash__ = gethash(__file__)
 dataset_name = args.dataset_name
 num_batches = args.num_batches
 random_seed = args.random_seed
 num_classes = dataset_name2class_numbers[args.dataset_name]
+lr = args.lr or f"{ft_lr_zooms[args.dataset_name]:.10f}"
+
 save_dir = args.save_dir
 
 save_dir += ("/" + "/".join(
     [
         f"githash_{__git_hash__[:7]}",
         args.dataset_name,
-        f"random_seed_{random_seed}"
+        f"random_seed_{random_seed}",
+        f"checkpoint_{'yes' if args.arch_checkpoint != 'null' else 'null'}"
     ]))
+
+
+def parse_contrastive_args_from_path(config_path):
+    config = load_yaml(config_path)
+    contrastive_params = config["ProjectorParams"]
+    return {"ProjectorParams": contrastive_params}
+
 
 SharedParams = f" Data.name={dataset_name}" \
                f" Trainer.num_batches={num_batches} " \
                f" Arch.num_classes={num_classes} " \
-               f" RandomSeed={random_seed} "
-
-
-def _assert_equality(feature_name, importance):
-    assert len(feature_name) == len(importance)
-
+               f" RandomSeed={random_seed} " \
+               f" Trainer.max_epoch={args.max_epoch} " \
+               f" Arch.checkpoint={args.arch_checkpoint} " \
+               f" Trainer.two_stage_training=true "
 
 if args.stage == "baseline":
-    max_epoch = args.max_epoch
-    lr = args.lr or f"{ft_lr_zooms[args.dataset_name]:.10f}"
     job_array = [
-        f"python main_finetune.py {SharedParams} Optim.lr={lr} Trainer.max_epoch={max_epoch} "
-        f"Trainer.name=finetune Trainer.save_dir={save_dir}/baseline "
+        f"python main.py {SharedParams} Optim.lr={lr}  "
+        f"Trainer.name=finetune Trainer.save_dir={save_dir}/baseline/tra/ratio_{str(x)} "
+        f"Data.labeled_data_ratio={x}  Data.unlabeled_data_ratio={1 - x} " for x in labeled_ratios
     ]
 
 elif args.stage == "infonce":
-    parser1 = BindPretrainFinetune()
-    parser1.parse(args)
-    parser2 = BindContrastive()
-    parser2.parse(args)
+    info_weight = args.info_weight
+    contrastive_params = parse_contrastive_args_from_path(args.config_path)
+    with dump_config(contrastive_params) as opt_config_path:
+        job_array = [f" python main.py Trainer.name=infonce {SharedParams} "
+                     f" Trainer.save_dir={save_dir}/infonce/weight_{info_weight}/tra/ratio_{str(x)} "
+                     f" ProjectorParams.Weight={info_weight} "
+                     f" Data.labeled_data_ratio={x}  "
+                     f" Data.unlabeled_data_ratio={1 - x} "
+                     f" --opt_config_path {opt_config_path}" for x in labeled_ratios]
 
-    group_sample_num = args.group_sample_num
-    gfeature_names = args.global_features
-    gimportance = args.global_importance
-    dfeature_names = args.dense_features
-    dimportance = args.dense_importance
+elif args.stage == "meanteacher":
+    mt_weight = args.mt_weight
 
-    exclude_pos = args.exclude_pos
+    job_array = [
+        f"python main.py {SharedParams} Optim.lr={lr}  "
+        f" Trainer.name=meanteacher Trainer.save_dir={save_dir}/mt/mt_{mt_weight}/tra/ratio_{str(x)} "
+        f" MeanTeacherParameters.weight={mt_weight:.10f} "
+        f" Data.labeled_data_ratio={x}  Data.unlabeled_data_ratio={1 - x} "
+        f" --opt_config_path ../config/specific/mt.yaml" for x in labeled_ratios
+    ]
 
-    save_dir += f"/sample_num_{group_sample_num}/exclude_pos_{str(exclude_pos)}"
+elif args.stage == "meantecherinfonce":
+    mt_weight = args.mt_weight
+    info_weight = args.info_weight
 
-    subpath = f"global_{'_'.join([*gfeature_names, *[str(x) for x in gimportance]])}/" \
-              f"dense_{'_'.join([*dfeature_names, *[str(x) for x in dimportance]])}"
-    string = f"python main_infonce.py Trainer.name=infoncepretrain {SharedParams} {parser1.get_option_str()} " \
-             f" {parser2.get_option_str()} " \
-             f" Trainer.save_dir={save_dir}/infonce/{subpath}/ " \
-             f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infonce2.yaml"
-
-    job_array = [string]
-
-elif args.stage == "softeninfonce":
-    parser1 = BindPretrainFinetune()
-    parser1.parse(args)
-    parser2 = BindContrastive()
-    parser2.parse(args)
-
-    group_sample_num = args.group_sample_num
-    gfeature_names = args.global_features
-    gimportance = args.global_importance
-    dfeature_names = args.dense_features
-    dimportance = args.dense_importance
-    weights = args.softenweight
-
-    save_dir += f"/sample_num_{group_sample_num}"
-
-
-    def _infonce_script(weight):
-        subpath = f"global_{'_'.join([*gfeature_names, *[str(x) for x in gimportance]])}/" \
-                  f"dense_{'_'.join([*dfeature_names, *[str(x) for x in dimportance]])}/" \
-                  f"weight_{str(weight)}"
-
-        string = f"python main_infonce.py {SharedParams} Trainer.name=experimentpretrain " \
-                 f"{parser1.get_option_str()} {parser2.get_option_str()}" \
-                 f" ProjectorParams.GlobalParams.softweight={str(weight)} " \
-                 f" ProjectorParams.DenseParams.softweight={str(weight)} " \
-                 f" Trainer.save_dir={save_dir}/softeninfonce/{subpath}/ " \
-                 f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/new.yaml"
-        return string
-
-
-    job_array = [_infonce_script(w) for w in weights]
-
-elif args.stage == "mixup":
-    raise NotImplementedError(args.stage)
-
-elif args.stage == "multitask":
-    parser1 = BindPretrainFinetune()
-    parser1.parse(args)
-    parser2 = BindContrastive()
-    parser2.parse(args)
-
-    group_sample_num = args.group_sample_num
-    gfeature_names = args.global_features
-    gimportance = args.global_importance
-    dfeature_names = args.dense_features
-    dimportance = args.dense_importance
-    contrast_on = args.contrast_on
-    assert len(gfeature_names) == len(contrast_on)
-
-    exclude_pos = args.exclude_pos
-
-    save_dir += f"/sample_num_{group_sample_num}/" \
-                f"exclude_pos_{str(exclude_pos)}/" \
-                f"contrast_on_{'_'.join(contrast_on)}"
-
-    subpath = f"global_{'_'.join([*gfeature_names, *[str(x) for x in gimportance]])}/" \
-              f"dense_{'_'.join([*dfeature_names, *[str(x) for x in dimportance]])}"
-    string = f"python main_infonce.py Trainer.name=experimentmultitaskpretrain" \
-             f" InfoNCEParameters.GlobalParams.contrast_on=[{','.join(contrast_on)}] " \
-             f" {SharedParams} {parser1.get_option_str()} " \
-             f" {parser2.get_option_str()} " \
-             f" Trainer.save_dir={save_dir}/infonce/{subpath}/ " \
-             f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/infoncemultitask.yaml"
-
-    job_array = [string]
-
-else:
-    raise NotImplementedError(args.stage)
-
-# CC things
-accounts = cycle(["def-chdesa", "def-mpederso", "rrg-mpederso"])
+    contrastive_params = parse_contrastive_args_from_path(args.config_path)
+    with dump_config(contrastive_params) as opt_config_path:
+        job_array = [f" python main.py Trainer.name=infoncemt {SharedParams} "
+                     f" Trainer.save_dir={save_dir}/infoncemt/info_{info_weight}_mt_{mt_weight}/tra/ratio_{str(x)} "
+                     f" MeanTeacherParameters.weight={mt_weight:.10f} "
+                     f" ProjectorParams.Weight={info_weight} "
+                     f" Data.labeled_data_ratio={x}  "
+                     f" Data.unlabeled_data_ratio={1 - x} "
+                     f" --opt_config_path {opt_config_path}" for x in labeled_ratios]
 
 job_submiter = JobSubmiter(project_path="../../", on_local=args.on_local, time=args.time, )
 
