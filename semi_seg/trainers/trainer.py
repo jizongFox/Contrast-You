@@ -339,9 +339,14 @@ class InfoNCEMeanTeacherTrainer(InfoNCETrainer):
         return super(InfoNCEMeanTeacherTrainer, self)._set_epocher_class(epocher_class)
 
     def _run_epoch(self, epocher: InfoNCEMeanTeacherEpocher, *args, **kwargs) -> EpochResultDict:
+        for c in self._encoder_criterion_list:
+            c.epoch_start()
         epocher.init(teacher_model=self._teacher_model, reg_criterion=self._reg_criterion,
                      ema_updater=self._ema_updater, projectors_wrapper=self._projector,
-                     infoNCE_criterion=self._criterion, infonce_weight=self._reg_weight, mt_weight=self._mt_weight)
+                     infoNCE_criterion=self._encoder_criterion_list, infonce_weight=self._reg_weight, mt_weight=self._mt_weight)
         epocher.set_global_contrast_method(contrast_on_list=self.__encoder_method__)
         result = epocher.run()
+        for i, c in enumerate(self._encoder_criterion_list):
+            criterion_result = c.epoch_end()
+            result.update({k + f"{i}": v for k, v in criterion_result.items()})
         return result

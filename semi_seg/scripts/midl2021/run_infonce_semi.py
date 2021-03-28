@@ -26,7 +26,7 @@ subparser = parser.add_subparsers(dest='stage')
 baseline = subparser.add_parser("baseline")
 meanteacher = subparser.add_parser("meanteacher")
 infonce = subparser.add_parser("infonce")
-meanteacherinfonce = subparser.add_parser("meantecherinfonce")
+meanteacherinfonce = subparser.add_parser("meanteacherinfonce")
 
 # mean teacher
 meanteacher.add_argument("--mt_weight", default=1e-04, type=float, help="mean teacher weight coefficient")
@@ -105,7 +105,7 @@ elif args.stage == "meanteacher":
         f" --opt_config_path ../config/specific/mt.yaml" for x in labeled_ratios
     ]
 
-elif args.stage == "meantecherinfonce":
+elif args.stage == "meanteacherinfonce":
     mt_weight = args.mt_weight
     info_weight = args.info_weight
 
@@ -117,7 +117,7 @@ elif args.stage == "meantecherinfonce":
                      f" ProjectorParams.Weight={info_weight:.10f} "
                      f" Data.labeled_data_ratio={x}  "
                      f" Data.unlabeled_data_ratio={1 - x} "
-                     f" --opt_config_path {opt_config_path}" for x in labeled_ratios]
+                     f" --opt_config_path {opt_config_path} ../config/specific/mt.yaml " for x in labeled_ratios]
 
 job_submiter = JobSubmiter(project_path="../../", on_local=args.on_local, time=args.time, )
 

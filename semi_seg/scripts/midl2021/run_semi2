@@ -1,5 +1,5 @@
 #!/bin/bash
-base_folder=/lustre04/scratch/jizong/Contrast-You/semi_seg/runs/0326/
+base_folder=/lustre04/scratch/jizong/Contrast-You/semi_seg/runs/0326
 bash run_semi \
   ${base_folder}/githash_912bc30/acdc/random_seed_10/sample_num_10/global_Conv5_1.0/contrast_on_partition/self-paced/method_hard/loss_params*4.0_14.0 \
   contrast_on_parition/self
@@ -23,3 +23,14 @@ bash run_semi \
 bash run_semi \
   ${base_folder}/githash_912bc30/acdc/random_seed_10/sample_num_10/global_Conv5_1.0/contrast_on_patient/infonce \
   contrast_on_patient/infoce
+
+# all
+bash run_semi \
+  ${base_folder}/githash_d065b37/acdc/random_seed_10/sample_num_10/global_Conv5_Conv5_Conv5_1.0_0.5_0.1/contrast_on_partition_patient_cycle/self-paced/method_hard_hard_hard/loss_params*4.0_14.0*4.0_14.0*4.0_14.0 \
+  contrast_on_all/self
+
+bash run_semi \
+  ${base_folder}/githash_d065b37/acdc/random_seed_10/sample_num_10/global_Conv5_Conv5_Conv5_1.0_0.2_0.1/contrast_on_partition_patient_cycle/infonce \
+  contrast_on_all/infonce
+
+
