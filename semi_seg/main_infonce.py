@@ -4,15 +4,15 @@ from copy import deepcopy
 from pathlib import Path
 
 import numpy as np  # noqa
+from deepclustering2.configparser import ConfigManger
+from deepclustering2.loss import KL_div
+from deepclustering2.utils import gethash, yaml_load, fix_all_seed_within_context
 from loguru import logger
 
 from contrastyou import PROJECT_PATH
 from contrastyou.arch import UNet
 from contrastyou.arch.unet import arch_order
 from contrastyou.helper import extract_model_state_dict
-from deepclustering2.configparser import ConfigManger
-from deepclustering2.loss import KL_div
-from deepclustering2.utils import gethash, yaml_load, fix_all_seed_within_context
 from semi_seg.dsutils import get_dataloaders
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, FineTuneTrainer
 
@@ -134,8 +134,11 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
 
     with fix_all_seed_within_context(seed):
         pre_trainer, model, (from_, util_) = pretrain()
-
-    for labeled_ratio in (0.01, 0.015, 0.025, 1.0):
+    if config["Data"]["name"] == "acdc":
+        ratios = (0.01, 0.015, 0.025, 1.0)
+    else:
+        ratios = (0.1, 0.14, 0.18, 0.2,)
+    for labeled_ratio in ratios:
         with fix_all_seed_within_context(seed):
             finetune(labeled_ratio)
 

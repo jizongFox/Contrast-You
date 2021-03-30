@@ -300,17 +300,26 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
         return proj_tf_feature, proj_feature_tf
 
     @lru_cache()
-    def global_label_generator(self, contrast_on: str):
-        from contrastyou.epocher._utils import PartitionLabelGenerator, PatientLabelGenerator, ACDCCycleGenerator
-        logger.debug("initialize {} label generator for encoder training", contrast_on)
-        if contrast_on == "partition":
-            return PartitionLabelGenerator()
-        elif contrast_on == "patient":
-            return PatientLabelGenerator()
-        elif contrast_on == "cycle":
-            return ACDCCycleGenerator()
-        else:
-            raise NotImplementedError(contrast_on)
+    def global_label_generator(self, dataset_name: str, contrast_on: str):
+        from contrastyou.epocher._utils import PartitionLabelGenerator, PatientLabelGenerator, \
+            ACDCCycleGenerator  # noqa
+        if dataset_name == "acdc":
+            logger.debug("initialize {} label generator for encoder training", contrast_on)
+            if contrast_on == "partition":
+                return PartitionLabelGenerator()
+            elif contrast_on == "patient":
+                return PatientLabelGenerator()
+            elif contrast_on == "cycle":
+                return ACDCCycleGenerator()
+            else:
+                raise NotImplementedError(contrast_on)
+        elif dataset_name == "prostate":
+            if contrast_on == "partition":
+                return PartitionLabelGenerator()
+            elif contrast_on == "patient":
+                return PatientLabelGenerator()
+            else:
+                raise NotImplementedError(contrast_on)
 
     @lru_cache()
     def local_label_generator(self):
@@ -394,9 +403,18 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
         # generate simclr or supcontrast labels
         contrast_on = next(self._encoder_contrastive_name_generator)
         criterion = next(self._encoder_criterion_generator)  # only for encoder
-        labels = self.global_label_generator(contrast_on)(partition_list=partition_group,
-                                                          patient_list=[p.split("_")[0] for p in label_group],
-                                                          experiment_list=[p.split("_")[1] for p in label_group])
+        config = get_config(scope="base")
+        if config["Data"]["name"] == "acdc":
+            labels = self.global_label_generator(dataset_name="acdc", contrast_on=contrast_on) \
+                (partition_list=partition_group,
+                 patient_list=[p.split("_")[0] for p in label_group],
+                 experiment_list=[p.split("_")[1] for p in label_group])
+        elif config["Data"]["name"] == "prostate":
+            labels = self.global_label_generator(dataset_name="prostate", contrast_on=contrast_on) \
+                (partition_list=partition_group,
+                 patient_list=[p.split("_")[0] for p in label_group])
+        else:
+            raise NotImplementedError(config["Data"]["name"])
         if self.cur_batch_num == 0:  # noqa
             with criterion.register_writer(
                 get_tb_writer(), epoch=self._cur_epoch,

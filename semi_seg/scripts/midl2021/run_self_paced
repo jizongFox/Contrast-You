@@ -1,44 +1,44 @@
 #!/bin/bash
 
 rand_seed=10
-save_dir=0326
+save_dir=0327
 group_num=10
 num_batches=200
 pre_max_epoch=120
 ft_max_epoch=80
-method=hard
-comm_cmd=" "
+dataset=prostate
+comm_cmd=" -n ${dataset} "
 
 set -e pipefail
-python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=2 \
+python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -s ${rand_seed} --time=2 \
   baseline -e ${ft_max_epoch}
 
 ###### multitask
-python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=4 \
+python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -s ${rand_seed} --time=4 \
   infonce --global_features Conv5 --global_importance 1 --contrast_on partition -g=${group_num} \
   -pe ${pre_max_epoch} -fe ${ft_max_epoch}
 #
-python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=4 \
+python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -s ${rand_seed} --time=4 \
   infonce --global_features Conv5 --global_importance 1 --contrast_on patient -g=${group_num} \
   -pe ${pre_max_epoch} -fe ${ft_max_epoch}
 
-python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=4 \
-  infonce --global_features Conv5 --global_importance 1 --contrast_on cycle -g=${group_num} \
-  -pe ${pre_max_epoch} -fe ${ft_max_epoch}
+#python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -s ${rand_seed} --time=4 \
+#  infonce --global_features Conv5 --global_importance 1 --contrast_on cycle -g=${group_num} \
+#  -pe ${pre_max_epoch} -fe ${ft_max_epoch}
 
 #### self-paced
 function run_selfpaced {
-  python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=4 \
+  python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -s ${rand_seed} --time=4 \
   selfpaced --global_features Conv5 --global_importance 1 --contrast_on partition -g=${group_num} \
   -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value $1 --end_value $2 --method $3
 
-python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=4 \
+python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -s ${rand_seed} --time=4 \
   selfpaced --global_features Conv5 --global_importance 1 --contrast_on patient -g=${group_num} \
   -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value $1 --end_value $2 --method $3
 
-python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=4 \
-  selfpaced --global_features Conv5 --global_importance 1 --contrast_on cycle -g=${group_num} \
-  -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value $1 --end_value $2 --method $3
+#python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -s ${rand_seed} --time=4 \
+#  selfpaced --global_features Conv5 --global_importance 1 --contrast_on cycle -g=${group_num} \
+#  -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value $1 --end_value $2 --method $3
 }
 run_selfpaced 2 14 hard
 run_selfpaced 2 16 hard
@@ -85,16 +85,16 @@ run_selfpaced 4 10 soft
 ##
 
 function run_multi_selfpaced {
-  python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=4 \
-  infonce --global_features Conv5 Conv5 Conv5 --global_importance $1 $2 $3 --contrast_on partition patient cycle -g=${group_num} \
+  python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -s ${rand_seed} --time=4 \
+  infonce --global_features Conv5 Conv5  --global_importance $1 $2 --contrast_on partition patient  -g=${group_num} \
   -pe ${pre_max_epoch} -fe ${ft_max_epoch}
 
-  python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -s ${rand_seed} --time=4 \
-  selfpaced --global_features Conv5 Conv5 Conv5 --global_importance $1 $2 $3 --contrast_on partition patient cycle -g=${group_num} \
-  -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value 4 4 4 --end_value 14 14 50 --method hard hard soft
+  python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -s ${rand_seed} --time=4 \
+  selfpaced --global_features Conv5 Conv5  --global_importance $1 $2 --contrast_on partition patient  -g=${group_num} \
+  -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value 4 4  --end_value 14 14 --method hard hard
 }
-run_multi_selfpaced 1 0.1 0.05
-run_multi_selfpaced 1 0.5 0.1
-run_multi_selfpaced 1 0.1 0.01
-run_multi_selfpaced 1 0.2 0.1
-run_multi_selfpaced 1 0.2 0.05
+run_multi_selfpaced 1 0.1
+run_multi_selfpaced 1 0.5
+run_multi_selfpaced 1 0.01
+run_multi_selfpaced 1 0.02
+run_multi_selfpaced 1 0.05
