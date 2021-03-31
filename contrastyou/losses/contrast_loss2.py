@@ -162,6 +162,7 @@ class SelfPacedSupConLoss(nn.Module):
         self.__gamma = 1e6
         logger.info(f"initializing {self.__class__.__name__} with t: {self._t} ")
         self._chosen_percentage_meter = AverageValueMeter()
+        self._real_chosen_percentage_meter = AverageValueMeter()
         config = deepcopy(get_config(scope="base"))
 
         self._scheduler = LinearScheduler(max_epoch=config["Trainer"]["max_epoch"], begin_value=begin_value,
@@ -230,7 +231,7 @@ class SelfPacedSupConLoss(nn.Module):
         log_pos_div_sum_pos_neg = sim_logits - torch.log(pos_sum + neg_sum + 1e-16)
         assert log_pos_div_sum_pos_neg.shape == torch.Size([batch_size * 2, batch_size * 2])
 
-        log_pos_div_sum_pos_neg = self._selfpaced_weighted_loss(log_pos_div_sum_pos_neg, gamma)
+        log_pos_div_sum_pos_neg = self._selfpaced_weighted_loss(log_pos_div_sum_pos_neg, gamma, pos_mask=pos_mask)
 
         # over positive mask
         loss = (log_pos_div_sum_pos_neg * pos_mask).sum(1) / pos_count
@@ -240,7 +241,7 @@ class SelfPacedSupConLoss(nn.Module):
             raise RuntimeError(loss)
         return loss
 
-    def _selfpaced_weighted_loss(self, loglikelihoodmatrix, gamma):
+    def _selfpaced_weighted_loss(self, loglikelihoodmatrix, gamma, *, pos_mask):
         l_i_j = -loglikelihoodmatrix.detach()
         weight: Tensor
         if self._weight_update == "hard":
@@ -250,6 +251,8 @@ class SelfPacedSupConLoss(nn.Module):
         self.weight = weight
         assert torch.logical_and(weight >= 0, weight <= 1).any()
         self._chosen_percentage_meter.add(weight.mean().item())
+
+        self._real_chosen_percentage_meter.add(torch.masked_select(weight, pos_mask.bool()).mean().item())
 
         return loglikelihoodmatrix * weight
 
@@ -293,10 +296,12 @@ class SelfPacedSupConLoss(nn.Module):
         self._scheduler_tracker.add(gamma)
         self.set_gamma(gamma)
         self._chosen_percentage_meter.reset()
+        self._real_chosen_percentage_meter.reset()
 
     def epoch_end(self):
         self._scheduler.step()
         return {"chosen_percentage": self._chosen_percentage_meter.summary(),
+                "real_percentage": self._real_chosen_percentage_meter.summary(),
                 "gamma": self._scheduler_tracker.summary()}
 
     def set_gamma(self, gamma):
