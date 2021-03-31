@@ -3,6 +3,8 @@ from typing import Callable, Iterable
 from typing import Union, List
 
 import torch
+from contrastyou.featextractor.unet import FeatureExtractorWithIndex as FeatureExtractor
+from contrastyou.helper import weighted_average_iter
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.meters2 import EpochResultDict, MeterInterface, AverageValueMeter, MultipleAverageValueMeter
 from deepclustering2.models import ema_updater as EMA_Updater
@@ -14,8 +16,6 @@ from loguru import logger
 from torch import nn, Tensor
 from torch.optim.optimizer import Optimizer
 
-from contrastyou.featextractor.unet import FeatureExtractorWithIndex as FeatureExtractor
-from contrastyou.helper import weighted_average_iter
 from ._helper import unl_extractor
 
 
@@ -198,10 +198,11 @@ class _PretrainEpocherMixin:
         meter.delete_meters(["sup_loss", "sup_dice", "reg_weight"])
         return meter
 
-    def init(self, *, chain_dataloader, **kwargs):
+    def init(self, *, chain_dataloader, monitor_dataloader, **kwargs):
         # extend the interface for original class with chain_dataloader
         super().init(**kwargs)  # noqa
         self._chain_dataloader = chain_dataloader
+        self._monitor_dataloader = monitor_dataloader
 
     def _run(self, *args, **kwargs) -> EpochResultDict:
         self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer))
@@ -262,3 +263,54 @@ class _PretrainEpocherMixin:
 
         unlabel_logits, unlabel_tf_logits = torch.split(predict_logits, [n_unl, n_unl], dim=0)
         return unlabel_logits, unlabel_tf_logits
+
+
+class _PretrainMonitorEpocherMxin(_PretrainEpocherMixin):
+    @torch.no_grad()
+    def _monitor_pretrain(self):
+        for self.cur_batch_num, data in enumerate(self._monitor_dataloader):
+            seed = random.randint(0, int(1e7))
+            unlabeled_image, unlabeled_target, unlabeled_filename, unl_partition, unl_group = \
+                self._unzip_data(data, self._device)
+
+            with FixRandomSeed(seed):
+                unlabeled_image_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_image], dim=0)
+            assert unlabeled_image_tf.shape == unlabeled_image.shape, \
+                (unlabeled_image_tf.shape, unlabeled_image.shape)
+
+            unlabel_logits, unlabel_tf_logits = self.forward_pass(
+                unlabeled_image=unlabeled_image,
+                unlabeled_image_tf=unlabeled_image_tf
+            )
+
+            with FixRandomSeed(seed):
+                unlabel_logits_tf = torch.stack([self._affine_transformer(x) for x in unlabel_logits], dim=0)
+
+            assert unlabel_logits_tf.shape == unlabel_tf_logits.shape, (
+                unlabel_logits_tf.shape, unlabel_tf_logits.shape)
+
+            # regularized part
+            reg_loss = self.regularization(
+                unlabeled_tf_logits=unlabel_tf_logits,
+                unlabeled_logits_tf=unlabel_logits_tf,
+                seed=seed,
+                unlabeled_image=unlabeled_image,
+                unlabeled_image_tf=unlabeled_image_tf,
+                label_group=unl_group,
+                partition_group=unl_partition,
+                unlabeled_filename=unlabeled_filename,
+            )
+            if self.cur_batch_num > 20:
+                break
+
+        report_dict = self.meters.tracking_status(final=True)
+        return report_dict
+
+    def monitor_pretrain(self):
+        previous_value = self._affine_transformer._threshold  # noqa
+        self._affine_transformer._threshold = 0
+        result = self._monitor_pretrain()
+        self._affine_transformer._threshold = previous_value  # noqa
+        return result
+
+    _run = monitor_pretrain

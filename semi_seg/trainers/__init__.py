@@ -25,8 +25,6 @@ pre_trainer_zoos = {
     "udaiicpretrain": PretrainUDAIICTrainer,
     "iicpretrain": PretrainIICTrainer,
     "infoncepretrain": PretrainInfoNCETrainer,
-    "experimentpretrain": PretrainExperimentalTrainer,
-    "experimentmixuppretrain": PretrainExperimentalMixupTrainer,
 }
 
 trainer_zoos = {**base_trainer_zoos, **pre_trainer_zoos}

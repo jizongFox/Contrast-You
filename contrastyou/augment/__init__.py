@@ -70,6 +70,10 @@ class ACDCStrongTransforms:
     val = SequentialWrapper(
         comm_transform=pil_augment.CenterCrop(224)
     )
+    val_double = SequentialWrapperTwice(
+        comm_transform=pil_augment.CenterCrop(224)
+    )
+
 
 
 

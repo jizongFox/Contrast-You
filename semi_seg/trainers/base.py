@@ -116,6 +116,7 @@ class SemiTrainer(Trainer):
             feature_importance=self._feature_importance, train_with_two_stage=self._train_with_two_stage,
             disable_bn_track_for_unlabeled_data=self._disable_bn
         )
+        epocher.set_trainer(self)
         return epocher
 
     def _run_epoch(self, epocher: TrainEpocher, *args, **kwargs) -> EpochResultDict:

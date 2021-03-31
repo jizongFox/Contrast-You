@@ -5,6 +5,12 @@ from itertools import cycle
 from typing import Callable, Iterable, List
 
 import torch
+from contrastyou.featextractor.unet import FeatureExtractor
+from contrastyou.helper import average_iter, weighted_average_iter
+from contrastyou.losses.contrast_loss2 import is_normalized, SupConLoss1
+from contrastyou.losses.iic_loss import _ntuple  # noqa
+from contrastyou.projectors.heads import ProjectionHead
+from contrastyou.projectors.nn import Normalize
 from deepclustering2.configparser._utils import get_config  # noqa
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.decorator.decorator import _disable_tracking_bn_stats as disable_bn  # noqa
@@ -15,17 +21,11 @@ from deepclustering2.schedulers.customized_scheduler import RampScheduler
 from deepclustering2.type import T_loss
 from deepclustering2.writer.SummaryWriter import get_tb_writer
 from loguru import logger
+from semi_seg.utils import ContrastiveProjectorWrapper
 from torch import Tensor
 from torch import nn
 from torch.nn import functional as F
 
-from contrastyou.featextractor.unet import FeatureExtractor
-from contrastyou.helper import average_iter, weighted_average_iter
-from contrastyou.losses.contrast_loss2 import is_normalized, SupConLoss1
-from contrastyou.losses.iic_loss import _ntuple  # noqa
-from contrastyou.projectors.heads import ProjectionHead
-from contrastyou.projectors.nn import Normalize
-from semi_seg.utils import ContrastiveProjectorWrapper
 from ._helper import unl_extractor, __AssertWithUnLabeledData
 from ._mixins import _FeatureExtractorMixin, _MeanTeacherMixin
 from .base import TrainEpocher
@@ -457,19 +457,14 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
             proj_feature_tf = Normalize(dim=2)(proj_feature_tf)
             proj_tf_feature = Normalize(dim=2)(proj_tf_feature)
 
-        _config = get_config(scope="base")
-        include_all = _config["InfoNCEParameters"]["DenseParams"].get("include_all", False)
-        if include_all:
-            if self.cur_batch_num == 0:  # noqa
-                with self._normal_criterion.register_writer(
-                    get_tb_writer(),
-                    epoch=self._cur_epoch,
-                    extra_tag=f"{feature_name}/dense"
-                ):
-                    return self._normal_criterion(proj_feature_tf.reshape(-1, c), proj_tf_feature.reshape(-1, c))
-            return self._normal_criterion(proj_feature_tf.reshape(-1, c), proj_tf_feature.reshape(-1, c))
-        else:
-            raise RuntimeError("experimental results show that using batch-wise is better")
+        if self.cur_batch_num == 0:  # noqa
+            with self._normal_criterion.register_writer(
+                get_tb_writer(),
+                epoch=self._cur_epoch,
+                extra_tag=f"{feature_name}/dense"
+            ):
+                return self._normal_criterion(proj_feature_tf.reshape(-1, c), proj_tf_feature.reshape(-1, c))
+        return self._normal_criterion(proj_feature_tf.reshape(-1, c), proj_tf_feature.reshape(-1, c))
 
     def _dense_infonce_for_decoder(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
                                    label_group):

@@ -5,6 +5,7 @@ from typing import List, Dict, Any, Callable
 from contrastyou.arch.unet import enable_grad, enable_bn_tracking
 from contrastyou.datasets._seg_datset import ContrastBatchSampler  # noqa
 from contrastyou.helper import get_dataset
+from deepclustering2.dataset import PatientSampler
 from deepclustering2.meters2 import StorageIncomeDict, Storage, EpochResultDict
 from deepclustering2.tqdm import item2str
 from deepclustering2.writer import SummaryWriter
@@ -15,7 +16,6 @@ from torch.utils.data.dataloader import _BaseDataLoaderIter as BaseDataLoaderIte
 
 def _get_contrastive_dataloader(partial_loader, config):
     # going to get all dataset with contrastive sampler
-
     unlabeled_dataset = get_dataset(partial_loader)
 
     dataset = type(unlabeled_dataset)(
@@ -35,7 +35,23 @@ def _get_contrastive_dataloader(partial_loader, config):
         pin_memory=True
     )
 
-    return iter(contrastive_loader)
+    from contrastyou.augment import ACDCStrongTransforms
+    demo_dataset = type(unlabeled_dataset)(
+        str(Path(unlabeled_dataset._root_dir).parent),  # noqa
+        unlabeled_dataset._mode, ACDCStrongTransforms.val_double
+    )
+
+    demo_loader = DataLoader(
+        demo_dataset,
+        batch_size=1,
+        batch_sampler=PatientSampler(
+            dataset,
+            grp_regex=dataset.dataset_pattern,
+            shuffle=False
+        )
+    )
+
+    return iter(contrastive_loader), demo_loader
 
 
 # mixin for feature extractor
@@ -95,11 +111,13 @@ class _PretrainTrainerMixin:
     def _init(self, *args, **kwargs):
         super(_PretrainTrainerMixin, self)._init(*args, **kwargs)  # noqa
         # here you have conventional training objects
-        self._contrastive_loader = _get_contrastive_dataloader(self._unlabeled_loader, self._config)
+        self._contrastive_loader, self._monitor_loader = _get_contrastive_dataloader(self._unlabeled_loader,
+                                                                                     self._config)
         logger.debug("creating contrastive_loader")
 
     def _run_epoch(self, epocher, *args, **kwargs) -> EpochResultDict:
-        epocher.init = partial(epocher.init, chain_dataloader=self._contrastive_loader, )
+        epocher.init = partial(epocher.init, chain_dataloader=self._contrastive_loader,
+                               monitor_dataloader=self._monitor_loader)
         return super(_PretrainTrainerMixin, self)._run_epoch(epocher, *args, **kwargs)  # noqa
 
     def enable_grad(self, from_, util_):

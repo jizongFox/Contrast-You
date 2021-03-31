@@ -1,5 +1,10 @@
 # Created by .ignore support plugin (hsz.mobi)
 ### Example user template
+semi_seg/cycle/
+semi_seg/main_infonce_val.py
+semi_seg/patient/
+semi_seg/tmp.py
+
 .data
 runs
 byol_demo/label_smoothing.py
