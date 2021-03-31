@@ -49,7 +49,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
     if config["Data"]["name"] == "acdc":
         ratios = (0.01, 0.015, 0.025, 1.0)
     else:
-        ratios = (0.1, 0.14, 0.18, 0.2,)
+        ratios = (0.025, 0.05, 0.1, 0.15)
 
     for labeled_ratio in ratios:
         model.load_state_dict(base_model_checkpoint)
