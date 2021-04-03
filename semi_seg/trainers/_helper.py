@@ -83,10 +83,10 @@ class _FeatureExtractor:
         self.__feature_extractor_initialized = True
         super(_FeatureExtractor, self)._init()  # noqa
 
-    def start_training(self):
+    def start_training(self, *args, **kwargs):
         if not self.__feature_extractor_initialized:
             raise RuntimeError("_FeatureExtractor should be initialized by calling `_int()` first.")
-        return super(_FeatureExtractor, self).start_training()  # noqa
+        return super(_FeatureExtractor, self).start_training(*args, **kwargs)  # noqa
 
 
 class _PretrainTrainerMixin:
@@ -133,7 +133,7 @@ class _PretrainTrainerMixin:
         logger.info("set bn tracking from {} to {}", from_, util_)
         return enable_bn_tracking(self._model, from_=self.__from, util_=self.__util)  # noqa
 
-    def _start_training(self):
+    def _start_training(self, **kwargs):
         assert self.__initialized_grad, "`enable_grad` must be called first"
         for self._cur_epoch in range(self._start_epoch, self._max_epoch):
             train_result: EpochResultDict

@@ -134,7 +134,7 @@ class SemiTrainer(Trainer):
     def start_training(self, *args, **kwargs):
         if not self.__initialized__:
             raise RuntimeError(f"call self.init() first to initialize {self.__class__.__name__}")
-        return super(SemiTrainer, self).start_training()
+        return super(SemiTrainer, self).start_training(*args, **kwargs)
 
     def _start_training(self):
         for self._cur_epoch in range(self._start_epoch, self._max_epoch):

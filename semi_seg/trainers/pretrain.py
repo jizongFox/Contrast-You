@@ -20,12 +20,13 @@ class PretrainInfoNCETrainer(_PretrainTrainerMixin, InfoNCETrainer):
         self.epocher_class = previous_class
         return result
 
-    def _start_training(self):
+    def _start_training(self, *, run_monitor=False):
         for self._cur_epoch in range(self._start_epoch, self._max_epoch):
             cur_score: float
             train_result = self.run_epoch()
-            if self._config["Data"]["name"] == "acdc" and self._cur_epoch % 10 == 9:
-                self.run_monitor()
+            if run_monitor:
+                if self._config["Data"]["name"] == "acdc" and self._cur_epoch % 10 == 9:
+                    self.run_monitor()
 
             # update lr_scheduler
             if hasattr(self, "_scheduler"):

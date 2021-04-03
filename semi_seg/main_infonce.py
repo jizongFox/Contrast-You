@@ -88,7 +88,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         with \
             trainer.enable_grad(from_=from_, util_=util_), \
             trainer.enable_bn(from_=from_, util_=util_):
-            trainer.start_training()
+            trainer.start_training(run_monitor=False)
         return trainer, model, (from_, util_)
 
     def finetune(l_ratio):
