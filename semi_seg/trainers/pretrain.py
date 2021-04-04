@@ -1,6 +1,8 @@
-from contrastyou.datasets._seg_datset import ContrastBatchSampler  # noqa
+import os
+
 from deepclustering2.meters2 import StorageIncomeDict
 
+from contrastyou.datasets._seg_datset import ContrastBatchSampler  # noqa
 from ._helper import _PretrainTrainerMixin
 from .proposedtrainer import ExperimentalTrainer, ExperimentalTrainerwithMixUp
 from .trainer import InfoNCETrainer, IICTrainer, UDAIICTrainer
@@ -21,6 +23,7 @@ class PretrainInfoNCETrainer(_PretrainTrainerMixin, InfoNCETrainer):
         return result
 
     def _start_training(self, *, run_monitor=False):
+        run_monitor = os.environ.get("MONITOR", 0) == "1" or run_monitor
         for self._cur_epoch in range(self._start_epoch, self._max_epoch):
             cur_score: float
             train_result = self.run_epoch()

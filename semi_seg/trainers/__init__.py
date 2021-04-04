@@ -22,8 +22,8 @@ base_trainer_zoos = {
 
 }
 pre_trainer_zoos = {
-    "udaiicpretrain": PretrainUDAIICTrainer,
-    "iicpretrain": PretrainIICTrainer,
+    # "udaiicpretrain": PretrainUDAIICTrainer,
+    # "iicpretrain": PretrainIICTrainer,
     "infoncepretrain": PretrainInfoNCETrainer,
 }
 

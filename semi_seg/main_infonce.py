@@ -43,6 +43,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
 
     seed = config.get("RandomSeed", 1)
     trainer_name = config["Trainer"]["name"]
+    is_monitor_train = config["Trainer"].get("monitor", False)
     # assert trainer_name in ("infoncepretrain", "experimentpretrain", "experimentmixuppretrain"), trainer_name  # noqa
 
     pre_lr, ft_lr = config["Optim"].pop("pre_lr", None), config["Optim"].pop("ft_lr", None)
@@ -88,7 +89,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         with \
             trainer.enable_grad(from_=from_, util_=util_), \
             trainer.enable_bn(from_=from_, util_=util_):
-            trainer.start_training(run_monitor=False)
+            trainer.start_training(run_monitor=is_monitor_train)
         return trainer, model, (from_, util_)
 
     def finetune(l_ratio):

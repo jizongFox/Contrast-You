@@ -85,6 +85,7 @@ class BindContrastive(_BindOptions):
 
         subparser.add_argument("--contrast_on", "-c", nargs="+", type=str, required=True,
                                choices=["partition", "cycle", "patient"])
+        subparser.add_argument("--monitor", default=False, type=str, choices=["true", "false"], help="monitoring the infocne")
 
     def parse(self, args):
         self.add(f"ContrastiveLoaderParams.group_sample_num={args.group_sample_num}")
@@ -94,6 +95,7 @@ class BindContrastive(_BindOptions):
         self.add(
             f"ProjectorParams.GlobalParams.feature_importance=[{','.join([str(x) for x in args.global_importance])}]")
         self.add(f"ProjectorParams.LossParams.contrast_on=[{','.join(args.contrast_on)}]")
+        self.add(f"Trainer.monitor={args.monitor}")
 
 
 class BindSelfPaced(_BindOptions):

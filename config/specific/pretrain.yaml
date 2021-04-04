@@ -8,6 +8,7 @@ Trainer:
   two_stage_training: false
   grad_from: null
   grad_util: null
+  monitor: false
 
 Optim:
   name: Adam
