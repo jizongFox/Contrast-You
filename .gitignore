@@ -69,7 +69,8 @@ MANIFEST
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
-
+*/*.yaml
+*.yaml
 # Unit test / coverage reports
 htmlcov/
 .tox/

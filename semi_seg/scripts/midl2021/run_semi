@@ -1,7 +1,7 @@
 #!/bin/bash
 
 rand_seed=10
-save_dir=0326_semi/$2
+save_dir=0402_semi/$2
 num_batches=200
 max_epoch=80
 comm_cmd="  "
@@ -20,12 +20,6 @@ function run_pipeline {
   # mean teacher
 
   python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-    --time=2 --arch_checkpoint=${checkpoint_path} meanteacher --mt_weight 0.0001
-
-  python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-    --time=2 --arch_checkpoint=${checkpoint_path} meanteacher --mt_weight 0.001
-
-  python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
     --time=2 --arch_checkpoint=${checkpoint_path} meanteacher --mt_weight 0.01
 
   python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
@@ -41,11 +35,6 @@ function run_pipeline {
   --time=2 --arch_checkpoint=${checkpoint_path} meanteacher --mt_weight 5.0
 
   # infonce
-  python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-    --time=2 --arch_checkpoint=${checkpoint_path} infonce --info_weight 0.00001 --config_path=${config_path}
-
-  python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-    --time=2 --arch_checkpoint=${checkpoint_path} infonce --info_weight 0.0001 --config_path=${config_path}
 
   python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir} -n acdc -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
     --time=2 --arch_checkpoint=${checkpoint_path} infonce --info_weight 0.001 --config_path=${config_path}

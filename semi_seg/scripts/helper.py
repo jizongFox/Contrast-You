@@ -121,7 +121,7 @@ def dump_config(config: Dict[str, Any]):
     import string
     import random
     import os
-    tmp_path = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5)) + ".yaml"
+    tmp_path = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10)) + ".yaml"
     write_yaml(config, save_dir="./", save_name=tmp_path, force_overwrite=True)
     tmp_path = os.path.abspath(tmp_path)
     yield tmp_path
