@@ -1,5 +1,6 @@
 import random
 from abc import abstractmethod, ABCMeta
+from collections import defaultdict
 from copy import deepcopy as dcp
 from typing import Union, List, Set
 
@@ -73,9 +74,12 @@ class ContrastBatchSampler(Sampler):
             for cur_gsample in cur_gsamples:
                 gavailableslices = self._group2index[cur_gsample]
                 for savailbleslices in self._partition2index.values():
-                    sampled_slices = random.sample(sorted(set(gavailableslices) & set(savailbleslices)),
-                                                   self._partition_sample_num)
-                    batch_index.extend(sampled_slices)
+                    try:
+                        sampled_slices = random.sample(sorted(set(gavailableslices) & set(savailbleslices)),
+                                                       self._partition_sample_num)
+                        batch_index.extend(sampled_slices)
+                    except ValueError:
+                        continue
             if self._shuffle:
                 random.shuffle(batch_index)
             return batch_index
@@ -83,16 +87,12 @@ class ContrastBatchSampler(Sampler):
     def __init__(self, dataset: ContrastDataset, group_sample_num=4, partition_sample_num=1, shuffle=False) -> None:
         self._dataset = dataset
         filenames = dcp(list(dataset._filenames.values())[0])
-        group2index = {}
-        partiton2index = {}
+        group2index = defaultdict(lambda: [])
+        partiton2index = defaultdict(lambda: [])
         for i, filename in enumerate(filenames):
             group = dataset._get_group(filename)
-            if group not in group2index:
-                group2index[group] = []
             group2index[group].append(i)
             partition = dataset._get_partition(filename)
-            if partition not in partiton2index:
-                partiton2index[partition] = []
             partiton2index[partition].append(i)
         self._group2index = group2index
         self._partition2index = partiton2index

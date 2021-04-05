@@ -35,13 +35,10 @@ class ProstateDataset(ContrastDataset, _ProstateDataset):
     def _get_partition(self, filename) -> Union[str, int]:
         # set partition
         max_len_given_group = self._prostate_info[self._get_group_name(filename)]
-        cutting_point = max_len_given_group // 3
+        cutting_point = max_len_given_group // 8
         cur_index = int(re.compile(r"\d+").findall(filename)[-1])
-        if cur_index <= cutting_point - 1:
-            return str(0)
-        if cur_index <= 2 * cutting_point:
-            return str(1)
-        return str(2)
+        return str(cur_index // (cutting_point + 1))
+
 
     def show_paritions(self) -> List[Union[str, int]]:
         return [self._get_partition(f) for f in list(self._filenames.values())[0]]
