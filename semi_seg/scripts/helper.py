@@ -11,11 +11,11 @@ dataset_name2class_numbers = {
     "mmwhs": 5,
 }
 ft_lr_zooms = {"acdc": 0.0000001,
-               "prostate": 0.0000001,
+               "prostate": 0.00000025,
                "spleen": 0.000001,
                "mmwhs": 0.000001}
 
-pre_lr_zooms = {"acdc": 0.0000005, }
+pre_lr_zooms = {"acdc": 0.0000005, "prostate": 0.0000005}
 
 # CC things
 __accounts = ["def-chdesa", "def-mpederso", "rrg-mpederso"]
@@ -85,7 +85,8 @@ class BindContrastive(_BindOptions):
 
         subparser.add_argument("--contrast_on", "-c", nargs="+", type=str, required=True,
                                choices=["partition", "cycle", "patient"])
-        subparser.add_argument("--monitor", default=False, type=str, choices=["true", "false"], help="monitoring the infocne")
+        subparser.add_argument("--monitor", default=False, type=str, choices=["true", "false"],
+                               help="monitoring the infocne")
 
     def parse(self, args):
         self.add(f"ContrastiveLoaderParams.group_sample_num={args.group_sample_num}")

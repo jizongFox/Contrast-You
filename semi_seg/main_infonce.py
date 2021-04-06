@@ -14,6 +14,7 @@ from contrastyou.arch import UNet
 from contrastyou.arch.unet import arch_order
 from contrastyou.helper import extract_model_state_dict
 from semi_seg.dsutils import get_dataloaders
+from semi_seg.scripts.helper import pre_lr_zooms, ft_lr_zooms
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, FineTuneTrainer
 
 cur_githash = gethash(__file__)  # noqa
@@ -63,6 +64,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
 
         Trainer = trainer_zoos[trainer_name]
 
+        config["Optim"]["lr"] = pre_lr_zooms[config["Data"]["name"]]
         if pre_lr is not None:
             config["Optim"]["lr"] = float(pre_lr)
         if pre_max_epoch is not None:
@@ -114,6 +116,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
                 model.component_names.index(from_) <= model.component_names.index(f) <= model.component_names.index(
                     util_)
             ]
+        base_config["Optim"]["lr"] = ft_lr_zooms[config["Data"]["name"]]
         if ft_lr is not None:
             base_config["Optim"]["lr"] = float(ft_lr)
         # update trainer
