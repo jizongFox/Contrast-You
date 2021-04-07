@@ -18,7 +18,7 @@ ft_lr_zooms = {"acdc": 0.0000001,
 pre_lr_zooms = {"acdc": 0.0000005, "prostate": 0.0000005}
 
 # CC things
-__accounts = ["def-chdesa", "def-mpederso", "rrg-mpederso"]
+__accounts = ["def-chdesa",  "rrg-mpederso"]
 
 
 def account_iterable(name_list):
