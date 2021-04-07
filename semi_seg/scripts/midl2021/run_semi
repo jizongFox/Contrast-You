@@ -16,73 +16,73 @@ set -e pipefail
 function run_pipeline {
 
   python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-    --time=2 --arch_checkpoint=${checkpoint_path} baseline
+    --time=1 --arch_checkpoint=${checkpoint_path} baseline
 
   # mean teacher
 
   python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-    --time=2 --arch_checkpoint=${checkpoint_path} meanteacher --mt_weight 0.01
+    --time=1 --arch_checkpoint=${checkpoint_path} meanteacher --mt_weight 0.01
 
   python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-    --time=2 --arch_checkpoint=${checkpoint_path} meanteacher --mt_weight 0.1
+    --time=1 --arch_checkpoint=${checkpoint_path} meanteacher --mt_weight 0.1
 
   python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-  --time=2 --arch_checkpoint=${checkpoint_path} meanteacher --mt_weight 0.5
+  --time=1 --arch_checkpoint=${checkpoint_path} meanteacher --mt_weight 0.5
 
   python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-  --time=2 --arch_checkpoint=${checkpoint_path} meanteacher --mt_weight 1.0
+  --time=1 --arch_checkpoint=${checkpoint_path} meanteacher --mt_weight 1.0
 
   python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-  --time=2 --arch_checkpoint=${checkpoint_path} meanteacher --mt_weight 5.0
+  --time=1 --arch_checkpoint=${checkpoint_path} meanteacher --mt_weight 5.0
 
   # infonce
 
   python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-    --time=2 --arch_checkpoint=${checkpoint_path} infonce --info_weight 0.001 --config_path=${config_path}
+    --time=1 --arch_checkpoint=${checkpoint_path} infonce --info_weight 0.001 --config_path=${config_path}
 
   python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-    --time=2 --arch_checkpoint=${checkpoint_path} infonce --info_weight 0.01 --config_path=${config_path}
-
-
-  python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-    --time=2 --arch_checkpoint=${checkpoint_path} infonce --info_weight 0.1 --config_path=${config_path}
+    --time=1 --arch_checkpoint=${checkpoint_path} infonce --info_weight 0.01 --config_path=${config_path}
 
 
   python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-    --time=2 --arch_checkpoint=${checkpoint_path} infonce --info_weight 0.5 --config_path=${config_path}
+    --time=1 --arch_checkpoint=${checkpoint_path} infonce --info_weight 0.1 --config_path=${config_path}
+
 
   python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-    --time=2 --arch_checkpoint=${checkpoint_path} infonce --info_weight 1.0 --config_path=${config_path}
+    --time=1 --arch_checkpoint=${checkpoint_path} infonce --info_weight 0.5 --config_path=${config_path}
+
+  python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
+    --time=1 --arch_checkpoint=${checkpoint_path} infonce --info_weight 1.0 --config_path=${config_path}
 
   # mt infonce
   python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-    --time=3 --arch_checkpoint=${checkpoint_path} meanteacherinfonce --info_weight 0.001 --mt_weight 0.5 --config_path=${config_path}
+    --time=2 --arch_checkpoint=${checkpoint_path} meanteacherinfonce --info_weight 0.001 --mt_weight 0.5 --config_path=${config_path}
 
   python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-    --time=3 --arch_checkpoint=${checkpoint_path} meanteacherinfonce --info_weight 0.01 --mt_weight 0.5 --config_path=${config_path}
+    --time=2 --arch_checkpoint=${checkpoint_path} meanteacherinfonce --info_weight 0.01 --mt_weight 0.5 --config_path=${config_path}
 
   python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-    --time=3 --arch_checkpoint=${checkpoint_path} meanteacherinfonce --info_weight 0.1 --mt_weight 0.5 --config_path=${config_path}
+    --time=2 --arch_checkpoint=${checkpoint_path} meanteacherinfonce --info_weight 0.1 --mt_weight 0.5 --config_path=${config_path}
 
   # repeat
     python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-    --time=3 --arch_checkpoint=${checkpoint_path} meanteacherinfonce --info_weight 0.001 --mt_weight 0.1 --config_path=${config_path}
+    --time=2 --arch_checkpoint=${checkpoint_path} meanteacherinfonce --info_weight 0.001 --mt_weight 0.1 --config_path=${config_path}
 
   python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-    --time=3 --arch_checkpoint=${checkpoint_path} meanteacherinfonce --info_weight 0.01 --mt_weight 0.1 --config_path=${config_path}
+    --time=2 --arch_checkpoint=${checkpoint_path} meanteacherinfonce --info_weight 0.01 --mt_weight 0.1 --config_path=${config_path}
 
   python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-    --time=3 --arch_checkpoint=${checkpoint_path} meanteacherinfonce --info_weight 0.1 --mt_weight 0.1 --config_path=${config_path}
+    --time=2 --arch_checkpoint=${checkpoint_path} meanteacherinfonce --info_weight 0.1 --mt_weight 0.1 --config_path=${config_path}
     
     # repeat
     python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-    --time=3 --arch_checkpoint=${checkpoint_path} meanteacherinfonce --info_weight 0.001 --mt_weight 1.0 --config_path=${config_path}
+    --time=2 --arch_checkpoint=${checkpoint_path} meanteacherinfonce --info_weight 0.001 --mt_weight 1.0 --config_path=${config_path}
 
   python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-    --time=3 --arch_checkpoint=${checkpoint_path} meanteacherinfonce --info_weight 0.01 --mt_weight 1.0 --config_path=${config_path}
+    --time=2 --arch_checkpoint=${checkpoint_path} meanteacherinfonce --info_weight 0.01 --mt_weight 1.0 --config_path=${config_path}
 
   python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}  -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-    --time=3 --arch_checkpoint=${checkpoint_path} meanteacherinfonce --info_weight 0.1 --mt_weight 1.0 --config_path=${config_path}
+    --time=2 --arch_checkpoint=${checkpoint_path} meanteacherinfonce --info_weight 0.1 --mt_weight 1.0 --config_path=${config_path}
 
 
 }

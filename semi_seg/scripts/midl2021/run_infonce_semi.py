@@ -41,8 +41,12 @@ meanteacherinfonce.add_argument("--config_path", required=True, help="configurat
 meanteacherinfonce.add_argument("--info_weight", default=1e-04, type=float, help="infonce weight coefficient")
 
 args = parser.parse_args()
-
-labeled_ratios = [0.01, 0.015, 0.025]
+if args.dataset_name == "acdc":
+    labeled_ratios = [0.01, 0.015, 0.025]
+elif args.dataset_name == "prostate":
+    labeled_ratios = [0.05, 0.08, 0.1, 0.13,]
+else:
+    raise NotImplemented(args.dataset_name)
 
 # setting common params
 dataset_name = args.dataset_name
