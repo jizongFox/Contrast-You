@@ -1,32 +1,28 @@
 #!/bin/bash
 base_folder=/lustre04/scratch/jizong/Contrast-You/semi_seg/runs/0401_prostate/githash_2756201
-
+save_dir=0404_prostate
 # random_seed 10
 bash run_semi \
   ${base_folder}/prostate/random_seed_10/sample_num_5/global_Conv5_1.0/contrast_on_partition/self-paced/method_hard/loss_params*5.0_16.0 \
-  contrast_on_parition/self/10
+  ${save_dir}/contrast_on_parition/self/10
 
 bash run_semi \
   ${base_folder}/prostate/random_seed_10/sample_num_5/global_Conv5_1.0/contrast_on_partition/infonce \
-  contrast_on_parition/infonce/10
-
+  ${save_dir}/ contrast_on_parition/infonce/10
 
 bash run_semi \
   ${base_folder}/prostate/random_seed_10/sample_num_5/global_Conv5_1.0/contrast_on_patient/self-paced/method_hard/loss_params*4.0_16.0 \
-  contrast_on_patient/self/10
+  ${save_dir}/contrast_on_patient/self/10
 
 bash run_semi \
   ${base_folder}/prostate/random_seed_10/sample_num_5/global_Conv5_1.0/contrast_on_patient/infonce \
-  contrast_on_patient/infonce/10
-
+  ${save_dir}/contrast_on_patient/infonce/10
 
 # all
 bash run_semi \
   ${base_folder}/prostate/random_seed_10/sample_num_5/global_Conv5_Conv5_1.0_0.05/contrast_on_partition_patient/self-paced/method_hard_hard/loss_params*4.0_14.0*4.0_14.0 \
-  contrast_on_all/self
+  ${save_dir}/contrast_on_all/self
 
 bash run_semi \
   ${base_folder}/prostate/random_seed_10/sample_num_5/global_Conv5_Conv5_1.0_0.02/contrast_on_partition_patient/infonce \
-  contrast_on_all/infonce
-
-
+  ${save_dir}/contrast_on_all/infonce

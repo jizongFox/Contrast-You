@@ -306,10 +306,10 @@ class _PretrainMonitorEpocherMxin(_PretrainEpocherMixin):
         report_dict = self.meters.tracking_status(final=True)
         return report_dict
 
-    def monitor_pretrain(self, monitor_dataloader):
+    def monitor_pretrain(self):
         previous_value = self._affine_transformer._threshold  # noqa
         self._affine_transformer._threshold = 0
-        result = self._monitor_pretrain(monitor_dataloader)
+        result = self._monitor_pretrain()
         self._affine_transformer._threshold = previous_value  # noqa
         return result
 

@@ -1,13 +1,13 @@
 #!/bin/bash
 
 rand_seed=10
-save_dir=0401_acdc
+save_dir=monitor
 group_num=10
 num_batches=200
 pre_max_epoch=120
 ft_max_epoch=80
 dataset=acdc
-monitor=false
+monitor=true
 comm_cmd=" -n ${dataset}   "
 
 set -e pipefail
@@ -44,13 +44,6 @@ function run_selfpaced {
 run_selfpaced 2 14 hard
 run_selfpaced 2 16 hard
 
-run_selfpaced 0 6 hard
-run_selfpaced 0 8 hard
-run_selfpaced 0 12 hard
-run_selfpaced 0 13 hard
-run_selfpaced 0 14 hard
-run_selfpaced 0 16 hard
-run_selfpaced 0 18 hard
 
 run_selfpaced 4 6 hard
 run_selfpaced 4 8 hard
@@ -61,12 +54,7 @@ run_selfpaced 4 16 hard
 run_selfpaced 4 18 hard
 run_selfpaced 4 40 hard
 
-run_selfpaced 3 12 hard
-run_selfpaced 3 13 hard
-run_selfpaced 3 14 hard
-run_selfpaced 3 16 hard
-run_selfpaced 3 18 hard
-#
+
 run_selfpaced 5 12 hard
 run_selfpaced 5 13 hard
 run_selfpaced 5 14 hard

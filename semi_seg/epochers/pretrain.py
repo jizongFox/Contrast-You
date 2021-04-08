@@ -35,6 +35,7 @@ class InfoNCEPretrainMonitorEpocher(_PretrainMonitorEpocherMxin, InfoNCEEpocher)
 
         tag = f"projections/{self.trainer._cur_epoch}"  # noqa
         tag = Path(save_dir) / tag
+        tag.mkdir(parents=True, exist_ok=True)
         torch.save(proj_tf_feature.cpu().detach(), str(tag / label_group[0]))
 
         if isinstance(projector, ProjectionHead):

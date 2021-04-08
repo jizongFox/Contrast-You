@@ -91,7 +91,7 @@ elif args.stage == "infonce":
     info_weight = args.info_weight
     contrastive_params = parse_contrastive_args_from_path(args.config_path)
     with dump_config(contrastive_params) as opt_config_path:
-        job_array = [f" python main.py Trainer.name=infonce {SharedParams} "
+        job_array = [f" python main.py Trainer.name=infonce {SharedParams} Optim.lr={lr} "
                      f" Trainer.save_dir={save_dir}/infonce/weight_{info_weight}/tra/ratio_{str(x)} "
                      f" ProjectorParams.Weight={info_weight:.10f} "
                      f" Data.labeled_data_ratio={x}  "
@@ -115,7 +115,7 @@ elif args.stage == "meanteacherinfonce":
 
     contrastive_params = parse_contrastive_args_from_path(args.config_path)
     with dump_config(contrastive_params) as opt_config_path:
-        job_array = [f" python main.py Trainer.name=infoncemt {SharedParams} "
+        job_array = [f" python main.py Trainer.name=infoncemt {SharedParams} Optim.lr={lr} "
                      f" Trainer.save_dir={save_dir}/infoncemt/info_{info_weight}_mt_{mt_weight}/tra/ratio_{str(x)} "
                      f" MeanTeacherParameters.weight={mt_weight:.10f} "
                      f" ProjectorParams.Weight={info_weight:.10f} "
