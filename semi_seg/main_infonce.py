@@ -45,7 +45,6 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
     seed = config.get("RandomSeed", 1)
     trainer_name = config["Trainer"]["name"]
     is_monitor_train = config["Trainer"].get("monitor", False)
-    # assert trainer_name in ("infoncepretrain", "experimentpretrain", "experimentmixuppretrain"), trainer_name  # noqa
 
     pre_lr, ft_lr = config["Optim"].pop("pre_lr", None), config["Optim"].pop("ft_lr", None)
     pre_max_epoch, ft_max_epoch = config["Trainer"].pop("pre_max_epoch", None), \

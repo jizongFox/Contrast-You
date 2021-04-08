@@ -109,6 +109,7 @@ class SemiTrainer(Trainer):
         return self._run_epoch(epocher, *args, **kwargs)
 
     def _run_init(self, ):
+        # this defines the epocher and set trainer inside the epocher, all should be the same.
         epocher = self.epocher_class(
             model=self._model, optimizer=self._optimizer, labeled_loader=self._labeled_loader,
             unlabeled_loader=self._unlabeled_loader, sup_criterion=self._sup_criterion, num_batches=self._num_batches,
@@ -120,6 +121,7 @@ class SemiTrainer(Trainer):
         return epocher
 
     def _run_epoch(self, epocher: TrainEpocher, *args, **kwargs) -> EpochResultDict:
+        # this customize the epocher by calling the init() function.
         epocher.init(reg_weight=0.0, **kwargs)  # partial supervision without regularization
         result = epocher.run()
         return result
@@ -133,7 +135,7 @@ class SemiTrainer(Trainer):
 
     def start_training(self, *args, **kwargs):
         if not self.__initialized__:
-            raise RuntimeError(f"call self.init() first to initialize {self.__class__.__name__}")
+            raise RuntimeError(f"call {self.__class__.__name__}.init() first.")
         return super(SemiTrainer, self).start_training(*args, **kwargs)
 
     def _start_training(self):

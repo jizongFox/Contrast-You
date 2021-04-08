@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy  # noqa
 from deepclustering2.configparser import ConfigManger
 from deepclustering2.loss import KL_div
-from deepclustering2.utils import gethash, fix_all_seed
+from deepclustering2.utils import gethash, fix_all_seed_within_context
 from loguru import logger
 
 from contrastyou import PROJECT_PATH
@@ -32,26 +32,28 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
     base_save_dir = str(config["Trainer"]["save_dir"])
     logger.add(os.path.join("runs", base_save_dir, "loguru.log"), level="TRACE", diagnose=True, )
 
-    fix_all_seed(config.get("RandomSeed", 1))
+    seed = config.get("RandomSeed", 1)
 
-    config_arch = deepcopy(config["Arch"])
-    model_checkpoint = config_arch.pop("checkpoint", None)
-    model = UNet(**config_arch)
-    logger.info(f"Initializing {model.__class__.__name__}")
-    if model_checkpoint:
-        logger.info(f"loading checkpoint from  {model_checkpoint}")
-        model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=False)
+    with fix_all_seed_within_context(seed):
 
-    trainer_name = config["Trainer"].pop("name")
-    assert trainer_name in ("finetune", "directtrain"), trainer_name
-    base_model_checkpoint = deepcopy(model.state_dict())
+        config_arch = deepcopy(config["Arch"])
+        model_checkpoint = config_arch.pop("checkpoint", None)
+        model = UNet(**config_arch)
+        logger.info(f"Initializing {model.__class__.__name__}")
+        if model_checkpoint:
+            logger.info(f"loading checkpoint from  {model_checkpoint}")
+            model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=False)
+
+        trainer_name = config["Trainer"].pop("name")
+        assert trainer_name in ("finetune", "directtrain"), trainer_name
+        base_model_checkpoint = deepcopy(model.state_dict())
 
     if config["Data"]["name"] == "acdc":
         ratios = (0.01, 0.015, 0.025, 1.0)
     else:
         ratios = (0.05, 0.08, 0.1, 0.13, 1.0)
 
-    for labeled_ratio in ratios:
+    def finetune():
         model.load_state_dict(base_model_checkpoint)
 
         config["Data"]["labeled_data_ratio"] = labeled_ratio
@@ -69,7 +71,10 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         )
         finetune_trainer.init()
         finetune_trainer.start_training()
-        # finetune_trainer.inference()
+
+    for labeled_ratio in ratios:
+        with fix_all_seed_within_context(seed):
+            finetune()
 
 
 if __name__ == '__main__':

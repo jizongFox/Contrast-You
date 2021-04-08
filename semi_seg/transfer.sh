@@ -6,8 +6,8 @@ local_folder=./runs
 #  --exclude "*/*events.out.tfevents*" \
 rsync -azP  --exclude "*/*.png" --exclude "*/*.pth" \
   --exclude "*/*.pth" \
-  root@jizong.buzz:/root/main/runs/0403_prostate/ \
-  "${local_folder}/0403_prostate/"
+  root@jizong.buzz:/root/main/runs/0402_semi/ \
+  "${local_folder}/0402_semi_acdc/"
 
 #rsync -azP --exclude "*/*.png"  --exclude "*/*.pth" \
 #  --exclude "*/*.pth" \

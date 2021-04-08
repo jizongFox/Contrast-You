@@ -1,6 +1,5 @@
 from .base import *
 from .pretrain import *
-from .proposedtrainer import *
 from .trainer import *
 
 base_trainer_zoos = {
@@ -16,8 +15,6 @@ base_trainer_zoos = {
     "iicmeanteacher": IICMeanTeacherTrainer,
     "midl": MIDLTrainer,
     "infonce": InfoNCETrainer,
-    "experiment": ExperimentalTrainer,
-    "mixup": ExperimentalTrainerwithMixUp,
     "infoncemt": InfoNCEMeanTeacherTrainer
 
 }
