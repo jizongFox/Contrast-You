@@ -4,7 +4,6 @@ from deepclustering2.meters2 import StorageIncomeDict
 
 from contrastyou.datasets._seg_datset import ContrastBatchSampler  # noqa
 from ._helper import _PretrainTrainerMixin
-from .proposedtrainer import ExperimentalTrainer, ExperimentalTrainerwithMixUp
 from .trainer import InfoNCETrainer, IICTrainer, UDAIICTrainer
 
 
@@ -57,16 +56,3 @@ class PretrainUDAIICTrainer(_PretrainTrainerMixin, UDAIICTrainer):
     def _set_epocher_class(self, epocher_class=UDAIICPretrainEpocher):
         super(PretrainUDAIICTrainer, self)._set_epocher_class(epocher_class)
 
-
-class PretrainExperimentalTrainer(_PretrainTrainerMixin, ExperimentalTrainer):
-    from ..epochers.pretrain import ExperimentalPretrainEpocher
-
-    def _set_epocher_class(self, epocher_class=ExperimentalPretrainEpocher):
-        super(PretrainExperimentalTrainer, self)._set_epocher_class(epocher_class)
-
-
-class PretrainExperimentalMixupTrainer(_PretrainTrainerMixin, ExperimentalTrainerwithMixUp):
-    from ..epochers.pretrain import ExperimentalPretrainMixinEpocher
-
-    def _set_epocher_class(self, epocher_class=ExperimentalPretrainMixinEpocher):
-        super(PretrainExperimentalMixupTrainer, self)._set_epocher_class(epocher_class)

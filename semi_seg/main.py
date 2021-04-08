@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np  # noqa
 from deepclustering2.configparser import ConfigManger
 from deepclustering2.loss import KL_div
-from deepclustering2.utils import fix_all_seed
+from deepclustering2.utils import fix_all_seed_within_context
 from deepclustering2.utils import gethash
 from loguru import logger
 
@@ -31,13 +31,13 @@ def main():
         logger.add(os.path.join(save_dir, "loguru.log"), level="TRACE", diagnose=True, )
 
         port = random.randint(10000, 60000)
-
-        main_worker(0, 1, config, port)
+        seed = config.get("RandomSeed", 1)
+        with fix_all_seed_within_context(seed):
+            main_worker(0, 1, config, port)
 
 
 @logger.catch(reraise=True)
 def main_worker(rank, ngpus_per_node, config, port):  # noqa
-    fix_all_seed(config.get("RandomSeed", 1))
 
     labeled_loader, unlabeled_loader, val_loader = get_dataloaders(config)
 
@@ -72,9 +72,6 @@ def main_worker(rank, ngpus_per_node, config, port):  # noqa
         trainer.enable_grad(from_=from_, util_=util_)
 
     trainer.start_training()
-
-    # if not is_pretrain:
-    #     trainer.inference()
 
 
 if __name__ == '__main__':
