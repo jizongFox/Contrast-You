@@ -300,16 +300,16 @@ class _PretrainMonitorEpocherMxin(_PretrainEpocherMixin):
                 partition_group=unl_partition,
                 unlabeled_filename=unlabeled_filename,
             )
-            if self.cur_batch_num > 20:
+            if self.cur_batch_num > 30:
                 break
 
         report_dict = self.meters.tracking_status(final=True)
         return report_dict
 
-    def monitor_pretrain(self):
+    def monitor_pretrain(self, monitor_dataloader):
         previous_value = self._affine_transformer._threshold  # noqa
         self._affine_transformer._threshold = 0
-        result = self._monitor_pretrain()
+        result = self._monitor_pretrain(monitor_dataloader)
         self._affine_transformer._threshold = previous_value  # noqa
         return result
 

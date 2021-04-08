@@ -287,7 +287,7 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
             raise RuntimeError(f"`set_global_contrast_method` should be called first for {self.__class__.__name__}.")
         return super(_InfoNCEBasedEpocher, self).run(*args, **kwargs)
 
-    def unlabeled_projection(self, unl_features, projector, seed):
+    def unlabeled_projection(self, unl_features, projector, seed, return_unlabeled_features=False):
         unlabeled_features, unlabeled_tf_features = torch.chunk(unl_features, 2, dim=0)
         with FixRandomSeed(seed):
             unlabeled_features_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_features], dim=0)
@@ -297,6 +297,8 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
         proj_tf_feature, proj_feature_tf = torch.chunk(
             projector(torch.cat([unlabeled_tf_features, unlabeled_features_tf], dim=0)), 2, dim=0
         )
+        if return_unlabeled_features:
+            return proj_tf_feature, proj_feature_tf, unlabeled_tf_features, unlabeled_features_tf
         return proj_tf_feature, proj_feature_tf
 
     @lru_cache()

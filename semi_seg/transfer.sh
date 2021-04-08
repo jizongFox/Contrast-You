@@ -4,10 +4,10 @@ local_folder=./runs
 #  beluga:/lustre04/scratch/jizong/Contrast-You/semi_seg/runs/0327/ \
 #  "${local_folder}/0327/"
 #  --exclude "*/*events.out.tfevents*" \
-rsync -azP  --exclude "*/*.png"  --exclude "*/*.pth" \
+rsync -azP  --exclude "*/*.png" --exclude "*/*.pth" \
   --exclude "*/*.pth" \
-  root@jizong.buzz:/root/main/runs/0401_prostate/ \
-  "${local_folder}/0401/"
+  root@jizong.buzz:/root/main/runs/0403_prostate/ \
+  "${local_folder}/0403_prostate/"
 
 #rsync -azP --exclude "*/*.png"  --exclude "*/*.pth" \
 #  --exclude "*/*.pth" \

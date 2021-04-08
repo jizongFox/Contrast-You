@@ -12,7 +12,7 @@ class PretrainInfoNCETrainer(_PretrainTrainerMixin, InfoNCETrainer):
     from semi_seg.epochers.pretrain import InfoNCEPretrainEpocher, InfoNCEPretrainMonitorEpocher
 
     def _set_epocher_class(self, epocher_class=InfoNCEPretrainEpocher):
-        super(PretrainInfoNCETrainer, self)._set_epocher_class(epocher_class)
+        super(PretrainInfoNCETrainer, self)._set_epocher_class(epocher_class)  # noqa
 
     def run_monitor(self, epoch_class=InfoNCEPretrainMonitorEpocher):
         previous_class = self.epocher_class
