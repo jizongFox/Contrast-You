@@ -123,7 +123,7 @@ elif args.stage == "meanteacherinfonce":
                      f" Data.unlabeled_data_ratio={1 - x} "
                      f" --opt_config_path {opt_config_path} ../config/specific/mt.yaml " for x in labeled_ratios]
 
-job_submiter = JobSubmiter(project_path="../../", on_local=args.on_local, time=args.time, )
+job_submiter = JobSubmiter(project_path="../", on_local=args.on_local, time=args.time, )
 
 for j in job_array:
     job_submiter.prepare_env(

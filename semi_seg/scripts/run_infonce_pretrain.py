@@ -130,7 +130,7 @@ elif args.stage == "selfpaced":
 else:
     raise NotImplementedError(args.stage)
 
-job_submiter = JobSubmiter(project_path="../../", on_local=args.on_local, time=args.time, )
+job_submiter = JobSubmiter(project_path="../", on_local=args.on_local, time=args.time, )
 
 for j in job_array:
     job_submiter.prepare_env(
