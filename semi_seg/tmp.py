@@ -45,12 +45,11 @@ def plot_patient(folder):
 
 # plt.ioff()
 f1, f2 = plot_cycle(
-    "runs/0328/githash_3f7e6f2/acdc/random_seed_10/sample_num_10/"
-    "global_Conv5_1.0/contrast_on_partition/infonce/features/119")
-f1, f2 = plot_cycle(
-    "runs/0328/githash_3f7e6f2/acdc/random_seed_10/sample_num_10/"
-    "global_Conv5_1.0/contrast_on_partition/self-paced/method_hard/loss_params*4.0_6.0/features/119")
-# plot_cycle("cycle/self-paced")
+    "runs/0405_monitor/monitor/githash_ab6c96d/acdc/random_seed_10/sample_num_10/global_Conv5_1.0/contrast_on_cycle/infonce/projections/99")
+# f1, f2 = plot_cycle(
+#     "runs/0328/githash_3f7e6f2/acdc/random_seed_10/sample_num_10/"
+#     "global_Conv5_1.0/contrast_on_partition/self-paced/method_hard/loss_params*4.0_6.0/features/119")
+# # plot_cycle("cycle/self-paced")
 # plt.figure()
 # pd.Series(torch.cat([f1.mm(f1.t()).mean(1), f2.mm(f2.t()).mean(1), f1.mm(f2.t()).mean(1)])).plot()
 plt.show()
