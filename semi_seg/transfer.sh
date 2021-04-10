@@ -9,15 +9,15 @@ local_folder=./runs
 #  root@jizong.buzz:/root/main/runs/0402_semi/ \
 #  "${local_folder}/0402_semi_acdc/"
 
-#rsync -azP --exclude "*/*.png"  --exclude "*/*.pth" \
-#  --exclude "*/*.pth" \
-#  beluga:/home/jizong/scratch/Contrast-You/semi_seg/runs/0404_prostate/ \
-#  "${local_folder}/0404_prostate/"
-
 rsync -azP --exclude "*/*.png"  --exclude "*/*.pth" \
-  --exclude "*/*.pth" --exclude "*/features/*"  \
-  shanxi1:/home/jizong/Contrast-You/semi_seg/runs/monitor \
-  "${local_folder}/0405_monitor/"
+  --exclude "*/*.pth" --exclude "*/patient*" \
+  root@jizong.buzz:/root/main/runs/0410 \
+  "${local_folder}/"
+
+#rsync -azP --exclude "*/*.png"  --exclude "*/*.pth" \
+#  --exclude "*/*.pth" --exclude "*/features/*"  \
+#  shanxi1:/home/jizong/Contrast-You/semi_seg/runs/monitor \
+#  "${local_folder}/0405_monitor/"
 
 #rsync -azP  --exclude "*/*.png"  --exclude "*/*.pth" \
 #  beluga:/lustre04/scratch/jizong/Contrast-You/semi_seg/runs/0312_2/ \

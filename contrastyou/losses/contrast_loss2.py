@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import torch
 from deepclustering2.configparser._utils import get_config  # noqa
 from deepclustering2.meters2 import AverageValueMeter
-from deepclustering2.schedulers.customized_scheduler import LinearScheduler, ExpScheduler
+from deepclustering2.schedulers.customized_scheduler import LinearScheduler, ExpScheduler, InverseExpScheduler
 from deepclustering2.writer import SummaryWriter
 from loguru import logger
 from torch import Tensor, nn
@@ -166,7 +166,8 @@ class SelfPacedSupConLoss(nn.Module):
         self._chosen_percentage_meter = AverageValueMeter()
         self._real_chosen_percentage_meter = AverageValueMeter()
         config = deepcopy(get_config(scope="base"))
-        scheduler_class = {"linear": LinearScheduler, "square": ExpScheduler}[type]
+        scheduler_class = {"linear": LinearScheduler, "square": ExpScheduler, "inversesquare": InverseExpScheduler}[
+            type]
         logger.debug(f"creating {scheduler_class} scheduler for {self.__class__.__name__}")
         self._scheduler = scheduler_class(max_epoch=config["Trainer"]["max_epoch"], begin_value=begin_value,
                                           end_value=end_value)

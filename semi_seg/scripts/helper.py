@@ -108,7 +108,8 @@ class BindSelfPaced(_BindOptions):
                                help="ProjectorParams.LossParams.end_value")
         subparser.add_argument("--method", default="hard", type=str, nargs="+",
                                help="ProjectorParams.LossParams.weight_update")
-        subparser.add_argument("--scheduler_type", default="linear", type=str, choices=["linear", "square"], nargs="+",
+        subparser.add_argument("--scheduler_type", default="linear", type=str,
+                               choices=["linear", "square", "inversesquare"], nargs="+",
                                help="ProjectorParams.LossParams.type")
 
     def parse(self, args):
