@@ -1,7 +1,7 @@
 #!/bin/bash
 
 rand_seed=10
-save_dir=monitor
+save_dir=fdasjklfd
 group_num=10
 num_batches=200
 pre_max_epoch=120
@@ -10,69 +10,116 @@ dataset=acdc
 monitor=true
 comm_cmd=" -n ${dataset}   "
 
+
 set -e pipefail
-python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -b ${num_batches} -s ${rand_seed} --time=2 \
-  baseline -e ${ft_max_epoch}
+#python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -b ${num_batches} -s ${rand_seed} --time=2 \
+#  baseline -e ${ft_max_epoch}
 
-###### multitask
-python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -b ${num_batches} -s ${rand_seed} --time=4 \
-  infonce --global_features Conv5 --global_importance 1 --contrast_on partition -g=${group_num} \
-  -pe ${pre_max_epoch} -fe ${ft_max_epoch} --monitor=${monitor}
+####### multitask
+#python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -b ${num_batches} -s ${rand_seed} --time=4 \
+#  infonce --global_features Conv5 --global_importance 1 --contrast_on partition -g=${group_num} \
+#  -pe ${pre_max_epoch} -fe ${ft_max_epoch} --monitor=${monitor}
+##
+#python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -b ${num_batches} -s ${rand_seed} --time=4 \
+#  infonce --global_features Conv5 --global_importance 1 --contrast_on patient -g=${group_num} \
+#  -pe ${pre_max_epoch} -fe ${ft_max_epoch} --monitor=${monitor}
 #
-python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -b ${num_batches} -s ${rand_seed} --time=4 \
-  infonce --global_features Conv5 --global_importance 1 --contrast_on patient -g=${group_num} \
-  -pe ${pre_max_epoch} -fe ${ft_max_epoch} --monitor=${monitor}
-
-python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -b ${num_batches} -s ${rand_seed} --time=4 \
-  infonce --global_features Conv5 --global_importance 1 --contrast_on cycle -g=${group_num} \
-  -pe ${pre_max_epoch} -fe ${ft_max_epoch} --monitor=${monitor}
+#python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -b ${num_batches} -s ${rand_seed} --time=4 \
+#  infonce --global_features Conv5 --global_importance 1 --contrast_on cycle -g=${group_num} \
+#  -pe ${pre_max_epoch} -fe ${ft_max_epoch} --monitor=${monitor}
 
 #### self-paced
 function run_selfpaced {
   python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -b ${num_batches} -s ${rand_seed} --time=4 \
     selfpaced --global_features Conv5 --global_importance 1 --contrast_on partition -g=${group_num} \
-    -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value $1 --end_value $2 --method $3 --monitor=${monitor}
+    -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value $1 --end_value $2 --method $3 --monitor=${monitor}  --scheduler_type=$4
 
   python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -b ${num_batches} -s ${rand_seed} --time=4 \
     selfpaced --global_features Conv5 --global_importance 1 --contrast_on patient -g=${group_num} \
-    -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value $1 --end_value $2 --method $3 --monitor=${monitor}
+    -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value $1 --end_value $2 --method $3 --monitor=${monitor} --scheduler_type=$4
 
   python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -b ${num_batches} -s ${rand_seed} --time=4 \
     selfpaced --global_features Conv5 --global_importance 1 --contrast_on cycle -g=${group_num} \
-    -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value $1 --end_value $2 --method $3 --monitor=${monitor}
+    -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value $1 --end_value $2 --method $3 --monitor=${monitor} --scheduler_type=$4
+
+
 }
-run_selfpaced 2 14 hard
-run_selfpaced 2 16 hard
-
-
-run_selfpaced 4 6 hard
-run_selfpaced 4 8 hard
-run_selfpaced 4 12 hard
-run_selfpaced 4 13 hard
-run_selfpaced 4 14 hard
-run_selfpaced 4 16 hard
-run_selfpaced 4 18 hard
-run_selfpaced 4 40 hard
-
-
-run_selfpaced 5 12 hard
-run_selfpaced 5 13 hard
-run_selfpaced 5 14 hard
-run_selfpaced 5 16 hard
-run_selfpaced 5 18 hard
-
+#run_selfpaced 2 14 hard
+#run_selfpaced 2 16 hard
 #
-run_selfpaced 5 20 soft
-run_selfpaced 5 30 soft
-run_selfpaced 5 40 soft
-run_selfpaced 5 50 soft
-run_selfpaced 5 10 soft
+#
+run_selfpaced 3 6 hard linear
+run_selfpaced 3 8 hard linear
+run_selfpaced 3 12 hard linear
+run_selfpaced 3 13 hard linear
+run_selfpaced 3 14 hard linear
+run_selfpaced 3 16 hard linear
+run_selfpaced 3 18 hard linear
 
-run_selfpaced 4 20 soft
-run_selfpaced 4 30 soft
-run_selfpaced 4 40 soft
-run_selfpaced 4 50 soft
-run_selfpaced 4 10 soft
+run_selfpaced 4 6 hard linear
+run_selfpaced 4 8 hard linear
+run_selfpaced 4 12 hard linear
+run_selfpaced 4 13 hard linear
+run_selfpaced 4 14 hard linear
+run_selfpaced 4 16 hard linear
+run_selfpaced 4 18 hard linear
+
+run_selfpaced 4 6 hard square
+run_selfpaced 4 8 hard square
+run_selfpaced 4 12 hard square
+run_selfpaced 4 13 hard square
+run_selfpaced 4 14 hard square
+run_selfpaced 4 16 hard square
+run_selfpaced 4 18 hard square
+
+run_selfpaced 3 6 hard square
+run_selfpaced 3 8 hard square
+run_selfpaced 3 12 hard square
+run_selfpaced 3 13 hard square
+run_selfpaced 3 14 hard square
+run_selfpaced 3 16 hard square
+run_selfpaced 3 18 hard square
+#run_selfpaced 4 16 hard
+#run_selfpaced 4 18 hard
+#run_selfpaced 4 40 hard
+#
+#
+#run_selfpaced 5 12 hard
+#run_selfpaced 5 13 hard
+#run_selfpaced 5 14 hard
+#run_selfpaced 5 16 hard
+#run_selfpaced 5 18 hard
+#
+##
+#run_selfpaced 5 20 soft
+#run_selfpaced 5 30 soft
+#run_selfpaced 5 40 soft
+#run_selfpaced 5 50 soft
+#run_selfpaced 5 10 soft
+#
+run_selfpaced 4 20 soft linear
+run_selfpaced 4 30 soft linear
+run_selfpaced 4 40 soft linear
+run_selfpaced 4 50 soft linear
+run_selfpaced 4 10 soft linear
+
+run_selfpaced 4 20 soft square
+run_selfpaced 4 30 soft square
+run_selfpaced 4 40 soft square
+run_selfpaced 4 50 soft square
+run_selfpaced 4 10 soft square
+
+run_selfpaced 3 20 soft linear
+run_selfpaced 3 30 soft linear
+run_selfpaced 3 40 soft linear
+run_selfpaced 3 50 soft linear
+run_selfpaced 3 10 soft linear
+
+run_selfpaced 3 20 soft square
+run_selfpaced 3 30 soft square
+run_selfpaced 3 30 soft square
+run_selfpaced 3 50 soft square
+run_selfpaced 3 10 soft square
 
 ##
 #
@@ -85,8 +132,8 @@ function run_multi_selfpaced {
     selfpaced --global_features Conv5 Conv5 --global_importance $1 $2 $3 --contrast_on partition patient cycle -g=${group_num} \
     -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value 10000 4 4 --end_value 10000 13 50 --method hard hard soft --monitor=${monitor}
 }
-run_multi_selfpaced 1 0.1 0.1
-run_multi_selfpaced 1 0.5 0.1
-run_multi_selfpaced 1 0.01 0.01
-run_multi_selfpaced 1 0.02 0.1
-run_multi_selfpaced 1 0.05 0.05
+#run_multi_selfpaced 1 0.1 0.1
+#run_multi_selfpaced 1 0.5 0.1
+#run_multi_selfpaced 1 0.01 0.01
+#run_multi_selfpaced 1 0.02 0.1
+#run_multi_selfpaced 1 0.05 0.05

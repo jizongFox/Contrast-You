@@ -18,7 +18,7 @@ ft_lr_zooms = {"acdc": 0.0000001,
 pre_lr_zooms = {"acdc": 0.0000005, "prostate": 0.0000005}
 
 # CC things
-__accounts = ["def-chdesa",  "rrg-mpederso", "def-mpederso"]
+__accounts = ["def-chdesa", "rrg-mpederso", "def-mpederso"]
 
 
 def account_iterable(name_list):
@@ -108,11 +108,14 @@ class BindSelfPaced(_BindOptions):
                                help="ProjectorParams.LossParams.end_value")
         subparser.add_argument("--method", default="hard", type=str, nargs="+",
                                help="ProjectorParams.LossParams.weight_update")
+        subparser.add_argument("--scheduler_type", default="linear", type=str, choices=["linear", "square"], nargs="+",
+                               help="ProjectorParams.LossParams.type")
 
     def parse(self, args):
         self.add(f"ProjectorParams.LossParams.begin_value=[{','.join([str(x) for x in args.begin_value])}]")
         self.add(f"ProjectorParams.LossParams.end_value=[{','.join([str(x) for x in args.end_value])}]")
         self.add(f"ProjectorParams.LossParams.weight_update=[{','.join(args.method)}]")
+        self.add(f"ProjectorParams.LossParams.type=[{','.join(args.scheduler_type)}]")
 
 
 class BindSemiSupervisedLearning(_BindOptions):

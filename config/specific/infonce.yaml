@@ -12,6 +12,7 @@ ProjectorParams:
   LossParams:
     contrast_on: [ partition ]
     temperature: 0.07
+    type: linear
     begin_value: 10000
     end_value: 10000
     weight_update: hard

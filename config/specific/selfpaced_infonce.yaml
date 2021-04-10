@@ -10,9 +10,6 @@ ProjectorParams:
   GlobalParams:
     feature_names: [ Conv5, ]
     feature_importance: [ 1 ]
-    head_type: mlp
-    normalize: true
-    pool_name: adaptive_avg # adaptive_max #identical
 
   LossParams:
     contrast_on: [ partition ]
@@ -20,5 +17,6 @@ ProjectorParams:
     begin_value: 3
     end_value: 14
     weight_update: hard
+    type: linear
 
   Weight: 0.1

@@ -26,8 +26,8 @@ class PretrainInfoNCETrainer(_PretrainTrainerMixin, InfoNCETrainer):
         for self._cur_epoch in range(self._start_epoch, self._max_epoch):
             cur_score: float
             train_result = self.run_epoch()
-            if run_monitor:
-                if self._config["Data"]["name"] == "acdc" and self._cur_epoch % 10 == 9:
+            if run_monitor and self._cur_epoch < 40:
+                if self._config["Data"]["name"] == "acdc" and self._cur_epoch % 6 == 1:
                     self.run_monitor()
 
             # update lr_scheduler
@@ -55,4 +55,3 @@ class PretrainUDAIICTrainer(_PretrainTrainerMixin, UDAIICTrainer):
 
     def _set_epocher_class(self, epocher_class=UDAIICPretrainEpocher):
         super(PretrainUDAIICTrainer, self)._set_epocher_class(epocher_class)
-

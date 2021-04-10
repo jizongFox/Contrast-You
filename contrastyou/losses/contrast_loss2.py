@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import torch
 from deepclustering2.configparser._utils import get_config  # noqa
 from deepclustering2.meters2 import AverageValueMeter
-from deepclustering2.schedulers.customized_scheduler import LinearScheduler
+from deepclustering2.schedulers.customized_scheduler import LinearScheduler, ExpScheduler
 from deepclustering2.writer import SummaryWriter
 from loguru import logger
 from torch import Tensor, nn
@@ -155,17 +155,20 @@ class SelfPacedSupConLoss(nn.Module):
         message = f"{self.__class__.__name__} with T: {self._t}, method: {self._weight_update} gamma: {self.__gamma}"
         return message
 
-    def __init__(self, temperature=0.07, weight_update="hard", begin_value=1e6, end_value=1e6, **kwargs):
+    def __init__(self, temperature=0.07, weight_update="hard", type="linear", begin_value=1e6, end_value=1e6,
+                 **kwargs):
         super().__init__()
         self._t = temperature
         self._weight_update = weight_update
         self.__gamma = 1e6
+        self._scheduler_type = type
         logger.info(f"initializing {self.__class__.__name__} with t: {self._t} ")
         self._chosen_percentage_meter = AverageValueMeter()
         self._real_chosen_percentage_meter = AverageValueMeter()
         config = deepcopy(get_config(scope="base"))
-
-        self._scheduler = LinearScheduler(max_epoch=config["Trainer"]["max_epoch"], begin_value=begin_value,
+        scheduler_class = {"linear": LinearScheduler, "square": ExpScheduler}[type]
+        logger.debug(f"creating {scheduler_class} scheduler for {self.__class__.__name__}")
+        self._scheduler = scheduler_class(max_epoch=config["Trainer"]["max_epoch"], begin_value=begin_value,
                                           end_value=end_value)
 
         self._scheduler_tracker = AverageValueMeter()
@@ -248,7 +251,7 @@ class SelfPacedSupConLoss(nn.Module):
             weight = (l_i_j <= gamma).float()
         else:
             weight = torch.max(1 - 1 / gamma * l_i_j, torch.zeros_like(l_i_j))
-        self.weight = weight
+        self.weight = weight * pos_mask
         assert torch.logical_and(weight >= 0, weight <= 1).any()
         self._chosen_percentage_meter.add(weight.mean().item())
 
@@ -293,6 +296,7 @@ class SelfPacedSupConLoss(nn.Module):
 
     def epoch_start(self):
         gamma = self._scheduler.value
+        self._scheduler_tracker.reset()
         self._scheduler_tracker.add(gamma)
         self.set_gamma(gamma)
         self._chosen_percentage_meter.reset()

@@ -5,12 +5,6 @@ from itertools import cycle
 from typing import Callable, Iterable, List
 
 import torch
-from contrastyou.featextractor.unet import FeatureExtractor
-from contrastyou.helper import average_iter, weighted_average_iter
-from contrastyou.losses.contrast_loss2 import is_normalized, SupConLoss1
-from contrastyou.losses.iic_loss import _ntuple  # noqa
-from contrastyou.projectors.heads import ProjectionHead
-from contrastyou.projectors.nn import Normalize
 from deepclustering2.configparser._utils import get_config  # noqa
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.decorator.decorator import _disable_tracking_bn_stats as disable_bn  # noqa
@@ -21,11 +15,17 @@ from deepclustering2.schedulers.customized_scheduler import RampScheduler
 from deepclustering2.type import T_loss
 from deepclustering2.writer.SummaryWriter import get_tb_writer
 from loguru import logger
-from semi_seg.utils import ContrastiveProjectorWrapper
 from torch import Tensor
 from torch import nn
 from torch.nn import functional as F
 
+from contrastyou.featextractor.unet import FeatureExtractor
+from contrastyou.helper import average_iter, weighted_average_iter
+from contrastyou.losses.contrast_loss2 import is_normalized, SupConLoss1
+from contrastyou.losses.iic_loss import _ntuple  # noqa
+from contrastyou.projectors.heads import ProjectionHead
+from contrastyou.projectors.nn import Normalize
+from semi_seg.utils import ContrastiveProjectorWrapper
 from ._helper import unl_extractor, __AssertWithUnLabeledData
 from ._mixins import _FeatureExtractorMixin, _MeanTeacherMixin
 from .base import TrainEpocher
@@ -264,13 +264,15 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
         assert len(config["ProjectorParams"]["GlobalParams"]["feature_names"]) == len(infoNCE_criterion)
 
         self._projectors_wrapper: ContrastiveProjectorWrapper = projectors_wrapper  # noqa
-        self._encoder_criterion_generator: T_loss = cycle(infoNCE_criterion)  # noqa
-        self._normal_criterion: T_loss = SupConLoss1()
+        self._encoder_criterion_generator = cycle(infoNCE_criterion)  # noqa
+        self._normal_criterion = SupConLoss1()
 
     def set_global_contrast_method(self, *, contrast_on_list):
         assert isinstance(contrast_on_list, (tuple, list))
         for e in contrast_on_list:
             assert e in ("partition", "patient", "cycle"), e
+        config = get_config(scope="base")
+        assert len(config["ProjectorParams"]["GlobalParams"]["feature_names"]) == len(contrast_on_list)
         self.__encoder_contrast_name_list = contrast_on_list
         logger.debug("{} set global contrast method to be {}", self.__class__.__name__, ", ".join(contrast_on_list))
         self._encoder_contrastive_name_generator = cycle(self.__encoder_contrast_name_list)
@@ -444,8 +446,7 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
             label_group=label_group
         )
 
-    def _dense_infonce_for_encoder(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
-                                   label_group):
+    def _dense_infonce_for_encoder(self, *, feature_name, proj_tf_feature, proj_feature_tf, **kwargs):
         """here the dense prediction does not consider the spatial neighborhood"""
         # the mask of this dense metric would be image-wise simclr
         # usually the spatial size of feature map is very small
@@ -468,8 +469,7 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
                 return self._normal_criterion(proj_feature_tf.reshape(-1, c), proj_tf_feature.reshape(-1, c))
         return self._normal_criterion(proj_feature_tf.reshape(-1, c), proj_tf_feature.reshape(-1, c))
 
-    def _dense_infonce_for_decoder(self, *, feature_name, proj_tf_feature, proj_feature_tf, partition_group,
-                                   label_group):
+    def _dense_infonce_for_decoder(self, *, feature_name, proj_tf_feature, proj_feature_tf, **kwargs):
         """here the dense predictions consider the neighborhood information, and the content similarity"""
         assert "Up" in feature_name, feature_name
         b, c, *hw = proj_feature_tf.shape

@@ -1,10 +1,10 @@
 from copy import deepcopy
-from typing import Tuple, Type
+from typing import Tuple, Type, List
 
 from deepclustering2.loss import KL_div
 from deepclustering2.meters2 import EpochResultDict
 from deepclustering2.models import ema_updater
-from deepclustering2.schedulers.customized_scheduler import RampScheduler
+from deepclustering2.schedulers.customized_scheduler import RampScheduler, LinearScheduler
 from torch import nn
 
 from contrastyou.losses.contrast_loss2 import SelfPacedSupConLoss as SupConLoss
@@ -343,7 +343,8 @@ class InfoNCEMeanTeacherTrainer(InfoNCETrainer):
             c.epoch_start()
         epocher.init(teacher_model=self._teacher_model, reg_criterion=self._reg_criterion,
                      ema_updater=self._ema_updater, projectors_wrapper=self._projector,
-                     infoNCE_criterion=self._encoder_criterion_list, infonce_weight=self._reg_weight, mt_weight=self._mt_weight)
+                     infoNCE_criterion=self._encoder_criterion_list, infonce_weight=self._reg_weight,
+                     mt_weight=self._mt_weight)
         epocher.set_global_contrast_method(contrast_on_list=self.__encoder_method__)
         result = epocher.run()
         for i, c in enumerate(self._encoder_criterion_list):

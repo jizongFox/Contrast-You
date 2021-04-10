@@ -106,6 +106,7 @@ elif args.stage == "selfpaced":
     assert len(gfeature_names) == len(contrast_on)
     begin_value, end_value = args.begin_value, args.end_value
     method = args.method
+    type = args.scheduler_type
 
     save_dir += f"/sample_num_{group_sample_num}/"
 
@@ -123,7 +124,8 @@ elif args.stage == "selfpaced":
              f" {SharedParams} {parser1.get_option_str()} " \
              f" {parser2.get_option_str()} " \
              f" {parser3.get_option_str()} " \
-             f" Trainer.save_dir={save_dir}/{subpath}/self-paced/method_{'_'.join(method)}/{get_loss_str(begin_value, end_value)} " \
+             f" Trainer.save_dir={save_dir}/{subpath}/self-paced/method_{'_'.join(method)}/" \
+             f"{get_loss_str(begin_value, end_value)}/type_{'_'.join(type)} " \
              f" --opt_config_path ../config/specific/pretrain.yaml ../config/specific/selfpaced_infonce.yaml"
     job_array = [string]
 
