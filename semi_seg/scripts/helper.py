@@ -3,6 +3,7 @@ from typing import Dict, Any
 
 import numpy as np
 from deepclustering2.utils import gethash, write_yaml
+from pathlib import Path
 
 dataset_name2class_numbers = {
     "acdc": 4,
@@ -108,7 +109,7 @@ class BindSelfPaced(_BindOptions):
                                help="ProjectorParams.LossParams.end_value")
         subparser.add_argument("--method", default="hard", type=str, nargs="+",
                                help="ProjectorParams.LossParams.weight_update")
-        subparser.add_argument("--scheduler_type", default="linear", type=str,
+        subparser.add_argument("--scheduler_type", default=["linear"], type=str,
                                choices=["linear", "square", "inversesquare"], nargs="+",
                                help="ProjectorParams.LossParams.type")
 
@@ -128,9 +129,10 @@ def dump_config(config: Dict[str, Any]):
     import string
     import random
     import os
-    tmp_path = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10)) + ".yaml"
-    write_yaml(config, save_dir="./", save_name=tmp_path, force_overwrite=True)
-    tmp_path = os.path.abspath(tmp_path)
+    tmp_path = ''.join(random.choices(string.ascii_uppercase + string.digits, k=20)) + ".yaml"
+    Path("./.tmp").mkdir(parents=True, exist_ok=True)
+    write_yaml(config, save_dir="./.tmp", save_name=tmp_path, force_overwrite=True)
+    tmp_path = os.path.abspath("./.tmp/"+tmp_path)
     yield tmp_path
 
     def remove():

@@ -44,7 +44,7 @@ args = parser.parse_args()
 if args.dataset_name == "acdc":
     labeled_ratios = [0.01, 0.015, 0.025]
 elif args.dataset_name == "prostate":
-    labeled_ratios = [0.05, 0.08, 0.1, 0.13, ]
+    labeled_ratios = [0.08, 0.1, 0.13, ]
 else:
     raise NotImplemented(args.dataset_name)
 
@@ -86,6 +86,7 @@ if args.stage == "baseline":
         f"Trainer.name=finetune Trainer.save_dir={save_dir}/baseline/tra/ratio_{str(x)} "
         f"Data.labeled_data_ratio={x}  Data.unlabeled_data_ratio={1 - x} " for x in sorted({*labeled_ratios, 1.0})
     ]
+    job_array = [" && ".join(job_array)]
 
 elif args.stage == "infonce":
     info_weight = args.info_weight
@@ -97,6 +98,7 @@ elif args.stage == "infonce":
                      f" Data.labeled_data_ratio={x}  "
                      f" Data.unlabeled_data_ratio={1 - x} "
                      f" --opt_config_path {opt_config_path}" for x in labeled_ratios]
+    job_array = [" && ".join(job_array)]
 
 elif args.stage == "meanteacher":
     mt_weight = args.mt_weight
@@ -108,6 +110,8 @@ elif args.stage == "meanteacher":
         f" Data.labeled_data_ratio={x}  Data.unlabeled_data_ratio={1 - x} "
         f" --opt_config_path ../config/specific/mt.yaml" for x in labeled_ratios
     ]
+
+    job_array = [" && ".join(job_array)]
 
 elif args.stage == "meanteacherinfonce":
     mt_weight = args.mt_weight
@@ -122,6 +126,8 @@ elif args.stage == "meanteacherinfonce":
                      f" Data.labeled_data_ratio={x}  "
                      f" Data.unlabeled_data_ratio={1 - x} "
                      f" --opt_config_path {opt_config_path} ../config/specific/mt.yaml " for x in labeled_ratios]
+
+    job_array = [" && ".join(job_array)]
 
 job_submiter = JobSubmiter(project_path="../", on_local=args.on_local, time=args.time, )
 

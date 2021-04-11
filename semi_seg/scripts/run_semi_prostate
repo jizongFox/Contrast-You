@@ -1,28 +1,40 @@
 #!/bin/bash
-base_folder=/lustre04/scratch/jizong/Contrast-You/semi_seg/runs/0401_prostate/githash_2756201
-save_dir=0404_prostate
+#!/bin/bash
+#base_folder=/lustre04/scratch/jizong/Contrast-You/semi_seg/runs/0401_acdc/githash_4519149/acdc
+base_folder=/home/jizong/Workspace/Contrast-You/semi_seg/runs/0401/githash_2756201
+save_dir=prostate_semi
+
+cmd_cmd="--show_cmd"
 # random_seed 10
-bash run_semi \
-  ${base_folder}/prostate/random_seed_10/sample_num_5/global_Conv5_1.0/contrast_on_partition/self-paced/method_hard/loss_params*5.0_16.0 \
-  ${save_dir}/contrast_on_parition/self/10
 
-bash run_semi \
-  ${base_folder}/prostate/random_seed_10/sample_num_5/global_Conv5_1.0/contrast_on_partition/infonce \
-  ${save_dir}/contrast_on_parition/infonce/10
+source ./run_semi $save_dir/semi_supervised \
+  prostate \
+  $cmd_cmd \
+  10
 
-bash run_semi \
-  ${base_folder}/prostate/random_seed_10/sample_num_5/global_Conv5_1.0/contrast_on_patient/self-paced/method_hard/loss_params*4.0_16.0 \
-  ${save_dir}/contrast_on_patient/self/10
+# running all things without depending on the checkpoint
+run_null_checkpoint() {
+  run_baseline no_checkpoint_path null
+  run_mt no_checkpoint_path null
+}
 
-bash run_semi \
-  ${base_folder}/prostate/random_seed_10/sample_num_5/global_Conv5_1.0/contrast_on_patient/infonce \
-  ${save_dir}/contrast_on_patient/infonce/10
+run_semi_on_checkpoint() {
+  run_baseline $1 yes $2
+  run_mt $1 yes $2
+  run_infonce $1 yes $2
+  run_infonce $1 null $2
+  run_mt_infonce $1 yes $2
+  run_mt_infonce $1 null $2
+}
 
-# all
-bash run_semi \
-  ${base_folder}/prostate/random_seed_10/sample_num_5/global_Conv5_Conv5_1.0_0.05/contrast_on_partition_patient/self-paced/method_hard_hard/loss_params*4.0_14.0*4.0_14.0 \
-  ${save_dir}/contrast_on_all/self/10
+#run_null_checkpoint
+run_semi_on_checkpoint ${base_folder}/prostate/random_seed_10/sample_num_5/global_Conv5_1.0/contrast_on_partition/self-paced/method_hard/loss_params*5.0_16.0 \
+  contrast_on_parition/self
+run_semi_on_checkpoint ${base_folder}/prostate/random_seed_10/sample_num_5/global_Conv5_1.0/contrast_on_partition/infonce \
+  contrast_on_parition/infonce
 
-bash run_semi \
-  ${base_folder}/prostate/random_seed_10/sample_num_5/global_Conv5_Conv5_1.0_0.02/contrast_on_partition_patient/infonce \
-  ${save_dir}/contrast_on_all/infonce/10
+run_semi_on_checkpoint ${base_folder}/prostate/random_seed_10/sample_num_5/global_Conv5_1.0/contrast_on_patient/self-paced/method_hard/loss_params*4.0_16.0 \
+  contrast_on_patient/self
+
+run_semi_on_checkpoint ${base_folder}/prostate/random_seed_10/sample_num_5/global_Conv5_1.0/contrast_on_patient/infonce \
+  contrast_on_patient/infonce

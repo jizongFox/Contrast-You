@@ -189,7 +189,7 @@ function run_multi_selfpaced {
 
   python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -b ${num_batches} -s ${rand_seed} --time=4 \
     selfpaced --global_features Conv5 Conv5 --global_importance $1 $2 $3 --contrast_on partition patient cycle -g=${group_num} \
-    -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value 10000 4 4 --end_value 10000 13 50 --method hard hard soft --monitor=${monitor}
+    -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value 2.0 4 4 --end_value 50 13 50 --method soft hard soft --monitor=${monitor}
 }
 #run_multi_selfpaced 1 0.1 0.1
 #run_multi_selfpaced 1 0.5 0.1

@@ -17,6 +17,6 @@ ProjectorParams:
     begin_value: 3
     end_value: 14
     weight_update: hard
-    type: linear
+    type: inversesquare
 
   Weight: 0.1
