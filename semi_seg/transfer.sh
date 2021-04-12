@@ -10,8 +10,8 @@ local_folder=./runs
 #  "${local_folder}/0402_semi_acdc/"
 
 rsync -azP --exclude "*/*.png"  --exclude "*/*.pth" \
-  --exclude "*/*.pth"  \
-  beluga:/lustre04/scratch/jizong/Contrast-You/semi_seg/runs/041* \
+  --exclude "*/patient*"  \
+  root@jizong.buzz:/root/main/runs/0412_prostate \
   "${local_folder}/"
 
 #rsync -azP --exclude "*/*.png"  --exclude "*/*.pth" \
