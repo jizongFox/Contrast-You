@@ -59,6 +59,6 @@ def main(root_name, anchor_name, postive_name):
 
 if __name__ == '__main__':
     main(
-        "/home/jizong/Workspace/Contrast-You/semi_seg/runs/0411/demo/soften_case1/type_linear/"
+        "/home/jizong/Workspace/Contrast-You/semi_seg/runs/0411/demo/soften_case1/type_inversesquare/"
 
-        , "patient004_00", "patient004_01")
+        , "patient004_00", "patient006_01")

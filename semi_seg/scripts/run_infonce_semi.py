@@ -136,7 +136,7 @@ job_submiter = JobSubmiter(project_path="../", on_local=args.on_local, time=args
 for j in job_array:
     job_submiter.prepare_env(
         [
-            f"source {PROJECT_PATH}/venv/bin/activate ",
+            f"source ~/venv/bin/activate ",
             "export OMP_NUM_THREADS=1",
             "export PYTHONOPTIMIZE=1",
             "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
