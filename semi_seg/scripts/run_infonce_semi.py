@@ -4,7 +4,7 @@ import argparse
 
 from deepclustering2.cchelper import JobSubmiter
 from deepclustering2.utils import load_yaml
-
+from contrastyou import PROJECT_PATH
 from semi_seg.scripts.helper import dataset_name2class_numbers, ft_lr_zooms, __git_hash__, accounts, dump_config
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -128,13 +128,15 @@ elif args.stage == "meanteacherinfonce":
                      f" --opt_config_path {opt_config_path} ../config/specific/mt.yaml " for x in labeled_ratios]
 
     job_array = [" && ".join(job_array)]
+else:
+    raise NotImplemented
 
 job_submiter = JobSubmiter(project_path="../", on_local=args.on_local, time=args.time, )
 
 for j in job_array:
     job_submiter.prepare_env(
         [
-            "source ../venv/bin/activate ",
+            f"source {PROJECT_PATH}/venv/bin/activate ",
             "export OMP_NUM_THREADS=1",
             "export PYTHONOPTIMIZE=1",
             "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",

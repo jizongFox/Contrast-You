@@ -1,9 +1,9 @@
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Dict, Any
 
 import numpy as np
 from deepclustering2.utils import gethash, write_yaml
-from pathlib import Path
 
 dataset_name2class_numbers = {
     "acdc": 4,
@@ -19,7 +19,8 @@ ft_lr_zooms = {"acdc": 0.0000001,
 pre_lr_zooms = {"acdc": 0.0000005, "prostate": 0.0000005}
 
 # CC things
-__accounts = ["def-chdesa", "rrg-mpederso", "def-mpederso"]
+# __accounts = ["def-chdesa", "rrg-mpederso", "def-mpederso"]
+__accounts = ["rrg-mpederso",]
 
 
 def account_iterable(name_list):
@@ -132,7 +133,7 @@ def dump_config(config: Dict[str, Any]):
     tmp_path = ''.join(random.choices(string.ascii_uppercase + string.digits, k=20)) + ".yaml"
     Path("./.tmp").mkdir(parents=True, exist_ok=True)
     write_yaml(config, save_dir="./.tmp", save_name=tmp_path, force_overwrite=True)
-    tmp_path = os.path.abspath("./.tmp/"+tmp_path)
+    tmp_path = os.path.abspath("./.tmp/" + tmp_path)
     yield tmp_path
 
     def remove():
