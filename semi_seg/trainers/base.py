@@ -1,33 +1,35 @@
 import os
+from itertools import chain
 from pathlib import Path
 from typing import Tuple, Type
 
 import torch
-from loguru import logger
-from torch import nn
-from torch import optim
-
-from contrastyou import PROJECT_PATH
 from deepclustering2 import optim
 from deepclustering2.meters2 import EpochResultDict
 from deepclustering2.meters2 import StorageIncomeDict
 from deepclustering2.schedulers import GradualWarmupScheduler
 from deepclustering2.trainer2 import Trainer
 from deepclustering2.type import T_loader, T_loss
+from loguru import logger
+from torch import nn
+from torch import optim
+
+from contrastyou import PROJECT_PATH
 from semi_seg.epochers import TrainEpocher, EvalEpocher, FineTuneEpocher, InferenceEpocher
-from itertools import chain
 
 
 class SemiTrainer(Trainer):
     RUN_PATH = str(Path(PROJECT_PATH) / "semi_seg" / "runs")  # noqa
 
-    def __init__(self, model: nn.Module, labeled_loader: T_loader, unlabeled_loader: T_loader,
-                 val_loader: T_loader, sup_criterion: T_loss, save_dir: str = "base", max_epoch: int = 100,
+    def __init__(self, *, model: nn.Module, labeled_loader: T_loader, unlabeled_loader: T_loader,
+                 val_loader: T_loader, test_loader: T_loader, sup_criterion: T_loss, save_dir: str = "base",
+                 max_epoch: int = 100,
                  num_batches: int = 100, device: str = "cpu", configuration=None, **kwargs):
         super().__init__(model, save_dir, max_epoch, num_batches, device, configuration)
         self._labeled_loader = labeled_loader
         self._unlabeled_loader = unlabeled_loader
         self._val_loader = val_loader
+        self._test_loader = test_loader
         self._sup_criterion = sup_criterion
         self.__initialized__ = False
         self._feature_importance, self.feature_positions = None, None
@@ -68,7 +70,7 @@ class SemiTrainer(Trainer):
         optim_dict = self._config["Optim"]
         self._optimizer = optim.__dict__[optim_dict["name"]](
             params=self._model.parameters(),
-            **{k: v for k, v in optim_dict.items() if k != "name" and k !="pre_lr" and k!="ft_lr"}
+            **{k: v for k, v in optim_dict.items() if k != "name" and k != "pre_lr" and k != "ft_lr"}
         )
 
     def _init_optimizer_advance(self):
@@ -128,8 +130,8 @@ class SemiTrainer(Trainer):
         return result
 
     # run eval
-    def _eval_epoch(self, *args, **kwargs) -> Tuple[EpochResultDict, float]:
-        evaler = EvalEpocher(self._model, val_loader=self._val_loader, sup_criterion=self._sup_criterion,
+    def _eval_epoch(self, *, loader: T_loader, **kwargs) -> Tuple[EpochResultDict, float]:
+        evaler = EvalEpocher(self._model, val_loader=loader, sup_criterion=self._sup_criterion,
                              cur_epoch=self._cur_epoch, device=self._device)
         result, cur_score = evaler.run()
         return result, cur_score
@@ -147,12 +149,13 @@ class SemiTrainer(Trainer):
             train_result = self.run_epoch()
             if self.on_master():
                 with torch.no_grad():
-                    eval_result, cur_score = self.eval_epoch()
+                    val_result, _ = self.eval_epoch(loader=self._val_loader)
+                    eval_result, cur_score = self.eval_epoch(loader=self._test_loader)
             # update lr_scheduler
             if hasattr(self, "_scheduler") and hasattr(self._scheduler, "step") and callable(self._scheduler.step):
                 self._scheduler.step()
             if self.on_master():
-                storage_per_epoch = StorageIncomeDict(tra=train_result, val=eval_result)
+                storage_per_epoch = StorageIncomeDict(tra=train_result, val=val_result, test=eval_result)
                 self._storage.put_from_dict(storage_per_epoch, self._cur_epoch)
                 self._writer.add_scalar_with_StorageDict(storage_per_epoch, self._cur_epoch)
                 # save_checkpoint
@@ -177,7 +180,7 @@ class SemiTrainer(Trainer):
                 assert checkpoint.exists()
                 checkpoint = checkpoint / "best.pth"
             self.load_state_dict_from_path(str(checkpoint), strict=True)
-        evaler = InferenceEpocher(self._model, val_loader=self._val_loader, sup_criterion=self._sup_criterion,
+        evaler = InferenceEpocher(self._model, val_loader=self._test_loader, sup_criterion=self._sup_criterion,
                                   cur_epoch=self._cur_epoch, device=self._device)
         evaler.init(save_dir=self._save_dir)
         result, cur_score = evaler.run()

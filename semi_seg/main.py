@@ -16,6 +16,7 @@ from contrastyou.arch import UNet
 from contrastyou.helper import extract_model_state_dict
 from semi_seg.dsutils import get_dataloaders
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos
+from semi_seg.utils import create_val_loader
 
 warnings.filterwarnings("ignore")
 
@@ -39,7 +40,8 @@ def main():
 @logger.catch(reraise=True)
 def main_worker(rank, ngpus_per_node, config, port):  # noqa
 
-    labeled_loader, unlabeled_loader, val_loader = get_dataloaders(config)
+    labeled_loader, unlabeled_loader, test_loader = get_dataloaders(config)
+    val_loader, test_loader = create_val_loader(test_loader=test_loader)
 
     config_arch = deepcopy(config["Arch"])
     model_checkpoint = config_arch.pop("checkpoint", None)
@@ -57,7 +59,7 @@ def main_worker(rank, ngpus_per_node, config, port):  # noqa
 
     trainer = Trainer(
         model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
-        val_loader=val_loader, sup_criterion=KL_div(verbose=False),
+        val_loader=val_loader, test_loader=test_loader, sup_criterion=KL_div(verbose=False),
         configuration={**config, **{"GITHASH": cur_githash}},
         **config["Trainer"]
     )

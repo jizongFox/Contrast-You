@@ -20,6 +20,8 @@ for i in x:
 plt.plot(x, lr1, label="Square")
 plt.plot(x, lr2, label="Square root")
 plt.plot(x, lr3, label="Linear")
+plt.xlabel("Epochs")
+plt.ylabel("$\gamma$")
 plt.legend()
 plt.grid()
 plt.show()

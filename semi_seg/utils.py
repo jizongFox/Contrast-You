@@ -1,8 +1,13 @@
+from copy import deepcopy
 from itertools import repeat
 from typing import List, Union
 
+import numpy as np
+from deepclustering2.dataset import PatientSampler
+from deepclustering2.utils import fix_all_seed_within_context
 from torch import nn, Tensor
 from torch._six import container_abcs
+from torch.utils.data import DataLoader
 
 from contrastyou.arch import UNet
 from contrastyou.losses.iic_loss import IIDLoss as _IIDLoss, IIDSegmentationSmallPathLoss
@@ -11,7 +16,7 @@ from contrastyou.losses.wrappers import LossWrapperBase
 from contrastyou.projectors.heads import DenseClusterHead as _LocalClusterHead, ClusterHead as _EncoderClusterHead, \
     DenseProjectionHead
 from contrastyou.projectors.heads import ProjectionHead
-from contrastyou.projectors.wrappers import _ProjectorWrapperBase, CombineWrapperBase  # noqa
+from contrastyou.projectors.wrappers import _ProjectorWrapperBase, CombineWrapperBase
 
 
 def get_model(model):
@@ -257,3 +262,77 @@ class PICALossWrapper(LossWrapperBase):
     @property
     def feature_names(self):
         return self._encoder_features + self._decoder_features
+
+
+# decoder IIC projectors
+class _LocalClusterWrapper(_ProjectorWrapperBase):
+    def __init__(
+        self,
+        feature_names: Union[str, List[str]],
+        head_types: Union[str, List[str]] = "linear",
+        num_subheads: Union[int, List[int]] = 5,
+        num_clusters: Union[int, List[int]] = 10,
+        normalize: Union[bool, List[bool]] = False,
+        temperature: Union[float, List[float]] = 1.0,
+    ) -> None:
+        super().__init__()
+        if isinstance(feature_names, str):
+            feature_names = [feature_names, ]
+        self._feature_names = feature_names
+
+        n_pair = _nlist(len(feature_names))
+
+        self._head_types = n_pair(head_types)
+        self._num_subheads = n_pair(num_subheads)
+        self._num_clusters = n_pair(num_clusters)
+        self._normalize = n_pair(normalize)
+        self._temperature = n_pair(temperature)
+
+        for f, h, c, s, n, t in zip(self._feature_names, self._head_types, self._num_clusters, self._num_subheads,
+                                    self._normalize, self._temperature):
+            self._projectors[f] = self._create_clusterheads(
+                input_dim=UNet.dimension_dict[f],
+                head_type=h,
+                num_clusters=c,
+                num_subheads=s,
+                normalize=n,
+                T=t
+            )
+
+    @staticmethod
+    def _create_clusterheads(*args, **kwargs):
+        return _LocalClusterHead(*args, **kwargs)
+
+
+def create_val_loader(*, test_loader):
+    test_dataset = test_loader.dataset
+    patient_list = sorted(test_dataset.show_group_set())
+    patient_length = len(patient_list)
+
+    def extract_dict_based_on_patient(patient_list, dataset):
+        file_name_dict = dataset._filenames
+        new_dict = {}
+        for k, v in file_name_dict.items():
+            new_dict[k] = [m for m in v if dataset._get_group(m) in patient_list]
+        return new_dict
+
+    with fix_all_seed_within_context(1):
+        random_patient = np.random.permutation(patient_list)
+    val_patient = random_patient[:int(patient_length * 0.35)]
+    test_patient = random_patient[int(patient_length * 0.35):]
+    assert len(val_patient) > 0
+    assert len(test_patient) > 0
+    assert set(test_patient) & set(val_patient) == set()
+    test_dataset = deepcopy(test_loader.dataset)
+    test_dataset._filenames = extract_dict_based_on_patient(test_patient, test_dataset)
+
+    val_dataset = deepcopy(test_loader.dataset)
+    val_dataset._filenames = extract_dict_based_on_patient(val_patient, val_dataset)
+    val_patient_sampler = PatientSampler(val_dataset, grp_regex=val_dataset._pattern)
+    val_dataloader = DataLoader(val_dataset, batch_sampler=val_patient_sampler, )
+
+    test_dataset = deepcopy(test_loader.dataset)
+    test_dataset._filenames = extract_dict_based_on_patient(test_patient, test_dataset)
+    test_patient_sampler = PatientSampler(test_dataset, grp_regex=test_dataset._pattern)
+    test_dataloader = DataLoader(test_dataset, batch_sampler=test_patient_sampler)
+    return val_dataloader, test_dataloader

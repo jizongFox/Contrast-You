@@ -16,6 +16,7 @@ from contrastyou.helper import extract_model_state_dict
 from semi_seg.dsutils import get_dataloaders
 from semi_seg.scripts.helper import pre_lr_zooms, ft_lr_zooms
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, FineTuneTrainer
+from semi_seg.utils import create_val_loader
 
 cur_githash = gethash(__file__)  # noqa
 
@@ -51,7 +52,8 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
                                   config["Trainer"].pop("ft_max_epoch", None)
 
     def pretrain():
-        labeled_loader, unlabeled_loader, val_loader = get_dataloaders(config)
+        labeled_loader, unlabeled_loader, test_loader = get_dataloaders(config)
+        val_loader, test_loader = create_val_loader(test_loader=test_loader)
 
         config_arch = deepcopy(config["Arch"])
         model_checkpoint = config_arch.pop("checkpoint", None)
@@ -71,7 +73,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
 
         trainer = Trainer(
             model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
-            val_loader=val_loader, sup_criterion=KL_div(verbose=False),
+            val_loader=val_loader, test_loader= test_loader,  sup_criterion=KL_div(verbose=False),
             configuration={**config, **{"GITHASH": cur_githash}},
             save_dir=os.path.join(base_save_dir, "pre"),
             **{k: v for k, v in config["Trainer"].items() if k != "save_dir" and k != "name"}
@@ -123,11 +125,12 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         if ft_max_epoch is not None:
             base_config["Trainer"]["max_epoch"] = int(ft_max_epoch)
 
-        labeled_loader, unlabeled_loader, val_loader = get_dataloaders(base_config)
+        labeled_loader, unlabeled_loader, test_loader = get_dataloaders(base_config)
+        val_loader, test_loader = create_val_loader(test_loader=test_loader)
 
         finetune_trainer = FineTuneTrainer(
             model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
-            val_loader=val_loader, sup_criterion=KL_div(verbose=False),
+            val_loader=val_loader, test_loader=test_loader, sup_criterion=KL_div(verbose=False),
             configuration={**base_config, **{"GITHASH": cur_githash}},
             save_dir=os.path.join(base_save_dir, "tra", f"ratio_{str(l_ratio)}"),
             **{k: v for k, v in base_config["Trainer"].items() if k != "save_dir"}

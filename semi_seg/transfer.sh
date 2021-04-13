@@ -11,8 +11,8 @@ local_folder=./runs
 
 rsync -azP --exclude "*/*.png"  --exclude "*/*.pth" \
   --exclude "*/patient*"  \
-  root@jizong.buzz:/root/main/runs/0412_prostate \
-  "${local_folder}/"
+  root@jizong.buzz:/root/main/runs/0413_prostate \
+  "${local_folder}"
 
 #rsync -azP --exclude "*/*.png"  --exclude "*/*.pth" \
 #  --exclude "*/*.pth" --exclude "*/features/*"  \

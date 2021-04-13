@@ -14,6 +14,7 @@ from contrastyou.arch import UNet
 from contrastyou.helper import extract_model_state_dict
 from semi_seg.dsutils import get_dataloaders
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, DirectTrainer
+from semi_seg.utils import create_val_loader
 
 cur_githash = gethash(__file__)  # noqa
 
@@ -59,11 +60,12 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         config["Data"]["labeled_data_ratio"] = labeled_ratio
         config["Data"]["unlabeled_data_ratio"] = 1 - labeled_ratio
 
-        labeled_loader, unlabeled_loader, val_loader = get_dataloaders(config)
+        labeled_loader, unlabeled_loader, test_loader = get_dataloaders(config)
+        val_loader, test_loader = create_val_loader(test_loader=test_loader)
 
         finetune_trainer = DirectTrainer(
             model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
-            val_loader=val_loader, sup_criterion=KL_div(verbose=False),
+            val_loader=val_loader, test_loader=test_loader,  sup_criterion=KL_div(verbose=False),
             configuration={**config, **{"GITHASH": cur_githash}},
             save_dir=os.path.join(base_save_dir, "tra",
                                   f"ratio_{str(labeled_ratio)}"),

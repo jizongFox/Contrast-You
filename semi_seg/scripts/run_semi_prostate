@@ -1,14 +1,14 @@
 #!/bin/bash
 #!/bin/bash
 #base_folder=/lustre04/scratch/jizong/Contrast-You/semi_seg/runs/0401_acdc/githash_4519149/acdc
-base_folder=/home/jizong/Workspace/Contrast-You/semi_seg/runs/0412_prostate/
+base_folder=/home/jizong/scratch/Contrast-You/semi_seg/runs/0412_prostate/
 save_dir=0412_prostate_semi
 
-cmd_cmd="--show_cmd"
+cmd_cmd="   "
 
 source ./run_semi $save_dir/semi_supervised \
   prostate \
-  $cmd_cmd \
+  "${cmd_cmd}" \
   10
 
 # running all things without depending on the checkpoint
@@ -25,7 +25,7 @@ run_semi_on_checkpoint() {
   run_mt_infonce $1 yes $2
 }
 
-#run_null_checkpoint
+run_null_checkpoint
 run_semi_on_checkpoint ${base_folder}/githash_ee29a2e/prostate/random_seed_10/sample_num_5/global_Conv5_1.0/contrast_on_partition/self-paced/method_soft/loss_params*2.0_50.0/type_inversesquare \
   contrast_on_parition/self
 run_semi_on_checkpoint ${base_folder}/githash_ee29a2e/prostate/random_seed_10/sample_num_5/global_Conv5_1.0/contrast_on_partition/infonce \
