@@ -4,7 +4,8 @@ import argparse
 
 from deepclustering2.cchelper import JobSubmiter
 from deepclustering2.utils import load_yaml
-from contrastyou import PROJECT_PATH
+
+from semi_seg import ratio_zoom
 from semi_seg.scripts.helper import dataset_name2class_numbers, ft_lr_zooms, __git_hash__, accounts, dump_config
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -41,12 +42,11 @@ meanteacherinfonce.add_argument("--config_path", required=True, help="configurat
 meanteacherinfonce.add_argument("--info_weight", default=1e-04, type=float, help="infonce weight coefficient")
 
 args = parser.parse_args()
-if args.dataset_name == "acdc":
-    labeled_ratios = [0.01, 0.015, 0.025]
-elif args.dataset_name == "prostate":
-    labeled_ratios = [0.08, 0.1, 0.13, ]
-else:
-    raise NotImplemented(args.dataset_name)
+
+labeled_ratios = ratio_zoom[args.dataset_name]
+
+if 1.0 in labeled_ratios:
+    labeled_ratios.remove(1.0)
 
 # setting common params
 dataset_name = args.dataset_name
@@ -140,8 +140,6 @@ for j in job_array:
             "export OMP_NUM_THREADS=1",
             "export PYTHONOPTIMIZE=1",
             "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
-            # "export LOGURU_LEVEL=INFO"
-            " echo $(which  python) ",
         ]
     )
     job_submiter.account = next(accounts)

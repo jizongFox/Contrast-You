@@ -14,6 +14,7 @@ from contrastyou import PROJECT_PATH
 from contrastyou.arch import UNet
 from contrastyou.arch.unet import arch_order
 from contrastyou.helper import extract_model_state_dict
+from semi_seg import ratio_zoom
 from semi_seg.dsutils import get_dataloaders
 from semi_seg.scripts.helper import pre_lr_zooms, ft_lr_zooms
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, FineTuneTrainer
@@ -141,10 +142,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
 
     with fix_all_seed_within_context(seed):
         pre_trainer, model, (from_, util_) = pretrain()
-    if config["Data"]["name"] == "acdc":
-        ratios = (0.01, 0.015, 0.025, 1.0)
-    else:
-        ratios = (0.05, 0.08, 0.1, 0.13, 1.0)
+    ratios = ratio_zoom[config["Data"]["name"]]
     for labeled_ratio in ratios:
         with fix_all_seed_within_context(seed):
             finetune(labeled_ratio)

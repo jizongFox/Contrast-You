@@ -13,6 +13,7 @@ from loguru import logger
 from contrastyou import PROJECT_PATH
 from contrastyou.arch import UNet
 from contrastyou.helper import extract_model_state_dict
+from semi_seg import ratio_zoom
 from semi_seg.dsutils import get_dataloaders
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, DirectTrainer
 from semi_seg.utils import create_val_loader
@@ -50,10 +51,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         assert trainer_name in ("finetune", "directtrain"), trainer_name
         base_model_checkpoint = deepcopy(model.state_dict())
 
-    if config["Data"]["name"] == "acdc":
-        ratios = (0.01, 0.015, 0.025, 1.0)
-    else:
-        ratios = (0.05, 0.08, 0.1, 0.13, 1.0)
+    ratios = ratio_zoom[config["Data"]["name"]]
 
     def finetune():
         model.load_state_dict(base_model_checkpoint)
@@ -66,7 +64,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
 
         finetune_trainer = DirectTrainer(
             model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
-            val_loader=val_loader, test_loader=test_loader,  sup_criterion=KL_div(verbose=False),
+            val_loader=val_loader, test_loader=test_loader, sup_criterion=KL_div(verbose=False),
             configuration={**config, **{"GITHASH": cur_githash}},
             save_dir=os.path.join(base_save_dir, "tra",
                                   f"ratio_{str(labeled_ratio)}"),

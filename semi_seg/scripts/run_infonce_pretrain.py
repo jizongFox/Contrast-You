@@ -3,7 +3,6 @@ import argparse
 from deepclustering2.cchelper import JobSubmiter
 from deepclustering2.utils import gethash
 
-from contrastyou import PROJECT_PATH
 from semi_seg.scripts.helper import dataset_name2class_numbers, ft_lr_zooms, BindPretrainFinetune, BindContrastive, \
     BindSelfPaced, accounts
 
@@ -142,8 +141,6 @@ for j in job_array:
             "export OMP_NUM_THREADS=1",
             "export PYTHONOPTIMIZE=1",
             "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
-            " echo $(which  python) "
-            # "export LOGURU_LEVEL=INFO"
         ]
     )
     job_submiter.account = next(accounts)
