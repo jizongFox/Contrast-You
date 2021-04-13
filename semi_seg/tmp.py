@@ -45,7 +45,7 @@ def plot_patient(folder):
 
 # plt.ioff()
 f1, f2 = plot_cycle(
-    "runs/0405_monitor/monitor/githash_ab6c96d/acdc/random_seed_10/sample_num_10/global_Conv5_1.0/contrast_on_cycle/infonce/projections/99")
+    "runs/0411/demo/soften_case1/type_square/projections/7")
 # f1, f2 = plot_cycle(
 #     "runs/0328/githash_3f7e6f2/acdc/random_seed_10/sample_num_10/"
 #     "global_Conv5_1.0/contrast_on_partition/self-paced/method_hard/loss_params*4.0_6.0/features/119")

@@ -142,6 +142,7 @@ for j in job_array:
             "export OMP_NUM_THREADS=1",
             "export PYTHONOPTIMIZE=1",
             "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
+            " echo $(which  python) "
             # "export LOGURU_LEVEL=INFO"
         ]
     )

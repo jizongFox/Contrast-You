@@ -42,7 +42,7 @@ def main(root_name, anchor_name, postive_name):
             gamma_evaluator = Gamma(1e6, 1e6,
                                     config["Trainer"]["max_epoch"])
 
-        for cur_epoch in folders[::2]:
+        for cur_epoch in folders[::]:
             criterion.set_gamma(gamma_evaluator(int(cur_epoch)))
             proj1, proj2 = load_patient(projector_folder=os.path.join(projection_folder, cur_epoch),
                                         anchor_name=anchor_name,
@@ -59,6 +59,6 @@ def main(root_name, anchor_name, postive_name):
 
 if __name__ == '__main__':
     main(
-        "/home/jizong/Workspace/Contrast-You/semi_seg/runs/0405_monitor/monitor/githash_ab6c96d/acdc/random_seed_10/sample_num_10/global_Conv5_1.0/contrast_on_partition/self-paced/method_soft/loss_params*5.0_40.0"
+        "/home/jizong/Workspace/Contrast-You/semi_seg/runs/0411/demo/soften_case1/type_linear/"
 
-        , "patient004_00", "patient006_01")
+        , "patient004_00", "patient004_01")

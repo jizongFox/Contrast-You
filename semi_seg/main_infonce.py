@@ -1,5 +1,6 @@
 import os
 import random
+import sys
 from copy import deepcopy
 from pathlib import Path
 
@@ -19,7 +20,7 @@ from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, FineTuneTrain
 from semi_seg.utils import create_val_loader
 
 cur_githash = gethash(__file__)  # noqa
-
+print(sys.path)
 trainer_zoos = {**base_trainer_zoos, **pre_trainer_zoos}
 
 
@@ -73,7 +74,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
 
         trainer = Trainer(
             model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
-            val_loader=val_loader, test_loader= test_loader,  sup_criterion=KL_div(verbose=False),
+            val_loader=val_loader, test_loader=test_loader, sup_criterion=KL_div(verbose=False),
             configuration={**config, **{"GITHASH": cur_githash}},
             save_dir=os.path.join(base_save_dir, "pre"),
             **{k: v for k, v in config["Trainer"].items() if k != "save_dir" and k != "name"}

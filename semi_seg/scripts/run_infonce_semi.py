@@ -141,6 +141,7 @@ for j in job_array:
             "export PYTHONOPTIMIZE=1",
             "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
             # "export LOGURU_LEVEL=INFO"
+            " echo $(which  python) ",
         ]
     )
     job_submiter.account = next(accounts)

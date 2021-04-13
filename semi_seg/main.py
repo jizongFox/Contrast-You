@@ -10,7 +10,7 @@ from deepclustering2.loss import KL_div
 from deepclustering2.utils import fix_all_seed_within_context
 from deepclustering2.utils import gethash
 from loguru import logger
-
+import sys
 from contrastyou import PROJECT_PATH
 from contrastyou.arch import UNet
 from contrastyou.helper import extract_model_state_dict
@@ -21,6 +21,7 @@ from semi_seg.utils import create_val_loader
 warnings.filterwarnings("ignore")
 
 cur_githash = gethash(__file__)  # noqa
+print(sys.path)
 
 trainer_zoos = {**base_trainer_zoos, **pre_trainer_zoos}
 

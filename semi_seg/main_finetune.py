@@ -1,5 +1,6 @@
 import os
 import random
+import sys
 from copy import deepcopy
 from pathlib import Path
 
@@ -17,7 +18,7 @@ from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, DirectTrainer
 from semi_seg.utils import create_val_loader
 
 cur_githash = gethash(__file__)  # noqa
-
+print(sys.path)
 trainer_zoos = {**base_trainer_zoos, **pre_trainer_zoos}
 
 
