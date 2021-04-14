@@ -104,11 +104,11 @@ function run_mt_infonce() {
 
   # repeat
   python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}/${prefix} -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-    --time=4 --arch_checkpoint=$checkpoint meanteacherinfonce --info_weight 0.1 --mt_weight 0.1 --config_path=${config_path}
+    --time=4 --arch_checkpoint=$checkpoint meanteacherinfonce --info_weight 0.1 --mt_weight 0.5 --config_path=${config_path}
 
   python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}/${prefix} -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-    --time=4 --arch_checkpoint=$checkpoint meanteacherinfonce --info_weight 0.2 --mt_weight 0.1 --config_path=${config_path}
+    --time=4 --arch_checkpoint=$checkpoint meanteacherinfonce --info_weight 0.2 --mt_weight 0.5 --config_path=${config_path}
 
   python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}/${prefix} -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
-    --time=4 --arch_checkpoint=$checkpoint meanteacherinfonce --info_weight 0.5 --mt_weight 0.1 --config_path=${config_path}
+    --time=4 --arch_checkpoint=$checkpoint meanteacherinfonce --info_weight 0.5 --mt_weight 0.5 --config_path=${config_path}
 }
