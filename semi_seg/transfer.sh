@@ -9,7 +9,7 @@ local_folder=./runs
 #  root@jizong.buzz:/root/main/runs/0402_semi/ \
 #  "${local_folder}/0402_semi_acdc/"
 
-rsync -azP --exclude "*/*.png"  --exclude "*/tra/*/*.pth" \
+rsync -azP --exclude "*/*.png"  --exclude "*/tra/*/*.pth" --exclude "*/*.pth" \
   --exclude "*/patient*"  \
   root@jizong.buzz:/root/main/runs/0416_prostate \
   "${local_folder}"

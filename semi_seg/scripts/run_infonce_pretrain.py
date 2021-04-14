@@ -2,7 +2,7 @@ import argparse
 
 from deepclustering2.cchelper import JobSubmiter
 from deepclustering2.utils import gethash
-
+import time
 from semi_seg.scripts.helper import dataset_name2class_numbers, ft_lr_zooms, BindPretrainFinetune, BindContrastive, \
     BindSelfPaced, accounts
 
@@ -135,6 +135,7 @@ else:
 job_submiter = JobSubmiter(project_path="../", on_local=args.on_local, time=args.time, )
 
 for j in job_array:
+    time.sleep(0.5)
     job_submiter.prepare_env(
         [
             f"source ~/venv/bin/activate ",

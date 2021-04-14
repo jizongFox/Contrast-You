@@ -1,6 +1,7 @@
 # this script gives the checkpoint and perform semi-supervised learning accordingly.
 # involving 1 patient, 2 patient, 4 patient for ACDC dataset.
 import argparse
+import time
 
 from deepclustering2.cchelper import JobSubmiter
 from deepclustering2.utils import load_yaml
@@ -134,6 +135,7 @@ else:
 job_submiter = JobSubmiter(project_path="../", on_local=args.on_local, time=args.time, )
 
 for j in job_array:
+    time.sleep(0.5)
     job_submiter.prepare_env(
         [
             f"source ~/venv/bin/activate ",
