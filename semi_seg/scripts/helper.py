@@ -12,7 +12,7 @@ dataset_name2class_numbers = {
     "mmwhs": 5,
 }
 ft_lr_zooms = {"acdc": 0.0000001,
-               "prostate": 0.00000025,
+               "prostate": 0.0000005,
                "spleen": 0.000001,
                "mmwhs": 0.000001}
 

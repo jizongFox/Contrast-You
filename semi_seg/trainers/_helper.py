@@ -2,6 +2,7 @@ from functools import partial
 from pathlib import Path
 from typing import List, Dict, Any, Callable
 
+from deepclustering2.dataloader.sampler import InfiniteRandomSampler
 from deepclustering2.dataset import PatientSampler
 from deepclustering2.meters2 import StorageIncomeDict, Storage, EpochResultDict
 from deepclustering2.tqdm import item2str
@@ -29,18 +30,21 @@ def _get_contrastive_dataloader(partial_loader, config):
     dataset_name = config["Data"]["name"]
     batch_sampler = None
     batch_size = contrastive_config["group_sample_num"] * {"acdc": 3, "prostate": 7}[dataset_name]
+    sampler = InfiniteRandomSampler(dataset, shuffle=True)
+
     if dataset_name == "acdc":
         # only group the acdc dataset
         batch_sampler = ContrastBatchSampler(
             dataset=dataset,
             **contrastive_config
-        )
+        )  # this batch sampler is without end
         batch_size = 1
+        sampler = None
 
     contrastive_loader = DataLoader(
-        dataset, batch_sampler=batch_sampler,
+        dataset, batch_sampler=batch_sampler, sampler=sampler,
         num_workers=num_workers, batch_size=batch_size,
-        pin_memory=True, shuffle=False if batch_sampler else True,
+        pin_memory=True, shuffle=False,
     )
 
     from contrastyou.augment import ACDCStrongTransforms
