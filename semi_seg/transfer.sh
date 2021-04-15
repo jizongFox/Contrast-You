@@ -10,7 +10,7 @@ local_folder=./runs
 #  "${local_folder}/0402_semi_acdc/"
 
 rsync -azP --exclude "*/*.png"  --exclude "*/tra/*/*.pth" --exclude "*/*.pth" \
-  --exclude "*/patient*"  \
+  --exclude "*/patient*"  --exclude "*/*calculquebec.ca"\
   root@jizong.buzz:/root/main/runs/0416_prostate_semi \
   "${local_folder}"
 
