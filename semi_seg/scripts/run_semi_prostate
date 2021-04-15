@@ -1,8 +1,8 @@
 #!/bin/bash
 #!/bin/bash
 #base_folder=/lustre04/scratch/jizong/Contrast-You/semi_seg/runs/0401_acdc/githash_4519149/acdc
-base_folder=/home/jizong/scratch/Contrast-You/semi_seg/runs/0414_prostate/
-save_dir=0412_prostate_semi
+base_folder=/home/jizong/scratch/Contrast-You/semi_seg/runs/0416_prostate
+save_dir=0416_prostate_semi
 
 cmd_cmd="   "
 
@@ -26,18 +26,18 @@ run_semi_on_checkpoint() {
 }
 
 run_null_checkpoint
-run_semi_on_checkpoint ${base_folder}/githash_4b043f8/prostate/random_seed_20/sample_num_5/global_Conv5_1.0/contrast_on_partition/self-paced/method_soft/loss_params*2.0_40.0/type_inversesquare \
+run_semi_on_checkpoint ${base_folder}/githash_e7481ca/prostate/random_seed_40/sample_num_5/global_Conv5_1.0/contrast_on_partition/self-paced/method_soft/loss_params*3.0_60.0/type_inversesquare \
   contrast_on_parition/self
-run_semi_on_checkpoint ${base_folder}/githash_a81b5ba/prostate/random_seed_40/sample_num_5/global_Conv5_1.0/contrast_on_partition/infonce \
+run_semi_on_checkpoint ${base_folder}/githash_e7481ca/prostate/random_seed_30/sample_num_5/global_Conv5_1.0/contrast_on_partition/infonce \
   contrast_on_parition/infonce
 
-run_semi_on_checkpoint ${base_folder}/githash_1116f18/prostate/random_seed_10/sample_num_5/global_Conv5_1.0/contrast_on_patient/self-paced/method_soft/loss_params*4.0_50.0/type_inversesquare \
+run_semi_on_checkpoint ${base_folder}/githash_e7481ca/prostate/random_seed_30/sample_num_5/global_Conv5_1.0/contrast_on_patient/self-paced/method_soft/loss_params*3.5_70.0/type_inversesquare \
   contrast_on_patient/self
 
-run_semi_on_checkpoint ${base_folder}/githash_a81b5ba/prostate/random_seed_40/sample_num_5/global_Conv5_1.0/contrast_on_patient/infonce \
+run_semi_on_checkpoint ${base_folder}/githash_c44b4dc/prostate/random_seed_20/sample_num_5/global_Conv5_1.0/contrast_on_patient/infonce \
   contrast_on_patient/infonce
 
-#run_semi_on_checkpoint ${base_folder}/githash_e69ffb4/prostate/random_seed_10/sample_num_5/global_Conv5_Conv5_1.0_0.02/contrast_on_partition_patient/self-paced/method_soft_soft/loss_params*1.0_60.0*1.5_40.0/type_inversesquare_inversesquare \
-#  contrast_on_all/self
-#run_semi_on_checkpoint ${base_folder}/githash_e69ffb4/prostate/random_seed_10/sample_num_5/global_Conv5_Conv5_1.0_0.05/contrast_on_partition_patient/infonce \
-#  contrast_on_all/infonce
+run_semi_on_checkpoint ${base_folder}/githash_c9bbc38/prostate/random_seed_10/sample_num_5/global_Conv5_Conv5_1.0_0.001/contrast_on_partition_patient/self-paced/method_soft_soft/loss_params*1.0_70.0*2.5_40.0/type_inversesquare_inversesquare \
+  contrast_on_all/self
+run_semi_on_checkpoint ${base_folder}/githash_c9bbc38/prostate/random_seed_10/sample_num_5/global_Conv5_Conv5_1.0_2.0/contrast_on_partition_patient/infonce \
+  contrast_on_all/infonce

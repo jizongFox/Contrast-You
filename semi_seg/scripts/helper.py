@@ -1,3 +1,4 @@
+import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Dict, Any
@@ -20,7 +21,32 @@ pre_lr_zooms = {"acdc": 0.0000005, "prostate": 0.0000005}
 
 # CC things
 # __accounts = ["def-chdesa", "rrg-mpederso", "def-mpederso"]
-__accounts = ["rrg-mpederso",]
+__accounts = ["rrg-mpederso", ]
+
+
+def run_jobs(job_submiter, job_array, args):
+    for j in job_array:
+        time.sleep(0.5)
+        job_submiter.prepare_env(
+            [
+                "module load python/3.8.2 ",
+                f"source ~/venv/bin/activate ",
+                'if [ $(which python) == "/usr/bin/python" ]',
+                "then",
+                "exit 1314520",
+                "fi",
+
+                "export OMP_NUM_THREADS=1",
+                "export PYTHONOPTIMIZE=1",
+                "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
+            ]
+        )
+        job_submiter.account = next(accounts)
+        print(j)
+        if not args.show_cmd:
+            code = job_submiter.run(j)
+            if code != 0:
+                raise RuntimeError
 
 
 def account_iterable(name_list):

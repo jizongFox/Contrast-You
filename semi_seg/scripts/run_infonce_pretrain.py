@@ -2,9 +2,9 @@ import argparse
 
 from deepclustering2.cchelper import JobSubmiter
 from deepclustering2.utils import gethash
-import time
+
 from semi_seg.scripts.helper import dataset_name2class_numbers, ft_lr_zooms, BindPretrainFinetune, BindContrastive, \
-    BindSelfPaced, accounts
+    BindSelfPaced, run_jobs
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -134,19 +134,4 @@ else:
 
 job_submiter = JobSubmiter(project_path="../", on_local=args.on_local, time=args.time, )
 
-for j in job_array:
-    time.sleep(0.5)
-    job_submiter.prepare_env(
-        [
-            f"source ~/venv/bin/activate ",
-            "export OMP_NUM_THREADS=1",
-            "export PYTHONOPTIMIZE=1",
-            "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
-        ]
-    )
-    job_submiter.account = next(accounts)
-    print(j)
-    if not args.show_cmd:
-        code = job_submiter.run(j)
-        if code != 0:
-            raise RuntimeError
+run_jobs(job_submiter, job_array, args, )
