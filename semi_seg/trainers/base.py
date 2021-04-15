@@ -149,8 +149,8 @@ class SemiTrainer(Trainer):
             train_result = self.run_epoch()
             if self.on_master():
                 with torch.no_grad():
-                    val_result, _ = self.eval_epoch(loader=self._val_loader)
-                    eval_result, cur_score = self.eval_epoch(loader=self._test_loader)
+                    val_result, cur_score = self.eval_epoch(loader=self._val_loader)
+                    eval_result, _ = self.eval_epoch(loader=self._test_loader)
             # update lr_scheduler
             if hasattr(self, "_scheduler") and hasattr(self._scheduler, "step") and callable(self._scheduler.step):
                 self._scheduler.step()
