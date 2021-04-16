@@ -1,10 +1,10 @@
 from copy import deepcopy
-from typing import Tuple, Type, List
+from typing import Tuple, Type
 
 from deepclustering2.loss import KL_div
 from deepclustering2.meters2 import EpochResultDict
 from deepclustering2.models import ema_updater
-from deepclustering2.schedulers.customized_scheduler import RampScheduler, LinearScheduler
+from deepclustering2.schedulers.customized_scheduler import RampScheduler
 from torch import nn
 
 from contrastyou.losses.contrast_loss2 import SelfPacedSupConLoss as SupConLoss
@@ -262,8 +262,8 @@ class MeanTeacherTrainer(SemiTrainer):
         result = epocher.run()
         return result
 
-    def _eval_epoch(self, *args, **kwargs) -> Tuple[EpochResultDict, float]:
-        evaler = EvalEpocher(self._teacher_model, val_loader=self._val_loader, sup_criterion=self._sup_criterion,
+    def _eval_epoch(self, *, loader, **kwargs) -> Tuple[EpochResultDict, float]:
+        evaler = EvalEpocher(model=self._teacher_model, val_loader=loader, sup_criterion=self._sup_criterion,
                              cur_epoch=self._cur_epoch, device=self._device)
         result, cur_score = evaler.run()
         return result, cur_score
@@ -311,8 +311,8 @@ class IICMeanTeacherTrainer(IICTrainer):
         result = epocher.run()
         return result
 
-    def _eval_epoch(self, *args, **kwargs) -> Tuple[EpochResultDict, float]:
-        evaler = EvalEpocher(self._teacher_model, val_loader=self._val_loader, sup_criterion=self._sup_criterion,
+    def _eval_epoch(self, *, loader, **kwargs) -> Tuple[EpochResultDict, float]:
+        evaler = EvalEpocher(self._teacher_model, val_loader=loader, sup_criterion=self._sup_criterion,
                              cur_epoch=self._cur_epoch, device=self._device)
         result, cur_score = evaler.run()
         return result, cur_score

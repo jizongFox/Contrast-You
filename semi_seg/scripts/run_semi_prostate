@@ -13,8 +13,8 @@ source ./run_semi $save_dir/semi_supervised \
 
 # running all things without depending on the checkpoint
 run_null_checkpoint() {
-  run_baseline no_checkpoint_path null
-  run_mt no_checkpoint_path null
+  run_baseline no_checkpoint_path null null_checkpoint/null
+  run_mt no_checkpoint_path null null_checkpoint/null
 }
 
 run_semi_on_checkpoint() {
