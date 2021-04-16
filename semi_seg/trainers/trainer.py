@@ -351,3 +351,9 @@ class InfoNCEMeanTeacherTrainer(InfoNCETrainer):
             criterion_result = c.epoch_end()
             result.update({k + f"{i}": v for k, v in criterion_result.items()})
         return result
+
+    def _eval_epoch(self, *, loader, **kwargs) -> Tuple[EpochResultDict, float]:
+        evaler = EvalEpocher(self._teacher_model, val_loader=loader, sup_criterion=self._sup_criterion,
+                             cur_epoch=self._cur_epoch, device=self._device)
+        result, cur_score = evaler.run()
+        return result, cur_score
