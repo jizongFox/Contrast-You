@@ -6,7 +6,7 @@ semi_seg/patient/
 semi_seg/tmp.py
 semi_seg/cycle
 semi_seg/patient
-
+semi_seg/plot/checkpoint
 .data
 runs
 byol_demo/label_smoothing.py

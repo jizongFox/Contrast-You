@@ -170,7 +170,7 @@ class SemiTrainer(Trainer):
         :return: inference result and criterion score
         """
         if checkpoint is None:
-            self.load_state_dict_from_path(os.path.join(self._save_dir, "best.pth"), strict=True)
+            self.load_state_dict_from_path(os.path.join(self._save_dir, "best.pth"), strict=False)
         else:
             checkpoint = Path(checkpoint)
             if checkpoint.is_file():

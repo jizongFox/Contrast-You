@@ -1,0 +1,10 @@
+#!/bin/bash
+ viewer --img_source ps/prostate/baseline/tra/ratio_0.13/img/  \
+ --gt_folder ps/prostate/baseline/tra/ratio_0.13/gt/ \
+ ps/prostate/baseline/tra/ratio_0.13/pred/ \
+ mt/prostate/mt_0.05/tra/ratio_0.13/pred/ \
+ pretrain-mt/prostate/mt_0.5/tra/ratio_0.13/pred/ \
+ pretrain-info-finetune/prostate/infonce/tra/ratio_0.13/pred/ \
+ pretrain-self-finetune/prostate/type_inversesquare/tra/ratio_0.13/pred \
+ pretrain-self-mt-self/prostate/info_0.5_mt_0.8/tra/ratio_0.13/pred/   \
+ --group_pattern "Case\d+" --no_contour --alpha 0.3 --zeroclass_transparent  --cmap_name plasma
