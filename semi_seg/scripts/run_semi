@@ -141,3 +141,35 @@ function run_mt_infonce() {
   python run_infonce_semi.py ${comm_cmd} --save_dir ${save_dir}/${prefix} -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
     --time=4 --arch_checkpoint=$checkpoint meanteacherinfonce --info_weight 0.5 --mt_weight 2 --config_path=${config_path}
 }
+
+function run_udaiic() {
+  folder_path=$1
+  checkpoint=$2
+  if [ $checkpoint = "null" ]; then
+    checkpoint=$checkpoint
+  else
+    checkpoint=${folder_path}/pre/last.pth
+  fi
+  prefix=$3
+
+  python run_infonce_semi.py ${comm_cmd} --save_dir "${save_dir}/${prefix}" -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
+    --time=4 --arch_checkpoint=$checkpoint udaiic --uda_weight 0.01 --iic_weight 0.01
+  python run_infonce_semi.py ${comm_cmd} --save_dir "${save_dir}/${prefix}" -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
+    --time=4 --arch_checkpoint=$checkpoint udaiic --uda_weight 0.01 --iic_weight 0.1
+  python run_infonce_semi.py ${comm_cmd} --save_dir "${save_dir}/${prefix}" -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
+    --time=4 --arch_checkpoint=$checkpoint udaiic --uda_weight 0.01 --iic_weight 1
+
+  python run_infonce_semi.py ${comm_cmd} --save_dir "${save_dir}/${prefix}" -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
+    --time=4 --arch_checkpoint=$checkpoint udaiic --uda_weight 0.1 --iic_weight 0.01
+  python run_infonce_semi.py ${comm_cmd} --save_dir "${save_dir}/${prefix}" -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
+    --time=4 --arch_checkpoint=$checkpoint udaiic --uda_weight 0.1 --iic_weight 0.1
+  python run_infonce_semi.py ${comm_cmd} --save_dir "${save_dir}/${prefix}" -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
+    --time=4 --arch_checkpoint=$checkpoint udaiic --uda_weight 0.1 --iic_weight 1
+
+  python run_infonce_semi.py ${comm_cmd} --save_dir "${save_dir}/${prefix}" -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
+    --time=4 --arch_checkpoint=$checkpoint udaiic --uda_weight 0.5 --iic_weight 0.01
+  python run_infonce_semi.py ${comm_cmd} --save_dir "${save_dir}/${prefix}" -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
+    --time=4 --arch_checkpoint=$checkpoint udaiic --uda_weight 0.5 --iic_weight 0.1
+  python run_infonce_semi.py ${comm_cmd} --save_dir "${save_dir}/${prefix}" -b ${num_batches} -e ${max_epoch} -s ${rand_seed} \
+    --time=4 --arch_checkpoint=$checkpoint udaiic --uda_weight 0.5 --iic_weight 1
+}

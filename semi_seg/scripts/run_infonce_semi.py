@@ -29,6 +29,7 @@ baseline = subparser.add_parser("baseline")
 meanteacher = subparser.add_parser("meanteacher")
 infonce = subparser.add_parser("infonce")
 meanteacherinfonce = subparser.add_parser("meanteacherinfonce")
+udaiic = subparser.add_parser("udaiic")
 
 # mean teacher
 meanteacher.add_argument("--mt_weight", default=1e-04, type=float, help="mean teacher weight coefficient")
@@ -41,6 +42,10 @@ infonce.add_argument("--info_weight", default=1e-04, type=float, help="infonce w
 meanteacherinfonce.add_argument("--mt_weight", default=1e-04, type=float, help="mean teacher weight coefficient")
 meanteacherinfonce.add_argument("--config_path", required=True, help="configuration for contrastive learning")
 meanteacherinfonce.add_argument("--info_weight", default=1e-04, type=float, help="infonce weight coefficient")
+
+# udaiic
+udaiic.add_argument("--uda_weight", default=0.1, type=str, help="uda weight")
+udaiic.add_argument("--iic_weight", default=0.1, type=str, help="iic weight")
 
 args = parser.parse_args()
 
@@ -128,6 +133,17 @@ elif args.stage == "meanteacherinfonce":
                      f" Data.unlabeled_data_ratio={1 - x} "
                      f" --opt_config_path {opt_config_path} ../config/specific/mt.yaml " for x in labeled_ratios]
 
+    job_array = [" && ".join(job_array)]
+elif args.stage == "udaiic":
+    uda_weight = args.uda_weight
+    iic_weight = args.iic_weight
+    job_array = [
+        f" python main.py Trainer.name=udaiic {SharedParams} "
+        f" IICRegParameters.weight={iic_weight} "
+        f" UDARegCriterion.weight={uda_weight} "
+        f" Trainer.save_dir={save_dir}/uda_iic/uda_{uda_weight}_iic_{iic_weight}/tra/ratio_{str(x)}"
+        f"--opt_config_path ../config/specific/iic.yaml ../config/specific/uda.yaml" for x in labeled_ratios
+    ]
     job_array = [" && ".join(job_array)]
 else:
     raise NotImplemented
