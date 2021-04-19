@@ -9,10 +9,10 @@ local_folder=./plot/checkpoint/
 #  root@jizong.buzz:/root/main/runs/0402_semi/ \
 #  "${local_folder}/0402_semi_acdc/"
 
-#rsync -azP --exclude "*/*.png"  --exclude "*/tra/*/*.pth" --exclude "*/*.pth" \
-#  --exclude "*/patient*"  --exclude "*/*calculquebec.ca"\
-#  root@jizong.buzz:/root/main/runs/0420_prostate* \
-#  "${local_folder}"
+rsync -azP --exclude "*/*.png"  --exclude "*/tra/*/*.pth" --exclude "*/*.pth" \
+  --exclude "*/patient*"  \
+  root@jizong.buzz:/root/main/runs/0422_acdc \
+  "${local_folder}"
 
 #rsync -azP beluga:/home/jizong/scratch/Contrast-You/semi_seg/runs/0326/githash_912bc30/acdc/random_seed_10/baseline \
 #  "${local_folder}/ps/acdc"
@@ -40,26 +40,26 @@ local_folder=./plot/checkpoint/
 
 # prostate
 
-rsync -azP beluga:/home/jizong/scratch/Contrast-You/semi_seg/runs/0416_prostate/githash_c44b4dc/prostate/random_seed_20/baseline \
-  "${local_folder}/ps/prostate"
-
-rsync -azP beluga:/home/jizong/scratch/Contrast-You/semi_seg/runs/0416_prostate/githash_e7481ca/prostate/random_seed_40/sample_num_5/global_Conv5_1.0/contrast_on_partition/self-paced/method_soft/loss_params*3.0_60.0/type_inversesquare \
-  "${local_folder}/pretrain-self-finetune/prostate"
-
-rsync -azP beluga:/home/jizong/scratch/Contrast-You/semi_seg/runs/0416_prostate/githash_e7481ca/prostate/random_seed_30/sample_num_5/global_Conv5_1.0/contrast_on_partition/infonce \
-  "${local_folder}/pretrain-info-finetune/prostate"
-
-rsync -azP beluga:/home/jizong/scratch/Contrast-You/semi_seg/runs/0417_prostate_semi/semi_supervised/null_checkpoint/null/githash_a3c409b/prostate/random_seed_10/checkpoint_null/mt/mt_0.05 \
-  "${local_folder}/mt/prostate"
-
-rsync -azP beluga:/home/jizong/scratch/Contrast-You/semi_seg/runs/0417_prostate_semi/semi_supervised/contrast_on_all/self/githash_a3c409b/prostate/random_seed_10/checkpoint_yes/mt/mt_0.5 \
-  "${local_folder}/pretrain-mt/prostate"
-
-rsync -azP beluga:/home/jizong/scratch/Contrast-You/semi_seg/runs/0417_prostate_semi/semi_supervised/contrast_on_parition/infonce/githash_a3c409b/prostate/random_seed_10/checkpoint_yes/infoncemt/info_0.5_mt_0.8/ \
-  "${local_folder}/pretrain-info-mt-info/prostate"
-
-rsync -azP beluga:/home/jizong/scratch/Contrast-You/semi_seg/runs/0417_prostate_semi/semi_supervised/contrast_on_parition/self/githash_a3c409b/prostate/random_seed_10/checkpoint_yes/infoncemt/info_0.5_mt_0.8 \
-  "${local_folder}/pretrain-self-mt-self/prostate"
+#rsync -azP beluga:/home/jizong/scratch/Contrast-You/semi_seg/runs/0416_prostate/githash_c44b4dc/prostate/random_seed_20/baseline \
+#  "${local_folder}/ps/prostate"
+#
+#rsync -azP beluga:/home/jizong/scratch/Contrast-You/semi_seg/runs/0416_prostate/githash_e7481ca/prostate/random_seed_40/sample_num_5/global_Conv5_1.0/contrast_on_partition/self-paced/method_soft/loss_params*3.0_60.0/type_inversesquare \
+#  "${local_folder}/pretrain-self-finetune/prostate"
+#
+#rsync -azP beluga:/home/jizong/scratch/Contrast-You/semi_seg/runs/0416_prostate/githash_e7481ca/prostate/random_seed_30/sample_num_5/global_Conv5_1.0/contrast_on_partition/infonce \
+#  "${local_folder}/pretrain-info-finetune/prostate"
+#
+#rsync -azP beluga:/home/jizong/scratch/Contrast-You/semi_seg/runs/0417_prostate_semi/semi_supervised/null_checkpoint/null/githash_a3c409b/prostate/random_seed_10/checkpoint_null/mt/mt_0.05 \
+#  "${local_folder}/mt/prostate"
+#
+#rsync -azP beluga:/home/jizong/scratch/Contrast-You/semi_seg/runs/0417_prostate_semi/semi_supervised/contrast_on_all/self/githash_a3c409b/prostate/random_seed_10/checkpoint_yes/mt/mt_0.5 \
+#  "${local_folder}/pretrain-mt/prostate"
+#
+#rsync -azP beluga:/home/jizong/scratch/Contrast-You/semi_seg/runs/0417_prostate_semi/semi_supervised/contrast_on_parition/infonce/githash_a3c409b/prostate/random_seed_10/checkpoint_yes/infoncemt/info_0.5_mt_0.8/ \
+#  "${local_folder}/pretrain-info-mt-info/prostate"
+#
+#rsync -azP beluga:/home/jizong/scratch/Contrast-You/semi_seg/runs/0417_prostate_semi/semi_supervised/contrast_on_parition/self/githash_a3c409b/prostate/random_seed_10/checkpoint_yes/infoncemt/info_0.5_mt_0.8 \
+#  "${local_folder}/pretrain-self-mt-self/prostate"
 
 
 #rsync -azP --exclude "*/*.png"  --exclude "*/*.pth" \

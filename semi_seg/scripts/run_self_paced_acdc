@@ -30,156 +30,58 @@ python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -b ${num_batch
 #### self-paced
 function run_selfpaced {
   python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -b ${num_batches} -s ${rand_seed} --time=4 \
-    selfpaced --global_features Conv5 --global_importance 1 --contrast_on $5 -g=${group_num} \
+    selfpaced --global_features Conv5 --global_importance 1 --contrast_on partition -g=${group_num} \
+    -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value $1 --end_value $2 --method $3 --monitor=${monitor} --scheduler_type=$4
+
+  python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -b ${num_batches} -s ${rand_seed} --time=4 \
+    selfpaced --global_features Conv5 --global_importance 1 --contrast_on cycle -g=${group_num} \
+    -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value $1 --end_value $2 --method $3 --monitor=${monitor} --scheduler_type=$4
+
+  python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -b ${num_batches} -s ${rand_seed} --time=4 \
+    selfpaced --global_features Conv5 --global_importance 1 --contrast_on patient -g=${group_num} \
     -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value $1 --end_value $2 --method $3 --monitor=${monitor} --scheduler_type=$4
 
 }
-
-#run_selfpaced 2 14 hard
-#run_selfpaced 2 16 hard
-#
-#
-
-run_selfpaced 3 16 hard linear partition
-run_selfpaced 3 18 hard linear partition
-run_selfpaced 3 20 hard linear partition
-run_selfpaced 3 22 hard linear partition
-
-run_selfpaced 2.5 16 hard linear partition
-run_selfpaced 2.5 18 hard linear partition
-run_selfpaced 2.5 20 hard linear partition
-run_selfpaced 2.5 22 hard linear partition
-
-run_selfpaced 3.5 16 hard linear partition
-run_selfpaced 3.5 18 hard linear partition
-run_selfpaced 3.5 20 hard linear partition
-run_selfpaced 3.5 22 hard linear partition
-
-run_selfpaced 4 16 hard linear partition
-run_selfpaced 4 18 hard linear partition
-run_selfpaced 4 20 hard linear partition
-run_selfpaced 4 22 hard linear partition
-
-run_selfpaced 4.5 16 hard linear partition
-run_selfpaced 4.5 18 hard linear partition
-run_selfpaced 4.5 20 hard linear partition
-run_selfpaced 4.5 22 hard linear partition
-
-# square
-run_selfpaced 3 16 hard square partition
-run_selfpaced 3 18 hard square partition
-run_selfpaced 3 20 hard square partition
-run_selfpaced 3 22 hard square partition
-
-run_selfpaced 2.5 16 hard square partition
-run_selfpaced 2.5 18 hard square partition
-run_selfpaced 2.5 20 hard square partition
-run_selfpaced 2.5 22 hard square partition
-
-run_selfpaced 3.5 16 hard square partition
-run_selfpaced 3.5 18 hard square partition
-run_selfpaced 3.5 20 hard square partition
-run_selfpaced 3.5 22 hard square partition
-
-run_selfpaced 4 16 hard square partition
-run_selfpaced 4 18 hard square partition
-run_selfpaced 4 20 hard square partition
-run_selfpaced 4 22 hard square partition
-
-run_selfpaced 4.5 16 hard square partition
-run_selfpaced 4.5 18 hard square partition
-run_selfpaced 4.5 20 hard square partition
-run_selfpaced 4.5 22 hard square partition
-# inversesquare
-
-run_selfpaced 3 16 hard inversesquare partition
-run_selfpaced 3 18 hard inversesquare partition
-run_selfpaced 3 20 hard inversesquare partition
-run_selfpaced 3 22 hard inversesquare partition
-
-run_selfpaced 2.5 16 hard inversesquare partition
-run_selfpaced 2.5 18 hard inversesquare partition
-run_selfpaced 2.5 20 hard inversesquare partition
-run_selfpaced 2.5 22 hard inversesquare partition
-
-run_selfpaced 3.5 16 hard inversesquare partition
-run_selfpaced 3.5 18 hard inversesquare partition
-run_selfpaced 3.5 20 hard inversesquare partition
-run_selfpaced 3.5 22 hard inversesquare partition
-
-run_selfpaced 4 16 hard inversesquare partition
-run_selfpaced 4 18 hard inversesquare partition
-run_selfpaced 4 20 hard inversesquare partition
-run_selfpaced 4 22 hard inversesquare partition
-
-run_selfpaced 4.5 16 hard inversesquare partition
-run_selfpaced 4.5 18 hard inversesquare partition
-run_selfpaced 4.5 20 hard inversesquare partition
-run_selfpaced 4.5 22 hard inversesquare partition
-
 # soft
+run_selfpaced 4.5 50 soft inversesquare 
+run_selfpaced 4.5 60 soft inversesquare 
+run_selfpaced 4.5 70 soft inversesquare 
+run_selfpaced 4.5 80 soft inversesquare 
 
-run_selfpaced 4 50 soft linear partition
-run_selfpaced 4 60 soft linear partition
-run_selfpaced 4 70 soft linear partition
-run_selfpaced 4 80 soft linear partition
+run_selfpaced 4 50 soft inversesquare 
+run_selfpaced 4 60 soft inversesquare 
+run_selfpaced 4 70 soft inversesquare 
+run_selfpaced 4 80 soft inversesquare 
 
-run_selfpaced 3.5 50 soft linear partition
-run_selfpaced 3.5 60 soft linear partition
-run_selfpaced 3.5 70 soft linear partition
-run_selfpaced 3.5 80 soft linear partition
+run_selfpaced 3.5 50 soft inversesquare 
+run_selfpaced 3.5 60 soft inversesquare 
+run_selfpaced 3.5 70 soft inversesquare 
+run_selfpaced 3.5 80 soft inversesquare 
 
-run_selfpaced 3 50 soft linear partition
-run_selfpaced 3 60 soft linear partition
-run_selfpaced 3 70 soft linear partition
-run_selfpaced 3 80 soft linear partition
+run_selfpaced 3 50 soft inversesquare 
+run_selfpaced 3 60 soft inversesquare 
+run_selfpaced 3 70 soft inversesquare 
+run_selfpaced 3 80 soft inversesquare 
 
-run_selfpaced 4.5 50 soft linear partition
-run_selfpaced 4.5 60 soft linear partition
-run_selfpaced 4.5 70 soft linear partition
-run_selfpaced 4.5 80 soft linear partition
+run_selfpaced 2.5 50 soft inversesquare 
+run_selfpaced 2.5 60 soft inversesquare 
+run_selfpaced 2.5 70 soft inversesquare 
+run_selfpaced 2.5 80 soft inversesquare 
 
-# square
-run_selfpaced 4 50 soft square partition
-run_selfpaced 4 60 soft square partition
-run_selfpaced 4 70 soft square partition
-run_selfpaced 4 80 soft square partition
+run_selfpaced 2 50 soft inversesquare 
+run_selfpaced 2 60 soft inversesquare 
+run_selfpaced 2 70 soft inversesquare 
+run_selfpaced 2 80 soft inversesquare 
 
-run_selfpaced 3.5 50 soft square partition
-run_selfpaced 3.5 60 soft square partition
-run_selfpaced 3.5 70 soft square partition
-run_selfpaced 3.5 80 soft square partition
+run_selfpaced 1.5 50 soft inversesquare 
+run_selfpaced 1.5 60 soft inversesquare 
+run_selfpaced 1.5 70 soft inversesquare 
+run_selfpaced 1.5 80 soft inversesquare 
 
-run_selfpaced 3 50 soft square partition
-run_selfpaced 3 60 soft square partition
-run_selfpaced 3 70 soft square partition
-run_selfpaced 3 80 soft square partition
-
-run_selfpaced 4.5 50 soft square partition
-run_selfpaced 4.5 60 soft square partition
-run_selfpaced 4.5 70 soft square partition
-run_selfpaced 4.5 80 soft square partition
-# inverse square
-run_selfpaced 4 50 soft inversesquare partition
-run_selfpaced 4 60 soft inversesquare partition
-run_selfpaced 4 70 soft inversesquare partition
-run_selfpaced 4 80 soft inversesquare partition
-
-run_selfpaced 3.5 50 soft inversesquare partition
-run_selfpaced 3.5 60 soft inversesquare partition
-run_selfpaced 3.5 70 soft inversesquare partition
-run_selfpaced 3.5 80 soft inversesquare partition
-
-run_selfpaced 3 50 soft inversesquare partition
-run_selfpaced 3 60 soft inversesquare partition
-run_selfpaced 3 70 soft inversesquare partition
-run_selfpaced 3 80 soft inversesquare partition
-
-run_selfpaced 4.5 50 soft inversesquare partition
-run_selfpaced 4.5 60 soft inversesquare partition
-run_selfpaced 4.5 70 soft inversesquare partition
-run_selfpaced 4.5 80 soft inversesquare partition
-
+run_selfpaced 1 50 soft inversesquare 
+run_selfpaced 1 60 soft inversesquare 
+run_selfpaced 1 70 soft inversesquare 
+run_selfpaced 1 80 soft inversesquare 
 ##
 #
 function run_multi_selfpaced {
