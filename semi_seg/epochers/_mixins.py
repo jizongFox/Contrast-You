@@ -3,8 +3,6 @@ from typing import Callable, Iterable
 from typing import Union, List
 
 import torch
-from contrastyou.featextractor.unet import FeatureExtractorWithIndex as FeatureExtractor
-from contrastyou.helper import weighted_average_iter
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.meters2 import EpochResultDict, MeterInterface, AverageValueMeter, MultipleAverageValueMeter
 from deepclustering2.models import ema_updater as EMA_Updater
@@ -16,6 +14,8 @@ from loguru import logger
 from torch import nn, Tensor
 from torch.optim.optimizer import Optimizer
 
+from contrastyou.featextractor.unet import FeatureExtractorWithIndex as FeatureExtractor
+from contrastyou.helper import weighted_average_iter
 from ._helper import unl_extractor
 
 
@@ -259,7 +259,8 @@ class _PretrainEpocherMixin:
 
     def _forward_pass(self, unlabeled_image, unlabeled_image_tf):
         n_l, n_unl = 0, len(unlabeled_image)
-        predict_logits = self._model(torch.cat([unlabeled_image, unlabeled_image_tf], dim=0))
+        # hightlight: this is only for training for encoder.
+        predict_logits = self._model(torch.cat([unlabeled_image, unlabeled_image_tf], dim=0), forward_only_encoder=True)
 
         unlabel_logits, unlabel_tf_logits = torch.split(predict_logits, [n_unl, n_unl], dim=0)
         return unlabel_logits, unlabel_tf_logits

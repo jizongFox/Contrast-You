@@ -8,7 +8,7 @@ Arch:
   checkpoint: null
 
 Optim:
-  name: Adam
+  name: RAdam
   lr: 0.0000001
   weight_decay: 0.00001
 

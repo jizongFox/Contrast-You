@@ -85,7 +85,7 @@ class UNet(nn.Module):
 
         self.DeConv_1x1 = nn.Conv2d(16, num_classes, kernel_size=1, stride=1, padding=0)
 
-    def forward(self, x, return_features=False):
+    def forward(self, x, return_features=False, forward_only_encoder=False):
         # encoding path
         e1 = self.Conv1(x)  # 16 224 224
         # e1-> Conv1
@@ -105,7 +105,8 @@ class UNet(nn.Module):
         e5 = self.Maxpool4(e4)
         e5 = self.Conv5(e5)  # 256 14 14
         # e5->Conv5
-
+        if forward_only_encoder:
+            return e5
         # decoding + concat path
         d5 = self.Up5(e5)
         d5 = torch.cat((e4, d5), dim=1)

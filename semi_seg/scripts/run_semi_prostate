@@ -6,7 +6,7 @@ save_dir=0420_prostate_semi
 
 cmd_cmd="   "
 
-source ./run_semi $save_dir/semi_supervised \
+source ./_run_semi $save_dir/semi_supervised \
   prostate \
   "${cmd_cmd}" \
   10

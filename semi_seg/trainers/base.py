@@ -12,7 +12,6 @@ from deepclustering2.trainer2 import Trainer
 from deepclustering2.type import T_loader, T_loss
 from loguru import logger
 from torch import nn
-from torch import optim
 
 from contrastyou import PROJECT_PATH
 from semi_seg.epochers import TrainEpocher, EvalEpocher, FineTuneEpocher, InferenceEpocher

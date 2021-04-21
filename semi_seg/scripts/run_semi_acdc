@@ -6,7 +6,7 @@ save_dir=0411_acdc_soften_semi
 cmd_cmd="  "
 # random_seed 10
 
-source ./run_semi $save_dir/semi_supervised \
+source ./_run_semi $save_dir/semi_supervised \
   acdc \
   "${cmd_cmd}" \
   10
