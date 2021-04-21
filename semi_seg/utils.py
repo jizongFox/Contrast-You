@@ -323,16 +323,18 @@ def create_val_loader(*, test_loader):
     assert len(val_patient) > 0
     assert len(test_patient) > 0
     assert set(test_patient) & set(val_patient) == set()
-    test_dataset = deepcopy(test_loader.dataset)
-    test_dataset._filenames = extract_dict_based_on_patient(test_patient, test_dataset)
 
     val_dataset = deepcopy(test_loader.dataset)
     val_dataset._filenames = extract_dict_based_on_patient(val_patient, val_dataset)
+    if val_dataset._is_preload:
+        val_dataset._preload()
     val_patient_sampler = PatientSampler(val_dataset, grp_regex=val_dataset._pattern)
     val_dataloader = DataLoader(val_dataset, batch_sampler=val_patient_sampler, )
 
     test_dataset = deepcopy(test_loader.dataset)
     test_dataset._filenames = extract_dict_based_on_patient(test_patient, test_dataset)
+    if test_dataset._is_preload:
+        test_dataset._preload()
     test_patient_sampler = PatientSampler(test_dataset, grp_regex=test_dataset._pattern)
     test_dataloader = DataLoader(test_dataset, batch_sampler=test_patient_sampler)
     return val_dataloader, test_dataloader
