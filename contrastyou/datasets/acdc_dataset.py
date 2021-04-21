@@ -18,7 +18,7 @@ class ACDCDataset(ContrastDataset, _ACDCDataset):
 
     def __init__(self, root_dir: str, mode: str, transforms: SequentialWrapper = SequentialWrapper(),
                  verbose=True, *args, **kwargs) -> None:
-        super().__init__(root_dir, mode, ["img", "gt"], transforms, verbose, preload=True)
+        super().__init__(root_dir, mode, ["img", "gt"], transforms, verbose)
         self._acdc_info = np.load(os.path.join(self._root_dir, "acdc_info.npy"), allow_pickle=True).item()
         assert isinstance(self._acdc_info, dict) and len(self._acdc_info) == 200
         self._transform = transforms

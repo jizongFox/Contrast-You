@@ -61,6 +61,10 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
 
         labeled_loader, unlabeled_loader, test_loader = get_dataloaders(config)
         val_loader, test_loader = create_val_loader(test_loader=test_loader)
+        labeled_loader.dataset.preload()
+        unlabeled_loader.dataset.preload()
+        val_loader.dataset.preload()
+        test_loader.dataset.preload()
 
         finetune_trainer = DirectTrainer(
             model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),

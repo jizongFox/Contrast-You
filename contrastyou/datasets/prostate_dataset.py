@@ -16,7 +16,7 @@ class ProstateDataset(ContrastDataset, _ProstateDataset):
 
     def __init__(self, root_dir: str, mode: str, transforms: SequentialWrapper = SequentialWrapper(),
                  verbose=True, *args, **kwargs) -> None:
-        super().__init__(root_dir, mode, ["img", "gt"], transforms, verbose, preload=True)
+        super().__init__(root_dir, mode, ["img", "gt"], transforms, verbose,)
         self._prostate_info = np.load(os.path.join(self._root_dir, "prostate_info.npy"), allow_pickle=True).item()
         assert isinstance(self._prostate_info, dict) and len(self._prostate_info) == 50
         self._transform = transforms
