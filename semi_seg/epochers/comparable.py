@@ -324,6 +324,15 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
                 return PatientLabelGenerator()
             else:
                 raise NotImplementedError(contrast_on)
+        elif dataset_name == "mmwhs":
+            if contrast_on == "partition":
+                return PartitionLabelGenerator()
+            elif contrast_on == "patient":
+                return PatientLabelGenerator()
+            else:
+                raise NotImplementedError(contrast_on)
+        else:
+            NotImplementedError(dataset_name)
 
     @lru_cache()
     def local_label_generator(self):
@@ -417,6 +426,10 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
             labels = self.global_label_generator(dataset_name="prostate", contrast_on=contrast_on) \
                 (partition_list=partition_group,
                  patient_list=[p.split("_")[0] for p in label_group])
+        elif config["Data"]["name"] == "mmwhs":
+            labels = self.global_label_generator(dataset_name="mmwhs", contrast_on=contrast_on) \
+                (partition_list=partition_group,
+                 patient_list=label_group)
         else:
             raise NotImplementedError(config["Data"]["name"])
         if self.cur_batch_num == 0:  # noqa

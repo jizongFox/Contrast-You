@@ -12,24 +12,33 @@ from torch import nn
 from torch.utils.data.dataloader import _BaseDataLoaderIter as BaseDataLoaderIter, DataLoader  # noqa
 
 from contrastyou.arch.unet import enable_grad, enable_bn_tracking
+from contrastyou.datasets import MMWHSDataset, ACDCDataset, ProstateDataset
 from contrastyou.datasets._seg_datset import ContrastBatchSampler  # noqa
 from contrastyou.helper import get_dataset
+from semi_seg import augment
 
 
 def _get_contrastive_dataloader(partial_loader, config):
     # going to get all dataset with contrastive sampler
     unlabeled_dataset = get_dataset(partial_loader)
 
-    dataset = type(unlabeled_dataset)(
-        str(Path(unlabeled_dataset._root_dir).parent),  # noqa
-        unlabeled_dataset._mode, unlabeled_dataset._transform  # noqa
-    )
-
-    contrastive_config = config["ContrastiveLoaderParams"]
+    dataset_type = type(unlabeled_dataset)
+    if dataset_type != MMWHSDataset:
+        dataset = dataset_type(
+            str(Path(unlabeled_dataset._root_dir).parent),  # noqa
+            unlabeled_dataset._mode, unlabeled_dataset._transform  # noqa
+        )
+    else:
+        dataset = MMWHSDataset(
+            str(Path(unlabeled_dataset._root_dir).parent),  # noqa
+            modality=unlabeled_dataset._mode.split("_")[0], mode=unlabeled_dataset._mode.split("_")[1],
+            transforms=unlabeled_dataset._transform  # noqa
+        )
+    contrastive_config: Dict = config["ContrastiveLoaderParams"]
     num_workers = contrastive_config.pop("num_workers")
     dataset_name = config["Data"]["name"]
     batch_sampler = None
-    batch_size = contrastive_config["group_sample_num"] * {"acdc": 3, "prostate": 7}[dataset_name]
+    batch_size = contrastive_config["group_sample_num"] * {"acdc": 3, "prostate": 7, "mmwhs": 7}[dataset_name]
     sampler = InfiniteRandomSampler(dataset, shuffle=True)
 
     if dataset_name == "acdc":
@@ -47,12 +56,24 @@ def _get_contrastive_dataloader(partial_loader, config):
         pin_memory=True, shuffle=False,
     )
 
-    from contrastyou.augment import ACDCStrongTransforms
-    demo_dataset = type(unlabeled_dataset)(
-        str(Path(unlabeled_dataset._root_dir).parent),  # noqa
-        unlabeled_dataset._mode, ACDCStrongTransforms.val_double
-    )
-
+    if dataset_type == ACDCDataset:
+        demo_dataset = ACDCDataset(
+            str(Path(unlabeled_dataset._root_dir).parent),  # noqa
+            unlabeled_dataset._mode, augment.ACDCStrongTransforms.trainval  # noqa
+        )
+    elif dataset_type == ProstateDataset:
+        demo_dataset = ProstateDataset(
+            str(Path(unlabeled_dataset._root_dir).parent),  # noqa
+            unlabeled_dataset._mode, augment.ProstateStrongTransforms.trainval  # noqa
+        )
+    elif dataset_type == MMWHSDataset:
+        demo_dataset = MMWHSDataset(
+            str(Path(unlabeled_dataset._root_dir).parent),  # noqa
+            modality=unlabeled_dataset._mode.split("_")[0], mode=unlabeled_dataset._mode.split("_")[1],
+            transforms=augment.MMWHSStrongTransforms.trainval  # noqa
+        )
+    else:
+        raise NotImplemented()
     demo_loader = DataLoader(
         demo_dataset,
         batch_size=1,

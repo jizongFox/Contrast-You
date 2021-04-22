@@ -1,13 +1,15 @@
+import re
 from pathlib import Path
 from typing import List, Tuple, Union
 
+import numpy as np
+from deepclustering2.dataset.segmentation.mmwhs_dataset import MMWHSDataset as _MMWHSDataset, \
+    MMWHSSemiInterface as _MMWHSSemiInterface
 from torch import Tensor
 
 from contrastyou import DATA_PATH
 from contrastyou.augment.sequential_wrapper import SequentialWrapper
 from contrastyou.datasets._seg_datset import ContrastDataset
-from deepclustering2.dataset.segmentation.mmwhs_dataset import MMWHSDataset as _MMWHSDataset, \
-    MMWHSSemiInterface as _MMWHSSemiInterface
 
 
 class MMWHSDataset(ContrastDataset, _MMWHSDataset):
@@ -16,6 +18,8 @@ class MMWHSDataset(ContrastDataset, _MMWHSDataset):
                  transforms: SequentialWrapper = None, verbose=True) -> None:
         super().__init__(root_dir, modality, mode, subfolders, transforms, verbose)
         self._transform = transforms
+        self._meta_info = {"ct": np.load(str(Path(root_dir, "MMWHS", "meta_ct.npy")), allow_pickle=True).tolist(),
+                           "mr": np.load(str(Path(root_dir, "MMWHS", "meta_mr.npy")), allow_pickle=True).tolist()}
 
     def __getitem__(self, index) -> Tuple[List[Tensor], str, str, str]:
         [img_png, target_png], filename_list = self._getitem_index(index)
@@ -29,16 +33,10 @@ class MMWHSDataset(ContrastDataset, _MMWHSDataset):
         return str(self._get_group_name(filename))
 
     def _get_partition(self, filename) -> Union[str, int]:
-        # set partition
-        # max_len_given_group = self._acdc_info[self._get_group_name(filename)]
-        # cutting_point = max_len_given_group // 3
-        # cur_index = int(re.compile(r"\d+").findall(filename)[-1])
-        # if cur_index <= cutting_point - 1:
-        #     return str(0)
-        # if cur_index <= 2 * cutting_point:
-        #     return str(1)
-        # return str(2)
-        return str(0)
+        max_len_given_group = int(self._meta_info[self._mode.split("_")[0]][self._get_group_name(filename)])
+        cutting_point = max_len_given_group // 8
+        cur_index = int(re.compile(r"\d+").findall(filename)[-1])
+        return str(cur_index // (cutting_point + 1))
 
     def show_paritions(self) -> List[Union[str, int]]:
         return [self._get_partition(f) for f in list(self._filenames.values())[0]]

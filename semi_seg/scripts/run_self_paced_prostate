@@ -4,8 +4,8 @@ rand_seed=10
 save_dir=0414_prostate
 group_num=5
 num_batches=200
-pre_max_epoch=120
-ft_max_epoch=75
+pre_max_epoch=80
+ft_max_epoch=60
 dataset=prostate
 comm_cmd=" -n ${dataset}  "
 

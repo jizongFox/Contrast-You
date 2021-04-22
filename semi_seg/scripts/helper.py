@@ -17,7 +17,7 @@ ft_lr_zooms = {"acdc": 0.0000001,
                "spleen": 0.000001,
                "mmwhs": 0.000001}
 
-pre_lr_zooms = {"acdc": 0.0000005, "prostate": 0.0000005}
+pre_lr_zooms = {"acdc": 0.0000005, "prostate": 0.0000005, "mmwhs": 0.0000005}
 
 # CC things
 # __accounts = ["def-chdesa", "rrg-mpederso", "def-mpederso"]
@@ -46,7 +46,7 @@ def run_jobs(job_submiter, job_array, args):
         if not args.show_cmd:
             code = job_submiter.run(j)
             if code != 0:
-                raise RuntimeError
+                continue
 
 
 def account_iterable(name_list):

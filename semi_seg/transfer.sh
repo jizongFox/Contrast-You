@@ -1,4 +1,4 @@
-local_folder=runs/
+local_folder=runs
 #
 #rsync -azP --exclude "*/*.png"  --exclude "*/tra/*/*.pth" \
 #  beluga:/lustre04/scratch/jizong/Contrast-You/semi_seg/runs/0327/ \
@@ -11,7 +11,7 @@ local_folder=runs/
 
 rsync -azP --exclude "*/*.png"  --exclude "*/tra/*/*.pth" --exclude "*/*.pth" \
   --exclude "*/patient*"  \
-  root@jizong.buzz:/root/main/runs/cedar/042* \
+  root@jizong.buzz:/root/main/runs/cedar/0425 \
   "${local_folder}/cedar"
 
 #rsync -azP beluga:/home/jizong/scratch/Contrast-You/semi_seg/runs/0326/githash_912bc30/acdc/random_seed_10/baseline \
