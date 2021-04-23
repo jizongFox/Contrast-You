@@ -24,15 +24,18 @@ augment_zoos = {
 }
 
 
-def get_dataloaders(config, group_val_patient=True):
+def get_dataloaders(config, group_val_patient=True, pretrain=False):
     _config = deepcopy(config)
     dataset_name = _config["Data"].pop("name")
     logger.debug("Initializing {} dataset", dataset_name)
     assert dataset_name in dataset_zoos.keys(), config["Data"]
     datainterface = dataset_zoos[dataset_name]
     augmentinferface = augment_zoos[dataset_name]
-    labeled_data_ratio = config["Data"]["labeled_data_ratio"]
-    unlabeled_data_ratio = config["Data"]["unlabeled_data_ratio"]
+    labeled_data_ratio = 0.5
+    unlabeled_data_ratio = 0.5
+    if not pretrain:
+        labeled_data_ratio = config["Data"]["labeled_data_ratio"]
+        unlabeled_data_ratio = config["Data"]["unlabeled_data_ratio"]
     if labeled_data_ratio + unlabeled_data_ratio != 1:
         RuntimeError(f"labeled and unlabeled data should be set properly, "
                      f"given {labeled_data_ratio} and {unlabeled_data_ratio}")

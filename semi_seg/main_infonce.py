@@ -54,7 +54,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
                                   config["Trainer"].pop("ft_max_epoch", None)
 
     def pretrain():
-        labeled_loader, unlabeled_loader, test_loader = get_dataloaders(config)
+        labeled_loader, unlabeled_loader, test_loader = get_dataloaders(config, pretrain=True)
         val_loader, test_loader = create_val_loader(test_loader=test_loader)
         labeled_loader.dataset.preload()
         unlabeled_loader.dataset.preload()
@@ -137,7 +137,6 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         unlabeled_loader.dataset.preload()
         val_loader.dataset.preload()
         test_loader.dataset.preload()
-
 
         finetune_trainer = FineTuneTrainer(
             model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),

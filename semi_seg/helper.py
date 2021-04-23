@@ -17,7 +17,7 @@ trainer_zoos = {**base_trainer_zoos, **pre_trainer_zoos}
 def pretrain(*, config, model, trainer_name, save_dir, is_monitor=False, seed: int):
     config = deepcopy(config)
     with fix_all_seed_within_context(seed):
-        labeled_loader, unlabeled_loader, test_loader = get_dataloaders(config)
+        labeled_loader, unlabeled_loader, test_loader = get_dataloaders(config, pretrain=True)
         val_loader, test_loader = create_val_loader(test_loader=test_loader)
 
         Trainer = trainer_zoos[trainer_name]
