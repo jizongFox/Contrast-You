@@ -273,7 +273,7 @@ class FineTuneEpocher(TrainEpocher, __AssertOnlyWithLabeledData):
                  sup_criterion: T_loss, num_batches: int, cur_epoch=0, device="cpu",
                  **kwargs) -> None:
         super().__init__(model=model, optimizer=optimizer, labeled_loader=labeled_loader,
-                         unlabeled_loader=None, sup_criterion=sup_criterion, num_batches=num_batches,
+                         unlabeled_loader=None, sup_criterion=sup_criterion, num_batches=num_batches,  # noqa
                          cur_epoch=cur_epoch, device=device, train_with_two_stage=False,
                          disable_bn_track_for_unlabeled_data=False)
 

@@ -473,7 +473,7 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
             proj_feature_tf = Normalize(dim=2)(proj_feature_tf)
             proj_tf_feature = Normalize(dim=2)(proj_tf_feature)
 
-        if self.cur_batch_num == 0:  # noqa
+        if self.cur_batch_num == 0 and self.trainerself._cur_epoch < 50 and self.trainerself._cur_epoch % 4 == 0:  # noqa
             with self._normal_criterion.register_writer(
                 get_tb_writer(),
                 epoch=self._cur_epoch,
