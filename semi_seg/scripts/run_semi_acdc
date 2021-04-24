@@ -1,6 +1,6 @@
 #!/bin/bash
 base_folder=/home/jizong/scratch/Contrast-You/semi_seg/runs/0425
-save_dir=0425_semi_tmp
+save_dir=0425_semi
 
 cmd_cmd="  "
 # random_seed 10

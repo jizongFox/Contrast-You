@@ -142,7 +142,7 @@ elif args.stage == "udaiic":
         f" IICRegParameters.weight={iic_weight} "
         f" UDARegCriterion.weight={uda_weight} "
         f" Trainer.save_dir={save_dir}/uda_iic/uda_{uda_weight}_iic_{iic_weight}/tra/ratio_{str(x)}"
-        f"--opt_config_path ../config/specific/iic.yaml ../config/specific/uda.yaml" for x in labeled_ratios
+        f" --opt_config_path ../config/specific/iic.yaml ../config/specific/uda.yaml" for x in labeled_ratios
     ]
     job_array = [" && ".join(job_array)]
 else:
