@@ -6,7 +6,7 @@ comm_cmd=" -n ${dataset} $3 "
 rand_seed=$4
 
 num_batches=200
-max_epoch=80
+max_epoch=60
 
 #set -e pipefail
 

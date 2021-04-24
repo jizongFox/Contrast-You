@@ -1,7 +1,7 @@
 #!/bin/bash
 
 rand_seed=10
-save_dir=0425dafdaf
+save_dir=0425
 group_num=10
 num_batches=200
 pre_max_epoch=80
@@ -48,51 +48,51 @@ function run_multi_selfpaced {
     -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value 2.5 2.0 4.5 --end_value 70 50 80 --method soft soft soft --monitor=${monitor}
 }
 # baseline
-#run_baseline
+run_baseline
 # neurips baseline
-#run_neurips
+run_neurips
 
 # soft
 run_selfpaced 4.5 50 soft inversesquare
-#run_selfpaced 4.5 60 soft inversesquare
-#run_selfpaced 4.5 70 soft inversesquare
-#run_selfpaced 4.5 80 soft inversesquare
-#
-#run_selfpaced 4 50 soft inversesquare
-#run_selfpaced 4 60 soft inversesquare
-#run_selfpaced 4 70 soft inversesquare
-#run_selfpaced 4 80 soft inversesquare
-#
-#run_selfpaced 3.5 50 soft inversesquare
-#run_selfpaced 3.5 60 soft inversesquare
-#run_selfpaced 3.5 70 soft inversesquare
-#run_selfpaced 3.5 80 soft inversesquare
-#
-#run_selfpaced 3 50 soft inversesquare
-#run_selfpaced 3 60 soft inversesquare
-#run_selfpaced 3 70 soft inversesquare
-#run_selfpaced 3 80 soft inversesquare
-#
-#run_selfpaced 2.5 50 soft inversesquare
-#run_selfpaced 2.5 60 soft inversesquare
-#run_selfpaced 2.5 70 soft inversesquare
-#run_selfpaced 2.5 80 soft inversesquare
-#
-#run_selfpaced 2 50 soft inversesquare
-#run_selfpaced 2 60 soft inversesquare
-#run_selfpaced 2 70 soft inversesquare
-#run_selfpaced 2 80 soft inversesquare
-#
-#run_selfpaced 1.5 50 soft inversesquare
-#run_selfpaced 1.5 60 soft inversesquare
-#run_selfpaced 1.5 70 soft inversesquare
-#run_selfpaced 1.5 80 soft inversesquare
-#
-#run_selfpaced 1 50 soft inversesquare
-#run_selfpaced 1 60 soft inversesquare
-#run_selfpaced 1 70 soft inversesquare
-#run_selfpaced 1 80 soft inversesquare
-#
+run_selfpaced 4.5 60 soft inversesquare
+run_selfpaced 4.5 70 soft inversesquare
+run_selfpaced 4.5 80 soft inversesquare
+
+run_selfpaced 4 50 soft inversesquare
+run_selfpaced 4 60 soft inversesquare
+run_selfpaced 4 70 soft inversesquare
+run_selfpaced 4 80 soft inversesquare
+
+run_selfpaced 3.5 50 soft inversesquare
+run_selfpaced 3.5 60 soft inversesquare
+run_selfpaced 3.5 70 soft inversesquare
+run_selfpaced 3.5 80 soft inversesquare
+
+run_selfpaced 3 50 soft inversesquare
+run_selfpaced 3 60 soft inversesquare
+run_selfpaced 3 70 soft inversesquare
+run_selfpaced 3 80 soft inversesquare
+
+run_selfpaced 2.5 50 soft inversesquare
+run_selfpaced 2.5 60 soft inversesquare
+run_selfpaced 2.5 70 soft inversesquare
+run_selfpaced 2.5 80 soft inversesquare
+
+run_selfpaced 2 50 soft inversesquare
+run_selfpaced 2 60 soft inversesquare
+run_selfpaced 2 70 soft inversesquare
+run_selfpaced 2 80 soft inversesquare
+
+run_selfpaced 1.5 50 soft inversesquare
+run_selfpaced 1.5 60 soft inversesquare
+run_selfpaced 1.5 70 soft inversesquare
+run_selfpaced 1.5 80 soft inversesquare
+
+run_selfpaced 1 50 soft inversesquare
+run_selfpaced 1 60 soft inversesquare
+run_selfpaced 1 70 soft inversesquare
+run_selfpaced 1 80 soft inversesquare
+
 ## multitask
 #
 #run_multi_selfpaced 1 0.1

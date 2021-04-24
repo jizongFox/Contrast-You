@@ -318,8 +318,10 @@ def create_val_loader(*, test_loader):
 
     with fix_all_seed_within_context(1):
         random_patient = np.random.permutation(patient_list)
-    val_patient = random_patient[:int(patient_length * 0.35)]
-    test_patient = random_patient[int(patient_length * 0.35):]
+    from contrastyou.datasets.mmwhs_dataset import MMWHSDataset
+    ratio = 0.35 if not isinstance(test_dataset, MMWHSDataset) else 0.45
+    val_patient = random_patient[:int(patient_length * ratio)]
+    test_patient = random_patient[int(patient_length * ratio):]
     assert len(val_patient) > 0
     assert len(test_patient) > 0
     assert set(test_patient) & set(val_patient) == set()

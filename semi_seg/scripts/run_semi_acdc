@@ -1,6 +1,6 @@
 #!/bin/bash
 base_folder=/home/jizong/scratch/Contrast-You/semi_seg/runs/0425
-save_dir=0425_semi
+save_dir=0425_semi_tmp
 
 cmd_cmd="  "
 # random_seed 10
@@ -12,9 +12,9 @@ source ./_run_semi $save_dir/semi_supervised \
 
 # running all things without depending on the checkpoint
 run_null_checkpoint() {
-  run_baseline no_checkpoint_path null
-  run_mt no_checkpoint_path null
-  run_udaiic no_checkpoint_path null
+  run_baseline no_checkpoint_path null baseline/baseline
+  run_mt no_checkpoint_path null baseline/baseline
+  run_udaiic no_checkpoint_path null baseline/baseline
 }
 
 run_semi_on_checkpoint() {
@@ -45,4 +45,4 @@ run_semi_on_checkpoint ${base_folder}/githash_762c7fd/acdc/random_seed_20/sample
 
 run_semi_on_checkpoint ${base_folder}/githash_762c7fd/acdc/random_seed_10/sample_num_10/global_Conv5_1.0/contrast_on_patient/infonce \
   contrast_on_patient/infonce
-#
+
