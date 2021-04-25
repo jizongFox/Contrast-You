@@ -96,9 +96,9 @@ run_selfpaced 1 80 soft inversesquare
 
 ## multitask
 #
-run_multi_selfpaced 1 0.1
-run_multi_selfpaced 1 0.5
-run_multi_selfpaced 1 0.01
-run_multi_selfpaced 1 0.02
-run_multi_selfpaced 1 0.05
+#run_multi_selfpaced 1 0.1
+#run_multi_selfpaced 1 0.5
+#run_multi_selfpaced 1 0.01
+#run_multi_selfpaced 1 0.02
+#run_multi_selfpaced 1 0.05
 ##
