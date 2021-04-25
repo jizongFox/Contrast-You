@@ -45,7 +45,8 @@ function run_multi_selfpaced {
 
   python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -b ${num_batches} -s ${rand_seed} --time=4 \
     selfpaced --global_features Conv5 --global_importance $1 $2 --contrast_on partition patient -g=${group_num} \
-    -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value 2.5 2.0 4.5 --end_value 70 50 80 --method soft soft soft --monitor=${monitor}
+    -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value 1.5 1.0  --end_value 60 50 --method soft soft --monitor=${monitor} \
+    --scheduler_type inversesquare inversesquare
 }
 # baseline
 run_baseline
@@ -95,9 +96,9 @@ run_selfpaced 1 80 soft inversesquare
 
 ## multitask
 #
-#run_multi_selfpaced 1 0.1
-#run_multi_selfpaced 1 0.5
-#run_multi_selfpaced 1 0.01
-#run_multi_selfpaced 1 0.02
-#run_multi_selfpaced 1 0.05
+run_multi_selfpaced 1 0.1
+run_multi_selfpaced 1 0.5
+run_multi_selfpaced 1 0.01
+run_multi_selfpaced 1 0.02
+run_multi_selfpaced 1 0.05
 ##
