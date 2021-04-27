@@ -112,7 +112,7 @@ class BindContrastive(_BindOptions):
         subparser.add_argument("--global_importance", nargs="+", type=float, default=[1.0, ], help="global importance")
 
         subparser.add_argument("--contrast_on", "-c", nargs="+", type=str, required=True,
-                               choices=["partition", "cycle", "patient"])
+                               choices=["partition", "cycle", "patient", "self"])
         subparser.add_argument("--monitor", default=False, type=str, choices=["true", "false"],
                                help="monitoring the infocne")
 

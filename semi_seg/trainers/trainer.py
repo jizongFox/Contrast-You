@@ -188,14 +188,9 @@ class InfoNCETrainer(_FeatureExtractor, SemiTrainer):
         # initialize the optimizer for encoder and decoder using same / different learning rates
         super(InfoNCETrainer, self)._init_optimizer()
 
-        if self._pre_param_optimizer_flag:
-            optim_config = self._config["OptimizerSupplementary"]
-            lr = optim_config["base"]["lr"]
-            wd = optim_config["base"]["weight_decay"]
-        else:
-            optim_config = self._config["Optim"]
-            lr = optim_config["lr"]
-            wd = optim_config["weight_decay"]
+        optim_config = self._config["Optim"]
+        lr = optim_config["lr"]
+        wd = optim_config["weight_decay"]
 
         self._optimizer.add_param_group({
             "params": self._projector.parameters(),

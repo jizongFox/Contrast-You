@@ -270,7 +270,7 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
     def set_global_contrast_method(self, *, contrast_on_list):
         assert isinstance(contrast_on_list, (tuple, list))
         for e in contrast_on_list:
-            assert e in ("partition", "patient", "cycle"), e
+            assert e in ("partition", "patient", "cycle", "self"), e
         config = get_config(scope="base")
         assert len(config["ProjectorParams"]["GlobalParams"]["feature_names"]) == len(contrast_on_list)
         self.__encoder_contrast_name_list = contrast_on_list
@@ -306,7 +306,7 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
     @lru_cache()
     def global_label_generator(self, dataset_name: str, contrast_on: str):
         from contrastyou.epocher._utils import PartitionLabelGenerator, PatientLabelGenerator, \
-            ACDCCycleGenerator  # noqa
+            ACDCCycleGenerator, SIMCLRGenerator  # noqa
         if dataset_name == "acdc":
             logger.debug("initialize {} label generator for encoder training", contrast_on)
             if contrast_on == "partition":
@@ -315,6 +315,8 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
                 return PatientLabelGenerator()
             elif contrast_on == "cycle":
                 return ACDCCycleGenerator()
+            elif contrast_on == "self":
+                return SIMCLRGenerator()
             else:
                 raise NotImplementedError(contrast_on)
         elif dataset_name == "prostate":
@@ -322,6 +324,8 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
                 return PartitionLabelGenerator()
             elif contrast_on == "patient":
                 return PatientLabelGenerator()
+            elif contrast_on == "self":
+                return SIMCLRGenerator()
             else:
                 raise NotImplementedError(contrast_on)
         elif dataset_name == "mmwhs":
@@ -329,6 +333,8 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
                 return PartitionLabelGenerator()
             elif contrast_on == "patient":
                 return PatientLabelGenerator()
+            elif contrast_on == "self":
+                return SIMCLRGenerator()
             else:
                 raise NotImplementedError(contrast_on)
         else:

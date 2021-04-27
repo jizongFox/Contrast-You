@@ -103,6 +103,11 @@ class ACDCCycleGenerator:
         return [0 if e == "00" else 1 for e in experiment_list]
 
 
+class SIMCLRGenerator:
+    def __call__(self, partition_list: List[str], **kwargs):
+        return list(range(len(partition_list)))
+
+
 def _write_single_png(mask: Tensor, save_dir: str, filename: str):
     assert mask.shape.__len__() == 2, mask.shape
     mask = mask.cpu().detach().numpy()

@@ -10,12 +10,6 @@ source ./_run_semi $save_dir/semi_supervised \
   "${cmd_cmd}" \
   10
 
-# running all things without depending on the checkpoint
-run_null_checkpoint() {
-  run_baseline no_checkpoint_path null baseline/baseline
-  run_mt no_checkpoint_path null baseline/baseline
-  run_udaiic no_checkpoint_path null baseline/baseline
-}
 
 run_semi_on_checkpoint() {
   run_baseline $1 yes $2
@@ -26,7 +20,6 @@ run_semi_on_checkpoint() {
   run_udaiic $1 yes $2
 }
 
-run_null_checkpoint
 
 run_semi_on_checkpoint ${base_folder}/githash_762c7fd/acdc/random_seed_20/sample_num_10/global_Conv5_1.0/contrast_on_partition/self-paced/method_soft/loss_params*1.0_80.0/type_inversesquare \
  contrast_on_parition/self

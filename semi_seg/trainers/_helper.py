@@ -146,7 +146,7 @@ class _PretrainTrainerMixin:
         # here you have conventional training objects
         self._contrastive_loader, self._monitor_loader = _get_contrastive_dataloader(self._unlabeled_loader,
                                                                                      self._config)
-        logger.debug("creating contrastive_loader")
+        logger.opt(depth=1).debug("creating contrastive_loader")
 
     def _run_epoch(self, epocher, *args, **kwargs) -> EpochResultDict:
         epocher.init = partial(epocher.init, chain_dataloader=self._contrastive_loader,
@@ -157,13 +157,13 @@ class _PretrainTrainerMixin:
         self.__from = from_
         self.__util = util_
         self.__initialized_grad = True
-        logger.info("set grad from {} to {}", from_, util_)
+        logger.opt(depth=4).info("set grad from {} to {}", from_, util_)
         return enable_grad(self._model, from_=self.__from, util_=self.__util)  # noqa
 
     def enable_bn(self, from_, util_):
         self.__from = from_
         self.__util = util_
-        logger.info("set bn tracking from {} to {}", from_, util_)
+        logger.opt(depth=4).info("set bn tracking from {} to {}", from_, util_)
         return enable_bn_tracking(self._model, from_=self.__from, util_=self.__util)  # noqa
 
     def _start_training(self, **kwargs):

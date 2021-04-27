@@ -1,14 +1,21 @@
 #!/bin/bash
 
 rand_seed=10
-save_dir=0425
+save_dir=0429
 group_num=10
-num_batches=200
+num_batches=250
 pre_max_epoch=80
 ft_max_epoch=60
 dataset=acdc
 monitor=false
 comm_cmd=" -n ${dataset}  "
+
+source ./_run_semi "${save_dir}" "${comm_cmd}" "${rand_seed}" "${num_batches}" "${ft_max_epoch}"
+
+function run_null_checkpoint {
+  run_mt "" null ""
+  run_udaiic "" null ""
+}
 
 function run_baseline {
   set -e pipefail
@@ -28,6 +35,10 @@ function run_neurips {
 
   python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -b ${num_batches} -s ${rand_seed} --time=4 \
     infonce --global_features Conv5 --global_importance 1 --contrast_on cycle -g=${group_num} \
+    -pe ${pre_max_epoch} -fe ${ft_max_epoch} --monitor=${monitor}
+
+  python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -b ${num_batches} -s ${rand_seed} --time=4 \
+    infonce --global_features Conv5 --global_importance 1 --contrast_on self -g=${group_num} \
     -pe ${pre_max_epoch} -fe ${ft_max_epoch} --monitor=${monitor}
 }
 
@@ -56,6 +67,8 @@ function run_multi_selfpaced {
     -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value 2.5 2.0 4.5 --end_value 70 50 80 --method soft soft soft --monitor=${monitor} \
     --scheduler_type inversesquare inversesquare inversesquare
 }
+
+run_null_checkpoint
 # baseline
 run_baseline
 # neurips baseline
