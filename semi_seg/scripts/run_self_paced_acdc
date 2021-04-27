@@ -2,7 +2,7 @@
 
 rand_seed=10
 save_dir=0429
-group_num=10
+group_num=12
 num_batches=250
 pre_max_epoch=80
 ft_max_epoch=60
@@ -15,6 +15,7 @@ source ./_run_semi "${save_dir}" "${comm_cmd}" "${rand_seed}" "${num_batches}" "
 function run_null_checkpoint {
   run_mt "" null ""
   run_udaiic "" null ""
+  run_entropy "" null ""
 }
 
 function run_baseline {
@@ -68,13 +69,21 @@ function run_multi_selfpaced {
     --scheduler_type inversesquare inversesquare inversesquare
 }
 
-run_null_checkpoint
 # baseline
 run_baseline
+
 # neurips baseline
 run_neurips
 
+# other semi baseline
+run_null_checkpoint
+
 # soft
+run_selfpaced 5 50 soft inversesquare
+run_selfpaced 5 60 soft inversesquare
+run_selfpaced 5 70 soft inversesquare
+run_selfpaced 5 80 soft inversesquare
+
 run_selfpaced 4.5 50 soft inversesquare
 run_selfpaced 4.5 60 soft inversesquare
 run_selfpaced 4.5 70 soft inversesquare
@@ -115,11 +124,11 @@ run_selfpaced 1 60 soft inversesquare
 run_selfpaced 1 70 soft inversesquare
 run_selfpaced 1 80 soft inversesquare
 
-# multitask
-
-run_multi_selfpaced 1 0.1 0.1
-run_multi_selfpaced 1 0.5 0.1
-run_multi_selfpaced 1 0.01 0.01
-run_multi_selfpaced 1 0.02 0.1
-run_multi_selfpaced 1 0.05 0.05
+## multitask
+#
+#run_multi_selfpaced 1 0.1 0.1
+#run_multi_selfpaced 1 0.5 0.1
+#run_multi_selfpaced 1 0.01 0.01
+#run_multi_selfpaced 1 0.02 0.1
+#run_multi_selfpaced 1 0.05 0.05
 #

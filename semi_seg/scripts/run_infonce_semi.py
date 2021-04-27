@@ -30,6 +30,7 @@ meanteacher = subparser.add_parser("meanteacher")
 infonce = subparser.add_parser("infonce")
 meanteacherinfonce = subparser.add_parser("meanteacherinfonce")
 udaiic = subparser.add_parser("udaiic")
+entropy = subparser.add_parser("entropy")
 
 # mean teacher
 meanteacher.add_argument("--mt_weight", default=1e-04, type=float, help="mean teacher weight coefficient")
@@ -46,6 +47,8 @@ meanteacherinfonce.add_argument("--info_weight", default=1e-04, type=float, help
 # udaiic
 udaiic.add_argument("--uda_weight", default=0.1, type=str, help="uda weight")
 udaiic.add_argument("--iic_weight", default=0.1, type=str, help="iic weight")
+
+entropy.add_argument("--ent_weight", default=0.01, type=str, help="entropy minimization weight")
 
 args = parser.parse_args()
 
@@ -147,8 +150,19 @@ elif args.stage == "udaiic":
         f" --opt_config_path ../config/specific/iic.yaml ../config/specific/uda.yaml" for x in labeled_ratios
     ]
     job_array = [" && ".join(job_array)]
+elif args.stage == "entropy":
+    ent_weight = args.ent_weight
+    job_array = [
+        f" python main.py Trainer.name=entropy {SharedParams} "
+        f" EntropyMinParameters.weight={ent_weight} "
+        f" Trainer.save_dir={save_dir}/entropy/ent_w_{ent_weight}/tra/ratio_{str(x)}"
+        f" Data.labeled_data_ratio={x}  "
+        f" Data.unlabeled_data_ratio={1 - x} "
+        f" --opt_config_path ../config/specific/entmin.yaml " for x in labeled_ratios
+    ]
+    job_array = [" && ".join(job_array)]
 else:
-    raise NotImplemented
+    raise NotImplemented(args.stage)
 
 job_submiter = JobSubmiter(project_path="../", on_local=args.on_local, time=args.time, mem=64)
 
