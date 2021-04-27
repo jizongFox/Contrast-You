@@ -71,7 +71,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
     finetune_config["Optim"] = base_config["Optim"]
     finetune_config["Optim"]["lr"] = float(ft_lr or base_config["Optim"]["lr"])
     finetune_config["Trainer"]["max_epoch"] = int(ft_max_epoch or base_config["Trainer"]["max_epoch"])
-    finetune_config["Scheduler"]["multiplier"] = base_config["Scheduler"]["multiplier"]
+    finetune_config["Scheduler"]["multiplier"] = int(base_config["Scheduler"]["multiplier"])
 
     ratios = ratio_zoom[config["Data"]["name"]]
 

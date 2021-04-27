@@ -362,6 +362,6 @@ def arch_order(layer_name):
 
 
 if __name__ == '__main__':
-    net = UNet_Index(3, 10).cuda()
-    image = torch.randn(20, 3, 256, 256).cuda()
-    output = net(image)
+    unet = UNet(input_dim=3, num_classes=10, )
+    image = torch.randn(10, 3, 1000, 1000)
+    pred = unet(image)

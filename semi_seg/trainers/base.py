@@ -32,8 +32,6 @@ class SemiTrainer(Trainer):
         self._sup_criterion = sup_criterion
         self.__initialized__ = False
         self._feature_importance, self.feature_positions = None, None
-        # this flag is set to indicate if optimizer is with different learning rate.
-        self._pre_param_optimizer_flag = False
 
     # initialization
     def init(self):
@@ -61,8 +59,6 @@ class SemiTrainer(Trainer):
         self._scheduler = scheduler
 
     def _init_optimizer(self):
-        if "OptimizerSupplementary" in self._config:
-            return self._init_optimizer_advance()
         return self._init_optimizer_base()
 
     def _init_optimizer_base(self):
@@ -71,35 +67,6 @@ class SemiTrainer(Trainer):
             params=self._model.parameters(),
             **{k: v for k, v in optim_dict.items() if k != "name" and k != "pre_lr" and k != "ft_lr"}
         )
-
-    def _init_optimizer_advance(self):
-        optim_dict = self._config["OptimizerSupplementary"]
-        base_lr = optim_dict["base"]["lr"]
-        base_wd = optim_dict["base"].get("weight_decay", 0.0)
-        specific_dict = optim_dict["group"]
-        specific_names = specific_dict["feature_names"]
-        specific_lr = specific_dict["lr"]
-        specific_wd = specific_dict["weight_decay"]
-        specific_params = chain(*[getattr(self._model, f).parameters() for f in specific_names])
-
-        base_params = chain(*[getattr(self._model, f).parameters() for f in self._model.component_names if
-                              f not in specific_names])
-
-        if len(specific_names) > 0:
-            logger.debug("initializing optimizer with lr:{}, wd: {} for {}", specific_lr, specific_wd,
-                         ", ".join(specific_names))
-
-        self._optimizer = optim.__dict__[optim_dict["name"]](
-            params=[
-                {"params": specific_params, "lr": specific_lr, "weight_decay": specific_wd},
-                {"params": base_params}
-            ],
-            lr=base_lr,
-            weight_decay=base_wd,
-        )
-        logger.debug("initializing optimizer with lr:{}, wd: {} for {}", base_lr, base_wd,
-                     ", ".join([f for f in self._model.component_names if f not in specific_names]))
-        self._pre_param_optimizer_flag = True
 
     # run epoch
     def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = TrainEpocher):
@@ -110,7 +77,7 @@ class SemiTrainer(Trainer):
         epocher = self._run_init()
         return self._run_epoch(epocher, *args, **kwargs)
 
-    def _run_init(self, ):
+    def _run_init(self):
         # this defines the epocher and set trainer inside the epocher, all should be the same.
         epocher = self.epocher_class(
             model=self._model, optimizer=self._optimizer, labeled_loader=self._labeled_loader,
@@ -118,7 +85,7 @@ class SemiTrainer(Trainer):
             cur_epoch=self._cur_epoch, device=self._device, feature_position=self.feature_positions,
             feature_importance=self._feature_importance, train_with_two_stage=self._train_with_two_stage,
             disable_bn_track_for_unlabeled_data=self._disable_bn
-        )
+        )  # common interface
         epocher.set_trainer(self)
         return epocher
 
