@@ -6,7 +6,7 @@ from deepclustering2.dataset import PatientSampler
 from loguru import logger
 from torch.utils.data import DataLoader
 
-from contrastyou import DATA_PATH
+from contrastyou import get_cc_data_path
 from contrastyou.datasets import ACDCSemiInterface, SpleenSemiInterface, ProstateSemiInterface, MMWHSSemiInterface
 from semi_seg.augment import ACDCStrongTransforms, SpleenStrongTransforms, ProstateStrongTransforms
 
@@ -39,7 +39,7 @@ def get_dataloaders(config, group_val_patient=True, pretrain=False):
     if labeled_data_ratio + unlabeled_data_ratio != 1:
         RuntimeError(f"labeled and unlabeled data should be set properly, "
                      f"given {labeled_data_ratio} and {unlabeled_data_ratio}")
-    data_manager = datainterface(root_dir=DATA_PATH, labeled_data_ratio=labeled_data_ratio,
+    data_manager = datainterface(root_dir=get_cc_data_path(), labeled_data_ratio=labeled_data_ratio,
                                  unlabeled_data_ratio=unlabeled_data_ratio, verbose=False,
                                  seed=0 if dataset_name == "acdc" else 10)  # avoid bad random seed for prostate
 

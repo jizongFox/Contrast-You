@@ -25,6 +25,14 @@ __accounts = ["rrg-mpederso", ]
 
 
 def run_jobs(job_submiter, job_array, args):
+    def move_dataset():
+        from contrastyou import DATA_PATH
+        import os
+        tmpdir = os.environ.get("SLURM_TMPDIR", None)
+        if tmpdir is None:
+            return ""
+        return f" cp -r {DATA_PATH} {tmpdir}"
+
     for j in job_array:
         time.sleep(0.5)
         job_submiter.prepare_env(
@@ -39,6 +47,7 @@ def run_jobs(job_submiter, job_array, args):
                 "export OMP_NUM_THREADS=1",
                 "export PYTHONOPTIMIZE=1",
                 "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
+                move_dataset()
             ]
         )
         job_submiter.account = next(accounts)
