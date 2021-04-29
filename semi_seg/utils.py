@@ -1,14 +1,9 @@
-from copy import deepcopy
 from itertools import repeat
 from typing import List, Union
 
-import numpy as np
 from deepclustering2.configparser._utils import get_config
-from deepclustering2.dataset import PatientSampler
-from deepclustering2.utils import fix_all_seed_within_context
 from torch import nn, Tensor
 from torch._six import container_abcs
-from torch.utils.data import DataLoader
 
 from contrastyou.losses.iic_loss import IIDLoss as _IIDLoss, IIDSegmentationSmallPathLoss
 from contrastyou.losses.pica_loss import PUILoss, PUISegLoss
@@ -18,6 +13,7 @@ from contrastyou.projectors.heads import DenseClusterHead as _LocalClusterHead, 
 from contrastyou.projectors.heads import ProjectionHead
 from contrastyou.projectors.wrappers import _ProjectorWrapperBase, CombineWrapperBase
 from semi_seg.arch import UNet
+from semi_seg.arch.unet import get_channel_dim
 
 
 def get_model(model):
@@ -64,10 +60,8 @@ class ContrastiveProjectorWrapper(_ProjectorWrapperBase):
 
     def _register_global_projector(self, *, feature_name: str, head_type: str, output_dim: int = 256, normalize=True,
                                    pool_name: str):
-        config = get_config(scope="base")
-        arch_config = config["Arch"]
-        arch_config.pop("checkpoint",None)
-        input_dim = UNet(**arch_config).get_channel_dim(feature_name)
+        _max_channel = get_config(scope="base")["Arch"].get("max_channel", None)
+        input_dim = get_channel_dim(feature_name, max_channel=_max_channel)
 
         projector = ProjectionHead(input_dim=input_dim, head_type=head_type, normalize=normalize, pool_name=pool_name,
                                    output_dim=output_dim)
@@ -76,7 +70,8 @@ class ContrastiveProjectorWrapper(_ProjectorWrapperBase):
 
     def _register_dense_projector(self, *, feature_name: str, output_dim: int = 64, head_type: str,
                                   normalize: bool = False, pool_name="adaptive_avg", spatial_size=(16, 16), **kwargs):
-        input_dim = UNet.dimension_dict[feature_name]
+        _max_channel = get_config(scope="base")["Arch"].get("max_channel", None)
+        input_dim = get_channel_dim(feature_name, max_channel=_max_channel)
         projector = DenseProjectionHead(input_dim=input_dim, output_dim=output_dim, head_type=head_type,
                                         normalize=normalize,
                                         pool_name=pool_name, spatial_size=spatial_size)
@@ -306,37 +301,3 @@ class _LocalClusterWrapper(_ProjectorWrapperBase):
     @staticmethod
     def _create_clusterheads(*args, **kwargs):
         return _LocalClusterHead(*args, **kwargs)
-
-
-def create_val_loader(*, test_loader):
-    test_dataset = test_loader.dataset
-    patient_list = sorted(test_dataset.show_group_set())
-    patient_length = len(patient_list)
-
-    def extract_dict_based_on_patient(patient_list, dataset):
-        file_name_dict = dataset._filenames
-        new_dict = {}
-        for k, v in file_name_dict.items():
-            new_dict[k] = [m for m in v if dataset._get_group(m) in patient_list]
-        return new_dict
-
-    with fix_all_seed_within_context(1):
-        random_patient = np.random.permutation(patient_list)
-    from contrastyou.datasets.mmwhs_dataset import MMWHSDataset
-    ratio = 0.35 if not isinstance(test_dataset, MMWHSDataset) else 0.45
-    val_patient = random_patient[:int(patient_length * ratio)]
-    test_patient = random_patient[int(patient_length * ratio):]
-    assert len(val_patient) > 0
-    assert len(test_patient) > 0
-    assert set(test_patient) & set(val_patient) == set()
-
-    val_dataset = deepcopy(test_loader.dataset)
-    val_dataset._filenames = extract_dict_based_on_patient(val_patient, val_dataset)
-    val_patient_sampler = PatientSampler(val_dataset, grp_regex=val_dataset._pattern)
-    val_dataloader = DataLoader(val_dataset, batch_sampler=val_patient_sampler, )
-
-    test_dataset = deepcopy(test_loader.dataset)
-    test_dataset._filenames = extract_dict_based_on_patient(test_patient, test_dataset)
-    test_patient_sampler = PatientSampler(test_dataset, grp_regex=test_dataset._pattern)
-    test_dataloader = DataLoader(test_dataset, batch_sampler=test_patient_sampler)
-    return val_dataloader, test_dataloader

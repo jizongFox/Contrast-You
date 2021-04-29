@@ -27,7 +27,7 @@ def arch_order(name: str):
     return _arch_element2index()[name]
 
 
-def sort_arch_list(name_list: [List[str]], reverse=False):
+def sort_arch(name_list: [List[str]], reverse=False) -> List[str]:
     return sorted(name_list, key=arch_order, reverse=reverse)
 
 
@@ -277,3 +277,9 @@ class UNet(nn.Module):
     @property
     def num_classes(self):
         return self._num_classes
+
+
+def get_channel_dim(layer_name: str, max_channel=None):
+    max_channel = max_channel or 256
+    assert layer_name in {k: v for k, v in UNet.layer_dimension.items() if v is not None}
+    return int(UNet.layer_dimension[layer_name] / 16 * max_channel)

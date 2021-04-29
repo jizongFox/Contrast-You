@@ -6,9 +6,8 @@ from deepclustering2.loss import KL_div
 from deepclustering2.utils import gethash, fix_all_seed_within_context
 
 from contrastyou.arch.unet import arch_order
-from semi_seg.dsutils import get_dataloaders
+from semi_seg.dsutils import get_dataloaders, create_val_loader
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos
-from semi_seg.utils import create_val_loader
 
 cur_githash = gethash(__file__)  # noqa
 trainer_zoos = {**base_trainer_zoos, **pre_trainer_zoos}

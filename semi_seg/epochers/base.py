@@ -19,11 +19,9 @@ from loguru import logger
 from torch import nn, Tensor
 from torch.utils.data.dataloader import DataLoader
 
-from contrastyou.epocher._utils import preprocess_input_with_single_transformation  # noqa
-from contrastyou.epocher._utils import preprocess_input_with_twice_transformation  # noqa
-from contrastyou.epocher._utils import write_predict, write_img_target  # noqa
+from semi_seg.epochers._helper import preprocess_input_with_single_transformation, write_predict, write_img_target, \
+    preprocess_input_with_twice_transformation
 from semi_seg.utils import _num_class_mixin
-from ._helper import __AssertOnlyWithLabeledData
 
 
 # to enable init and _init, in order to insert assertion of params
@@ -267,7 +265,7 @@ class TrainEpocher(Epocher):
         return torch.tensor(0, dtype=torch.float, device=self._device)
 
 
-class FineTuneEpocher(TrainEpocher, __AssertOnlyWithLabeledData):
+class FineTuneEpocher(TrainEpocher, ):
 
     def __init__(self, *, model: Union[Model, nn.Module], optimizer: T_optim, labeled_loader: T_loader,
                  sup_criterion: T_loss, num_batches: int, cur_epoch=0, device="cpu",

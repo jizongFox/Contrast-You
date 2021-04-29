@@ -1,8 +1,12 @@
-from contextlib import contextmanager
-from typing import Union
+import os
+import warnings
+from typing import List, Union
 
-from loguru import logger
-from torch import nn, Tensor
+import numpy as np
+from deepclustering2.type import to_device
+from skimage.io import imsave
+from sklearn.preprocessing import LabelEncoder
+from torch import Tensor
 
 from semi_seg.arch.hook import FeatureExtractor
 
@@ -19,42 +23,64 @@ class unl_extractor:
             yield feature[len(feature) - self._n_uls:]
 
 
-@contextmanager
-def set_grad_tensor(tensor: Tensor, is_enable: bool):
-    prev_flag = tensor.requires_grad
-    tensor.requires_grad = is_enable
-    yield
-    tensor.requires_grad = prev_flag
+def preprocess_input_with_twice_transformation(data, device, non_blocking=True):
+    (image, image_tf, target, target_tf), filename, (partition_list, group_list) = \
+        to_device(data[0], device, non_blocking), data[1], data[2]
+    return (image, target), (image_tf, target_tf), filename, partition_list, group_list
 
 
-@contextmanager
-def set_grad_module(module: nn.Module, is_enable: bool):
-    prev_flags = {k: v.requires_grad for k, v in module.named_parameters()}
-    for k, v in module.named_parameters():
-        v.requires_grad = is_enable
-    yield
-    for k, v in module.named_parameters():
-        v.requires_grad = prev_flags[k]
+def preprocess_input_with_single_transformation(data, device, non_blocking=True):
+    return data[0][0].to(device, non_blocking=non_blocking), data[0][1].to(device, non_blocking=non_blocking), data[1], \
+           data[2], data[3]
 
 
-def set_grad(tensor_or_module: Union[Tensor, nn.Module], is_enable):
-    assert isinstance(tensor_or_module, (Tensor, nn.Module))
-    if isinstance(tensor_or_module, Tensor):
-        return set_grad_tensor(tensor_or_module, is_enable)
-    return set_grad_module(tensor_or_module, is_enable)
+class PartitionLabelGenerator:
+    def __call__(self, partition_list: List[str], **kwargs):
+        return LabelEncoder().fit(partition_list).transform(partition_list).tolist()
 
 
-class __AssertWithUnLabeledData:
-
-    def _assertion(self):
-        from .base import FineTuneEpocher
-        assert not isinstance(self, FineTuneEpocher)
-        logger.debug("{} using unlabeled data checked!", self.__class__.__name__)
+class PatientLabelGenerator:
+    def __call__(self, patient_list: List[str], **kwargs):
+        return LabelEncoder().fit(patient_list).transform(patient_list).tolist()
 
 
-class __AssertOnlyWithLabeledData:
+class ACDCCycleGenerator:
+    def __call__(self, experiment_list: List[str], **kwargs):
+        return [0 if e == "00" else 1 for e in experiment_list]
 
-    def _assertion(self):
-        from .base import FineTuneEpocher
-        assert isinstance(self, FineTuneEpocher)
-        logger.debug("{} using only labeled data checked!", self.__class__.__name__)
+
+class SIMCLRGenerator:
+    def __call__(self, partition_list: List[str], **kwargs):
+        return list(range(len(partition_list)))
+
+
+def _write_single_png(mask: Tensor, save_dir: str, filename: str):
+    assert mask.shape.__len__() == 2, mask.shape
+    mask = mask.cpu().detach().numpy()
+    if not os.path.exists(save_dir):
+        os.mkdir(save_dir)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        imsave(os.path.join(save_dir, (filename + ".png")), mask.astype(np.uint8))
+
+
+def write_predict(predict_logit: Tensor, save_dir: str, filenames: Union[str, List[str]]):
+    assert len(predict_logit.shape) == 4, predict_logit.shape
+    if isinstance(filenames, str):
+        filenames = [filenames, ]
+    assert len(filenames) == len(predict_logit)
+    predict_mask = predict_logit.max(1)[1]
+    for m, f in zip(predict_mask, filenames):
+        _write_single_png(m, os.path.join(save_dir, "pred"), f)
+
+
+def write_img_target(image: Tensor, target: Tensor, save_dir: str, filenames: Union[str, List[str]]):
+    if isinstance(filenames, str):
+        filenames = [filenames, ]
+    image = image.squeeze()
+    target = target.squeeze()
+    assert image.shape == target.shape
+    for img, f in zip(image, filenames):
+        _write_single_png(img * 255, os.path.join(save_dir, "img"), f)
+    for targ, f in zip(target, filenames):
+        _write_single_png(targ, os.path.join(save_dir, "gt"), f)

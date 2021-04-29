@@ -6,7 +6,7 @@ from typing import List, Tuple, Union
 import numpy as np
 from torch import Tensor
 
-from contrastyou.augment.sequential_wrapper import SequentialWrapper
+from contrastyou.augment.synchronize import SequentialWrapper
 from contrastyou.datasets._seg_datset import ContrastDataset
 from deepclustering2.dataset import ACDCDataset as _ACDCDataset, ACDCSemiInterface as _ACDCSemiInterface
 

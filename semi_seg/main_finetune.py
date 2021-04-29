@@ -13,9 +13,8 @@ from contrastyou import PROJECT_PATH
 from contrastyou.helper import extract_model_state_dict
 from semi_seg import ratio_zoom
 from semi_seg.arch import UNet
-from semi_seg.dsutils import get_dataloaders
+from semi_seg.dsutils import get_dataloaders, create_val_loader
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, DirectTrainer
-from semi_seg.utils import create_val_loader
 
 cur_githash = gethash(__file__)  # noqa
 trainer_zoos = {**base_trainer_zoos, **pre_trainer_zoos}

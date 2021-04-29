@@ -19,6 +19,6 @@ Scheduler:
   warmup_max: 10
 
 ContrastiveLoaderParams:
-  group_sample_num: 7
+  scan_sample_num: 7
   partition_sample_num: 1
   num_workers: 6

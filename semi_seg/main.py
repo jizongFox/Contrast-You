@@ -16,9 +16,8 @@ from contrastyou import PROJECT_PATH
 from contrastyou.helper import extract_model_state_dict
 # from contrastyou.arch import UNet
 from semi_seg.arch import UNet
-from semi_seg.dsutils import get_dataloaders
+from semi_seg.data import get_data_loaders, create_val_loader
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos
-from semi_seg.utils import create_val_loader
 
 warnings.filterwarnings("ignore")
 
@@ -43,8 +42,13 @@ def main():
 @logger.catch(reraise=True)
 def main_worker(rank, ngpus_per_node, config, port):  # noqa
 
-    labeled_loader, unlabeled_loader, test_loader = get_dataloaders(config)
+    trainer_name = config["Trainer"].pop("name")
+    is_pretrain: bool = trainer_name in pre_trainer_zoos
+
+    labeled_loader, unlabeled_loader, test_loader = get_data_loaders(
+        config["Data"], config["LabeledLoader"], config["UnlabeledLoader"], pretrain=is_pretrain)
     val_loader, test_loader = create_val_loader(test_loader=test_loader)
+
     labeled_loader.dataset.preload()
     unlabeled_loader.dataset.preload()
     val_loader.dataset.preload()
@@ -58,11 +62,7 @@ def main_worker(rank, ngpus_per_node, config, port):  # noqa
         logger.info(f"loading checkpoint from  {model_checkpoint}")
         model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=False)
 
-    trainer_name = config["Trainer"].pop("name")
-
     Trainer = trainer_zoos[trainer_name]
-
-    is_pretrain: bool = trainer_name in pre_trainer_zoos
 
     trainer = Trainer(
         model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),

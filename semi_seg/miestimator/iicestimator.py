@@ -1,11 +1,13 @@
 from typing import Dict, Union, List
 
 import torch
+from deepclustering2.configparser._utils import get_config
 
 from contrastyou.helper import average_iter
 from semi_seg.arch import UNet
 from ._utils import encoder_names
 from .base import _SingleEstimator, _EstimatorList
+from ..arch.unet import get_channel_dim
 from ..utils import _LocalClusterHead, _EncoderClusterHead, IIDLoss, IIDSegmentationSmallPathLoss, _nlist, \
     _filter_encodernames, _filter_decodernames
 
@@ -29,7 +31,9 @@ class IICEstimator(_SingleEstimator):
         self._num_subhead = num_subhead
         self._num_clusters = num_cluster
         self._t = temperature
-        input_dim = UNet.dimension_dict[layer_name]
+
+        _max_channel = get_config(scope="base")["Arch"].get("max_channel", None)
+        input_dim = get_channel_dim(layer_name, max_channel=_max_channel)
 
         CLUSTERHEAD = _EncoderClusterHead if self._layer_name in encoder_names else _LocalClusterHead
 

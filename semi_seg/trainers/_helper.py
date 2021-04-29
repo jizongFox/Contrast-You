@@ -2,8 +2,6 @@ from functools import partial
 from pathlib import Path
 from typing import List, Dict, Any, Callable
 
-from deepclustering2.dataloader.sampler import InfiniteRandomSampler
-from deepclustering2.dataset import PatientSampler
 from deepclustering2.meters2 import StorageIncomeDict, Storage, EpochResultDict
 from deepclustering2.tqdm import item2str
 from deepclustering2.writer import SummaryWriter
@@ -11,11 +9,19 @@ from loguru import logger
 from torch import nn
 from torch.utils.data.dataloader import _BaseDataLoaderIter as BaseDataLoaderIter, DataLoader  # noqa
 
-# from contrastyou.arch.unet import enable_grad, enable_bn_tracking
-from contrastyou.datasets import MMWHSDataset, ACDCDataset, ProstateDataset
-from contrastyou.datasets._seg_datset import ContrastBatchSampler  # noqa
+from contrastyou.data import InfiniteRandomSampler, ScanSampler
 from contrastyou.helper import get_dataset
-from semi_seg import augment
+from semi_seg.data import ACDCDataset, ProstateDataset, mmWHSCTDataset
+from semi_seg.data.creator import augment_zoo
+from semi_seg.data.rearr import ContrastBatchSampler
+
+
+def get_partition_num(name: str):
+    partition_num_zoo = {"acdc": ACDCDataset.partition_num,
+                         "prostate": ProstateDataset.partition_num,
+                         "mmwhsct": mmWHSCTDataset.partition_num,
+                         "mmwhsmr": mmWHSCTDataset.partition_num}
+    return partition_num_zoo[name]
 
 
 def _get_contrastive_dataloader(partial_loader, config):
@@ -23,30 +29,22 @@ def _get_contrastive_dataloader(partial_loader, config):
     unlabeled_dataset = get_dataset(partial_loader)
 
     dataset_type = type(unlabeled_dataset)
-    if dataset_type != MMWHSDataset:
-        dataset = dataset_type(
-            str(Path(unlabeled_dataset._root_dir).parent),  # noqa
-            unlabeled_dataset._mode, unlabeled_dataset._transform  # noqa
-        )
-    else:
-        dataset = MMWHSDataset(
-            str(Path(unlabeled_dataset._root_dir).parent),  # noqa
-            modality=unlabeled_dataset._mode.split("_")[0], mode=unlabeled_dataset._mode.split("_")[1],
-            transforms=unlabeled_dataset._transform  # noqa
-        )
+    dataset = dataset_type(root_dir=Path(unlabeled_dataset._root_dir).parent,  # noqa
+                           mode="train", transforms=unlabeled_dataset.transforms)
+
     contrastive_config: Dict = config["ContrastiveLoaderParams"]
     num_workers = contrastive_config.pop("num_workers")
-    dataset_name = config["Data"]["name"]
+    data_name = config["Data"]["name"]
+    augment = augment_zoo[data_name]
+
     batch_sampler = None
-    batch_size = contrastive_config["group_sample_num"] * {"acdc": 3, "prostate": 7, "mmwhs": 7}[dataset_name]
+
+    batch_size = contrastive_config["scan_sample_num"] * get_partition_num(data_name)
     sampler = InfiniteRandomSampler(dataset, shuffle=True)
 
-    if dataset_name == "acdc":
+    if data_name == "acdc":
         # only group the acdc dataset
-        batch_sampler = ContrastBatchSampler(
-            dataset=dataset,
-            **contrastive_config
-        )  # this batch sampler is without end
+        batch_sampler = ContrastBatchSampler(dataset=dataset, **contrastive_config)
         batch_size = 1
         sampler = None
 
@@ -56,33 +54,11 @@ def _get_contrastive_dataloader(partial_loader, config):
         pin_memory=True, shuffle=False,
     )
 
-    if dataset_type == ACDCDataset:
-        demo_dataset = ACDCDataset(
-            str(Path(unlabeled_dataset._root_dir).parent),  # noqa
-            unlabeled_dataset._mode, augment.ACDCStrongTransforms.trainval  # noqa
-        )
-    elif dataset_type == ProstateDataset:
-        demo_dataset = ProstateDataset(
-            str(Path(unlabeled_dataset._root_dir).parent),  # noqa
-            unlabeled_dataset._mode, augment.ProstateStrongTransforms.trainval  # noqa
-        )
-    elif dataset_type == MMWHSDataset:
-        demo_dataset = MMWHSDataset(
-            str(Path(unlabeled_dataset._root_dir).parent),  # noqa
-            modality=unlabeled_dataset._mode.split("_")[0], mode=unlabeled_dataset._mode.split("_")[1],
-            transforms=augment.MMWHSStrongTransforms.trainval  # noqa
-        )
-    else:
-        raise NotImplemented()
-    demo_loader = DataLoader(
-        demo_dataset,
-        batch_size=1,
-        batch_sampler=PatientSampler(
-            dataset,
-            grp_regex=dataset.dataset_pattern,
-            shuffle=False
-        )
-    )
+    demo_dataset = dataset_type(root_dir=str(Path(unlabeled_dataset._root_dir).parent),  # noqa
+                                mode="train", transforms=augment.trainval  # noqa
+                                )
+
+    demo_loader = DataLoader(demo_dataset, batch_size=1, batch_sampler=ScanSampler(dataset))
 
     return iter(contrastive_loader), demo_loader
 

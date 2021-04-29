@@ -19,20 +19,20 @@ from torch import Tensor
 from torch import nn
 from torch.nn import functional as F
 
-from semi_seg.arch.hook import FeatureExtractor
 from contrastyou.helper import average_iter, weighted_average_iter
 from contrastyou.losses.contrast_loss2 import is_normalized, SupConLoss1
 from contrastyou.losses.iic_loss import _ntuple  # noqa
 from contrastyou.projectors.heads import ProjectionHead
 from contrastyou.projectors.nn import Normalize
+from semi_seg.arch.hook import FeatureExtractor
 from semi_seg.utils import ContrastiveProjectorWrapper
-from ._helper import unl_extractor, __AssertWithUnLabeledData
+from ._helper import unl_extractor
 from ._mixins import _FeatureExtractorMixin, _MeanTeacherMixin
 from .base import TrainEpocher
 from .miepocher import MITrainEpocher, ConsistencyTrainEpocher
 
 
-class MeanTeacherEpocher(_MeanTeacherMixin, TrainEpocher, __AssertWithUnLabeledData):
+class MeanTeacherEpocher(_MeanTeacherMixin, TrainEpocher):
 
     def _regularization(
         self,
@@ -51,7 +51,7 @@ class MeanTeacherEpocher(_MeanTeacherMixin, TrainEpocher, __AssertWithUnLabeledD
         return mt_reg
 
 
-class UCMeanTeacherEpocher(MeanTeacherEpocher, __AssertWithUnLabeledData):
+class UCMeanTeacherEpocher(MeanTeacherEpocher, ):
 
     def _init(self, *, reg_weight: float, teacher_model: nn.Module, reg_criterion: T_loss,  # noqa
               ema_updater: EMA_Updater, threshold: RampScheduler = None, **kwargs):  # noqa
@@ -105,7 +105,7 @@ class UCMeanTeacherEpocher(MeanTeacherEpocher, __AssertWithUnLabeledData):
         return (reg_loss.mean(1) * mask).mean()
 
 
-class MIMeanTeacherEpocher(MITrainEpocher, __AssertWithUnLabeledData):
+class MIMeanTeacherEpocher(MITrainEpocher, ):
 
     def _init(self, *, mi_estimator_array: Iterable[Callable[[Tensor, Tensor], Tensor]],
               teacher_model: nn.Module = None, ema_updater: EMA_Updater = None, mt_weight: float = None,
@@ -192,7 +192,7 @@ class MIMeanTeacherEpocher(MITrainEpocher, __AssertWithUnLabeledData):
         return self._mt_weight * uda_loss + self._mi_weight * reg_loss
 
 
-class MIDLPaperEpocher(ConsistencyTrainEpocher, __AssertWithUnLabeledData):
+class MIDLPaperEpocher(ConsistencyTrainEpocher, ):
 
     def init(self, *, mi_weight: float, consistency_weight: float, iic_segcriterion: T_loss,  # noqa
              reg_criterion: T_loss,  # noqa
@@ -224,7 +224,7 @@ class MIDLPaperEpocher(ConsistencyTrainEpocher, __AssertWithUnLabeledData):
         return uda_loss * self._consistency_weight + iic_loss * self._mi_weight
 
 
-class EntropyMinEpocher(TrainEpocher, __AssertWithUnLabeledData):
+class EntropyMinEpocher(TrainEpocher, ):
 
     def init(self, *, reg_weight: float, **kwargs):
         super().init(reg_weight=reg_weight, **kwargs)
@@ -247,7 +247,7 @@ class EntropyMinEpocher(TrainEpocher, __AssertWithUnLabeledData):
         return reg_loss
 
 
-class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnLabeledData):
+class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, ):
     """base epocher class for infonce like method"""
 
     def __init__(self, *args, **kwargs):
@@ -305,8 +305,7 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
 
     @lru_cache()
     def global_label_generator(self, dataset_name: str, contrast_on: str):
-        from contrastyou.epocher._utils import PartitionLabelGenerator, PatientLabelGenerator, \
-            ACDCCycleGenerator, SIMCLRGenerator  # noqa
+        from ._helper import PartitionLabelGenerator, PatientLabelGenerator, ACDCCycleGenerator, SIMCLRGenerator
         if dataset_name == "acdc":
             logger.debug("initialize {} label generator for encoder training", contrast_on)
             if contrast_on == "partition":

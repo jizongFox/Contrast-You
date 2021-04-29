@@ -8,7 +8,7 @@ from deepclustering2.dataset.segmentation.mmwhs_dataset import MMWHSDataset as _
 from torch import Tensor
 
 from contrastyou import DATA_PATH
-from contrastyou.augment.sequential_wrapper import SequentialWrapper
+from contrastyou.augment.synchronize import SequentialWrapper
 from contrastyou.datasets._seg_datset import ContrastDataset
 
 

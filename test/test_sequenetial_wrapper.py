@@ -7,7 +7,7 @@ import requests
 from PIL import Image
 from torchvision import transforms
 
-from contrastyou.augment.sequential_wrapper import SequentialWrapper, SequentialWrapperTwice
+from contrastyou.augment.synchronize import SequentialWrapper, SequentialWrapperTwice
 from deepclustering2.augment import pil_augment
 from deepclustering2.decorator import FixRandomSeed
 

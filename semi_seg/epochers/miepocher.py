@@ -4,12 +4,11 @@ from deepclustering2.meters2 import AverageValueMeter, MeterInterface
 from deepclustering2.type import T_loss
 from torch import Tensor
 
-from ._helper import __AssertWithUnLabeledData
 from ._mixins import _ConsistencyMixin, _MIMixin
 from .base import TrainEpocher
 
 
-class ConsistencyTrainEpocher(_ConsistencyMixin, TrainEpocher, __AssertWithUnLabeledData):
+class ConsistencyTrainEpocher(_ConsistencyMixin, TrainEpocher, ):
 
     # noinspection Mypy
     def _regularization(
@@ -24,7 +23,7 @@ class ConsistencyTrainEpocher(_ConsistencyMixin, TrainEpocher, __AssertWithUnLab
         return reg_loss
 
 
-class MITrainEpocher(_MIMixin, TrainEpocher, __AssertWithUnLabeledData):
+class MITrainEpocher(_MIMixin, TrainEpocher, ):
 
     def _regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, **kwargs):
         reg_loss = self._mi_regularization(unlabeled_logits_tf=unlabeled_logits_tf,
@@ -34,7 +33,7 @@ class MITrainEpocher(_MIMixin, TrainEpocher, __AssertWithUnLabeledData):
 
 
 class ConsistencyMIEpocher(_ConsistencyMixin, _MIMixin, TrainEpocher,
-                           __AssertWithUnLabeledData):
+                           ):
 
     def _init(self, *, mi_weight: float, consistency_weight: float,  # noqa
               mi_estimator_array: Iterable[Callable[[Tensor, Tensor], Tensor]], reg_criterion: T_loss,  # noqa
