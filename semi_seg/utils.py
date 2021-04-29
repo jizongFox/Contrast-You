@@ -3,13 +3,13 @@ from itertools import repeat
 from typing import List, Union
 
 import numpy as np
+from deepclustering2.configparser._utils import get_config
 from deepclustering2.dataset import PatientSampler
 from deepclustering2.utils import fix_all_seed_within_context
 from torch import nn, Tensor
 from torch._six import container_abcs
 from torch.utils.data import DataLoader
 
-from contrastyou.arch import UNet
 from contrastyou.losses.iic_loss import IIDLoss as _IIDLoss, IIDSegmentationSmallPathLoss
 from contrastyou.losses.pica_loss import PUILoss, PUISegLoss
 from contrastyou.losses.wrappers import LossWrapperBase
@@ -17,6 +17,7 @@ from contrastyou.projectors.heads import DenseClusterHead as _LocalClusterHead, 
     DenseProjectionHead
 from contrastyou.projectors.heads import ProjectionHead
 from contrastyou.projectors.wrappers import _ProjectorWrapperBase, CombineWrapperBase
+from semi_seg.arch import UNet
 
 
 def get_model(model):
@@ -63,7 +64,10 @@ class ContrastiveProjectorWrapper(_ProjectorWrapperBase):
 
     def _register_global_projector(self, *, feature_name: str, head_type: str, output_dim: int = 256, normalize=True,
                                    pool_name: str):
-        input_dim = UNet.dimension_dict[feature_name]
+        config = get_config(scope="base")
+        arch_config = config["Arch"]
+        arch_config.pop("checkpoint",None)
+        input_dim = UNet(**arch_config).get_channel_dim(feature_name)
 
         projector = ProjectionHead(input_dim=input_dim, head_type=head_type, normalize=normalize, pool_name=pool_name,
                                    output_dim=output_dim)

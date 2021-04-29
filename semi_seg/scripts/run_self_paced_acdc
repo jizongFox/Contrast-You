@@ -1,14 +1,14 @@
 #!/bin/bash
 
 rand_seed=10
-save_dir=0429
-group_num=12
-num_batches=250
+save_dir=0431_refactorize
+group_num=10
+num_batches=200
 pre_max_epoch=80
 ft_max_epoch=60
 dataset=acdc
 monitor=false
-comm_cmd=" -n ${dataset}  "
+comm_cmd=" -n ${dataset} --on-local "
 
 source ./_run_semi "${save_dir}" "${comm_cmd}" "${rand_seed}" "${num_batches}" "${ft_max_epoch}"
 
@@ -80,49 +80,49 @@ run_null_checkpoint
 
 # soft
 run_selfpaced 5 50 soft inversesquare
-run_selfpaced 5 60 soft inversesquare
-run_selfpaced 5 70 soft inversesquare
-run_selfpaced 5 80 soft inversesquare
-
-run_selfpaced 4.5 50 soft inversesquare
-run_selfpaced 4.5 60 soft inversesquare
-run_selfpaced 4.5 70 soft inversesquare
-run_selfpaced 4.5 80 soft inversesquare
-
-run_selfpaced 4 50 soft inversesquare
-run_selfpaced 4 60 soft inversesquare
-run_selfpaced 4 70 soft inversesquare
-run_selfpaced 4 80 soft inversesquare
-
-run_selfpaced 3.5 50 soft inversesquare
-run_selfpaced 3.5 60 soft inversesquare
-run_selfpaced 3.5 70 soft inversesquare
-run_selfpaced 3.5 80 soft inversesquare
-
-run_selfpaced 3 50 soft inversesquare
-run_selfpaced 3 60 soft inversesquare
-run_selfpaced 3 70 soft inversesquare
-run_selfpaced 3 80 soft inversesquare
-
-run_selfpaced 2.5 50 soft inversesquare
-run_selfpaced 2.5 60 soft inversesquare
-run_selfpaced 2.5 70 soft inversesquare
-run_selfpaced 2.5 80 soft inversesquare
-
-run_selfpaced 2 50 soft inversesquare
-run_selfpaced 2 60 soft inversesquare
-run_selfpaced 2 70 soft inversesquare
-run_selfpaced 2 80 soft inversesquare
-
-run_selfpaced 1.5 50 soft inversesquare
-run_selfpaced 1.5 60 soft inversesquare
-run_selfpaced 1.5 70 soft inversesquare
-run_selfpaced 1.5 80 soft inversesquare
-
-run_selfpaced 1 50 soft inversesquare
-run_selfpaced 1 60 soft inversesquare
-run_selfpaced 1 70 soft inversesquare
-run_selfpaced 1 80 soft inversesquare
+#run_selfpaced 5 60 soft inversesquare
+#run_selfpaced 5 70 soft inversesquare
+#run_selfpaced 5 80 soft inversesquare
+#
+#run_selfpaced 4.5 50 soft inversesquare
+#run_selfpaced 4.5 60 soft inversesquare
+#run_selfpaced 4.5 70 soft inversesquare
+#run_selfpaced 4.5 80 soft inversesquare
+#
+#run_selfpaced 4 50 soft inversesquare
+#run_selfpaced 4 60 soft inversesquare
+#run_selfpaced 4 70 soft inversesquare
+#run_selfpaced 4 80 soft inversesquare
+#
+#run_selfpaced 3.5 50 soft inversesquare
+#run_selfpaced 3.5 60 soft inversesquare
+#run_selfpaced 3.5 70 soft inversesquare
+#run_selfpaced 3.5 80 soft inversesquare
+#
+#run_selfpaced 3 50 soft inversesquare
+#run_selfpaced 3 60 soft inversesquare
+#run_selfpaced 3 70 soft inversesquare
+#run_selfpaced 3 80 soft inversesquare
+#
+#run_selfpaced 2.5 50 soft inversesquare
+#run_selfpaced 2.5 60 soft inversesquare
+#run_selfpaced 2.5 70 soft inversesquare
+#run_selfpaced 2.5 80 soft inversesquare
+#
+#run_selfpaced 2 50 soft inversesquare
+#run_selfpaced 2 60 soft inversesquare
+#run_selfpaced 2 70 soft inversesquare
+#run_selfpaced 2 80 soft inversesquare
+#
+#run_selfpaced 1.5 50 soft inversesquare
+#run_selfpaced 1.5 60 soft inversesquare
+#run_selfpaced 1.5 70 soft inversesquare
+#run_selfpaced 1.5 80 soft inversesquare
+#
+#run_selfpaced 1 50 soft inversesquare
+#run_selfpaced 1 60 soft inversesquare
+#run_selfpaced 1 70 soft inversesquare
+#run_selfpaced 1 80 soft inversesquare
 
 ## multitask
 #

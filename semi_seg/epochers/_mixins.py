@@ -14,8 +14,8 @@ from loguru import logger
 from torch import nn, Tensor
 from torch.optim.optimizer import Optimizer
 
-from contrastyou.featextractor.unet import FeatureExtractorWithIndex as FeatureExtractor
 from contrastyou.helper import weighted_average_iter
+from semi_seg.arch.hook import FeatureExtractor
 from ._helper import unl_extractor
 
 
@@ -260,7 +260,7 @@ class _PretrainEpocherMixin:
     def _forward_pass(self, unlabeled_image, unlabeled_image_tf):
         n_l, n_unl = 0, len(unlabeled_image)
         # hightlight: this is only for training for encoder.
-        predict_logits = self._model(torch.cat([unlabeled_image, unlabeled_image_tf], dim=0), forward_only_encoder=True)
+        predict_logits = self._model(torch.cat([unlabeled_image, unlabeled_image_tf], dim=0), until="Conv5")
 
         unlabel_logits, unlabel_tf_logits = torch.split(predict_logits, [n_unl, n_unl], dim=0)
         return unlabel_logits, unlabel_tf_logits

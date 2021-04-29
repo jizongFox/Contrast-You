@@ -19,7 +19,7 @@ from torch import Tensor
 from torch import nn
 from torch.nn import functional as F
 
-from contrastyou.featextractor.unet import FeatureExtractor
+from semi_seg.arch.hook import FeatureExtractor
 from contrastyou.helper import average_iter, weighted_average_iter
 from contrastyou.losses.contrast_loss2 import is_normalized, SupConLoss1
 from contrastyou.losses.iic_loss import _ntuple  # noqa
@@ -354,7 +354,7 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, __AssertWithUnL
             self.generate_infonce(
                 feature_name=n, features=f, projector=p, seed=seed, partition_group=partition_group,
                 label_group=label_group) for n, f, p in
-            zip(self._fextractor.feature_names, unl_extractor(self._fextractor, n_uls=n_uls), self._projectors_wrapper)
+            zip(self._feature_position, unl_extractor(self._fextractor, n_uls=n_uls), self._projectors_wrapper)
         ]
         reg_loss = weighted_average_iter(losses, self._feature_importance)
         self.meters["mi"].add(-reg_loss.item())

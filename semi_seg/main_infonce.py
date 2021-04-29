@@ -1,27 +1,24 @@
 import os
 import random
-import sys
 from copy import deepcopy
 from pathlib import Path
 
 import numpy as np  # noqa
 from deepclustering2.configparser import ConfigManger
 from deepclustering2.loss import KL_div
-from deepclustering2.utils import gethash, yaml_load, fix_all_seed_within_context
+from deepclustering2.utils import gethash, fix_all_seed_within_context
 from loguru import logger
 
 from contrastyou import PROJECT_PATH
-from contrastyou.arch import UNet
-from contrastyou.arch.unet import arch_order
 from contrastyou.helper import extract_model_state_dict
 from semi_seg import ratio_zoom
+from semi_seg.arch import UNet, arch_order
 from semi_seg.dsutils import get_dataloaders
 from semi_seg.scripts.helper import pre_lr_zooms, ft_lr_zooms
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, FineTuneTrainer
 from semi_seg.utils import create_val_loader
 
 cur_githash = gethash(__file__)  # noqa
-print(sys.path)
 trainer_zoos = {**base_trainer_zoos, **pre_trainer_zoos}
 
 
@@ -95,9 +92,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
             config["Trainer"]["grad_from"] or "Conv1", \
             config["Trainer"]["grad_util"] or \
             sorted(trainer._config["FeatureExtractor"]["feature_names"], key=lambda x: arch_order(x))[-1]  # noqa
-        with \
-            trainer.enable_grad(from_=from_, util_=util_), \
-            trainer.enable_bn(from_=from_, util_=util_):
+        with model.set_grad(False, start=util_, include_start=False):
             trainer.start_training(run_monitor=is_monitor_train)
         return trainer, model, (from_, util_)
 
@@ -113,16 +108,6 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         base_config["Data"]["labeled_data_ratio"] = l_ratio
         base_config["Data"]["unlabeled_data_ratio"] = 1 - l_ratio
         # modifying the optimizer options
-        use_different_lr = config["Use_diff_lr"]
-        if use_different_lr:
-            advanced_optim_config = yaml_load("../config/specific/optim.yaml", verbose=False)
-            base_config.update(advanced_optim_config)
-            base_config["OptimizerSupplementary"]["name"] = config["Optim"]["name"]
-            base_config["OptimizerSupplementary"]["group"]["feature_names"] = [
-                f for f in model.component_names if
-                model.component_names.index(from_) <= model.component_names.index(f) <= model.component_names.index(
-                    util_)
-            ]
         base_config["Optim"]["lr"] = ft_lr_zooms[config["Data"]["name"]]
         if ft_lr is not None:
             base_config["Optim"]["lr"] = float(ft_lr)
@@ -149,7 +134,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         finetune_trainer.start_training()
 
     with fix_all_seed_within_context(seed):
-        pre_trainer, model, (from_, util_) = pretrain()
+        pre_trainer, model, _ = pretrain()
     ratios = ratio_zoom[config["Data"]["name"]]
     for labeled_ratio in ratios:
         with fix_all_seed_within_context(seed):

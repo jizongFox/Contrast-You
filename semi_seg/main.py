@@ -1,5 +1,6 @@
 import os
 import random
+import sys
 import warnings
 from copy import deepcopy
 from pathlib import Path
@@ -10,10 +11,11 @@ from deepclustering2.loss import KL_div
 from deepclustering2.utils import fix_all_seed_within_context
 from deepclustering2.utils import gethash
 from loguru import logger
-import sys
+
 from contrastyou import PROJECT_PATH
-from contrastyou.arch import UNet
 from contrastyou.helper import extract_model_state_dict
+# from contrastyou.arch import UNet
+from semi_seg.arch import UNet
 from semi_seg.dsutils import get_dataloaders
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos
 from semi_seg.utils import create_val_loader
@@ -76,9 +78,12 @@ def main_worker(rank, ngpus_per_node, config, port):  # noqa
     if is_pretrain:
         from_, util_ = config["Trainer"]["grad_from"] or "Conv1", \
                        config["Trainer"]["grad_util"] or config["Trainer"]["feature_names"][-1]
-        trainer.enable_grad(from_=from_, util_=util_)
 
-    trainer.start_training()
+        with model.set_grad(False):
+            with model.set_grad(True, start=from_, end=util_):
+                trainer.start_training()
+    else:
+        trainer.start_training()
 
 
 if __name__ == '__main__':

@@ -2,8 +2,8 @@ from typing import Dict, Union, List
 
 import torch
 
-from contrastyou.arch import UNet
 from contrastyou.helper import average_iter
+from semi_seg.arch import UNet
 from ._utils import encoder_names
 from .base import _SingleEstimator, _EstimatorList
 from ..utils import _LocalClusterHead, _EncoderClusterHead, IIDLoss, IIDSegmentationSmallPathLoss, _nlist, \

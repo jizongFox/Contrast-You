@@ -11,7 +11,7 @@ from loguru import logger
 from torch import nn
 from torch.utils.data.dataloader import _BaseDataLoaderIter as BaseDataLoaderIter, DataLoader  # noqa
 
-from contrastyou.arch.unet import enable_grad, enable_bn_tracking
+# from contrastyou.arch.unet import enable_grad, enable_bn_tracking
 from contrastyou.datasets import MMWHSDataset, ACDCDataset, ProstateDataset
 from contrastyou.datasets._seg_datset import ContrastBatchSampler  # noqa
 from contrastyou.helper import get_dataset
@@ -152,19 +152,6 @@ class _PretrainTrainerMixin:
         epocher.init = partial(epocher.init, chain_dataloader=self._contrastive_loader,
                                monitor_dataloader=self._monitor_loader)
         return super(_PretrainTrainerMixin, self)._run_epoch(epocher, *args, **kwargs)  # noqa
-
-    def enable_grad(self, from_, util_):
-        self.__from = from_
-        self.__util = util_
-        self.__initialized_grad = True
-        logger.opt(depth=4).info("set grad from {} to {}", from_, util_)
-        return enable_grad(self._model, from_=self.__from, util_=self.__util)  # noqa
-
-    def enable_bn(self, from_, util_):
-        self.__from = from_
-        self.__util = util_
-        logger.opt(depth=4).info("set bn tracking from {} to {}", from_, util_)
-        return enable_bn_tracking(self._model, from_=self.__from, util_=self.__util)  # noqa
 
     def _start_training(self, **kwargs):
         assert self.__initialized_grad, "`enable_grad` must be called first"

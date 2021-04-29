@@ -4,7 +4,7 @@ from typing import Union
 from loguru import logger
 from torch import nn, Tensor
 
-from contrastyou.featextractor.unet import FeatureExtractorWithIndex as FeatureExtractor
+from semi_seg.arch.hook import FeatureExtractor
 
 
 class unl_extractor:
