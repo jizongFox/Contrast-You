@@ -27,7 +27,7 @@ __accounts = ["rrg-mpederso", ]
 def run_jobs(job_submiter, job_array, args):
     def move_dataset():
         from contrastyou import DATA_PATH
-        return f" cp -r {DATA_PATH} $SLURM_TMPDIR"
+        return f" find {DATA_PATH}  " + "-name '*.zip' -exec cp {} $SLURM_TMPDIR \;"
 
     for j in job_array:
         time.sleep(0.5)
