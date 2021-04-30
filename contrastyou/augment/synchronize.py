@@ -11,7 +11,7 @@ from . import pil_augment
 
 __all__ = ["SequentialWrapper", "SequentialWrapperTwice"]
 
-from ..helper import fix_all_seed_for_transforms
+from ..utils import fix_all_seed_for_transforms
 
 _pil2pil_transform_type = Callable[[Image.Image], Image.Image]
 _pil2tensor_transform_type = Callable[[Image.Image], Tensor]

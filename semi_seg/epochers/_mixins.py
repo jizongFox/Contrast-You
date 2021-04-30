@@ -14,7 +14,7 @@ from loguru import logger
 from torch import nn, Tensor
 from torch.optim.optimizer import Optimizer
 
-from contrastyou.helper import weighted_average_iter
+from contrastyou.utils import weighted_average_iter
 from semi_seg.arch.hook import FeatureExtractor
 from ._helper import unl_extractor
 

@@ -15,7 +15,7 @@ from torch import Tensor, nn
 
 
 @contextmanager
-def _switch_plt_backend(env="agg"):
+def switch_plt_backend(env="agg"):
     prev = matplotlib.get_backend()
     matplotlib.use(env, force=True)
     yield
@@ -121,7 +121,7 @@ class SupConLoss1(nn.Module):
         sim_logits = self.sim_logits.detach().cpu().numpy()
         pos_mask = self.pos_mask.detach().cpu().numpy()
         neg_mask = self.neg_mask.detach().cpu().numpy()
-        with _switch_plt_backend("agg"):
+        with switch_plt_backend("agg"):
             fig1 = plt.figure()
             plt.imshow(sim_exp, cmap="gray")
             plt.colorbar()
@@ -268,7 +268,7 @@ class SelfPacedSupConLoss(nn.Module):
         pos_mask = self.pos_mask.detach().cpu().numpy()
         neg_mask = self.neg_mask.detach().cpu().numpy()
         weight_mask = self.weight.detach().cpu().numpy()
-        with _switch_plt_backend("agg"):
+        with switch_plt_backend("agg"):
             fig1 = plt.figure()
             plt.imshow(sim_exp, cmap="gray")
             plt.colorbar()

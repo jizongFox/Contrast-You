@@ -1,5 +1,4 @@
 from .synchronize import SequentialWrapperTwice, SequentialWrapper
-from .tensor_affine_transform import AffineTensorTransform
 
 """
 class ACDCTransforms:

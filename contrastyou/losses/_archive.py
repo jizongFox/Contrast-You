@@ -7,7 +7,7 @@ from __future__ import print_function
 import torch
 from torch import nn
 
-from contrastyou.helper import deprecated
+from contrastyou.utils import deprecated
 
 
 class SupConLoss(nn.Module):

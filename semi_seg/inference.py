@@ -13,7 +13,7 @@ from loguru import logger
 import sys
 from contrastyou import PROJECT_PATH
 from contrastyou.arch import UNet
-from contrastyou.helper import extract_model_state_dict
+from contrastyou.utils import extract_model_state_dict
 from semi_seg.dsutils import get_dataloaders, create_val_loader
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos
 

@@ -19,7 +19,7 @@ from torch import Tensor
 from torch import nn
 from torch.nn import functional as F
 
-from contrastyou.helper import average_iter, weighted_average_iter
+from contrastyou.utils import average_iter, weighted_average_iter
 from contrastyou.losses.contrast_loss2 import is_normalized, SupConLoss1
 from contrastyou.losses.iic_loss import _ntuple  # noqa
 from contrastyou.projectors.heads import ProjectionHead

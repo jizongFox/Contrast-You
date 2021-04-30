@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 
 from contrastyou import get_cc_data_path
 from contrastyou.data import DatasetBase, extract_sub_dataset_based_on_scan_names, InfiniteRandomSampler, ScanSampler
-from contrastyou.helper import fix_all_seed_within_context
+from contrastyou.utils import fix_all_seed_within_context
 from semi_seg.augment import ACDCStrongTransforms, SpleenStrongTransforms, ProstateStrongTransforms
 from semi_seg.data import ACDCDataset, ProstateDataset, mmWHSCTDataset, mmWHSMRDataset
 

@@ -10,7 +10,7 @@ from torch import nn
 from torch.utils.data.dataloader import _BaseDataLoaderIter as BaseDataLoaderIter, DataLoader  # noqa
 
 from contrastyou.data import InfiniteRandomSampler, ScanSampler
-from contrastyou.helper import get_dataset
+from contrastyou.utils import get_dataset
 from semi_seg.data import ACDCDataset, ProstateDataset, mmWHSCTDataset
 from semi_seg.data.creator import augment_zoo
 from semi_seg.data.rearr import ContrastBatchSampler

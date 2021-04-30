@@ -7,8 +7,9 @@ prostate_ratio = [0.05, 0.1, 0.2, 1.0]  # 2 4 8
 mmwhs_ratio = [0.09, 0.17, 0.34, 1.0]
 # mmwhs_ratio = [0.09, 1.0]
 
-ratio_zoom = {"acdc": acdc_ratios,
-              "prostate": prostate_ratio,
-              "mmwhsct": mmwhs_ratio,
-              "mmwhsmr": mmwhs_ratio
-              }
+ratio_zoom = {
+    "acdc": acdc_ratios,
+    "prostate": prostate_ratio,
+    "mmwhsct": mmwhs_ratio,
+    "mmwhsmr": mmwhs_ratio
+}

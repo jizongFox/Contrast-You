@@ -10,14 +10,21 @@ from torch import nn
 from torch._six import container_abcs
 from torch.nn import functional as F
 
-from contrastyou.helper import average_iter
+from contrastyou.utils import average_iter
 
 
 def _ntuple(n):
     def parse(x):
+        if isinstance(x, str):
+            return tuple(repeat(x, n))
         if isinstance(x, container_abcs.Iterable):
+            x = list(x)
+            if len(x) == 1:
+                return tuple(repeat(x[0], n))
+            else:
+                if len(x) != n:
+                    raise RuntimeError(f"inconsistent shape between {x} and {n}")
             return x
-        return tuple(repeat(x, n))
 
     return parse
 
@@ -158,7 +165,6 @@ def patch_generator(feature_map, patch_size=(32, 32), step_size=(16, 16)):
     for _h in hs:
         for _w in ws:
             yield feature_map[:, :, _h:min(_h + patch_size[0], h), _w:min(_w + patch_size[1], w)]
-            # yield [_h, min(_h + patch_size[0], h), _w, min(_w + patch_size[1], w)]
 
 
 class IIDSegmentationSmallPathLoss(IIDSegmentationLoss):

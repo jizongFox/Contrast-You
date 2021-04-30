@@ -3,7 +3,7 @@ from typing import Dict, Union, List
 import torch
 from deepclustering2.configparser._utils import get_config
 
-from contrastyou.helper import average_iter
+from contrastyou.utils import average_iter
 from semi_seg.arch import UNet
 from ._utils import encoder_names
 from .base import _SingleEstimator, _EstimatorList

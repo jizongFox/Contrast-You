@@ -1,15 +1,16 @@
 # dictionary helper functions
 import collections
 import functools
+import os
+import random
 import warnings
 from contextlib import contextmanager
-from typing import Union, Dict, Any
+from typing import Union, Dict
 
 import matplotlib.pyplot as plt
-from torch.utils.data import Dataset
+import numpy as np
+import torch
 from torch.utils.data.dataloader import DataLoader, _BaseDataLoaderIter  # noqa
-
-__variable_dict = {}
 
 
 def flatten_dict(d, parent_key="", sep="_"):
@@ -23,13 +24,6 @@ def flatten_dict(d, parent_key="", sep="_"):
     return dict(items)
 
 
-def toDataLoaderIterator(loader_or_iter: Union[DataLoader, _BaseDataLoaderIter]):
-    if not isinstance(loader_or_iter, (_BaseDataLoaderIter, DataLoader)):
-        raise TypeError(f"{loader_or_iter} should an instance of DataLoader or _BaseDataLoaderIter, "
-                        f"given {loader_or_iter.__class__.__name__}.")
-    return loader_or_iter if isinstance(loader_or_iter, _BaseDataLoaderIter) else iter(loader_or_iter)
-
-
 def get_dataset(dataloader):
     if isinstance(dataloader, _BaseDataLoaderIter):
         return dataloader._dataset
@@ -37,21 +31,6 @@ def get_dataset(dataloader):
         return dataloader.dataset
     else:
         raise NotImplementedError(type(dataloader))
-
-
-class ChainDataset(Dataset):
-    def __init__(self, datasets):
-        self._datasets = datasets
-
-    def __len__(self):
-        return sum(map(len, self._datasets))
-
-    def __getitem__(self, index: int):
-        for i in range(len(self._datasets)):
-            try:
-                return self._datasets[i][index]
-            except IndexError:
-                index = index - len(self._datasets[i])
 
 
 # make a flatten dictionary to be printablely nice.
@@ -139,27 +118,10 @@ def deprecated(func):
     return new_func
 
 
-def register_variable(*, name: str, object_: Any):
-    __variable_dict[name] = object_
-
-
-def get_variable(*, name: str):
-    return __variable_dict[name]
-
-
-import os
-import random
-from contextlib import contextmanager
-
-import numpy as np
-import torch
-
-
 # reproducibility
-def deterministic(seed):
-    torch.backends.cudnn.benchmark = False
+def set_deterministic():
+    torch.backends.cudnn.benchmark = False  # noqa
     torch.use_deterministic_algorithms(True)
-    fix_all_seed(seed)
 
 
 def fix_all_seed(seed):
@@ -193,8 +155,8 @@ def fix_all_seed_within_context(seed):
         torch_cuda_state = torch.cuda.get_rng_state()
         torch_cuda_state_all = torch.cuda.get_rng_state_all()
     fix_all_seed(seed)
-    yield
 
+    yield
     random.setstate(random_state)
     np.random.set_state(np_state)  # noqa
     torch.random.set_rng_state(torch_state)  # noqa

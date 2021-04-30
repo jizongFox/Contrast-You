@@ -13,9 +13,9 @@ comm_cmd=" -n ${dataset} "
 source ./_run_semi "${save_dir}" "${comm_cmd}" "${rand_seed}" "${num_batches}" "${ft_max_epoch}"
 
 function run_null_checkpoint {
-  run_mt "" null ""
-  run_udaiic "" null ""
-  run_entropy "" null ""
+  run_mt "" null "semi"
+  run_udaiic "" null "semi"
+  run_entropy "" null "semi"
 }
 
 function run_baseline {

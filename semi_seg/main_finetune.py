@@ -6,11 +6,11 @@ from pathlib import Path
 import numpy  # noqa
 from deepclustering2.configparser import ConfigManger
 from deepclustering2.loss import KL_div
-from deepclustering2.utils import gethash, fix_all_seed_within_context
+from deepclustering2.utils import gethash
 from loguru import logger
 
 from contrastyou import PROJECT_PATH
-from contrastyou.helper import extract_model_state_dict
+from contrastyou.utils import extract_model_state_dict, fix_all_seed_within_context, set_deterministic
 from semi_seg import ratio_zoom
 from semi_seg.arch import UNet
 from semi_seg.data import get_data_loaders, create_val_loader
@@ -82,4 +82,5 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
 
 
 if __name__ == '__main__':
+    set_deterministic()
     main()
