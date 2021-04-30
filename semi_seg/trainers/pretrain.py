@@ -2,7 +2,6 @@ import os
 
 from deepclustering2.meters2 import StorageIncomeDict
 
-from contrastyou.datasets._seg_datset import ContrastBatchSampler  # noqa
 from ._helper import _PretrainTrainerMixin
 from .trainer import InfoNCETrainer, IICTrainer, UDAIICTrainer
 

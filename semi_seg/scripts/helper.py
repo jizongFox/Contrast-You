@@ -55,7 +55,7 @@ def run_jobs(job_submiter, job_array, args):
         if not args.show_cmd:
             code = job_submiter.run(j)
             if code != 0:
-                continue
+                exit(code)
 
 
 def account_iterable(name_list):
@@ -126,7 +126,7 @@ class BindContrastive(_BindOptions):
                                help="monitoring the infocne")
 
     def parse(self, args):
-        self.add(f"ContrastiveLoaderParams.group_sample_num={args.group_sample_num}")
+        self.add(f"ContrastiveLoaderParams.scan_sample_num={args.group_sample_num}")
         _assert_equality(args.global_features, args.global_importance)
 
         self.add(f"ProjectorParams.GlobalParams.feature_names=[{','.join(args.global_features)}]")

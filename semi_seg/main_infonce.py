@@ -13,7 +13,7 @@ from contrastyou import PROJECT_PATH
 from contrastyou.helper import extract_model_state_dict
 from semi_seg import ratio_zoom
 from semi_seg.arch import UNet, arch_order
-from semi_seg.dsutils import get_dataloaders, create_val_loader
+from semi_seg.data import get_data_loaders, create_val_loader
 from semi_seg.scripts.helper import pre_lr_zooms, ft_lr_zooms
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, FineTuneTrainer
 
@@ -50,8 +50,11 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
                                   config["Trainer"].pop("ft_max_epoch", None)
 
     def pretrain():
-        labeled_loader, unlabeled_loader, test_loader = get_dataloaders(config, pretrain=True)
+        labeled_loader, unlabeled_loader, test_loader = get_data_loaders(
+            config["Data"], config["LabeledLoader"], config["UnlabeledLoader"], pretrain=True
+        )
         val_loader, test_loader = create_val_loader(test_loader=test_loader)
+
         labeled_loader.dataset.preload()
         unlabeled_loader.dataset.preload()
         val_loader.dataset.preload()
@@ -115,8 +118,11 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         if ft_max_epoch is not None:
             base_config["Trainer"]["max_epoch"] = int(ft_max_epoch)
 
-        labeled_loader, unlabeled_loader, test_loader = get_dataloaders(base_config)
+        labeled_loader, unlabeled_loader, test_loader = get_data_loaders(
+            base_config["Data"], base_config["LabeledLoader"], base_config["UnlabeledLoader"]
+        )
         val_loader, test_loader = create_val_loader(test_loader=test_loader)
+
         labeled_loader.dataset.preload()
         unlabeled_loader.dataset.preload()
         val_loader.dataset.preload()

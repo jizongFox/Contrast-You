@@ -31,7 +31,7 @@ def preprocess_input_with_twice_transformation(data, device, non_blocking=True):
 
 def preprocess_input_with_single_transformation(data, device, non_blocking=True):
     return data[0][0].to(device, non_blocking=non_blocking), data[0][1].to(device, non_blocking=non_blocking), data[1], \
-           data[2], data[3]
+           *data[2]
 
 
 class PartitionLabelGenerator:

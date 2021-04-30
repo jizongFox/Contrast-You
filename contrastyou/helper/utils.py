@@ -6,7 +6,6 @@ from contextlib import contextmanager
 from typing import Union, Dict, Any
 
 import matplotlib.pyplot as plt
-import torch
 from torch.utils.data import Dataset
 from torch.utils.data.dataloader import DataLoader, _BaseDataLoaderIter  # noqa
 
@@ -170,6 +169,18 @@ def fix_all_seed(seed):
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+
+
+@contextmanager
+def fix_all_seed_for_transforms(seed):
+    random_state = random.getstate()
+    np_state = np.random.get_state()
+    torch_state = torch.random.get_rng_state()
+    fix_all_seed(seed)
+    yield
+    random.setstate(random_state)
+    np.random.set_state(np_state)  # noqa
+    torch.random.set_rng_state(torch_state)  # noqa
 
 
 @contextmanager

@@ -8,7 +8,7 @@ pre_max_epoch=80
 ft_max_epoch=60
 dataset=acdc
 monitor=false
-comm_cmd=" -n ${dataset} --on-local "
+comm_cmd=" -n ${dataset} "
 
 source ./_run_semi "${save_dir}" "${comm_cmd}" "${rand_seed}" "${num_batches}" "${ft_max_epoch}"
 

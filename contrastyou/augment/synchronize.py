@@ -11,7 +11,7 @@ from . import pil_augment
 
 __all__ = ["SequentialWrapper", "SequentialWrapperTwice"]
 
-from ..helper import fix_all_seed_within_context
+from ..helper import fix_all_seed_for_transforms
 
 _pil2pil_transform_type = Callable[[Image.Image], Image.Image]
 _pil2tensor_transform_type = Callable[[Image.Image], Tensor]
@@ -51,7 +51,7 @@ def random_int() -> int:
 
 
 def transform_(image, transform, seed):
-    with fix_all_seed_within_context(seed):
+    with fix_all_seed_for_transforms(seed):
         return transform(image)
 
 
@@ -122,7 +122,7 @@ class SequentialWrapperTwice(SequentialWrapper):
         Tuple[List[Tensor], List[Tensor]]:
         seed = seed or random_int()
 
-        with fix_all_seed_within_context(seed):
+        with fix_all_seed_for_transforms(seed):
             comm_seed1, comm_seed2 = random_int(), random_int()
             img_seed1, img_seed2 = random_int(), random_int()
             target_seed1, target_seed2 = random_int(), random_int()
