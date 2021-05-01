@@ -121,7 +121,14 @@ def deprecated(func):
 # reproducibility
 def set_deterministic():
     torch.backends.cudnn.benchmark = False  # noqa
-    torch.use_deterministic_algorithms(True)
+    try:
+        torch.use_deterministic_algorithms(True)
+    except:
+        pass
+    try:
+        torch.set_deterministic(True)
+    except:
+        pass
 
 
 def fix_all_seed(seed):
