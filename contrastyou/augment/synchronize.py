@@ -7,6 +7,7 @@ from PIL import Image
 from torch import Tensor
 from torchvision.transforms import Compose
 
+
 from . import pil_augment
 
 __all__ = ["SequentialWrapper", "SequentialWrapperTwice"]
@@ -35,15 +36,15 @@ def switch_interpolation(transforms: Callable[[T], T], *, interp: str):
 
     previous_inters = OrderedDict()
     transforms = get_transform(transforms)
-    for id, t in enumerate(transforms):
+    for id_, t in enumerate(transforms):
         if hasattr(t, "interpolation"):
-            previous_inters[id] = t.interpolation
+            previous_inters[id_] = t.interpolation
             t.interpolation = interpolation
     yield
     transforms = get_transform(transforms)
-    for id, t in enumerate(transforms):
+    for id_, t in enumerate(transforms):
         if hasattr(t, "interpolation"):
-            t.interpolation = previous_inters[id]
+            t.interpolation = previous_inters[id_]
 
 
 def random_int() -> int:

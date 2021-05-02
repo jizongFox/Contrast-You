@@ -4,10 +4,11 @@ from itertools import repeat
 import numpy as np
 import torch
 from deepclustering2.utils import simplex
+from loguru import logger
 from termcolor import colored
 from torch import Tensor
 from torch import nn
-from torch._six import container_abcs
+from torch._six import container_abcs  # noqa
 from torch.nn import functional as F
 
 from contrastyou.utils import average_iter
@@ -42,10 +43,9 @@ class IIDLoss(nn.Module):
         :param eps:
         """
         super().__init__()
-        print(colored(f"Initialize {self.__class__.__name__}.", "green"))
+        logger.trace(colored(f"Initialize {self.__class__.__name__}.", "green"))
         self.lamb = float(lamb)
         self.eps = float(eps)
-        self.torch_vision = torch.__version__
 
     def forward(self, x_out: Tensor, x_tf_out: Tensor):
         """
@@ -54,20 +54,15 @@ class IIDLoss(nn.Module):
         :param x_tf_out:
         :return:
         """
+        assert len(x_out.shape) == 2, x_out.shape
         assert simplex(x_out), f"x_out not normalized."
         assert simplex(x_tf_out), f"x_tf_out not normalized."
         _, k = x_out.size()
         p_i_j = compute_joint(x_out, x_tf_out)
         assert p_i_j.size() == (k, k)
 
-        p_i = (
-            p_i_j.sum(dim=1).view(k, 1).expand(k, k)
-        )  # p_i should be the mean of the x_out
+        p_i = (p_i_j.sum(dim=1).view(k, 1).expand(k, k))  # p_i should be the mean of the x_out
         p_j = p_i_j.sum(dim=0).view(1, k).expand(k, k)  # but should be same, symmetric
-
-        # p_i = x_out.mean(0).view(k, 1).expand(k, k)
-        # p_j = x_tf_out.mean(0).view(1, k).expand(k, k)
-        #
 
         loss = -p_i_j * (
             torch.log(p_i_j + 1e-10) - self.lamb * torch.log(p_j + 1e-10) - self.lamb * torch.log(p_i + 1e-10)
@@ -76,29 +71,6 @@ class IIDLoss(nn.Module):
         loss_no_lamb = -p_i_j * (torch.log(p_i_j + 1e-10) - torch.log(p_j + 1e-10) - torch.log(p_i + 1e-10))
         loss_no_lamb = loss_no_lamb.sum()
         return loss, loss_no_lamb, p_i_j
-
-
-def compute_joint(x_out: Tensor, x_tf_out: Tensor, symmetric=True) -> Tensor:
-    r"""
-    return joint probability
-    :param x_out: p1, simplex
-    :param x_tf_out: p2, simplex
-    :return: joint probability
-    """
-    # produces variable that requires grad (since args require grad)
-    assert simplex(x_out), f"x_out not normalized."
-    assert simplex(x_tf_out), f"x_tf_out not normalized."
-
-    bn, k = x_out.shape
-    assert x_tf_out.size(0) == bn and x_tf_out.size(1) == k
-
-    p_i_j = x_out.unsqueeze(2) * x_tf_out.unsqueeze(1)  # bn, k, k
-    p_i_j = p_i_j.sum(dim=0)  # k, k aggregated over one batch
-    if symmetric:
-        p_i_j = (p_i_j + p_i_j.t()) / 2.0  # symmetric
-    p_i_j /= p_i_j.sum()  # normalise
-
-    return p_i_j
 
 
 class IIDSegmentationLoss(nn.Module):
@@ -143,28 +115,11 @@ class IIDSegmentationLoss(nn.Module):
         p_j_mat = p_i_j.sum(dim=3, keepdim=True).repeat(1, 1, 1, k)
 
         # maximise information
-        loss = (
-                   -p_i_j
-                   * (
-                       torch.log(p_i_j + 1e-16)
-                       - self.lamda * torch.log(p_i_mat + 1e-16)
-                       - self.lamda * torch.log(p_j_mat + 1e-16)
-                   )
-               ).sum() / (T_side_dense * T_side_dense)
+        loss = (-p_i_j * (torch.log(p_i_j + 1e-16) - self.lamda * torch.log(p_i_mat + 1e-16) - self.lamda * torch.log(
+            p_j_mat + 1e-16))).sum() / (T_side_dense * T_side_dense)
         if torch.isnan(loss):
             raise RuntimeError(loss)
         return loss
-
-
-def patch_generator(feature_map, patch_size=(32, 32), step_size=(16, 16)):
-    b, c, h, w = feature_map.shape
-    hs = np.arange(0, h - patch_size[0], step_size[0])
-    hs = np.append(hs, max(h - patch_size[0], 0))
-    ws = np.arange(0, w - patch_size[1], step_size[1])
-    ws = np.append(ws, max(w - patch_size[1], 0))
-    for _h in hs:
-        for _w in ws:
-            yield feature_map[:, :, _h:min(_h + patch_size[0], h), _w:min(_w + patch_size[1], w)]
 
 
 class IIDSegmentationSmallPathLoss(IIDSegmentationLoss):
@@ -195,8 +150,35 @@ class IIDSegmentationSmallPathLoss(IIDSegmentationLoss):
         return f"{self.__class__.__name__} with patch_size={self._patch_size} and padding={self.padding}."
 
 
-if __name__ == '__main__':
-    feature = torch.randn(10, 2, 100, 100)
-    patches = patch_generator(feature, (32, 32), (16, 16))
-    for i in patches:
-        print(i.shape)
+def compute_joint(x_out: Tensor, x_tf_out: Tensor, symmetric=True) -> Tensor:
+    r"""
+    return joint probability
+    :param x_out: p1, simplex
+    :param x_tf_out: p2, simplex
+    :return: joint probability
+    """
+    # produces variable that requires grad (since args require grad)
+    assert simplex(x_out), f"x_out not normalized."
+    assert simplex(x_tf_out), f"x_tf_out not normalized."
+
+    bn, k = x_out.shape
+    assert x_tf_out.size()[0] == bn and x_tf_out.size()[1] == k
+
+    p_i_j = x_out.unsqueeze(2) * x_tf_out.unsqueeze(1)  # bn, k, k
+    p_i_j = p_i_j.sum(dim=0)  # k, k aggregated over one batch
+    if symmetric:
+        p_i_j = (p_i_j + p_i_j.t()) / 2.0  # symmetric
+    p_i_j /= p_i_j.sum()  # normalise
+
+    return p_i_j
+
+
+def patch_generator(feature_map, patch_size=(32, 32), step_size=(16, 16)):
+    b, c, h, w = feature_map.shape
+    hs = np.arange(0, h - patch_size[0], step_size[0])
+    hs = np.append(hs, max(h - patch_size[0], 0))
+    ws = np.arange(0, w - patch_size[1], step_size[1])
+    ws = np.append(ws, max(w - patch_size[1], 0))
+    for _h in hs:
+        for _w in ws:
+            yield feature_map[:, :, _h:min(_h + patch_size[0], h), _w:min(_w + patch_size[1], w)]

@@ -252,7 +252,7 @@ class SelfPacedSupConLoss(nn.Module):
             weight = (l_i_j <= gamma).float()
         else:
             weight = torch.max(1 - 1 / gamma * l_i_j, torch.zeros_like(l_i_j))
-        self.weight = weight# * pos_mask
+        self.weight = weight  # * pos_mask
         assert torch.logical_and(weight >= 0, weight <= 1).any()
         self._chosen_percentage_meter.add(weight.mean().item())
 

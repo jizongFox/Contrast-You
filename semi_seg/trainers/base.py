@@ -58,9 +58,6 @@ class SemiTrainer(Trainer):
         self._scheduler = scheduler
 
     def _init_optimizer(self):
-        return self._init_optimizer_base()
-
-    def _init_optimizer_base(self):
         optim_dict = self._config["Optim"]
         self._optimizer = optim.__dict__[optim_dict["name"]](
             params=filter(lambda p: p.requires_grad, self._model.parameters()),

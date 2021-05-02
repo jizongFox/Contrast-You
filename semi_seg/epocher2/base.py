@@ -14,7 +14,7 @@ from deepclustering2.models import Model
 from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.schedulers.customized_scheduler import WeightScheduler
 from deepclustering2.type import T_loader, T_loss, T_optim
-from deepclustering2.utils import class2one_hot, ExceptionIgnorer
+from deepclustering2.utils import class2one_hot, ExceptionIgnorer, warn_on_unused_kwargs
 from loguru import logger
 from torch import nn, Tensor
 from torch.utils.data.dataloader import DataLoader
@@ -30,17 +30,10 @@ class Epocher(_num_class_mixin, _Epocher):
 
     def init(self, *args, **kwargs):
         self._init(*args, **kwargs)
-        self._assertion()
 
     @abstractmethod
     def _init(self, *args, **kwargs):
         pass
-
-    def _assertion(self):
-        try:
-            super(Epocher, self)._assertion()  # noqa
-        except AttributeError:
-            pass
 
     def forward_pass(self, *args, **kwargs):
         return self._forward_pass(*args, **kwargs)
@@ -49,12 +42,12 @@ class Epocher(_num_class_mixin, _Epocher):
 # ======== validation epochers =============
 class EvalEpocher(Epocher):
 
-    def __init__(self, model: Union[Model, nn.Module], val_loader: T_loader, sup_criterion: T_loss, cur_epoch=0,
+    def __init__(self, model: Union[Model, nn.Module], loader: T_loader, sup_criterion: T_loss, cur_epoch=0,
                  device="cpu") -> None:
-        assert isinstance(val_loader, DataLoader), \
-            f"val_loader should be an instance of DataLoader, given {val_loader.__class__.__name__}."
-        super().__init__(model, num_batches=len(val_loader), cur_epoch=cur_epoch, device=device)
-        self._val_loader = val_loader
+        assert isinstance(loader, DataLoader), \
+            f"val_loader should be an instance of DataLoader, given {loader.__class__.__name__}."
+        super().__init__(model, num_batches=len(loader), cur_epoch=cur_epoch, device=device)
+        self._loader = loader
         self._sup_criterion = sup_criterion
 
     def _init(self, **kwargs):
@@ -67,12 +60,10 @@ class EvalEpocher(Epocher):
         meters.register_meter("dice", UniversalDice(C, report_axises=report_axis, ))
         return meters
 
-    def _set_model_state(self, model) -> None:
-        model.eval()
-
     @torch.no_grad()
     def _run(self, *args, **kwargs) -> Tuple[EpochResultDict, float]:
-        for i, val_data in zip(self._indicator, self._val_loader):
+        self._model.eval()
+        for i, val_data in zip(self._indicator, self._loader):
             val_img, val_target, file_path, _, group = self._unzip_data(val_data, self._device)
             val_logits = self._model(val_img)
             onehot_target = class2one_hot(val_target.squeeze(1), self.num_classes)
@@ -107,7 +98,7 @@ class InferenceEpocher(EvalEpocher):
     def _run(self, *args, **kwargs) -> Tuple[EpochResultDict, float]:
         self._model.eval()
         assert self._model.training is False, self._model.training
-        for i, val_data in zip(self._indicator, self._val_loader):
+        for i, val_data in zip(self._indicator, self._loader):
             val_img, val_target, file_path, _, group = self._unzip_data(val_data, self._device)
             val_logits = self._model(val_img)
             # write image
@@ -142,14 +133,15 @@ class TrainEpocher(Epocher):
         self._affine_transformer = TensorRandomFlip(axis=[1, 2], threshold=0.8)
 
         self.train_with_two_stage = train_with_two_stage  # highlight: this is the parameter to use two stage training
-        logger.opt(depth=1).debug("{} set to be using {} stage training", self.__class__.__name__,
-                                  "two" if self.train_with_two_stage else "single")
+        logger.debug("{} set to be using {} stage training", self.__class__.__name__,
+                     "two" if self.train_with_two_stage else "single")
         self._disable_bn = disable_bn_track_for_unlabeled_data  # highlight: disable the bn accumulation
         if self._disable_bn:
             logger.debug("{} set to disable bn tracking", self.__class__.__name__)
 
     def _init(self, *, reg_weight: float, **kwargs):
         self._reg_weight = reg_weight  # noqa
+        warn_on_unused_kwargs(kwargs)
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         C = self.num_classes

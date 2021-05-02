@@ -147,10 +147,15 @@ class DatasetBase(Dataset):
         return image_list, filename_list
 
     def _preload(self):
-        logger.opt(depth=1).trace(f"preloading {len(self)} {self.__class__.__name__} data ...")
-        for index in tqdm(range(len(self)), total=len(self)):
+        logger.opt(depth=1).trace(f"preloading {len(self.get_scan_list())} {self.__class__.__name__} data ...")
+
+        def read_image(path, mode):
+            with Image.open(path) as image:
+                return image.convert(mode)
+
+        for index in tqdm(range(len(self)), total=len(self), disable=True):
             self._preload_storage[index] = \
-                [Image.open(self._memory[subfolder][index]) for subfolder in self._sub_folders]
+                [read_image(self._memory[subfolder][index], "L") for subfolder in self._sub_folders]
 
     def preload(self):
         self._is_preload = True

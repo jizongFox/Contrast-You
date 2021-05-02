@@ -12,7 +12,7 @@ from deepclustering2.utils import gethash
 from loguru import logger
 
 from contrastyou import PROJECT_PATH
-from contrastyou.utils import extract_model_state_dict, fix_all_seed_within_context,set_deterministic
+from contrastyou.utils import extract_model_state_dict, fix_all_seed_within_context, set_deterministic
 from semi_seg.arch import UNet
 from semi_seg.data import get_data_loaders, create_val_loader
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos
@@ -26,7 +26,7 @@ trainer_zoos = {**base_trainer_zoos, **pre_trainer_zoos}
 
 
 def main():
-    config_manager = ConfigManger(base_path=Path(PROJECT_PATH) / "config/base.yaml")
+    config_manager = ConfigManger(base_path=Path(PROJECT_PATH) / "config/base.yaml", strict=False)
     with config_manager(scope="base") as config:
         save_dir = "runs/" + str(config["Trainer"]["save_dir"])
         logger.add(os.path.join(save_dir, "loguru.log"), level="TRACE", diagnose=True, )
@@ -40,7 +40,7 @@ def main():
 @logger.catch(reraise=True)
 def main_worker(rank, ngpus_per_node, config, port):  # noqa
 
-    trainer_name = config["Trainer"].pop("name")
+    trainer_name = config["Trainer"].get("name")
     is_pretrain: bool = trainer_name in pre_trainer_zoos
 
     labeled_loader, unlabeled_loader, test_loader = get_data_loaders(
@@ -66,7 +66,7 @@ def main_worker(rank, ngpus_per_node, config, port):  # noqa
         model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
         val_loader=val_loader, test_loader=test_loader, sup_criterion=KL_div(verbose=False),
         configuration={**config, **{"GITHASH": cur_githash}},
-        **config["Trainer"]
+        **{k: v for k, v in config["Trainer"].items() if k != "name"}
     )
     trainer.init()
     trainer_checkpoint = config.get("trainer_checkpoint", None)

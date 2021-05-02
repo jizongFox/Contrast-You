@@ -1,6 +1,7 @@
 from typing import Tuple
 
 import numpy as np
+from loguru import logger
 from torch.utils.data import DataLoader
 
 from contrastyou import get_cc_data_path
@@ -78,14 +79,12 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
     unlabeled_loader = DataLoader(
         unlabeled_set, sampler=unlabeled_sampler, batch_size=batch_size_u, num_workers=n_workers_u, pin_memory=True)
     group_test = group_test if data_name not in ("spleen", "mmwhsct", "mmwhsmr") else False
-    test_loader = DataLoader(
-        test_set,
-        batch_size=1 if group_test else 4,
-        batch_sampler=ScanSampler(
-            test_set,
-            shuffle=False
-        ) if group_test else None,
-    )
+    test_loader = DataLoader(test_set, batch_size=1 if group_test else 4,
+                             batch_sampler=ScanSampler(test_set, shuffle=False) if group_test else None)
+    logger.debug(f"labeled_loader {len(label_set.get_scan_list())} ")
+    logger.trace(f"with {','.join(sorted(set(label_set.show_scan_names())))}")
+    logger.debug(f"unlabeled_loader {len(unlabeled_set.get_scan_list())} ")
+    logger.trace(f"with {','.join(sorted(set(unlabeled_set.show_scan_names())))}")
     return labeled_loader, unlabeled_loader, test_loader
 
 
@@ -102,4 +101,10 @@ def create_val_loader(*, test_loader) -> Tuple[DataLoader, DataLoader]:
 
     test_batch_sampler = ScanSampler(test_set) if is_group_scan else None
     test_dataloader = DataLoader(test_set, batch_sampler=test_batch_sampler)
+
+    logger.debug(f"val_loader {len(val_set.get_scan_list())})")
+    logger.trace(f" with {','.join(sorted(set(val_set.show_scan_names())))}")
+    logger.debug(f"test_loader {len(test_set.get_scan_list())} ")
+    logger.trace(f"with {','.join(sorted(set(test_set.show_scan_names())))}")
+
     return val_dataloader, test_dataloader

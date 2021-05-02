@@ -1,14 +1,14 @@
 #!/bin/bash
 
 rand_seed=10
-save_dir=0431_refactorize
+save_dir=0503
 group_num=10
 num_batches=200
 pre_max_epoch=80
 ft_max_epoch=60
 dataset=acdc
 monitor=false
-comm_cmd=" -n ${dataset} "
+comm_cmd=" -n ${dataset}   "
 
 source ./_run_semi "${save_dir}" "${comm_cmd}" "${rand_seed}" "${num_batches}" "${ft_max_epoch}"
 
