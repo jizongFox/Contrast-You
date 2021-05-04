@@ -16,7 +16,7 @@ from torch.optim.optimizer import Optimizer
 
 from contrastyou.utils import weighted_average_iter
 from semi_seg.arch.hook import FeatureExtractor
-from ._helper import unl_extractor
+from .helper import unl_extractor
 
 
 class _FeatureExtractorMixin:

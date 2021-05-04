@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, List
 
 import numpy as np
 from loguru import logger
@@ -27,7 +27,7 @@ def create_dataset(name: str):
     return tra_set, test_set
 
 
-def split_dataset(dataset: DatasetBase, *ratios: float, seed: int = 1, ):
+def split_dataset(dataset: DatasetBase, *ratios: float, seed: int = 1) -> List[DatasetBase]:
     assert sum(ratios) <= 1, ratios
     scan_list = sorted(set(dataset.get_scan_list()))
     with fix_all_seed_within_context(seed):

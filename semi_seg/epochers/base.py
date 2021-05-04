@@ -19,7 +19,7 @@ from loguru import logger
 from torch import nn, Tensor
 from torch.utils.data.dataloader import DataLoader
 
-from semi_seg.epochers._helper import preprocess_input_with_single_transformation, write_predict, write_img_target, \
+from semi_seg.epochers.helper import preprocess_input_with_single_transformation, write_predict, write_img_target, \
     preprocess_input_with_twice_transformation
 from semi_seg.utils import _num_class_mixin
 

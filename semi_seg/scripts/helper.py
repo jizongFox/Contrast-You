@@ -1,4 +1,6 @@
-import time
+import os
+import random
+import string
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Dict, Any
@@ -6,67 +8,7 @@ from typing import Dict, Any
 import numpy as np
 from deepclustering2.utils import gethash, write_yaml
 
-dataset_name2class_numbers = {
-    "acdc": 4,
-    "prostate": 2,
-    "spleen": 2,
-    "mmwhs": 5,
-}
-ft_lr_zooms = {"acdc": 0.0000001,
-               "prostate": 0.0000005,
-               "spleen": 0.000001,
-               "mmwhs": 0.000001}
-
-pre_lr_zooms = {"acdc": 0.0000005, "prostate": 0.0000005, "mmwhs": 0.0000005}
-
-# CC things
-# __accounts = ["def-chdesa", "rrg-mpederso", "def-mpederso"]
-__accounts = ["rrg-mpederso", ]
-
-
-def run_jobs(job_submiter, job_array, args):
-    def move_dataset():
-        from contrastyou import DATA_PATH
-        return f" find {DATA_PATH}  " + "-name '*.zip' -exec cp {} $SLURM_TMPDIR \;"
-
-    for j in job_array:
-        time.sleep(0.5)
-        job_submiter.prepare_env(
-            [
-                "module load python/3.8.2 ",
-                f"source ~/venv/bin/activate ",
-                'if [ $(which python) == "/usr/bin/python" ]',
-                "then",
-                "exit 1314520",
-                "fi",
-
-                "export OMP_NUM_THREADS=1",
-                "export PYTHONOPTIMIZE=1",
-                "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
-                move_dataset()
-            ]
-        )
-        job_submiter.account = next(accounts)
-        print(j)
-        if not args.show_cmd:
-            code = job_submiter.run(j)
-            if code != 0:
-                exit(code)
-
-
-def account_iterable(name_list):
-    while True:
-        for i in np.random.permutation(name_list):
-            yield i
-
-
-accounts = account_iterable(__accounts)
-
-__git_hash__ = gethash(__file__)
-
-
-def _assert_equality(feature_name, importance):
-    assert len(feature_name) == len(importance), (feature_name, importance)
+from semi_seg import __accounts
 
 
 class _BindOptions:
@@ -157,10 +99,7 @@ class BindSemiSupervisedLearning(_BindOptions):
 
 
 @contextmanager
-def dump_config(config: Dict[str, Any]):
-    import string
-    import random
-    import os
+def dump_config(config: Dict[str, Any], remove_afterward: bool = False):
     tmp_path = ''.join(random.choices(string.ascii_uppercase + string.digits, k=20)) + ".yaml"
     Path("./.tmp").mkdir(parents=True, exist_ok=True)
     write_yaml(config, save_dir="./.tmp", save_name=tmp_path, force_overwrite=True)
@@ -170,5 +109,50 @@ def dump_config(config: Dict[str, Any]):
     def remove():
         os.remove(tmp_path)
 
-    # import atexit
-    # atexit.register(remove)
+    if remove_afterward:
+        import atexit
+        atexit.register(remove)
+
+
+def run_jobs(job_submiter, job_array, args):
+    def move_dataset():
+        from contrastyou import DATA_PATH
+        return f" find {DATA_PATH}  " + "-name '*.zip' -exec cp {} $SLURM_TMPDIR \;"
+
+    for j in job_array:
+        job_submiter.prepare_env(
+            [
+                "module load python/3.8.2 ",
+                f"source ~/venv/bin/activate ",
+                'if [ $(which python) == "/usr/bin/python" ]',
+                "then",
+                "exit 1314520",
+                "fi",
+
+                "export OMP_NUM_THREADS=1",
+                "export PYTHONOPTIMIZE=1",
+                "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
+                move_dataset()
+            ]
+        )
+        job_submiter.account = next(accounts)
+        print(j)
+        if not args.show_cmd:
+            code = job_submiter.run(j)
+            if code != 0:
+                exit(code)
+
+
+def account_iterable(name_list):
+    while True:
+        for i in np.random.permutation(name_list):
+            yield i
+
+
+accounts = account_iterable(__accounts)
+
+__git_hash__ = gethash(__file__)
+
+
+def _assert_equality(feature_name, importance):
+    assert len(feature_name) == len(importance), (feature_name, importance)

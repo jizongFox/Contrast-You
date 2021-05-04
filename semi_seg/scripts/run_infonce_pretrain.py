@@ -3,8 +3,9 @@ import argparse
 from deepclustering2.cchelper import JobSubmiter
 from deepclustering2.utils import gethash
 
-from semi_seg.scripts.helper import dataset_name2class_numbers, ft_lr_zooms, BindPretrainFinetune, BindContrastive, \
+from semi_seg.scripts.helper import BindPretrainFinetune, BindContrastive, \
     BindSelfPaced, run_jobs
+from semi_seg import dataset_name2class_numbers, ft_lr_zooms
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 

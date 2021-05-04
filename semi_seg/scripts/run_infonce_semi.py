@@ -5,8 +5,8 @@ import argparse
 from deepclustering2.cchelper import JobSubmiter
 from deepclustering2.utils import load_yaml
 
-from semi_seg import ratio_zoom
-from semi_seg.scripts.helper import dataset_name2class_numbers, ft_lr_zooms, __git_hash__, dump_config, \
+from semi_seg import ratio_zoom, dataset_name2class_numbers, ft_lr_zooms
+from semi_seg.scripts.helper import __git_hash__, dump_config, \
     run_jobs
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
