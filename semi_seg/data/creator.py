@@ -1,3 +1,4 @@
+from copy import deepcopy as dcopy
 from typing import Tuple, List
 
 import numpy as np
@@ -19,10 +20,12 @@ augment_zoo = {
 }
 
 
-def create_dataset(name: str):
+def create_dataset(name: str, total_freedom=True):
     data_class = data_zoo[name]
     aug_transform = augment_zoo[name]
-    tra_set = data_class(root_dir=get_cc_data_path(), mode="train", transforms=aug_transform.pretrain)
+    tra_transform = dcopy(aug_transform.pretrain)
+    tra_transform._total_freedom = total_freedom
+    tra_set = data_class(root_dir=get_cc_data_path(), mode="train", transforms=tra_transform)
     test_set = data_class(root_dir=get_cc_data_path(), mode="val", transforms=aug_transform.val)
     return tra_set, test_set
 
@@ -54,9 +57,11 @@ def split_dataset(dataset: DatasetBase, *ratios: float, seed: int = 1) -> List[D
     return sub_datasets
 
 
-def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params, pretrain=False, group_test=True):
+def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params, pretrain=False, group_test=True,
+                     total_freedom=True):
     data_name = data_params["name"]
-    tra_set, test_set = create_dataset(data_name)
+    logger.debug(f"Initializing {data_name}")
+    tra_set, test_set = create_dataset(data_name, total_freedom=total_freedom)
     labeled_data_ratio = data_params["labeled_data_ratio"]
     if pretrain:
         labeled_data_ratio = 0.5
@@ -81,9 +86,9 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
     group_test = group_test if data_name not in ("spleen", "mmwhsct", "mmwhsmr") else False
     test_loader = DataLoader(test_set, batch_size=1 if group_test else 4,
                              batch_sampler=ScanSampler(test_set, shuffle=False) if group_test else None)
-    logger.debug(f"labeled_loader {len(label_set.get_scan_list())} ")
+    logger.debug(f"creating labeled_loader with {len(label_set.get_scan_list())} scans")
     logger.trace(f"with {','.join(sorted(set(label_set.show_scan_names())))}")
-    logger.debug(f"unlabeled_loader {len(unlabeled_set.get_scan_list())} ")
+    logger.debug(f"creating unlabeled_loader with {len(unlabeled_set.get_scan_list())} scans")
     logger.trace(f"with {','.join(sorted(set(unlabeled_set.show_scan_names())))}")
     return labeled_loader, unlabeled_loader, test_loader
 
@@ -102,9 +107,9 @@ def create_val_loader(*, test_loader) -> Tuple[DataLoader, DataLoader]:
     test_batch_sampler = ScanSampler(test_set) if is_group_scan else None
     test_dataloader = DataLoader(test_set, batch_sampler=test_batch_sampler)
 
-    logger.debug(f"val_loader {len(val_set.get_scan_list())})")
+    logger.debug(f"splitting val_loader with {len(val_set.get_scan_list())} scans")
     logger.trace(f" with {','.join(sorted(set(val_set.show_scan_names())))}")
-    logger.debug(f"test_loader {len(test_set.get_scan_list())} ")
+    logger.debug(f"splitting test_loader with {len(test_set.get_scan_list())} scans")
     logger.trace(f"with {','.join(sorted(set(test_set.show_scan_names())))}")
 
     return val_dataloader, test_dataloader

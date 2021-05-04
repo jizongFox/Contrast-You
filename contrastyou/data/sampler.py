@@ -1,5 +1,5 @@
 import random
-from collections import Iterator, defaultdict
+from collections import defaultdict
 from typing import List
 
 import torch
@@ -200,29 +200,6 @@ class BatchSampler(Sampler):
 
 
 class InfiniteRandomSampler(Sampler):
-    class _InfiniteRandomIterator(Iterator):
-        def __init__(self, data_source, shuffle=True):
-            self.data_source = data_source
-            self.shuffle = shuffle
-            if self.shuffle:
-                self.iterator = iter(torch.randperm(len(self.data_source)).tolist())
-            else:
-                self.iterator = iter(
-                    torch.arange(start=0, end=len(self.data_source)).tolist()
-                )
-
-        def __next__(self):
-            try:
-                idx = next(self.iterator)
-            except StopIteration:
-                if self.shuffle:
-                    self.iterator = iter(torch.randperm(len(self.data_source)).tolist())
-                else:
-                    self.iterator = iter(
-                        torch.arange(start=0, end=len(self.data_source)).tolist()
-                    )
-                idx = next(self.iterator)
-            return idx
 
     def __init__(self, data_source, shuffle=True):
         super().__init__(data_source)
@@ -230,7 +207,16 @@ class InfiniteRandomSampler(Sampler):
         self.shuffle = shuffle
 
     def __iter__(self):
-        return self._InfiniteRandomIterator(self.data_source, shuffle=self.shuffle)
+        if len(self.data_source) > 0:
+            while True:
+                yield from self.__iter_once__()
+        else:
+            yield from iter([])
+
+    def __iter_once__(self):
+        if self.shuffle:
+            return iter(torch.randperm(len(self.data_source)).tolist())
+        return iter(torch.arange(start=0, end=len(self.data_source)).tolist())
 
     def __len__(self):
         return len(self.data_source)
@@ -240,7 +226,8 @@ class ScanSampler(Sampler):
     from .dataset.base import DatasetBase
 
     def __init__(self, dataset: DatasetBase, shuffle=False, is_infinite: bool = False) -> None:
-        scan_names: List[str] = [dataset._get_scan_name(x) for x in dataset.get_stem_list()]
+        super(ScanSampler, self).__init__(dataset)
+        scan_names: List[str] = [dataset._get_scan_name(x) for x in dataset.get_stem_list()]  # noqa
         assert len(scan_names) == len(dataset), (len(scan_names), len(dataset))
         self._shuffle: bool = shuffle
         self._shuffle_fn = (lambda x: random.sample(x, len(x))) if self._shuffle else (lambda x: x)
@@ -248,12 +235,12 @@ class ScanSampler(Sampler):
 
         unique_scans: List[str] = sorted(set(scan_names))
         assert len(unique_scans) < len(scan_names)
-        logger.trace(f"Found {len(unique_scans)} unique patients out of {len(scan_names)} images")
+        logger.opt(depth=1).trace(f"Found {len(unique_scans)} unique patients out of {len(scan_names)} images")
         self.idx_map = defaultdict(list)
         for i, patient in enumerate(scan_names):
             self.idx_map[patient] += [i]
         assert sum(len(self.idx_map[k]) for k in unique_scans) == len(scan_names)
-        logger.trace("Scan to slices mapping done")
+        logger.opt(depth=1).trace("Scan to slices mapping done")
 
     def __len__(self):
         return len(self.idx_map.keys())

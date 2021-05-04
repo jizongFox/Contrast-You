@@ -44,7 +44,8 @@ def main_worker(rank, ngpus_per_node, config, port):  # noqa
     is_pretrain: bool = trainer_name in pre_trainer_zoos
 
     labeled_loader, unlabeled_loader, test_loader = get_data_loaders(
-        config["Data"], config["LabeledLoader"], config["UnlabeledLoader"], pretrain=is_pretrain)
+        config["Data"], config["LabeledLoader"], config["UnlabeledLoader"], pretrain=is_pretrain,
+        total_freedom=is_pretrain)
     val_loader, test_loader = create_val_loader(test_loader=test_loader)
 
     labeled_loader.dataset.preload()
@@ -55,7 +56,7 @@ def main_worker(rank, ngpus_per_node, config, port):  # noqa
     config_arch = deepcopy(config["Arch"])
     model_checkpoint = config_arch.pop("checkpoint", None)
     model = UNet(**config_arch)
-    logger.info(f"Initializing {model.__class__.__name__}")
+    logger.trace(f"Initializing {model.__class__.__name__}")
     if model_checkpoint:
         logger.info(f"loading checkpoint from  {model_checkpoint}")
         model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=False)

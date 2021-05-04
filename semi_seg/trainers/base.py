@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Tuple, Type
+from typing import Type
 
 import torch
 from deepclustering2 import optim
@@ -71,7 +71,8 @@ class SemiTrainer(Trainer):
     def run_epoch(self, *args, **kwargs):
         self._set_epocher_class()
         epocher = self._run_init()
-        return self._run_epoch(epocher, *args, **kwargs)
+        self._run_epoch(epocher, **kwargs)
+        return epocher.get_metric()
 
     def _run_init(self):
         # this defines the epocher and set trainer inside the epocher, all should be the same.
@@ -85,18 +86,18 @@ class SemiTrainer(Trainer):
         epocher.set_trainer(self)
         return epocher
 
-    def _run_epoch(self, epocher: TrainEpocher, *args, **kwargs) -> EpochResultDict:
+    def _run_epoch(self, epocher: TrainEpocher, **kwargs):
         # this customize the epocher by calling the init() function.
         epocher.init(reg_weight=0.0, **kwargs)  # partial supervision without regularization
-        result = epocher.run()
-        return result
+        epocher.run()
 
     # run eval
-    def _eval_epoch(self, *, loader: T_loader, **kwargs) -> Tuple[EpochResultDict, float]:
-        evaler = EvalEpocher(self._model, val_loader=loader, sup_criterion=self._sup_criterion,
+    def _eval_epoch(self, *, loader: T_loader, **kwargs):
+        evaler = EvalEpocher(model=self._model, loader=loader, sup_criterion=self._sup_criterion,
                              cur_epoch=self._cur_epoch, device=self._device)
-        result, cur_score = evaler.run()
-        return result, cur_score
+        evaler.init()
+        evaler.run()
+        return evaler.get_metric(), evaler.get_score()
 
     def start_training(self, *args, **kwargs):
         if not self.__initialized__:
@@ -109,6 +110,7 @@ class SemiTrainer(Trainer):
             eval_result: EpochResultDict
             cur_score: float
             train_result = self.run_epoch()
+
             if self.on_master():
                 with torch.no_grad():
                     val_result, cur_score = self.eval_epoch(loader=self._val_loader)

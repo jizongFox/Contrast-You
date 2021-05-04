@@ -50,7 +50,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
 
     def pretrain():
         labeled_loader, unlabeled_loader, test_loader = get_data_loaders(
-            config["Data"], config["LabeledLoader"], config["UnlabeledLoader"], pretrain=True
+            config["Data"], config["LabeledLoader"], config["UnlabeledLoader"], pretrain=True, total_freedom=True
         )
         val_loader, test_loader = create_val_loader(test_loader=test_loader)
 
@@ -118,8 +118,8 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
             base_config["Trainer"]["max_epoch"] = int(ft_max_epoch)
 
         labeled_loader, unlabeled_loader, test_loader = get_data_loaders(
-            base_config["Data"], base_config["LabeledLoader"], base_config["UnlabeledLoader"]
-        )
+            base_config["Data"], base_config["LabeledLoader"], base_config["UnlabeledLoader"], pretrain=False,
+            total_freedom=False)
         val_loader, test_loader = create_val_loader(test_loader=test_loader)
 
         labeled_loader.dataset.preload()

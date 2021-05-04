@@ -47,7 +47,7 @@ class TestPartialEpocher(TestCase):
         print(train_result)
 
     def test_val_epocher(self):
-        val_trainer = EvalEpocher(self.net, sup_criterion=KL_div(), val_loader=self.val_loader, cur_epoch=0,
+        val_trainer = EvalEpocher(self.net, sup_criterion=KL_div(), loader=self.val_loader, cur_epoch=0,
                                   device="cuda")
         val_result, cur_score = val_trainer.run()
         print(val_result)

@@ -1,19 +1,31 @@
 import weakref
 from abc import abstractmethod, ABCMeta
 from contextlib import contextmanager
-from typing import Union, List
+from typing import Union, Optional
 
 import torch
-from deepclustering3.amp.ddp import _DDPMixin  # noqa
-from deepclustering3.meters.meter_interface import MeterInterface
-from deepclustering3.mytqdm.mytqdm import tqdm
+import torch.distributed as dist
+from loguru import logger
 from torch import nn
 
-from .hooks import EpocherHook
+from contrastyou.meters import MeterInterface
 from ..meters.averagemeter import AverageValueListMeter
+from ..mytqdm import tqdm
 
 
-class _EpocherBase(_DDPMixin, metaclass=ABCMeta):
+class DDPMixin:
+    @property
+    def rank(self) -> Optional[int]:
+        try:
+            return dist.get_rank()
+        except (AssertionError, AttributeError, RuntimeError):
+            return None
+
+    def on_master(self) -> bool:
+        return (self.rank == 0) or (self.rank is None)
+
+
+class _Epocher(DDPMixin, metaclass=ABCMeta):
     def __init__(self, *, model: nn.Module, num_batches: int, cur_epoch=0, device="cpu") -> None:
         super().__init__()
         self._model = model
@@ -22,7 +34,7 @@ class _EpocherBase(_DDPMixin, metaclass=ABCMeta):
         self._cur_epoch = cur_epoch
 
         self.meters = MeterInterface()
-        self.indicator = tqdm(range(self._num_batches), disable=not self.on_master())
+        self.indicator = tqdm(range(self._num_batches))
         self.__epocher_initialized__ = False
         self.__bind_trainer_done__ = False
         self._trainer = None
@@ -48,7 +60,8 @@ class _EpocherBase(_DDPMixin, metaclass=ABCMeta):
         self.indicator.set_desc_from_epocher(self)
         yield
         self.indicator.close()
-        self.indicator.print_result()
+        msg = self.indicator.print_result()
+        logger.opt(depth=5).info(msg)
 
     @contextmanager
     def _register_meters(self):
@@ -67,7 +80,7 @@ class _EpocherBase(_DDPMixin, metaclass=ABCMeta):
 
     def run(self, **kwargs):
         if not self.__epocher_initialized__:
-            raise RuntimeError()
+            raise RuntimeError(f"{self.__class__.__name__} should be initialized first by calling `init()`.")
         self.to(self.device)  # put all things into the same device
         with self._register_meters(), \
             self._register_indicator():
@@ -100,7 +113,19 @@ class _EpocherBase(_DDPMixin, metaclass=ABCMeta):
             raise RuntimeError(f"{self.__class__.__name__} should call `set_trainer` first")
         return self._trainer
 
+    @staticmethod
+    @abstractmethod
+    def _unzip_data(data, device):
+        pass
 
+    def batch_optimization(self, **kwargs):
+        return self._batch_optimization(**kwargs)
+
+    def _batch_optimization(self, **kwargs):
+        pass
+
+
+"""
 class _EpocherWithPlugin(_Epocher):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -133,3 +158,4 @@ class _EpocherWithPlugin(_Epocher):
         result = super(HookMixin, self)._run(**kwargs)  # noqa
         self.hooks_end_epoch()
         return result
+"""

@@ -5,15 +5,10 @@ import numpy as np
 import torch
 from deepclustering2.type import to_float
 from deepclustering2.utils import iter_average as average_list
-from deepclustering2.utils import (
-    simplex,
-    one_hot,
-    class2one_hot,
-    probs2one_hot,
-)
+from deepclustering2.utils import simplex, one_hot, class2one_hot, probs2one_hot
 from torch import Tensor
 
-from metric import Metric
+from .metric import Metric
 
 _accept_class_type = Union[int, List[int]]
 

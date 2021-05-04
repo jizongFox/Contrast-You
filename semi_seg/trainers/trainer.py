@@ -258,7 +258,7 @@ class MeanTeacherTrainer(SemiTrainer):
         return result
 
     def _eval_epoch(self, *, loader, **kwargs) -> Tuple[EpochResultDict, float]:
-        evaler = EvalEpocher(model=self._teacher_model, val_loader=loader, sup_criterion=self._sup_criterion,
+        evaler = EvalEpocher(model=self._teacher_model, loader=loader, sup_criterion=self._sup_criterion,
                              cur_epoch=self._cur_epoch, device=self._device)
         result, cur_score = evaler.run()
         return result, cur_score
@@ -307,7 +307,7 @@ class IICMeanTeacherTrainer(IICTrainer):
         return result
 
     def _eval_epoch(self, *, loader, **kwargs) -> Tuple[EpochResultDict, float]:
-        evaler = EvalEpocher(self._teacher_model, val_loader=loader, sup_criterion=self._sup_criterion,
+        evaler = EvalEpocher(self._teacher_model, loader=loader, sup_criterion=self._sup_criterion,
                              cur_epoch=self._cur_epoch, device=self._device)
         result, cur_score = evaler.run()
         return result, cur_score
@@ -348,7 +348,7 @@ class InfoNCEMeanTeacherTrainer(InfoNCETrainer):
         return result
 
     def _eval_epoch(self, *, loader, **kwargs) -> Tuple[EpochResultDict, float]:
-        evaler = EvalEpocher(self._teacher_model, val_loader=loader, sup_criterion=self._sup_criterion,
+        evaler = EvalEpocher(self._teacher_model, loader=loader, sup_criterion=self._sup_criterion,
                              cur_epoch=self._cur_epoch, device=self._device)
         result, cur_score = evaler.run()
         return result, cur_score
