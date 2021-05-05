@@ -5,8 +5,7 @@ from typing import Callable, List, Tuple, TypeVar, Iterable
 
 from PIL import Image
 from torch import Tensor
-from torchvision.transforms import Compose
-
+from torchvision.transforms import Compose, InterpolationMode
 
 from . import pil_augment
 
@@ -32,7 +31,7 @@ def get_transform(transform) -> Iterable[Callable[[T], T]]:
 @contextmanager
 def switch_interpolation(transforms: Callable[[T], T], *, interp: str):
     assert interp in ("bilinear", "nearest"), interp
-    interpolation = {"bilinear": Image.BILINEAR, "nearest": Image.NEAREST}[interp]
+    interpolation = {"bilinear": InterpolationMode.BILINEAR, "nearest": InterpolationMode.NEAREST}[interp]
 
     previous_inters = OrderedDict()
     transforms = get_transform(transforms)

@@ -4,9 +4,7 @@ from typing import Union, List
 
 import torch
 from deepclustering2.decorator import FixRandomSeed
-from deepclustering2.meters2 import EpochResultDict, MeterInterface, AverageValueMeter, MultipleAverageValueMeter
 from deepclustering2.models import ema_updater as EMA_Updater
-from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.tqdm import tqdm, item2str
 from deepclustering2.type import T_loss
 from deepclustering2.utils import simplex
@@ -14,9 +12,10 @@ from loguru import logger
 from torch import nn, Tensor
 from torch.optim.optimizer import Optimizer
 
+from contrastyou.meters import MeterInterface, AverageValueMeter, MultipleAverageValueMeter
 from contrastyou.utils import weighted_average_iter
 from semi_seg.arch.hook import FeatureExtractor
-from .helper import unl_extractor
+from .helper import unl_extractor, preprocess_input_with_twice_transformation
 
 
 class _FeatureExtractorMixin:
@@ -64,8 +63,8 @@ class _MIMixin(_FeatureExtractorMixin):
         super(_MIMixin, self)._init(**kwargs)  # noqa
         self._mi_estimator_array = mi_estimator_array
 
-    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
-        meters = super(_MIMixin, self)._configure_meters(meters)  # noqa
+    def configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters = super(_MIMixin, self).configure_meters(meters)  # noqa
         meters.register_meter("mi", AverageValueMeter())
         meters.register_meter("individual_mis", MultipleAverageValueMeter())
         return meters
@@ -158,8 +157,8 @@ class _ConsistencyMixin:
         super(_ConsistencyMixin, self)._init(**kwargs)  # noqa
         self._reg_criterion = reg_criterion
 
-    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
-        meters = super(_ConsistencyMixin, self)._configure_meters(meters)  # noqa
+    def configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters = super(_ConsistencyMixin, self).configure_meters(meters)  # noqa
         meters.register_meter("consistency", AverageValueMeter())
         return meters
 
@@ -193,9 +192,19 @@ class _PretrainEpocherMixin:
     regularization: Callable[..., Tensor]
     forward_pass: Callable
 
-    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
-        meter = super()._configure_meters(meters)  # noqa
-        meter.delete_meters(["sup_loss", "sup_dice", "reg_weight"])
+    def assert_(self):
+        labeled_dataset = self._labeled_loader._dataset  # noqa
+        lab_transform = labeled_dataset._transforms  # noqa
+        assert lab_transform._total_freedom
+
+        if self._unlabeled_loader is not None:
+            unlabeled_dataset = self._unlabeled_loader._dataset
+            unlab_transform = unlabeled_dataset._transforms  # noqa
+            assert unlab_transform._total_freedom
+
+    def configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meter = super().configure_meters(meters)  # noqa
+        meter.delete_meters(["sup_loss", "sup_dice"])
         return meter
 
     def init(self, *, chain_dataloader, monitor_dataloader, **kwargs):
@@ -204,66 +213,50 @@ class _PretrainEpocherMixin:
         self._chain_dataloader = chain_dataloader
         self._monitor_dataloader = monitor_dataloader
 
-    def _run(self, *args, **kwargs) -> EpochResultDict:
-        self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer))
-        assert self._model.training, self._model.training
-        return self._run_pretrain(*args, **kwargs)
+    def _batch_optimization(self, *, labeled_image, labeled_target, unlabeled_image, unlabeled_image_tf, seed,
+                            unl_group, unl_partition, unlabeled_filename, labeled_filename, label_group):
+        unlabel_logits, unlabel_tf_logits = self.forward_pass(
+            labeled_image=labeled_image,
+            unlabeled_image=unlabeled_image,
+            unlabeled_image_tf=unlabeled_image_tf
+        )
 
-    def _run_pretrain(self, *args, **kwargs):
-        for self.cur_batch_num, data in zip(self._indicator, self._chain_dataloader):
-            seed = random.randint(0, int(1e7))
-            unlabeled_image, unlabeled_target, unlabeled_filename, unl_partition, unl_group = \
-                self._unzip_data(data, self._device)
+        with FixRandomSeed(seed):
+            unlabel_logits_tf = torch.stack([self._affine_transformer(x) for x in unlabel_logits], dim=0)
 
-            with FixRandomSeed(seed):
-                unlabeled_image_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_image], dim=0)
-            assert unlabeled_image_tf.shape == unlabeled_image.shape, \
-                (unlabeled_image_tf.shape, unlabeled_image.shape)
+        # regularized part
+        reg_loss = self.regularization(
+            unlabeled_tf_logits=unlabel_tf_logits,
+            unlabeled_logits_tf=unlabel_logits_tf,
+            seed=seed,
+            unlabeled_image=unlabeled_image,
+            unlabeled_image_tf=unlabeled_image_tf,
+            label_group=unl_group,
+            partition_group=unl_partition,
+            unlabeled_filename=unlabeled_filename,
+            labeled_filename=labeled_filename
+        )
 
-            unlabel_logits, unlabel_tf_logits = self.forward_pass(
-                unlabeled_image=unlabeled_image,
-                unlabeled_image_tf=unlabeled_image_tf
-            )
+        total_loss = reg_loss
 
-            with FixRandomSeed(seed):
-                unlabel_logits_tf = torch.stack([self._affine_transformer(x) for x in unlabel_logits], dim=0)
+        with torch.no_grad():
+            self.meters["reg_loss"].add(reg_loss.item())
+        return total_loss
 
-            assert unlabel_logits_tf.shape == unlabel_tf_logits.shape, (
-                unlabel_logits_tf.shape, unlabel_tf_logits.shape)
-
-            # regularized part
-            reg_loss = self.regularization(
-                unlabeled_tf_logits=unlabel_tf_logits,
-                unlabeled_logits_tf=unlabel_logits_tf,
-                seed=seed,
-                unlabeled_image=unlabeled_image,
-                unlabeled_image_tf=unlabeled_image_tf,
-                label_group=unl_group,
-                partition_group=unl_partition,
-                unlabeled_filename=unlabeled_filename,
-            )
-            total_loss = reg_loss
-            # gradient backpropagation
-            self._optimizer.zero_grad()
-            total_loss.backward()
-            self._optimizer.step()
-            # recording can be here or in the regularization method
-            if self.on_master():
-                with torch.no_grad():
-                    self.meters["reg_loss"].add(reg_loss.item())
-                    report_dict = self.meters.tracking_status()
-                    self._indicator.set_postfix_dict(report_dict)
-
-        report_dict = self.meters.tracking_status(final=True)
-        return report_dict
-
-    def _forward_pass(self, unlabeled_image, unlabeled_image_tf):
+    def _forward_pass(self, unlabeled_image, unlabeled_image_tf, **kwargs):
         n_l, n_unl = 0, len(unlabeled_image)
         # hightlight: this is only for training for encoder.
         predict_logits = self._model(torch.cat([unlabeled_image, unlabeled_image_tf], dim=0), until="Conv5")
 
         unlabel_logits, unlabel_tf_logits = torch.split(predict_logits, [n_unl, n_unl], dim=0)
         return unlabel_logits, unlabel_tf_logits
+
+    @staticmethod
+    def _unzip_data(data, device):
+        (image, target), (image_ct, target_ct), filename, partition, group = \
+            preprocess_input_with_twice_transformation(data, device)
+        assert not torch.allclose(target, target_ct)
+        return (image, image_ct), target, filename, partition, group
 
 
 class _PretrainMonitorEpocherMxin(_PretrainEpocherMixin):

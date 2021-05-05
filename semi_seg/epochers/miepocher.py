@@ -1,9 +1,9 @@
 from typing import Callable, Iterable
 
-from deepclustering2.meters2 import AverageValueMeter, MeterInterface
 from deepclustering2.type import T_loss
 from torch import Tensor
 
+from contrastyou.meters import AverageValueMeter, MeterInterface
 from ._mixins import _ConsistencyMixin, _MIMixin
 from .base import TrainEpocher
 
@@ -32,8 +32,7 @@ class MITrainEpocher(_MIMixin, TrainEpocher, ):
         return reg_loss
 
 
-class ConsistencyMIEpocher(_ConsistencyMixin, _MIMixin, TrainEpocher,
-                           ):
+class ConsistencyMIEpocher(_ConsistencyMixin, _MIMixin, TrainEpocher):
 
     def _init(self, *, mi_weight: float, consistency_weight: float,  # noqa
               mi_estimator_array: Iterable[Callable[[Tensor, Tensor], Tensor]], reg_criterion: T_loss,  # noqa
@@ -45,11 +44,11 @@ class ConsistencyMIEpocher(_ConsistencyMixin, _MIMixin, TrainEpocher,
         self._reg_criterion = reg_criterion  # noqa
         assert self._reg_weight == 1.0, self._reg_weight
 
-    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
-        meters = super()._configure_meters(meters)
-        meters.register_meter("consistency", AverageValueMeter())
+    def configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters = super().configure_meters(meters)
         meters.register_meter("mi_weight", AverageValueMeter())
         meters.register_meter("cons_weight", AverageValueMeter())
+        meters.register_meter("consistency", AverageValueMeter())
         return meters
 
     def _regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, **kwargs):

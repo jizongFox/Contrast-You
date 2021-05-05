@@ -178,7 +178,8 @@ class InfoNCETrainer(_FeatureExtractor, SemiTrainer):
         epocher.init(reg_weight=self._reg_weight, projectors_wrapper=self._projector,
                      infoNCE_criterion=self._encoder_criterion_list)
         epocher.set_global_contrast_method(contrast_on_list=self.__encoder_method__)
-        result = epocher.run()
+        epocher.run()
+        result = epocher.get_metric()
         for i, c in enumerate(self._encoder_criterion_list):
             criterion_result = c.epoch_end()
             result.update({k + f"{i}": v for k, v in criterion_result.items()})
@@ -260,8 +261,9 @@ class MeanTeacherTrainer(SemiTrainer):
     def _eval_epoch(self, *, loader, **kwargs) -> Tuple[EpochResultDict, float]:
         evaler = EvalEpocher(model=self._teacher_model, loader=loader, sup_criterion=self._sup_criterion,
                              cur_epoch=self._cur_epoch, device=self._device)
-        result, cur_score = evaler.run()
-        return result, cur_score
+        evaler.init()
+        evaler.run()
+        return evaler.get_metric(), evaler.get_score()
 
 
 class UCMeanTeacherTrainer(MeanTeacherTrainer):
@@ -307,10 +309,11 @@ class IICMeanTeacherTrainer(IICTrainer):
         return result
 
     def _eval_epoch(self, *, loader, **kwargs) -> Tuple[EpochResultDict, float]:
-        evaler = EvalEpocher(self._teacher_model, loader=loader, sup_criterion=self._sup_criterion,
+        evaler = EvalEpocher(model=self._teacher_model, loader=loader, sup_criterion=self._sup_criterion,
                              cur_epoch=self._cur_epoch, device=self._device)
-        result, cur_score = evaler.run()
-        return result, cur_score
+        evaler.init()
+        evaler.run()
+        return evaler.get_metric(), evaler.get_score()
 
 
 class InfoNCEMeanTeacherTrainer(InfoNCETrainer):
@@ -348,7 +351,35 @@ class InfoNCEMeanTeacherTrainer(InfoNCETrainer):
         return result
 
     def _eval_epoch(self, *, loader, **kwargs) -> Tuple[EpochResultDict, float]:
-        evaler = EvalEpocher(self._teacher_model, loader=loader, sup_criterion=self._sup_criterion,
+        evaler = EvalEpocher(model=self._teacher_model, loader=loader, sup_criterion=self._sup_criterion,
                              cur_epoch=self._cur_epoch, device=self._device)
-        result, cur_score = evaler.run()
-        return result, cur_score
+        evaler.init()
+        evaler.run()
+        return evaler.get_metric(), evaler.get_score()
+
+
+class UDAIICInfoNCETrainer(InfoNCETrainer, UDAIICTrainer):
+    from ..epochers.comparable import UDAIICInfoNCEEpocher
+
+    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = UDAIICInfoNCEEpocher):
+        super(UDAIICInfoNCETrainer, self)._set_epocher_class(epocher_class)
+
+    def _init(self):
+        UDAIICTrainer._init(self)
+        InfoNCETrainer._init(self)
+
+    def _run_epoch(self, epocher: UDAIICInfoNCEEpocher, *args, **kwargs) -> EpochResultDict:
+        for c in self._encoder_criterion_list:
+            c.epoch_start()
+        epocher.init(info_weight=self._reg_weight, projectors_wrapper=self._projector,
+                     infoNCE_criterion=self._encoder_criterion_list, mi_weight=self._iic_weight,
+                     consistency_weight=self._uda_weight,
+                     mi_estimator_array=self._mi_estimator_array,
+                     reg_criterion=self._reg_criterion, )
+        epocher.set_global_contrast_method(contrast_on_list=self.__encoder_method__)
+        epocher.run()
+        result = epocher.get_metric()
+        for i, c in enumerate(self._encoder_criterion_list):
+            criterion_result = c.epoch_end()
+            result.update({k + f"{i}": v for k, v in criterion_result.items()})
+        return result

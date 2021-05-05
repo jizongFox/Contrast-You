@@ -145,7 +145,7 @@ class TrainEpocher(Epocher):
             logger.trace("{} set to disable bn tracking", self.__class__.__name__)
 
     def _init(self, *, reg_weight: float, **kwargs):
-        pass
+        self._reg_weight = float(reg_weight)
 
     def configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super(TrainEpocher, self).configure_meters(meters)
@@ -153,6 +153,7 @@ class TrainEpocher(Epocher):
         report_axis = list(range(1, C))
 
         meters.register_meter("sup_loss", AverageValueMeter())
+        meters.register_meter("reg_loss", AverageValueMeter())
         meters.register_meter("sup_dice", UniversalDice(C, report_classes=report_axis))
 
         return meters
@@ -168,7 +169,7 @@ class TrainEpocher(Epocher):
         assert not lab_transform._total_freedom
 
         if self._unlabeled_loader is not None:
-            unlabeled_dataset = self._unlabeled_loader.dataset
+            unlabeled_dataset = self._unlabeled_loader._dataset
             unlab_transform = unlabeled_dataset._transforms  # noqa
             assert not unlab_transform._total_freedom
 
@@ -199,7 +200,7 @@ class TrainEpocher(Epocher):
             labeled_filename=labeled_filename
         )
 
-        total_loss = sup_loss + reg_loss
+        total_loss = sup_loss + reg_loss * self._reg_weight
 
         with torch.no_grad():
             self.meters["sup_loss"].add(sup_loss.item())

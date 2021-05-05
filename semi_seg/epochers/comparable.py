@@ -9,7 +9,6 @@ from deepclustering2.configparser._utils import get_config  # noqa
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.decorator.decorator import _disable_tracking_bn_stats as disable_bn  # noqa
 from deepclustering2.loss import Entropy
-from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, MeterInterface, MultipleAverageValueMeter
 from deepclustering2.models import ema_updater as EMA_Updater
 from deepclustering2.schedulers.customized_scheduler import RampScheduler
 from deepclustering2.type import T_loss
@@ -19,16 +18,18 @@ from torch import Tensor
 from torch import nn
 from torch.nn import functional as F
 
-from contrastyou.utils import average_iter, weighted_average_iter
 from contrastyou.losses.contrast_loss2 import is_normalized, SupConLoss1
 from contrastyou.losses.iic_loss import _ntuple  # noqa
+from contrastyou.meters import AverageValueMeter, MeterInterface
+from contrastyou.meters.averagemeter import MultipleAverageValueMeter
 from contrastyou.projectors.heads import ProjectionHead
 from contrastyou.projectors.nn import Normalize
+from contrastyou.utils import average_iter, weighted_average_iter
 from semi_seg.arch.hook import FeatureExtractor
 from semi_seg.utils import ContrastiveProjectorWrapper
-from .helper import unl_extractor
-from ._mixins import _FeatureExtractorMixin, _MeanTeacherMixin
+from ._mixins import _FeatureExtractorMixin, _MeanTeacherMixin, _MIMixin
 from .base import TrainEpocher
+from .helper import unl_extractor
 from .miepocher import MITrainEpocher, ConsistencyTrainEpocher
 
 
@@ -61,10 +62,11 @@ class UCMeanTeacherEpocher(MeanTeacherEpocher, ):
         self._threshold: RampScheduler = threshold
         self._entropy_loss = Entropy(reduction="none")
 
-    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
-        meters = super(UCMeanTeacherEpocher, self)._configure_meters(meters)
-        meters.register_meter("uc_weight", AverageValueMeter())
-        meters.register_meter("uc_ratio", AverageValueMeter())
+    def configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters = super(UCMeanTeacherEpocher, self).configure_meters(meters)
+        with meters.focus_on("uc_mt"):
+            meters.register_meter("uc_weight", AverageValueMeter())
+            meters.register_meter("uc_ratio", AverageValueMeter())
         return meters
 
     def _regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int,
@@ -96,9 +98,9 @@ class UCMeanTeacherEpocher(MeanTeacherEpocher, ):
         entropy = self._entropy_loss(average_prediction.softmax(1)) / math.log(average_prediction.shape[1])
         th = self._threshold.value
         mask = (entropy <= th).float()
-
-        self.meters["uc_weight"].add(th)
-        self.meters["uc_ratio"].add(mask.mean().item())
+        with self.meters.focus_on("uc_mt"):
+            self.meters["uc_weight"].add(th)
+            self.meters["uc_ratio"].add(mask.mean().item())
 
         # update teacher model here.
         self._ema_updater(self._teacher_model, self._model)
@@ -128,12 +130,12 @@ class MIMeanTeacherEpocher(MITrainEpocher, ):
         model.train()
         self._teacher_model.train()
 
-    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
-        meters = super(MIMeanTeacherEpocher, self)._configure_meters(meters)
+    def configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters = super(MIMeanTeacherEpocher, self).configure_meters(meters)
         meters.register_meter("consistency", AverageValueMeter())
         return meters
 
-    def _run(self, *args, **kwargs) -> EpochResultDict:
+    def _run(self, *args, **kwargs):
         with FeatureExtractor(self._teacher_model, self._feature_position) as self._teacher_fextractor:  # noqa
             return super(MIMeanTeacherEpocher, self)._run()
 
@@ -202,9 +204,10 @@ class MIDLPaperEpocher(ConsistencyTrainEpocher, ):
         self._mi_weight = mi_weight  # noqa
         self._consistency_weight = consistency_weight  # noqa
 
-    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
-        meters = super(MIDLPaperEpocher, self)._configure_meters(meters)
-        meters.register_meter("iic_mi", AverageValueMeter())
+    def configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters = super(MIDLPaperEpocher, self).configure_meters(meters)
+        with meters.focus_on("midl"):
+            meters.register_meter("iic_mi", AverageValueMeter())
         return meters
 
     def _regularization(
@@ -220,7 +223,8 @@ class MIDLPaperEpocher(ConsistencyTrainEpocher, ):
             seed=seed, **kwargs
         )
         iic_loss = self._iic_segcriterion(unlabeled_tf_logits.softmax(1), unlabeled_logits_tf.softmax(1).detach())
-        self.meters["iic_mi"].add(iic_loss.item())
+        with self.meters.focus_on("midl"):
+            self.meters["iic_mi"].add(iic_loss.item())
         return uda_loss * self._consistency_weight + iic_loss * self._mi_weight
 
 
@@ -230,9 +234,10 @@ class EntropyMinEpocher(TrainEpocher, ):
         super().init(reg_weight=reg_weight, **kwargs)
         self._entropy_criterion = Entropy()
 
-    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
-        meters = super(EntropyMinEpocher, self)._configure_meters(meters)
-        meters.register_meter("entropy", AverageValueMeter())
+    def configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters = super(EntropyMinEpocher, self).configure_meters(meters)
+        with meters.focus_on("ent"):
+            meters.register_meter("entropy", AverageValueMeter())
         return meters
 
     def _regularization(
@@ -243,7 +248,8 @@ class EntropyMinEpocher(TrainEpocher, ):
         seed, **kwargs
     ):
         reg_loss = self._entropy_criterion(unlabeled_logits_tf.softmax(1))
-        self.meters["entropy"].add(reg_loss.item())
+        with self.meters.focus_on("ent"):
+            self.meters["entropy"].add(reg_loss.item())
         return reg_loss
 
 
@@ -278,10 +284,11 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, ):
         self._encoder_contrastive_name_generator = cycle(self.__encoder_contrast_name_list)
         self.__set_global_contrast_done__ = True
 
-    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
-        meters = super()._configure_meters(meters)
-        meters.register_meter("mi", AverageValueMeter())
-        meters.register_meter("individual_mis", MultipleAverageValueMeter())
+    def configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters = super().configure_meters(meters)
+        with meters.focus_on("infonce"):
+            meters.register_meter("mi", AverageValueMeter())
+            meters.register_meter("individual_mis", MultipleAverageValueMeter())
         return meters
 
     def run(self, *args, **kwargs):
@@ -356,11 +363,12 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, ):
             zip(self._feature_position, unl_extractor(self._fextractor, n_uls=n_uls), self._projectors_wrapper)
         ]
         reg_loss = weighted_average_iter(losses, self._feature_importance)
-        self.meters["mi"].add(-reg_loss.item())
-        self.meters["individual_mis"].add(**dict(zip(
-            [f"{p}|{i}" for i, p in enumerate(self._feature_position)],
-            [-x.item() for x in losses]
-        )))
+        with self.meters.focus_on("infonce"):
+            self.meters["mi"].add(-reg_loss.item())
+            self.meters["individual_mis"].add(**dict(zip(
+                [f"{p}|{i}" for i, p in enumerate(self._feature_position)],
+                [-x.item() for x in losses]
+            )))
         return reg_loss
 
     def generate_infonce(self, *, feature_name, features, projector, seed, partition_group, label_group) -> Tensor:
@@ -573,8 +581,8 @@ class InfoNCEMeanTeacherEpocher(_MeanTeacherMixin, InfoNCEEpocher):
         self._infonce_w = infonce_weight
         self._mt_w = mt_weight
 
-    def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
-        meters = super(InfoNCEMeanTeacherEpocher, self)._configure_meters(meters)
+    def configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters = super(InfoNCEMeanTeacherEpocher, self).configure_meters(meters)
         meters.register_meter("mt_w", AverageValueMeter())
         meters.register_meter("mi_w", AverageValueMeter())
         return meters
@@ -597,3 +605,40 @@ class InfoNCEMeanTeacherEpocher(_MeanTeacherMixin, InfoNCEEpocher):
         self.meters["mt_w"].add(self._mt_w)
 
         return self._infonce_w * infonce_reg + self._mt_w * mt_reg
+
+
+from .miepocher import ConsistencyMIEpocher
+
+
+class UDAIICInfoNCEEpocher(InfoNCEEpocher):
+    def _init(self, *, info_weight: float, projectors_wrapper: ContrastiveProjectorWrapper = None,
+              infoNCE_criterion: List[T_loss] = None, mi_weight: float = 1.0, consistency_weight: float = 1.0,
+              mi_estimator_array: Iterable[Callable[[Tensor, Tensor], Tensor]] = None, reg_criterion: T_loss = None,
+              **kwargs):
+        InfoNCEEpocher._init(self, reg_weight=1.0, projectors_wrapper=projectors_wrapper,
+                             infoNCE_criterion=infoNCE_criterion, **kwargs)
+        assert self._reg_weight == 1.0
+        self._info_weight = info_weight
+        self._mi_weight = mi_weight
+        self._cons_weight = consistency_weight
+        self._reg_criterion = reg_criterion
+
+    def _regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, label_group,
+                        partition_group, **kwargs):
+        reg1 = InfoNCEEpocher._regularization(self, unlabeled_tf_logits=unlabeled_tf_logits,
+                                              unlabeled_logits_tf=unlabeled_logits_tf,
+                                              seed=seed,
+                                              label_group=label_group,
+                                              partition_group=partition_group)
+        reg2 = ConsistencyMIEpocher._regularization(self, unlabeled_tf_logits=unlabeled_tf_logits,
+                                                    unlabeled_logits_tf=unlabeled_logits_tf,
+                                                    seed=seed,
+                                                    label_group=label_group,
+                                                    partition_group=partition_group)
+        return self._info_weight * reg1 + reg2
+
+    def configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        super(UDAIICInfoNCEEpocher, self).configure_meters(meters)
+        meters.register_meter("mi_weight", AverageValueMeter())
+        meters.register_meter("cons_weight", AverageValueMeter())
+        return meters

@@ -1,4 +1,4 @@
-from .averagemeter import AverageValueMeter, AverageValueListMeter
+from .averagemeter import AverageValueMeter, AverageValueListMeter, MultipleAverageValueMeter
 from .general_dice_meter import UniversalDice
 from .surface_meter import SurfaceMeter
 from .meter_interface import MeterInterface

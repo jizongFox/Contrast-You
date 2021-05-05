@@ -15,7 +15,8 @@ base_trainer_zoos = {
     "iicmeanteacher": IICMeanTeacherTrainer,
     "midl": MIDLTrainer,
     "infonce": InfoNCETrainer,
-    "infoncemt": InfoNCEMeanTeacherTrainer
+    "infoncemt": InfoNCEMeanTeacherTrainer,
+    "udaiicinfo": UDAIICInfoNCETrainer
 
 }
 pre_trainer_zoos = {
