@@ -105,7 +105,6 @@ elif args.stage == "infonce":
                      f" Trainer.save_dir={save_dir}/infonce/weight_{info_weight}/tra/ratio_{str(x)} "
                      f" ProjectorParams.Weight={info_weight:.10f} "
                      f" Data.labeled_data_ratio={x}  "
-                     f" Data.unlabeled_data_ratio={1 - x} "
                      f" --opt_config_path {opt_config_path}" for x in labeled_ratios]
     job_array = [" && ".join(job_array)]
 
@@ -116,7 +115,7 @@ elif args.stage == "meanteacher":
         f"python main.py {SharedParams} Optim.lr={lr}  "
         f" Trainer.name=meanteacher Trainer.save_dir={save_dir}/mt/mt_{mt_weight}/tra/ratio_{str(x)} "
         f" MeanTeacherParameters.weight={mt_weight:.10f} "
-        f" Data.labeled_data_ratio={x}  Data.unlabeled_data_ratio={1 - x} "
+        f" Data.labeled_data_ratio={x}   "
         f" --opt_config_path ../config/specific/mt.yaml" for x in labeled_ratios
     ]
 
@@ -133,7 +132,6 @@ elif args.stage == "meanteacherinfonce":
                      f" MeanTeacherParameters.weight={mt_weight:.10f} "
                      f" ProjectorParams.Weight={info_weight:.10f} "
                      f" Data.labeled_data_ratio={x}  "
-                     f" Data.unlabeled_data_ratio={1 - x} "
                      f" --opt_config_path {opt_config_path} ../config/specific/mt.yaml " for x in labeled_ratios]
 
     job_array = [" && ".join(job_array)]
@@ -146,7 +144,6 @@ elif args.stage == "udaiic":
         f" UDARegCriterion.weight={uda_weight} "
         f" Trainer.save_dir={save_dir}/uda_iic/uda_{uda_weight}_iic_{iic_weight}/tra/ratio_{str(x)}"
         f" Data.labeled_data_ratio={x}  "
-        f" Data.unlabeled_data_ratio={1 - x} "
         f" --opt_config_path ../config/specific/iic.yaml ../config/specific/uda.yaml" for x in labeled_ratios
     ]
     job_array = [" && ".join(job_array)]
@@ -157,7 +154,6 @@ elif args.stage == "entropy":
         f" EntropyMinParameters.weight={ent_weight} "
         f" Trainer.save_dir={save_dir}/entropy/ent_w_{ent_weight}/tra/ratio_{str(x)}"
         f" Data.labeled_data_ratio={x}  "
-        f" Data.unlabeled_data_ratio={1 - x} "
         f" --opt_config_path ../config/specific/entmin.yaml " for x in labeled_ratios
     ]
     job_array = [" && ".join(job_array)]

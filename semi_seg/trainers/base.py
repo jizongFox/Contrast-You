@@ -144,7 +144,7 @@ class SemiTrainer(Trainer):
                 assert checkpoint.exists()
                 checkpoint = checkpoint / "best.pth"
             self.load_state_dict_from_path(str(checkpoint), strict=True)
-        evaler = InferenceEpocher(self._model, val_loader=self._test_loader, sup_criterion=self._sup_criterion,
+        evaler = InferenceEpocher(model=self._model, loader=self._test_loader, sup_criterion=self._sup_criterion,
                                   cur_epoch=self._cur_epoch, device=self._device)
         evaler.init(save_dir=self._save_dir)
         result, cur_score = evaler.run()

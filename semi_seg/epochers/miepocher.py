@@ -48,7 +48,6 @@ class ConsistencyMIEpocher(_ConsistencyMixin, _MIMixin, TrainEpocher):
         meters = super().configure_meters(meters)
         meters.register_meter("mi_weight", AverageValueMeter())
         meters.register_meter("cons_weight", AverageValueMeter())
-        meters.register_meter("consistency", AverageValueMeter())
         return meters
 
     def _regularization(self, *, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, seed: int, **kwargs):

@@ -7,8 +7,6 @@ rand_seed=$3
 num_batches=$4
 max_epoch=$5
 
-#set -e pipefail
-
 function run_baseline {
   folder_path=$1
   checkpoint=$2
