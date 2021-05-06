@@ -19,11 +19,11 @@ from torch import Tensor
 from torch import nn
 from torch.nn import functional as F
 
-from contrastyou.utils import average_iter, weighted_average_iter
 from contrastyou.losses.contrast_loss2 import is_normalized, SupConLoss1
 from contrastyou.losses.iic_loss import _ntuple  # noqa
 from contrastyou.projectors.heads import ProjectionHead
 from contrastyou.projectors.nn import Normalize
+from contrastyou.utils import average_iter, weighted_average_iter
 from semi_seg.arch.hook import FeatureExtractor
 from semi_seg.utils import ContrastiveProjectorWrapper
 from ._helper import unl_extractor
@@ -433,6 +433,10 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
                  patient_list=[p.split("_")[0] for p in label_group])
         elif config["Data"]["name"] == "mmwhs":
             labels = self.global_label_generator(dataset_name="mmwhs", contrast_on=contrast_on) \
+                (partition_list=partition_group,
+                 patient_list=label_group)
+        elif config["Data"]["name"] == "prostate_md":
+            labels = self.global_label_generator(dataset_name="prostate", contrast_on=contrast_on) \
                 (partition_list=partition_group,
                  patient_list=label_group)
         else:

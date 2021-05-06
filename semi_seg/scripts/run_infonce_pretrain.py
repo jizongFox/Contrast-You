@@ -3,7 +3,8 @@ import argparse
 from deepclustering2.cchelper import JobSubmiter
 from deepclustering2.utils import gethash
 
-from semi_seg.scripts.helper import dataset_name2class_numbers, ft_lr_zooms, BindPretrainFinetune, BindContrastive, \
+from semi_seg import dataset_name2class_numbers, ft_lr_zooms, dataset_name2input_dim
+from semi_seg.scripts.helper import BindPretrainFinetune, BindContrastive, \
     BindSelfPaced, run_jobs
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -44,6 +45,7 @@ dataset_name = args.dataset_name
 num_batches = args.num_batches
 random_seed = args.random_seed
 num_classes = dataset_name2class_numbers[args.dataset_name]
+input_dim = dataset_name2input_dim[args.dataset_name]
 save_dir = args.save_dir
 
 save_dir += ("/" + "/".join(
@@ -56,6 +58,7 @@ save_dir += ("/" + "/".join(
 SharedParams = f" Data.name={dataset_name}" \
                f" Trainer.num_batches={num_batches} " \
                f" Arch.num_classes={num_classes} " \
+               f" Arch.input_dim={input_dim} " \
                f" RandomSeed={random_seed} "
 
 if args.stage == "baseline":

@@ -1,24 +1,28 @@
 import os
+from typing import Type
 
 from deepclustering2.meters2 import StorageIncomeDict
 
 from ._helper import _PretrainTrainerMixin
 from .trainer import InfoNCETrainer, IICTrainer, UDAIICTrainer
+from ..epochers import InfoNCEPretrainEpocher, TrainEpocher, MIPretrainEpocher, UDAIICPretrainEpocher
 
 
 class PretrainInfoNCETrainer(_PretrainTrainerMixin, InfoNCETrainer):
-    from semi_seg.epochers.pretrain import InfoNCEPretrainEpocher, InfoNCEPretrainMonitorEpocher
+    from semi_seg.epochers.pretrain import InfoNCEPretrainMonitorEpocher
 
-    def _set_epocher_class(self, epocher_class=InfoNCEPretrainEpocher):
-        super(PretrainInfoNCETrainer, self)._set_epocher_class(epocher_class)  # noqa
+    @property
+    def epocher_class(self) -> Type[TrainEpocher]:
+        return InfoNCEPretrainEpocher
 
     def run_monitor(self, epoch_class=InfoNCEPretrainMonitorEpocher):
-        previous_class = self.epocher_class
-        self.epocher_class = epoch_class
-        epocher = self._run_init()
-        result = self._run_epoch(epocher, )
-        self.epocher_class = previous_class
-        return result
+        raise RuntimeError("we do not support run monitor mode")
+        # previous_class = self.epocher_class
+        # self.epocher_class = epoch_class
+        # epocher = self._run_init()
+        # result = self._run_epoch(epocher, )
+        # self.epocher_class = previous_class
+        # return result
 
     def _start_training(self, *, run_monitor=False):
         run_monitor = os.environ.get("MONITOR", 0) == "1" or run_monitor
@@ -43,14 +47,14 @@ class PretrainInfoNCETrainer(_PretrainTrainerMixin, InfoNCETrainer):
 
 
 class PretrainIICTrainer(_PretrainTrainerMixin, IICTrainer):
-    from semi_seg.epochers.pretrain import MIPretrainEpocher
 
-    def _set_epocher_class(self, epocher_class=MIPretrainEpocher):
-        super(PretrainIICTrainer, self)._set_epocher_class(epocher_class)
+    @property
+    def epocher_class(self) -> Type[TrainEpocher]:
+        return MIPretrainEpocher
 
 
 class PretrainUDAIICTrainer(_PretrainTrainerMixin, UDAIICTrainer):
-    from semi_seg.epochers.pretrain import UDAIICPretrainEpocher
 
-    def _set_epocher_class(self, epocher_class=UDAIICPretrainEpocher):
-        super(PretrainUDAIICTrainer, self)._set_epocher_class(epocher_class)
+    @property
+    def epocher_class(self) -> Type[TrainEpocher]:
+        return UDAIICPretrainEpocher

@@ -88,6 +88,7 @@ class DatasetBase(Dataset):
 
         self._sub_folders: List[str] = [sub_folders, ] if isinstance(sub_folders, str) else sub_folders
         sub_folder_types = [sub_folder_types, ] if isinstance(sub_folder_types, str) else sub_folder_types
+        assert len(self._sub_folders) == len(sub_folder_types)
         for type_ in sub_folder_types:
             check_folder_types(type_)
         self._sub_folder_types = [is_image_folder(type_) for type_ in sub_folder_types]

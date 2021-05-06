@@ -9,10 +9,11 @@ from loguru import logger
 from torch import nn
 from torch.utils.data.dataloader import _BaseDataLoaderIter as BaseDataLoaderIter, DataLoader  # noqa
 
-from contrastyou.data import InfiniteRandomSampler, ScanSampler
+from contrastyou import get_cc_data_path
+from contrastyou.data import InfiniteRandomSampler, ScanSampler, DatasetBase
 from contrastyou.utils import get_dataset
-from semi_seg.data import ACDCDataset, ProstateDataset, mmWHSCTDataset
-from semi_seg.data.creator import augment_zoo
+from semi_seg.data import ACDCDataset, ProstateDataset, mmWHSCTDataset, ProstateMDDataset
+from semi_seg.data.creator import augment_zoo, data_zoo
 from semi_seg.data.rearr import ContrastBatchSampler
 
 
@@ -20,31 +21,37 @@ def get_partition_num(name: str):
     partition_num_zoo = {"acdc": ACDCDataset.partition_num,
                          "prostate": ProstateDataset.partition_num,
                          "mmwhsct": mmWHSCTDataset.partition_num,
-                         "mmwhsmr": mmWHSCTDataset.partition_num}
+                         "mmwhsmr": mmWHSCTDataset.partition_num,
+                         "prostate_md": ProstateMDDataset.partition_num}
     return partition_num_zoo[name]
 
 
-def _get_contrastive_dataloader(partial_loader, config):
+def _get_contrastive_dataloader(partial_loader, contrastive_params):
     # going to get all dataset with contrastive sampler
-    unlabeled_dataset = get_dataset(partial_loader)
+    unlabeled_dataset: DatasetBase = get_dataset(partial_loader)
+    data_name = {class_.__name__: name for name, class_ in data_zoo.items()}[unlabeled_dataset._name.split("-")[0]]
+    is_preload = unlabeled_dataset._is_preload  # noqa
+    dataset_type = unlabeled_dataset.__class__
+    dataset = dataset_type(root_dir=get_cc_data_path(), mode="train", transforms=unlabeled_dataset.transforms)
 
-    dataset_type = type(unlabeled_dataset)
-    dataset = dataset_type(root_dir=Path(unlabeled_dataset._root_dir).parent,  # noqa
-                           mode="train", transforms=unlabeled_dataset.transforms)
+    logger.opt(depth=2).trace(f"creating {dataset.__class__.__name__} contrastive dataset with "
+                              f"{len(dataset.get_scan_list())} scans")
+    if is_preload:
+        dataset.preload()
 
-    contrastive_config: Dict = config["ContrastiveLoaderParams"]
-    num_workers = contrastive_config.pop("num_workers")
-    data_name = config["Data"]["name"]
+    num_workers = contrastive_params.pop("num_workers")
+
     augment = augment_zoo[data_name]
 
     batch_sampler = None
 
-    batch_size = contrastive_config["scan_sample_num"] * get_partition_num(data_name)
+    batch_size = contrastive_params["scan_sample_num"] * get_partition_num(data_name)
     sampler = InfiniteRandomSampler(dataset, shuffle=True)
 
     if data_name == "acdc":
         # only group the acdc dataset
-        batch_sampler = ContrastBatchSampler(dataset=dataset, **contrastive_config)
+        batch_sampler = ContrastBatchSampler(dataset=dataset, **contrastive_params)
+        logger.opt(depth=2).trace(f"creating contrastive batch sampler")
         batch_size = 1
         sampler = None
 
@@ -55,11 +62,10 @@ def _get_contrastive_dataloader(partial_loader, config):
     )
 
     demo_dataset = dataset_type(root_dir=str(Path(unlabeled_dataset._root_dir).parent),  # noqa
-                                mode="train", transforms=augment.trainval  # noqa
-                                )
+                                mode="train", transforms=augment.trainval)
 
     demo_loader = DataLoader(demo_dataset, batch_size=1, batch_sampler=ScanSampler(dataset))
-
+    logger.opt(depth=2).trace(f"creating {dataset.__class__.__name__} demo dataset with {len(dataset)} scans")
     return iter(contrastive_loader), demo_loader
 
 
@@ -120,9 +126,9 @@ class _PretrainTrainerMixin:
     def _init(self, *args, **kwargs):
         super(_PretrainTrainerMixin, self)._init(*args, **kwargs)  # noqa
         # here you have conventional training objects
-        self._contrastive_loader, self._monitor_loader = _get_contrastive_dataloader(self._unlabeled_loader,
-                                                                                     self._config)
-        logger.opt(depth=1).debug("creating contrastive_loader")
+        self._contrastive_loader, self._monitor_loader = _get_contrastive_dataloader(
+            self._unlabeled_loader, self._config["ContrastiveLoaderParams"]
+        )
 
     def _run_epoch(self, epocher, *args, **kwargs) -> EpochResultDict:
         epocher.init = partial(epocher.init, chain_dataloader=self._contrastive_loader,

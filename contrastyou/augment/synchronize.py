@@ -1,17 +1,16 @@
+import functools
 import random
+import warnings
 from collections import OrderedDict
 from contextlib import contextmanager
-from typing import Callable, List, Tuple, TypeVar, Iterable
+from functools import lru_cache
+from typing import Callable, List, Tuple, TypeVar, Iterable, Union
 
 from PIL import Image
 from torch import Tensor
-from torchvision.transforms import Compose
-
+from torchvision.transforms import Compose, InterpolationMode
 
 from . import pil_augment
-
-__all__ = ["SequentialWrapper", "SequentialWrapperTwice"]
-
 from ..utils import fix_all_seed_for_transforms
 
 _pil2pil_transform_type = Callable[[Image.Image], Image.Image]
@@ -19,6 +18,8 @@ _pil2tensor_transform_type = Callable[[Image.Image], Tensor]
 _pil_list = List[Image.Image]
 
 T = TypeVar("T")
+
+__all__ = ["SequentialWrapper", "SequentialWrapperTwice"]
 
 
 def get_transform(transform) -> Iterable[Callable[[T], T]]:
@@ -29,18 +30,23 @@ def get_transform(transform) -> Iterable[Callable[[T], T]]:
         yield transform
 
 
-@contextmanager
-def switch_interpolation(transforms: Callable[[T], T], *, interp: str):
-    assert interp in ("bilinear", "nearest"), interp
-    interpolation = {"bilinear": Image.BILINEAR, "nearest": Image.NEAREST}[interp]
+@lru_cache()
+def get_interpolation(interp: str):
+    return {"bilinear": InterpolationMode.BILINEAR, "nearest": InterpolationMode.NEAREST}[interp]
 
+
+@contextmanager
+def switch_interpolation(transforms: Callable[[T], Union[T, Tensor]], *, interp: str):
+    assert interp in ("bilinear", "nearest"), interp
     previous_inters = OrderedDict()
     transforms = get_transform(transforms)
+    interpolation = get_interpolation(interp)
     for id_, t in enumerate(transforms):
         if hasattr(t, "interpolation"):
             previous_inters[id_] = t.interpolation
             t.interpolation = interpolation
     yield
+
     transforms = get_transform(transforms)
     for id_, t in enumerate(transforms):
         if hasattr(t, "interpolation"):
@@ -54,6 +60,16 @@ def random_int() -> int:
 def transform_(image, transform, seed):
     with fix_all_seed_for_transforms(seed):
         return transform(image)
+
+
+def warning_suppress(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            return func(*args, **kwargs)
+
+    return wrapper
 
 
 class SequentialWrapper:
@@ -83,18 +99,20 @@ class SequentialWrapper:
         if self._com_transform:
             # comm is the optional
             with switch_interpolation(self._com_transform, interp="bilinear"):
-                image_list_after_transform = [transform_(image, self._com_transform, com_seed) for image in
-                                              image_list_after_transform]
+                image_list_after_transform = [transform_(image, self._com_transform, com_seed)
+                                              for image in image_list_after_transform]
             if targets is not None:
                 with switch_interpolation(self._com_transform, interp="nearest"):
-                    target_list_after_transform = [transform_(target, self._com_transform, com_seed) for target in
-                                                   target_list_after_transform]
+                    target_list_after_transform = [transform_(target, self._com_transform, com_seed)
+                                                   for target in target_list_after_transform]
 
-        image_list_after_transform = [transform_(image, self._image_transform, img_seed) for image in
-                                      image_list_after_transform]
+        image_list_after_transform = [transform_(image, self._image_transform, img_seed)
+                                      for image in image_list_after_transform]
+
         if targets is not None:
-            target_list_after_transform = [transform_(target, self._target_transform, target_seed) for target in
-                                           target_list_after_transform]
+            with switch_interpolation(self._target_transform, interp="nearest"):
+                target_list_after_transform = [transform_(target, self._target_transform, target_seed)
+                                               for target in target_list_after_transform]
 
         return image_list_after_transform, target_list_after_transform
 

@@ -3,6 +3,7 @@ import warnings
 from typing import List, Union
 
 import numpy as np
+import torch
 from deepclustering2.type import to_device
 from skimage.io import imsave
 from sklearn.preprocessing import LabelEncoder
@@ -24,9 +25,15 @@ class unl_extractor:
 
 
 def preprocess_input_with_twice_transformation(data, device, non_blocking=True):
-    (image, image_tf, target, target_tf), filename, (partition_list, group_list) = \
-        to_device(data[0], device, non_blocking), data[1], data[2]
-    return (image, target), (image_tf, target_tf), filename, partition_list, group_list
+    if len(data[0]) == 4:
+        (image, image_tf, target, target_tf), filename, (partition_list, group_list) = \
+            to_device(data[0], device, non_blocking), data[1], data[2]
+        return (image, target), (image_tf, target_tf), filename, partition_list, group_list
+    else:
+        (t2, dw, t2_tf, dw_tf, target, target_tf), filename, (partition_list, group_list) = \
+            to_device(data[0], device, non_blocking), data[1], data[2]
+        return (torch.cat([t2, dw], dim=1), target), (torch.cat([t2_tf, dw_tf], dim=1), target_tf), \
+               filename, partition_list, group_list
 
 
 def preprocess_input_with_single_transformation(data, device, non_blocking=True):

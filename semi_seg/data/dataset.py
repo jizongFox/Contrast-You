@@ -8,7 +8,7 @@ from torch import Tensor
 
 from contrastyou.augment import SequentialWrapper
 from contrastyou.data import ACDCDataset as _acdc, ProstateDataset as _prostate, mmWHSCTDataset as _mmct, \
-    mmWHSMRDataset as _mmmr
+    mmWHSMRDataset as _mmmr, ProstateMDDataset as _prostate_md
 from .rearr import ContrastDataset
 
 
@@ -55,6 +55,34 @@ class ProstateDataset(ContrastDataset, _prostate):
         super().__init__(root_dir=root_dir, mode=mode, transforms=transforms)
         self._prostate_info = np.load(os.path.join(self._root_dir, "prostate_info.npy"), allow_pickle=True).item()
         assert isinstance(self._prostate_info, dict) and len(self._prostate_info) == 50
+
+    def __getitem__(self, index) -> Tuple[List[Tensor], str, Tuple[str, str]]:
+        images, filename = super().__getitem__(index)
+        partition = self._get_partition(filename)
+        scan_num = self._get_scan_name(filename)
+        return images, filename, (partition, scan_num)
+
+    def _get_partition(self, filename) -> str:
+        # set partition
+        max_len_given_group = self._prostate_info[self._get_scan_name(filename)]
+        cutting_point = max_len_given_group // self.partition_num
+        cur_index = int(re.compile(r"\d+").findall(filename)[-1])
+        return str(cur_index // (cutting_point + 1))
+
+    def show_partitions(self) -> List[str]:
+        return [self._get_partition(f) for f in next(iter(self.get_memory_dictionary().values()))]
+
+    def show_scan_names(self) -> List[str]:
+        return [self._get_scan_name(f) for f in next(iter(self.get_memory_dictionary().values()))]
+
+
+class ProstateMDDataset(ContrastDataset, _prostate_md):
+    partition_num = 6
+
+    def __init__(self, *, root_dir: str, mode: str, transforms: SequentialWrapper = None) -> None:
+        super().__init__(root_dir=root_dir, mode=mode, transforms=transforms)
+        self._prostate_info = np.load(os.path.join(self._root_dir, "prostate_info.npy"), allow_pickle=True).item()
+        assert isinstance(self._prostate_info, dict) and len(self._prostate_info) == 32
 
     def __getitem__(self, index) -> Tuple[List[Tensor], str, Tuple[str, str]]:
         images, filename = super().__getitem__(index)

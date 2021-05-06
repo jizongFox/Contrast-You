@@ -37,10 +37,7 @@ class Epocher(_num_class_mixin, _Epocher):
         pass
 
     def _assertion(self):
-        try:
-            super(Epocher, self)._assertion()  # noqa
-        except AttributeError:
-            pass
+        pass
 
     def forward_pass(self, *args, **kwargs):
         return self._forward_pass(*args, **kwargs)
@@ -142,7 +139,7 @@ class TrainEpocher(Epocher):
         self._affine_transformer = TensorRandomFlip(axis=[1, 2], threshold=0.8)
 
         self.train_with_two_stage = train_with_two_stage  # highlight: this is the parameter to use two stage training
-        logger.opt(depth=1).debug("{} set to be using {} stage training", self.__class__.__name__,
+        logger.opt(depth=1).trace("{} set to be using {} stage training", self.__class__.__name__,
                                   "two" if self.train_with_two_stage else "single")
         self._disable_bn = disable_bn_track_for_unlabeled_data  # highlight: disable the bn accumulation
         if self._disable_bn:
@@ -150,6 +147,16 @@ class TrainEpocher(Epocher):
 
     def _init(self, *, reg_weight: float, **kwargs):
         self._reg_weight = reg_weight  # noqa
+
+    def _assertion(self):
+        labeled_set = self._labeled_loader._dataset  # noqa
+        labeled_transform = labeled_set._transforms  # noqa
+        assert labeled_transform._total_freedom is False  # noqa
+
+        if self._unlabeled_loader is not None:
+            unlabeled_set = self._unlabeled_loader._dataset  # noqa
+            unlabeled_transform = unlabeled_set._transforms  # noqa
+            assert unlabeled_transform._total_freedom is False  # noqa
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
         C = self.num_classes
@@ -173,13 +180,14 @@ class TrainEpocher(Epocher):
         for self.cur_batch_num, labeled_data, unlabeled_data in zip(self._indicator, self._labeled_loader,
                                                                     self._unlabeled_loader):
             seed = random.randint(0, int(1e7))
-            labeled_image, labeled_target, labeled_filename, _, label_group = \
+            (labeled_image, _), labeled_target, labeled_filename, _, label_group = \
                 self._unzip_data(labeled_data, self._device)
-            unlabeled_image, _unlabeled_target, unlabeled_filename, unl_partition, unl_group = self._unzip_data(
-                unlabeled_data, self._device)
+            (unlabeled_image, unlabeled_image_cf), _, unlabeled_filename, unl_partition, unl_group = \
+                self._unzip_data(
+                    unlabeled_data, self._device)
 
             with FixRandomSeed(seed):
-                unlabeled_image_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_image], dim=0)
+                unlabeled_image_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_image_cf], dim=0)
             assert unlabeled_image_tf.shape == unlabeled_image.shape, \
                 (unlabeled_image_tf.shape, unlabeled_image.shape)
 
@@ -253,9 +261,9 @@ class TrainEpocher(Epocher):
 
     @staticmethod
     def _unzip_data(data, device):
-        (image, target), _, filename, partition, group = \
+        (image, target), (image_ct, target_ct), filename, partition, group = \
             preprocess_input_with_twice_transformation(data, device)
-        return image, target, filename, partition, group
+        return (image, image_ct), target, filename, partition, group
 
     def regularization(self, **kwargs):
         return self._regularization(**kwargs)
@@ -264,7 +272,7 @@ class TrainEpocher(Epocher):
         return torch.tensor(0, dtype=torch.float, device=self._device)
 
 
-class FineTuneEpocher(TrainEpocher, ):
+class FineTuneEpocher(TrainEpocher):
 
     def __init__(self, *, model: Union[Model, nn.Module], optimizer: T_optim, labeled_loader: T_loader,
                  sup_criterion: T_loss, num_batches: int, cur_epoch=0, device="cpu",
@@ -275,7 +283,7 @@ class FineTuneEpocher(TrainEpocher, ):
                          disable_bn_track_for_unlabeled_data=False)
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:
-        meters = super(FineTuneEpocher, self)._configure_meters(meters)
+        meters = super(FineTuneEpocher, self)._configure_meters(meters)  # noqa
         meters.delete_meter("reg_loss")
         meters.delete_meter("reg_weight")
         return meters
@@ -287,7 +295,7 @@ class FineTuneEpocher(TrainEpocher, ):
 
     def _run_only_label(self, *args, **kwargs) -> EpochResultDict:
         for self.cur_batch_num, labeled_data in zip(self._indicator, self._labeled_loader):
-            labeled_image, labeled_target, labeled_filename, _, label_group = \
+            (labeled_image, _), labeled_target, labeled_filename, _, label_group = \
                 self._unzip_data(labeled_data, self._device)
             label_logits: Tensor = self.forward_pass(labeled_image=labeled_image)  # noqa
             # supervised part

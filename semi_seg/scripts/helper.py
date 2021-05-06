@@ -6,31 +6,21 @@ from typing import Dict, Any
 import numpy as np
 from deepclustering2.utils import gethash, write_yaml
 
-dataset_name2class_numbers = {
-    "acdc": 4,
-    "prostate": 2,
-    "spleen": 2,
-    "mmwhs": 5,
-}
-ft_lr_zooms = {"acdc": 0.0000001,
-               "prostate": 0.0000005,
-               "spleen": 0.000001,
-               "mmwhs": 0.000001}
+from contrastyou import on_cc
+from semi_seg import __accounts
 
-pre_lr_zooms = {"acdc": 0.0000005, "prostate": 0.0000005, "mmwhs": 0.0000005}
 
 # CC things
-# __accounts = ["def-chdesa", "rrg-mpederso", "def-mpederso"]
-__accounts = ["rrg-mpederso", ]
 
 
 def run_jobs(job_submiter, job_array, args):
     def move_dataset():
-        from contrastyou import DATA_PATH
-        return f" find {DATA_PATH}  " + "-name '*.zip' -exec cp {} $SLURM_TMPDIR \;"
+        if on_cc():
+            from contrastyou import DATA_PATH
+            return f" find {DATA_PATH}  " + "-name '*.zip' -exec cp {} $SLURM_TMPDIR \;"
+        return ""
 
     for j in job_array:
-        time.sleep(0.5)
         job_submiter.prepare_env(
             [
                 "module load python/3.8.2 ",
@@ -42,6 +32,7 @@ def run_jobs(job_submiter, job_array, args):
 
                 "export OMP_NUM_THREADS=1",
                 "export PYTHONOPTIMIZE=1",
+                "export PYTHONWARNINGS=ignore ",
                 "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
                 move_dataset()
             ]
@@ -51,7 +42,11 @@ def run_jobs(job_submiter, job_array, args):
         if not args.show_cmd:
             code = job_submiter.run(j)
             if code != 0:
-                exit(code)
+                if job_submiter._on_local:
+                    exit(code)
+                if not on_cc():
+                    exit(code)
+                pass
 
 
 def account_iterable(name_list):

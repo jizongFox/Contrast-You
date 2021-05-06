@@ -16,7 +16,7 @@ from torch.optim.optimizer import Optimizer
 
 from contrastyou.utils import weighted_average_iter
 from semi_seg.arch.hook import FeatureExtractor
-from ._helper import unl_extractor
+from ._helper import unl_extractor, preprocess_input_with_twice_transformation
 
 
 class _FeatureExtractorMixin:
@@ -198,11 +198,21 @@ class _PretrainEpocherMixin:
         meter.delete_meters(["sup_loss", "sup_dice", "reg_weight"])
         return meter
 
-    def init(self, *, chain_dataloader, monitor_dataloader, **kwargs):
+    def _init(self, *, chain_dataloader, monitor_dataloader, **kwargs):
         # extend the interface for original class with chain_dataloader
-        super().init(**kwargs)  # noqa
+        super()._init(**kwargs)  # noqa
         self._chain_dataloader = chain_dataloader
         self._monitor_dataloader = monitor_dataloader
+
+    def _assertion(self):
+        labeled_set = self._labeled_loader._dataset  # noqa
+        labeled_transform = labeled_set._transforms  # noqa
+        assert labeled_transform._total_freedom  # noqa
+
+        if self._unlabeled_loader is not None:
+            unlabeled_set = self._unlabeled_loader._dataset  # noqa
+            unlabeled_transform = unlabeled_set._transforms  # noqa
+            assert unlabeled_transform._total_freedom  # noqa
 
     def _run(self, *args, **kwargs) -> EpochResultDict:
         self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer))
@@ -212,29 +222,18 @@ class _PretrainEpocherMixin:
     def _run_pretrain(self, *args, **kwargs):
         for self.cur_batch_num, data in zip(self._indicator, self._chain_dataloader):
             seed = random.randint(0, int(1e7))
-            unlabeled_image, unlabeled_target, unlabeled_filename, unl_partition, unl_group = \
+            (unlabeled_image, unlabeled_image_tf), _, unlabeled_filename, unl_partition, unl_group = \
                 self._unzip_data(data, self._device)
-
-            with FixRandomSeed(seed):
-                unlabeled_image_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_image], dim=0)
-            assert unlabeled_image_tf.shape == unlabeled_image.shape, \
-                (unlabeled_image_tf.shape, unlabeled_image.shape)
 
             unlabel_logits, unlabel_tf_logits = self.forward_pass(
                 unlabeled_image=unlabeled_image,
                 unlabeled_image_tf=unlabeled_image_tf
             )
 
-            with FixRandomSeed(seed):
-                unlabel_logits_tf = torch.stack([self._affine_transformer(x) for x in unlabel_logits], dim=0)
-
-            assert unlabel_logits_tf.shape == unlabel_tf_logits.shape, (
-                unlabel_logits_tf.shape, unlabel_tf_logits.shape)
-
             # regularized part
             reg_loss = self.regularization(
                 unlabeled_tf_logits=unlabel_tf_logits,
-                unlabeled_logits_tf=unlabel_logits_tf,
+                unlabeled_logits_tf=unlabel_tf_logits,
                 seed=seed,
                 unlabeled_image=unlabeled_image,
                 unlabeled_image_tf=unlabeled_image_tf,
@@ -264,6 +263,12 @@ class _PretrainEpocherMixin:
 
         unlabel_logits, unlabel_tf_logits = torch.split(predict_logits, [n_unl, n_unl], dim=0)
         return unlabel_logits, unlabel_tf_logits
+
+    @staticmethod
+    def _unzip_data(data, device):
+        (image, target), (image_ct, target_ct), filename, partition, group = \
+            preprocess_input_with_twice_transformation(data, device)
+        return (image, image_ct), None, filename, partition, group
 
 
 class _PretrainMonitorEpocherMxin(_PretrainEpocherMixin):

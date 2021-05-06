@@ -64,12 +64,11 @@ class SemiTrainer(Trainer):
             **{k: v for k, v in optim_dict.items() if k != "name" and k != "pre_lr" and k != "ft_lr"}
         )
 
-    # run epoch
-    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = TrainEpocher):
-        self.epocher_class = epocher_class  # noqa
+    @property
+    def epocher_class(self) -> Type[TrainEpocher]:
+        return TrainEpocher
 
     def run_epoch(self, *args, **kwargs):
-        self._set_epocher_class()
         epocher = self._run_init()
         return self._run_epoch(epocher, *args, **kwargs)
 
@@ -155,11 +154,6 @@ class SemiTrainer(Trainer):
 
 class FineTuneTrainer(SemiTrainer):
 
-    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = FineTuneEpocher):
-        super()._set_epocher_class(epocher_class)
-
-
-class DirectTrainer(SemiTrainer):
-
-    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = FineTuneEpocher):
-        super()._set_epocher_class(epocher_class)
+    @property
+    def epocher_class(self) -> Type[TrainEpocher]:
+        return FineTuneEpocher

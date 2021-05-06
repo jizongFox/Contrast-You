@@ -11,7 +11,7 @@ from deepclustering2.loss import KL_div
 from deepclustering2.utils import gethash
 from loguru import logger
 
-from contrastyou import PROJECT_PATH
+from contrastyou import PROJECT_PATH, success
 from contrastyou.utils import extract_model_state_dict, fix_all_seed_within_context, set_deterministic
 from semi_seg.arch import UNet
 from semi_seg.data import get_data_loaders, create_val_loader
@@ -44,7 +44,8 @@ def main_worker(rank, ngpus_per_node, config, port):  # noqa
     is_pretrain: bool = trainer_name in pre_trainer_zoos
 
     labeled_loader, unlabeled_loader, test_loader = get_data_loaders(
-        config["Data"], config["LabeledLoader"], config["UnlabeledLoader"], pretrain=is_pretrain)
+        config["Data"], config["LabeledLoader"], config["UnlabeledLoader"], pretrain=is_pretrain,
+        total_freedom=is_pretrain)
     val_loader, test_loader = create_val_loader(test_loader=test_loader)
 
     labeled_loader.dataset.preload()
@@ -82,6 +83,7 @@ def main_worker(rank, ngpus_per_node, config, port):  # noqa
                 trainer.start_training()
     else:
         trainer.start_training()
+    success(save_dir=trainer._save_dir)  # noqa
 
 
 if __name__ == '__main__':

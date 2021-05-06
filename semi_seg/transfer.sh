@@ -9,10 +9,10 @@ local_folder=runs
 #  root@jizong.buzz:/root/main/runs/0402_semi/ \
 #  "${local_folder}/0402_semi_acdc/"
 
-rsync -azP --exclude "*/*.png"  \
-  --exclude "*/patient*"   \
-  root@jizong.buzz:/root/main/runs/cedar/05* \
-  "${local_folder}/cedar"
+rsync -azP --exclude "*/*.png" \
+  --exclude "*/patient*" --exclude "*/*.pth" --exclude "*/*events*" \
+  root@jizong.buzz:/root/main/runs/cedar/0505 \
+  "${local_folder}/cedar/"
 
 #rsync -azP beluga:/home/jizong/scratch/Contrast-You/semi_seg/runs/0326/githash_912bc30/acdc/random_seed_10/baseline \
 #  "${local_folder}/ps/acdc"
@@ -60,7 +60,6 @@ rsync -azP --exclude "*/*.png"  \
 #
 #rsync -azP beluga:/home/jizong/scratch/Contrast-You/semi_seg/runs/0417_prostate_semi/semi_supervised/contrast_on_parition/self/githash_a3c409b/prostate/random_seed_10/checkpoint_yes/infoncemt/info_0.5_mt_0.8 \
 #  "${local_folder}/pretrain-self-mt-self/prostate"
-
 
 #rsync -azP --exclude "*/*.png"  --exclude "*/*.pth" \
 #  --exclude "*/*.pth" --exclude "*/features/*"  \

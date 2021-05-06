@@ -9,7 +9,7 @@ from torch import nn
 
 from contrastyou.losses.contrast_loss2 import SelfPacedSupConLoss as SupConLoss
 from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
-from semi_seg.epochers import MITrainEpocher, ConsistencyMIEpocher
+from semi_seg.epochers import MITrainEpocher, ConsistencyMIEpocher, InfoNCEMeanTeacherEpocher
 from semi_seg.epochers import TrainEpocher, EvalEpocher, ConsistencyTrainEpocher, EntropyMinEpocher, MeanTeacherEpocher, \
     MIMeanTeacherEpocher, MIDLPaperEpocher, InfoNCEEpocher, UCMeanTeacherEpocher
 from semi_seg.miestimator.iicestimator import IICEstimatorArray
@@ -26,8 +26,9 @@ class UDATrainer(SemiTrainer):
         self._reg_criterion = {"mse": nn.MSELoss(), "kl": KL_div()}[config["name"]]
         self._reg_weight = float(config["weight"])
 
-    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = ConsistencyTrainEpocher):
-        super()._set_epocher_class(epocher_class)
+    @property
+    def epocher_class(self) -> Type[TrainEpocher]:
+        return ConsistencyTrainEpocher
 
     def _run_epoch(self, epocher: ConsistencyTrainEpocher, *args, **kwargs) -> EpochResultDict:
         epocher.init(reg_weight=self._reg_weight, reg_criterion=self._reg_criterion)
@@ -47,8 +48,9 @@ class MIDLTrainer(UDATrainer):
         )
         self._iic_weight = float(config["iic_weight"])
 
-    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = MIDLPaperEpocher):
-        super()._set_epocher_class(epocher_class)
+    @property
+    def epocher_class(self) -> Type[TrainEpocher]:
+        return MIDLPaperEpocher
 
     def _run_epoch(self, epocher: MIDLPaperEpocher, *args, **kwargs) -> EpochResultDict:
         epocher.init(mi_weight=self._iic_weight, consistency_weight=self._uda_weight,
@@ -72,8 +74,9 @@ class IICTrainer(_FeatureExtractor, SemiTrainer):
         self._reg_weight = float(config["weight"])
         self._enforce_matching = config["enforce_matching"]
 
-    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = MITrainEpocher):
-        super()._set_epocher_class(epocher_class)
+    @property
+    def epocher_class(self) -> Type[TrainEpocher]:
+        return MITrainEpocher
 
     def _run_epoch(self, epocher: MITrainEpocher, *args, **kwargs) -> EpochResultDict:
         epocher.init(reg_weight=self._reg_weight, mi_estimator_array=self._mi_estimator_array,
@@ -169,8 +172,9 @@ class InfoNCETrainer(_FeatureExtractor, SemiTrainer):
             encoder_criterion.append(SupConLoss(**params))
         return encoder_criterion
 
-    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = InfoNCEEpocher):
-        super()._set_epocher_class(epocher_class)
+    @property
+    def epocher_class(self) -> Type[TrainEpocher]:
+        return InfoNCEEpocher
 
     def _run_epoch(self, epocher: InfoNCEEpocher, *args, **kwargs) -> EpochResultDict:
         for c in self._encoder_criterion_list:
@@ -208,8 +212,9 @@ class UDAIICTrainer(IICTrainer):
         self._reg_criterion = {"mse": nn.MSELoss(), "kl": KL_div()}[UDA_config["name"]]
         self._uda_weight = float(UDA_config["weight"])
 
-    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = ConsistencyMIEpocher):
-        super()._set_epocher_class(epocher_class)
+    @property
+    def epocher_class(self) -> Type[TrainEpocher]:
+        return ConsistencyMIEpocher
 
     def _run_epoch(self, epocher: ConsistencyMIEpocher, *args, **kwargs) -> EpochResultDict:
         epocher.init(mi_weight=self._iic_weight, consistency_weight=self._uda_weight,
@@ -226,8 +231,9 @@ class EntropyMinTrainer(SemiTrainer):
         config = deepcopy(self._config["EntropyMinParameters"])
         self._reg_weight = float(config["weight"])
 
-    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = EntropyMinEpocher):
-        super()._set_epocher_class(epocher_class)
+    @property
+    def epocher_class(self) -> Type[TrainEpocher]:
+        return EntropyMinEpocher
 
     def _run_epoch(self, epocher: EntropyMinEpocher, *args, **kwargs) -> EpochResultDict:
         epocher.init(reg_weight=self._reg_weight)
@@ -248,8 +254,9 @@ class MeanTeacherTrainer(SemiTrainer):
         self._ema_updater = ema_updater(alpha=float(config["alpha"]), weight_decay=float(config["weight_decay"]))
         self._reg_weight = float(config["weight"])
 
-    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = MeanTeacherEpocher):
-        super()._set_epocher_class(epocher_class)
+    @property
+    def epocher_class(self) -> Type[TrainEpocher]:
+        return MeanTeacherEpocher
 
     def _run_epoch(self, epocher: MeanTeacherEpocher, *args, **kwargs) -> EpochResultDict:
         epocher.init(reg_weight=self._reg_weight, teacher_model=self._teacher_model, reg_criterion=self._reg_criterion,
@@ -271,8 +278,9 @@ class UCMeanTeacherTrainer(MeanTeacherTrainer):
         self._threshold = RampScheduler(begin_epoch=0, max_epoch=int(self._config["Trainer"]["max_epoch"]) // 3 * 2,
                                         max_value=1, min_value=0.75)
 
-    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = UCMeanTeacherEpocher):
-        super()._set_epocher_class(epocher_class)
+    @property
+    def epocher_class(self) -> Type[TrainEpocher]:
+        return UCMeanTeacherEpocher
 
     def _run_epoch(self, epocher: UCMeanTeacherEpocher, *args, **kwargs) -> EpochResultDict:
         epocher.init(reg_weight=self._reg_weight, teacher_model=self._teacher_model, reg_criterion=self._reg_criterion,
@@ -296,8 +304,9 @@ class IICMeanTeacherTrainer(IICTrainer):
         self._ema_updater = ema_updater(alpha=float(config["alpha"]), weight_decay=float(config["weight_decay"]))
         self._mt_weight = float(config["weight"])
 
-    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = MIMeanTeacherEpocher):
-        super()._set_epocher_class(epocher_class)
+    @property
+    def epocher_class(self) -> Type[TrainEpocher]:
+        return MIMeanTeacherEpocher
 
     def _run_epoch(self, epocher: MIMeanTeacherEpocher, *args, **kwargs) -> EpochResultDict:
         epocher.init(mi_estimator_array=self._mi_estimator_array, reg_criterion=self._reg_criterion,
@@ -314,7 +323,6 @@ class IICMeanTeacherTrainer(IICTrainer):
 
 
 class InfoNCEMeanTeacherTrainer(InfoNCETrainer):
-    from ..epochers.comparable import InfoNCEMeanTeacherEpocher
 
     def _init(self):
         super()._init()  # initialize infonce
@@ -330,8 +338,9 @@ class InfoNCEMeanTeacherTrainer(InfoNCETrainer):
         self._ema_updater = ema_updater(alpha=float(config["alpha"]), weight_decay=float(config["weight_decay"]))
         self._mt_weight = float(config["weight"])
 
-    def _set_epocher_class(self, epocher_class: Type[TrainEpocher] = InfoNCEMeanTeacherEpocher):
-        return super(InfoNCEMeanTeacherTrainer, self)._set_epocher_class(epocher_class)
+    @property
+    def epocher_class(self) -> Type[TrainEpocher]:
+        return InfoNCEMeanTeacherEpocher
 
     def _run_epoch(self, epocher: InfoNCEMeanTeacherEpocher, *args, **kwargs) -> EpochResultDict:
         for c in self._encoder_criterion_list:

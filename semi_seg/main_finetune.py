@@ -9,12 +9,12 @@ from deepclustering2.loss import KL_div
 from deepclustering2.utils import gethash
 from loguru import logger
 
-from contrastyou import PROJECT_PATH
+from contrastyou import PROJECT_PATH, success
 from contrastyou.utils import extract_model_state_dict, fix_all_seed_within_context, set_deterministic
 from semi_seg import ratio_zoom
 from semi_seg.arch import UNet
 from semi_seg.data import get_data_loaders, create_val_loader
-from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, DirectTrainer
+from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, FineTuneTrainer
 
 cur_githash = gethash(__file__)  # noqa
 trainer_zoos = {**base_trainer_zoos, **pre_trainer_zoos}
@@ -64,17 +64,18 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         unlabeled_loader.dataset.preload()
         val_loader.dataset.preload()
         test_loader.dataset.preload()
+        save_dir = os.path.join(base_save_dir, "tra", f"ratio_{str(labeled_ratio)}")
 
-        finetune_trainer = DirectTrainer(
+        finetune_trainer = FineTuneTrainer(
             model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
             val_loader=val_loader, test_loader=test_loader, sup_criterion=KL_div(verbose=False),
             configuration={**config, **{"GITHASH": cur_githash}},
-            save_dir=os.path.join(base_save_dir, "tra",
-                                  f"ratio_{str(labeled_ratio)}"),
+            save_dir=save_dir,
             **{k: v for k, v in config["Trainer"].items() if k != "save_dir"}
         )
         finetune_trainer.init()
         finetune_trainer.start_training()
+        success(save_dir=finetune_trainer._save_dir)  # noqa
 
     for labeled_ratio in ratios:
         with fix_all_seed_within_context(seed):

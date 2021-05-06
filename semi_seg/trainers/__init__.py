@@ -3,7 +3,6 @@ from .pretrain import *
 from .trainer import *
 
 base_trainer_zoos = {
-    "directtrain": DirectTrainer,
     "finetune": FineTuneTrainer,
     "uda": UDATrainer,
     "iic": IICTrainer,
@@ -16,7 +15,6 @@ base_trainer_zoos = {
     "midl": MIDLTrainer,
     "infonce": InfoNCETrainer,
     "infoncemt": InfoNCEMeanTeacherTrainer
-
 }
 pre_trainer_zoos = {
     "infoncepretrain": PretrainInfoNCETrainer,

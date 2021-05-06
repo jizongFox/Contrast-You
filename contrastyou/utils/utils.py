@@ -119,14 +119,14 @@ def deprecated(func):
 
 
 # reproducibility
-def set_deterministic():
-    torch.backends.cudnn.benchmark = False  # noqa
+def set_deterministic(enable=True):
+    torch.backends.cudnn.benchmark = not enable  # noqa
     try:
-        torch.use_deterministic_algorithms(True)
+        torch.use_deterministic_algorithms(enable)
     except:
         pass
     try:
-        torch.set_deterministic(True)
+        torch.set_deterministic(enable)
     except:
         pass
 

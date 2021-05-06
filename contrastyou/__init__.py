@@ -18,3 +18,22 @@ def get_cc_data_path():
             return possible_path
     print("cc_data_path is {}".format(DATA_PATH))
     return DATA_PATH
+
+
+@lru_cache()
+def on_cc() -> bool:
+    import socket
+    hostname = socket.gethostname()
+    if "beluga" in hostname or "blg" in hostname:
+        return True
+    if "cedar" in hostname or "cdr" in hostname:
+        return True
+    if "gra" in hostname:
+        return True
+    return False
+
+
+def success(save_dir: str):
+    filename = ".success"
+    from pathlib import Path
+    Path(str(save_dir), filename).touch()
