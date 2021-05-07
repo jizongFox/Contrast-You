@@ -145,12 +145,12 @@ class _mmWHSBase(ContrastDataset):
         return self.metainfo_ct
 
 
-class mmWHSMRDataset(_mmmr, _mmWHSBase):
+class mmWHSMRDataset(_mmWHSBase, _mmmr):
 
     def get_meta(self):
         return self.metainfo_mr
 
 
-class mmWHSCTDataset(_mmct, _mmWHSBase):
+class mmWHSCTDataset(_mmWHSBase, _mmct):
     def get_meta(self):
         return self.metainfo_ct

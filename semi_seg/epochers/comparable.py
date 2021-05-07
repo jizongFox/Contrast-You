@@ -431,7 +431,7 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
             labels = self.global_label_generator(dataset_name="prostate", contrast_on=contrast_on) \
                 (partition_list=partition_group,
                  patient_list=[p.split("_")[0] for p in label_group])
-        elif config["Data"]["name"] == "mmwhs":
+        elif config["Data"]["name"] in ("mmwhsct", "mmwhsmr"):
             labels = self.global_label_generator(dataset_name="mmwhs", contrast_on=contrast_on) \
                 (partition_list=partition_group,
                  patient_list=label_group)
