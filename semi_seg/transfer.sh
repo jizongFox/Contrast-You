@@ -10,7 +10,7 @@ local_folder=runs
 #  "${local_folder}/0402_semi_acdc/"
 
 rsync -azP --exclude "*/*.png" \
-  --exclude "*/patient*" --exclude "*/*.pth" --exclude "*/*events*" \
+  --exclude "*/patient*" --exclude "*/*.pth"  \
   root@jizong.buzz:/root/main/runs/cedar/0505 \
   "${local_folder}/cedar/"
 
