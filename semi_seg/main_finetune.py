@@ -61,10 +61,10 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         )
         val_loader, test_loader = create_val_loader(test_loader=test_loader)
 
-        # labeled_loader.dataset.preload()
-        # unlabeled_loader.dataset.preload()
-        # val_loader.dataset.preload()
-        # test_loader.dataset.preload()
+        labeled_loader.dataset.preload()
+        unlabeled_loader.dataset.preload()
+        val_loader.dataset.preload()
+        test_loader.dataset.preload()
 
         save_dir = os.path.join(base_save_dir, "tra", f"ratio_{str(labeled_ratio)}")
 

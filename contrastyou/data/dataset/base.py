@@ -22,6 +22,11 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 typePath = TypeVar("typePath", str, Path)
 
 
+def read_image(path, mode):
+    with Image.open(path) as image:
+        return image.convert(mode)
+
+
 def allow_extension(path: str, extensions: List[str]) -> bool:
     try:
         return Path(path).suffixes[0] in extensions
@@ -133,26 +138,24 @@ class DatasetBase(Dataset):
         images = [x for x, t in zip(image_list, self._sub_folder_types) if t]
         labels = [x for x, t in zip(image_list, self._sub_folder_types) if not t]
 
-        images, labels = self._transforms(images, labels)
-        return [*images, *labels], filename
+        images_, labels_ = self._transforms(images, labels)
+        del images, labels
+        return [*images_, *labels_], filename
 
     def _getitem_index(self, index):
         image_list = self._preload_storage[index] if self._is_preload else \
-            [Image.open(self._memory[subfolder][index]) for subfolder in self._sub_folders]
+            [read_image(self._memory[subfolder][index], "L") for subfolder in self._sub_folders]
 
         filename_list = [self._memory[subfolder][index] for subfolder in self._sub_folders]
 
         stem_set = set([get_stem(x) for x in filename_list])
         assert len(stem_set) == 1, stem_set
+        del stem_set
 
-        return image_list, filename_list
+        return image_list.copy(), filename_list.copy()
 
     def _preload(self):
         logger.opt(depth=1).trace(f"preloading {len(self.get_scan_list())} {self.__class__.__name__} data ...")
-
-        def read_image(path, mode):
-            with Image.open(path) as image:
-                return image.convert(mode)
 
         for index in tqdm(range(len(self)), total=len(self), disable=True):
             self._preload_storage[index] = \
