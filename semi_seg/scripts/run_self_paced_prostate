@@ -1,13 +1,13 @@
 #!/bin/bash
 
 rand_seed=10
-save_dir=0505
-group_num=2
-num_batches=2
-pre_max_epoch=1
-ft_max_epoch=1
+save_dir=0507
+group_num=5
+num_batches=250
+pre_max_epoch=80
+ft_max_epoch=80
 dataset=prostate
-comm_cmd=" -n ${dataset} --on-local "
+comm_cmd=" -n ${dataset} "
 
 source ./_run_semi "${save_dir}" "${comm_cmd}" "${rand_seed}" "${num_batches}" "${ft_max_epoch}"
 

@@ -41,4 +41,4 @@ def main(root: _path_type):
 
 
 if __name__ == '__main__':
-    main("/home/jizong/Workspace/Contrast-You/semi_seg/runs/cedar/0505")
+    main("/home/jizong/Workspace/Contrast-You/semi_seg/runs/cedar/0505_semi")

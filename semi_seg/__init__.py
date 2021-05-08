@@ -47,7 +47,7 @@ ft_lr_zooms = {
 pre_lr_zooms = {
     "acdc": 0.0000005,
     "prostate": 0.0000005,
-    "prostate_md": 0.0000005,
+    "prostate_md": 0.000005,
     "mmwhsct": 0.0000005,
     "mmwhsmr": 0.0000005
 }
