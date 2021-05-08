@@ -3,20 +3,22 @@ from contrastyou import on_cc
 acdc_ratios = [0.01, 1.0]
 prostate_ratio = [0.05, 1.0]  # 2 4 8
 prostate_md_ratio = [0.04, 1.0]
-mmwhs_ratio = [0.09, 1.0]
+mmwhsct_ratio = [0.09, 1.0]
+mmwhsmr_ratio = [0.10, 1.0]
 
 if on_cc():
     acdc_ratios = [0.01, 0.015, 0.025, 1.0]
     prostate_ratio = [0.05, 0.1, 0.2, 1.0]
-    mmwhs_ratio = [0.09, 0.17, 0.34, 1.0]
+    mmwhsct_ratio = [0.09, 0.17, 0.34, 1.0]
     prostate_md_ratio = [0.04, 0.08, 0.15, 1.0]
+    mmwhsmr_ratio = [0.09, 0.19, 0.37, 1.0]
 
 ratio_zoom = {
     "acdc": acdc_ratios,
     "prostate": prostate_ratio,
     "prostate_md": prostate_md_ratio,
-    "mmwhsct": mmwhs_ratio,
-    "mmwhsmr": mmwhs_ratio
+    "mmwhsct": mmwhsct_ratio,
+    "mmwhsmr": mmwhsmr_ratio,
 }
 dataset_name2class_numbers = {
     "acdc": 4,
@@ -35,14 +37,16 @@ dataset_name2input_dim = {
     "mmwhsct": 1,
     "mmwhsmr": 1,
 }
+import os
 
+mmwhslr = os.environ.get("mmwhslr", None)
 ft_lr_zooms = {
     "acdc": 0.0000001,
     "prostate": 0.0000005,
     "prostate_md": 0.0000005,
     "spleen": 0.000001,
     "mmwhsct": 0.000001,
-    "mmwhsmr": 0.000001
+    "mmwhsmr": mmwhslr or 0.000001
 }
 pre_lr_zooms = {
     "acdc": 0.0000005,
