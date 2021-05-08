@@ -4,9 +4,9 @@ rand_seed=10
 save_dir=0507
 group_num=5
 num_batches=250
-pre_max_epoch=80
+pre_max_epoch=100
 ft_max_epoch=80
-dataset=prostate
+dataset=prostate_md
 comm_cmd=" -n ${dataset} "
 
 source ./_run_semi "${save_dir}" "${comm_cmd}" "${rand_seed}" "${num_batches}" "${ft_max_epoch}"
