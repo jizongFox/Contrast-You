@@ -48,10 +48,10 @@ def main_worker(rank, ngpus_per_node, config, port):  # noqa
         total_freedom=is_pretrain)
     val_loader, test_loader = create_val_loader(test_loader=test_loader)
 
-    labeled_loader.dataset.preload()
-    unlabeled_loader.dataset.preload()
-    val_loader.dataset.preload()
-    test_loader.dataset.preload()
+    # labeled_loader.dataset.preload()
+    # unlabeled_loader.dataset.preload()
+    # val_loader.dataset.preload()
+    # test_loader.dataset.preload()
 
     config_arch = deepcopy(config["Arch"])
     model_checkpoint = config_arch.pop("checkpoint", None)

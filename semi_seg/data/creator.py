@@ -83,7 +83,7 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
         label_set, sampler=labeled_sampler, batch_size=batch_size_l, num_workers=n_workers_l, pin_memory=True)
     unlabeled_loader = DataLoader(
         unlabeled_set, sampler=unlabeled_sampler, batch_size=batch_size_u, num_workers=n_workers_u, pin_memory=True)
-    group_test = group_test if data_name not in ("spleen", "mmwhsct", "mmwhsmr") else False
+    group_test = group_test if data_name not in ("spleen", "mmwhsct", "mmwhsmr", "prostate_md") else False
     test_loader = DataLoader(test_set, batch_size=1 if group_test else 4,
                              batch_sampler=ScanSampler(test_set, shuffle=False) if group_test else None)
     logger.debug(f"creating labeled_loader with {len(label_set.get_scan_list())} scans")
@@ -102,10 +102,10 @@ def create_val_loader(*, test_loader) -> Tuple[DataLoader, DataLoader]:
     val_set, test_set = split_dataset(test_dataset, ratio)
     val_batch_sampler = ScanSampler(val_set) if is_group_scan else None
 
-    val_dataloader = DataLoader(val_set, batch_sampler=val_batch_sampler)
+    val_dataloader = DataLoader(val_set, batch_sampler=val_batch_sampler, batch_size=4 if not is_group_scan else 1)
 
     test_batch_sampler = ScanSampler(test_set) if is_group_scan else None
-    test_dataloader = DataLoader(test_set, batch_sampler=test_batch_sampler)
+    test_dataloader = DataLoader(test_set, batch_sampler=test_batch_sampler, batch_size=4 if not is_group_scan else 1)
 
     logger.debug(f"splitting val_loader with {len(val_set.get_scan_list())} scans")
     logger.trace(f" with {','.join(sorted(set(val_set.show_scan_names())))}")
