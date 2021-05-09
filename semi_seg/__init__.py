@@ -37,16 +37,14 @@ dataset_name2input_dim = {
     "mmwhsct": 1,
     "mmwhsmr": 1,
 }
-import os
 
-mmwhslr = os.environ.get("mmwhslr", None)
 ft_lr_zooms = {
     "acdc": 0.0000001,
     "prostate": 0.0000005,
     "prostate_md": 0.0000005,
     "spleen": 0.000001,
     "mmwhsct": 0.000001,
-    "mmwhsmr": mmwhslr or 0.000001
+    "mmwhsmr": 0.000001
 }
 pre_lr_zooms = {
     "acdc": 0.0000005,
