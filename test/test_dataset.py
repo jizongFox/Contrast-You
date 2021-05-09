@@ -3,7 +3,7 @@ from unittest import TestCase
 from torch.utils.data import DataLoader
 
 from contrastyou import DATA_PATH
-from contrastyou.data import InfiniteRandomSampler, ScanSampler
+from contrastyou.data import InfiniteRandomSampler, ScanBatchSampler
 from semi_seg.augment import ACDCStrongTransforms
 from semi_seg.data import ACDCDataset
 from semi_seg.data.rearr import ContrastBatchSampler
@@ -29,7 +29,7 @@ class TestACDC(TestCase):
 
     def test_scan_sampler(self):
         dataset = ACDCDataset(root_dir=DATA_PATH, mode="train", transforms=ACDCStrongTransforms.val)
-        batch_sampler = ScanSampler(dataset)
+        batch_sampler = ScanBatchSampler(dataset)
         for i in batch_sampler:
             print(i)
 

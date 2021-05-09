@@ -3,7 +3,7 @@ import re
 from collections import OrderedDict
 from copy import deepcopy as dcopy
 from pathlib import Path
-from typing import List, Tuple, Dict, Union, Any, TypeVar
+from typing import List, Tuple, Dict, Union, Any, TypeVar, OrderedDict as OrderedDictType
 
 from PIL import Image, ImageFile
 from deepclustering2.utils import path2Path
@@ -56,7 +56,7 @@ def is_image_folder(type_: str):
     return False
 
 
-def make_memory_dictionary(root: str, mode: str, folders: List[str], extensions) -> Dict[str, List[str]]:
+def make_memory_dictionary(root: str, mode: str, folders: List[str], extensions) -> OrderedDictType[str, List[str]]:
     for subfolder in folders:
         assert (Path(root, mode, subfolder).exists() and Path(root, mode, subfolder).is_dir()), \
             os.path.join(root, mode, subfolder)
@@ -101,7 +101,9 @@ class DatasetBase(Dataset):
         self._transforms = transforms if transforms else default_transform()
 
         logger.opt(depth=1).trace(f"Creating {self.__class__.__name__}")
-        self._memory = make_memory_dictionary(self._root_dir, self._mode, self._sub_folders, self.allow_extension)
+        self._memory = self.set_memory_dictionary(
+            make_memory_dictionary(self._root_dir, self._mode, self._sub_folders, self.allow_extension)
+        )
         # pre-load
         self._is_preload = False
         self._preload_storage: OrderedDict = OrderedDict()
@@ -114,11 +116,12 @@ class DatasetBase(Dataset):
             self._re_pattern = re.compile(self._pattern)
 
     def get_memory_dictionary(self) -> Dict[str, List[str]]:
-        return self._memory
+        return OrderedDict({k: v for k, v in self._memory.items()})
 
     def set_memory_dictionary(self, new_dictionary: Dict[str, Any], deepcopy=True):
         assert isinstance(new_dictionary, dict)
         self._memory = dcopy(new_dictionary) if deepcopy else new_dictionary
+        return self._memory
 
     @property
     def pattern(self):
@@ -206,7 +209,7 @@ def extract_sub_dataset_based_on_scan_names(dataset: DatasetBase, group_names: L
         assert g in available_group_names
     memory = dataset.get_memory_dictionary()
     get_scan_name = dataset._get_scan_name  # noqa
-    new_memory = type(memory)()
+    new_memory = OrderedDict()
     for sub_folder, path_list in memory.items():
         new_memory[sub_folder] = [x for x in path_list if get_scan_name(x) in group_names]
 

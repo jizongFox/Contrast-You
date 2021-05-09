@@ -10,7 +10,7 @@ from torch import nn
 from torch.utils.data.dataloader import _BaseDataLoaderIter as BaseDataLoaderIter, DataLoader  # noqa
 
 from contrastyou import get_cc_data_path
-from contrastyou.data import InfiniteRandomSampler, ScanSampler, DatasetBase
+from contrastyou.data import InfiniteRandomSampler, ScanBatchSampler, DatasetBase
 from contrastyou.utils import get_dataset
 from semi_seg.data import ACDCDataset, ProstateDataset, mmWHSCTDataset, ProstateMDDataset
 from semi_seg.data.creator import augment_zoo, data_zoo
@@ -64,9 +64,9 @@ def _get_contrastive_dataloader(partial_loader, contrastive_params):
     demo_dataset = dataset_type(root_dir=str(Path(unlabeled_dataset._root_dir).parent),  # noqa
                                 mode="train", transforms=augment.trainval)
 
-    demo_loader = DataLoader(demo_dataset, batch_size=1, batch_sampler=ScanSampler(dataset))
+    demo_loader = DataLoader(demo_dataset, batch_size=1, batch_sampler=ScanBatchSampler(dataset))
     logger.opt(depth=2).trace(f"creating {dataset.__class__.__name__} demo dataset with {len(dataset)} scans")
-    return iter(contrastive_loader), demo_loader
+    return contrastive_loader, demo_loader
 
 
 # mixin for feature extractor

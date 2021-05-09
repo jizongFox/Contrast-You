@@ -1,7 +1,8 @@
 import random
 from collections import defaultdict
-from typing import List
+from typing import List, Optional, Sized
 
+import numpy as np
 import torch
 from loguru import logger
 from torch._six import int_classes as _int_classes
@@ -222,11 +223,34 @@ class InfiniteRandomSampler(Sampler):
         return len(self.data_source)
 
 
-class ScanSampler(Sampler):
+class LimitedIterationSampler(Sampler):
+    """
+    this is to give a limited size of batch sampler
+    """
+
+    def __init__(self, data_source: Optional[Sized], *, stop_iteration: int, shuffle: bool = True) -> None:
+        super().__init__(data_source)
+        self._data_source = data_source
+        self._stop_iteration = stop_iteration
+        self._shuffle = shuffle
+        if self._shuffle is not True:
+            raise NotImplementedError(self._shuffle)
+
+    def __iter__(self):
+        available_nums = np.arange(0, len(self._data_source))
+        if self._shuffle:
+            chosen_nums = np.random.choice(available_nums, size=self._stop_iteration, replace=True)
+            return iter(chosen_nums)
+
+    def __len__(self):
+        return self._stop_iteration
+
+
+class ScanBatchSampler(Sampler):
     from .dataset.base import DatasetBase
 
     def __init__(self, dataset: DatasetBase, shuffle=False, is_infinite: bool = False) -> None:
-        super(ScanSampler, self).__init__(dataset)
+        super(ScanBatchSampler, self).__init__(dataset)
         scan_names: List[str] = [dataset._get_scan_name(x) for x in dataset.get_stem_list()]  # noqa
         assert len(scan_names) == len(dataset), (len(scan_names), len(dataset))
         self._shuffle: bool = shuffle

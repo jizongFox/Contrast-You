@@ -21,4 +21,4 @@ Scheduler:
 ContrastiveLoaderParams:
   scan_sample_num: 7
   partition_sample_num: 1
-  num_workers: 6
+  num_workers: 8

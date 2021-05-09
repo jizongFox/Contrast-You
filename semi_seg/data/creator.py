@@ -5,7 +5,7 @@ from loguru import logger
 from torch.utils.data import DataLoader
 
 from contrastyou import get_cc_data_path
-from contrastyou.data import DatasetBase, extract_sub_dataset_based_on_scan_names, InfiniteRandomSampler, ScanSampler
+from contrastyou.data import DatasetBase, extract_sub_dataset_based_on_scan_names, InfiniteRandomSampler, ScanBatchSampler
 from contrastyou.utils import fix_all_seed_within_context
 from semi_seg.augment import ACDCStrongTransforms, SpleenStrongTransforms, ProstateStrongTransforms
 from semi_seg.data import ACDCDataset, ProstateDataset, mmWHSCTDataset, mmWHSMRDataset, ProstateMDDataset
@@ -85,7 +85,7 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
         unlabeled_set, sampler=unlabeled_sampler, batch_size=batch_size_u, num_workers=n_workers_u, pin_memory=True)
     group_test = group_test if data_name not in ("spleen", "mmwhsct", "mmwhsmr", "prostate_md") else False
     test_loader = DataLoader(test_set, batch_size=1 if group_test else 4,
-                             batch_sampler=ScanSampler(test_set, shuffle=False) if group_test else None)
+                             batch_sampler=ScanBatchSampler(test_set, shuffle=False) if group_test else None)
     logger.debug(f"creating labeled_loader with {len(label_set.get_scan_list())} scans")
     logger.trace(f"with {','.join(sorted(set(label_set.show_scan_names())))}")
     logger.debug(f"creating unlabeled_loader with {len(unlabeled_set.get_scan_list())} scans")
@@ -96,15 +96,15 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
 def create_val_loader(*, test_loader) -> Tuple[DataLoader, DataLoader]:
     test_dataset: DatasetBase = test_loader.dataset
     batch_sampler = test_loader.batch_sampler
-    is_group_scan = isinstance(batch_sampler, ScanSampler)
+    is_group_scan = isinstance(batch_sampler, ScanBatchSampler)
 
     ratio = 0.35 if not isinstance(test_dataset, (mmWHSCTDataset, mmWHSMRDataset)) else 0.45
     val_set, test_set = split_dataset(test_dataset, ratio)
-    val_batch_sampler = ScanSampler(val_set) if is_group_scan else None
+    val_batch_sampler = ScanBatchSampler(val_set) if is_group_scan else None
 
     val_dataloader = DataLoader(val_set, batch_sampler=val_batch_sampler, batch_size=4 if not is_group_scan else 1)
 
-    test_batch_sampler = ScanSampler(test_set) if is_group_scan else None
+    test_batch_sampler = ScanBatchSampler(test_set) if is_group_scan else None
     test_dataloader = DataLoader(test_set, batch_sampler=test_batch_sampler, batch_size=4 if not is_group_scan else 1)
 
     logger.debug(f"splitting val_loader with {len(val_set.get_scan_list())} scans")

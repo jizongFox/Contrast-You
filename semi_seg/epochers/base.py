@@ -149,12 +149,12 @@ class TrainEpocher(Epocher):
         self._reg_weight = reg_weight  # noqa
 
     def _assertion(self):
-        labeled_set = self._labeled_loader._dataset  # noqa
+        labeled_set = self._labeled_loader.dataset  # noqa
         labeled_transform = labeled_set._transforms  # noqa
         assert labeled_transform._total_freedom is False  # noqa
 
         if self._unlabeled_loader is not None:
-            unlabeled_set = self._unlabeled_loader._dataset  # noqa
+            unlabeled_set = self._unlabeled_loader.dataset  # noqa
             unlabeled_transform = unlabeled_set._transforms  # noqa
             assert unlabeled_transform._total_freedom is False  # noqa
 

@@ -69,7 +69,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         save_dir = os.path.join(base_save_dir, "tra", f"ratio_{str(labeled_ratio)}")
 
         finetune_trainer = FineTuneTrainer(
-            model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
+            model=model, labeled_loader=labeled_loader, unlabeled_loader=unlabeled_loader,
             val_loader=val_loader, test_loader=test_loader, sup_criterion=KL_div(verbose=False),
             configuration={**config, **{"GITHASH": cur_githash}},
             save_dir=save_dir,

@@ -64,7 +64,7 @@ def main_worker(rank, ngpus_per_node, config, port):  # noqa
     Trainer = trainer_zoos[trainer_name]
 
     trainer = Trainer(
-        model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
+        model=model, labeled_loader=labeled_loader, unlabeled_loader=unlabeled_loader,
         val_loader=val_loader, test_loader=test_loader, sup_criterion=KL_div(verbose=False),
         configuration={**config, **{"GITHASH": cur_githash}},
         **{k: v for k, v in config["Trainer"].items() if k != "name"}
