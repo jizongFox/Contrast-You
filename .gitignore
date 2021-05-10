@@ -14,6 +14,7 @@ cotra_idea/test/
 *~*.pptx
 *.pptx
 */*.pptx
+semi_seg/transfer.sh
 
 
 demo/MNIST/

@@ -1,3 +1,4 @@
+import argparse
 import os
 from pathlib import Path
 from typing import List, TypeVar
@@ -41,4 +42,8 @@ def main(root: _path_type):
 
 
 if __name__ == '__main__':
-    main("/home/jizong/Workspace/Contrast-You/semi_seg/runs/cedar/0505_semi")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("root", type=str, help="root path")
+    args = parser.parse_args()
+
+    main(args.root)

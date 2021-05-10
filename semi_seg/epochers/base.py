@@ -19,6 +19,7 @@ from loguru import logger
 from torch import nn, Tensor
 from torch.utils.data.dataloader import DataLoader
 
+from contrastyou.utils import get_dataset
 from semi_seg.epochers._helper import preprocess_input_with_single_transformation, write_predict, write_img_target, \
     preprocess_input_with_twice_transformation
 from semi_seg.utils import _num_class_mixin
@@ -149,13 +150,13 @@ class TrainEpocher(Epocher):
         self._reg_weight = reg_weight  # noqa
 
     def _assertion(self):
-        labeled_set = self._labeled_loader.dataset  # noqa
-        labeled_transform = labeled_set._transforms  # noqa
+        labeled_set = get_dataset(self._labeled_loader)
+        labeled_transform = labeled_set.transforms
         assert labeled_transform._total_freedom is False  # noqa
 
         if self._unlabeled_loader is not None:
-            unlabeled_set = self._unlabeled_loader.dataset  # noqa
-            unlabeled_transform = unlabeled_set._transforms  # noqa
+            unlabeled_set = get_dataset(self._unlabeled_loader)
+            unlabeled_transform = unlabeled_set.transforms
             assert unlabeled_transform._total_freedom is False  # noqa
 
     def _configure_meters(self, meters: MeterInterface) -> MeterInterface:

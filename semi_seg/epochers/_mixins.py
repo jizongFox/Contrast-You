@@ -13,8 +13,9 @@ from deepclustering2.utils import simplex
 from loguru import logger
 from torch import nn, Tensor
 from torch.optim.optimizer import Optimizer
+from torch.utils.data import DataLoader
 
-from contrastyou.utils import weighted_average_iter
+from contrastyou.utils import weighted_average_iter, get_dataset
 from semi_seg.arch.hook import FeatureExtractor
 from ._helper import unl_extractor, preprocess_input_with_twice_transformation
 
@@ -186,6 +187,8 @@ class _PretrainEpocherMixin:
     _model: nn.Module
     _optimizer: Optimizer
     _indicator: tqdm
+    _labeled_loader: DataLoader
+    _unlabeled_loader: DataLoader
     _unzip_data: Callable[..., torch.device]
     _device: torch.device
     _affine_transformer: Callable[[Tensor], Tensor]
@@ -205,13 +208,13 @@ class _PretrainEpocherMixin:
         self._monitor_dataloader = monitor_dataloader
 
     def _assertion(self):
-        labeled_set = self._labeled_loader.dataset  # noqa
-        labeled_transform = labeled_set._transforms  # noqa
+        labeled_set = get_dataset(self._labeled_loader)
+        labeled_transform = labeled_set.transforms
         assert labeled_transform._total_freedom  # noqa
 
         if self._unlabeled_loader is not None:
-            unlabeled_set = self._unlabeled_loader.dataset  # noqa
-            unlabeled_transform = unlabeled_set._transforms  # noqa
+            unlabeled_set = get_dataset(self._unlabeled_loader)
+            unlabeled_transform = unlabeled_set.transforms
             assert unlabeled_transform._total_freedom  # noqa
 
     def _run(self, *args, **kwargs) -> EpochResultDict:
