@@ -32,7 +32,7 @@ dataset_name2class_numbers = {
 dataset_name2input_dim = {
     "acdc": 1,
     "prostate": 1,
-    "prostate_md": 2,
+    "prostate_md": 1,
     "spleen": 1,
     "mmwhsct": 1,
     "mmwhsmr": 1,
