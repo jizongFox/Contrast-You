@@ -1,12 +1,12 @@
 #!/bin/bash
 
 rand_seed=10
-save_dir=0425
+save_dir=0509
 group_num=10
-num_batches=200
+num_batches=300
 pre_max_epoch=100
 ft_max_epoch=100
-dataset=mmwhs
+dataset=mmwhsmr
 monitor=false
 comm_cmd=" -n ${dataset} "
 
@@ -45,7 +45,7 @@ function run_multi_selfpaced {
 
   python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -b ${num_batches} -s ${rand_seed} --time=4 \
     selfpaced --global_features Conv5 --global_importance $1 $2 --contrast_on partition patient -g=${group_num} \
-    -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value 1.5 1.0  --end_value 60 50 --method soft soft --monitor=${monitor} \
+    -pe ${pre_max_epoch} -fe ${ft_max_epoch} --begin_value 1.5 1.0 --end_value 60 50 --method soft soft --monitor=${monitor} \
     --scheduler_type inversesquare inversesquare
 }
 # baseline
