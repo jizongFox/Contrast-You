@@ -10,9 +10,17 @@ dataset=mmwhsmr
 monitor=false
 comm_cmd=" -n ${dataset} "
 
+source ./_run_semi "${save_dir}" "${comm_cmd}" "${rand_seed}" "${num_batches}" "${ft_max_epoch}"
+
+function run_null_checkpoint {
+  run_mt "" null ""
+  run_udaiic "" null ""
+  run_entropy "" null ""
+}
+
 function run_baseline {
   set -e pipefail
-  python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -b ${num_batches} -s ${rand_seed} --time=2 \
+  python run_infonce_pretrain.py ${comm_cmd} --save_dir ${save_dir} -b ${num_batches} -s ${rand_seed} --time=4 \
     baseline -e ${ft_max_epoch}
 }
 
@@ -52,6 +60,9 @@ function run_multi_selfpaced {
 run_baseline
 # neurips baseline
 run_neurips
+
+## other semi baseline
+run_null_checkpoint
 
 # soft
 run_selfpaced 4.5 50 soft inversesquare
