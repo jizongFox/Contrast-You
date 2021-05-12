@@ -64,10 +64,16 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
                      total_freedom=False):
     data_name = data_params["name"]
     tra_set, test_set = create_dataset(data_name, total_freedom)
+    if len(tra_set.get_scan_list()) == 0 or len(test_set.get_scan_list()) == 0:
+        raise RuntimeError("dataset error")
+
     labeled_data_ratio = data_params["labeled_data_ratio"]
     if pretrain:
         labeled_data_ratio = 0.5
     label_set, unlabeled_set = split_dataset(tra_set, labeled_data_ratio)
+
+    if len(label_set.get_scan_list()) == 0 and len(unlabeled_set.get_scan_list()) == 0:
+        raise RuntimeError("split dataset error")
 
     shuffle_l = labeled_loader_params["shuffle"]
     shuffle_u = unlabeled_loader_params["shuffle"]

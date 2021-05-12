@@ -1,11 +1,11 @@
 #!/bin/bash
 
 rand_seed=10
-save_dir=0509
+save_dir=0510
 group_num=10
 num_batches=300
-pre_max_epoch=100
-ft_max_epoch=100
+pre_max_epoch=60
+ft_max_epoch=60
 dataset=mmwhsmr
 monitor=false
 comm_cmd=" -n ${dataset} "

@@ -142,7 +142,7 @@ class _mmWHSBase(ContrastDataset):
         return self._meta_info["mr"]
 
     def get_meta(self):
-        return self.metainfo_ct
+        ...
 
 
 class mmWHSMRDataset(_mmWHSBase, _mmmr):

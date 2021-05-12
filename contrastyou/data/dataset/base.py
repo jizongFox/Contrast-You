@@ -211,12 +211,14 @@ def extract_sub_dataset_based_on_scan_names(dataset: DatasetBase, group_names: L
     get_scan_name = dataset._get_scan_name  # noqa
     new_memory = OrderedDict()
     for sub_folder, path_list in memory.items():
-        new_memory[sub_folder] = [x for x in path_list if get_scan_name(x) in group_names]
+        new_memory[sub_folder] = [x for x in path_list if get_scan_name(stem=get_stem(x)) in group_names]
 
     new_dataset = dcopy(dataset)
     new_dataset.set_memory_dictionary(new_dictionary=new_memory)
     if transforms:
         new_dataset.transforms = transforms
+    assert set(new_dataset.get_scan_list()) == set(group_names)
+
     if loaded:
         new_dataset.preload()
     return new_dataset
