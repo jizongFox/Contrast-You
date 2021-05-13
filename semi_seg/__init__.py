@@ -2,7 +2,7 @@ from contrastyou import on_cc
 
 acdc_ratios = [0.01, 1.0]
 prostate_ratio = [0.05, 1.0]  # 2 4 8
-prostate_md_ratio = [0.04, 1.0]
+prostate_md_ratio = [0.06, 1.0]
 mmwhsct_ratio = [0.09, 1.0]
 mmwhsmr_ratio = [0.10, 1.0]
 
@@ -10,7 +10,7 @@ if on_cc():
     acdc_ratios = [0.01, 0.015, 0.025, 1.0]
     prostate_ratio = [0.05, 0.1, 0.2, 1.0]  # 2, 4, 8, 40
     mmwhsct_ratio = [0.09, 0.17, 0.34, 1.0]
-    prostate_md_ratio = [0.04, 0.08, 0.15, 0.3, 1.0]  # 1, 2, 4, 8
+    prostate_md_ratio = [0.06, 0.12, 0.24, 0.48, 1.0]  # 1, 2, 4, 8
     mmwhsmr_ratio = [0.09, 0.19, 0.37, 1.0]
 
 ratio_zoom = {
