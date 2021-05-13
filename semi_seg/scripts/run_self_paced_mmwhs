@@ -1,7 +1,7 @@
 #!/bin/bash
 
 rand_seed=10
-save_dir=0510
+save_dir=0512_mmwhs
 group_num=10
 num_batches=300
 pre_max_epoch=60

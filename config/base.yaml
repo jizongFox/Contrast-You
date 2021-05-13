@@ -31,7 +31,7 @@ UnlabeledLoader:
   num_workers: 5
 
 Trainer:
-  name: directtrain
+  name: finetune
   save_dir: tmp
   device: cuda
   num_batches: 200
