@@ -62,7 +62,7 @@ def make_memory_dictionary(root: str, mode: str, folders: List[str], extensions)
             os.path.join(root, mode, subfolder)
 
     items = [os.listdir(Path(os.path.join(root, mode, sub))) for sub in folders]
-    cleaned_items = sorted([[x for x in item if allow_extension(x, extensions)] for item in items])
+    cleaned_items = [sorted([x for x in item if allow_extension(x, extensions)]) for item in items]
 
     memory = OrderedDict()
     for subfolder, item in zip(folders, cleaned_items):

@@ -5,7 +5,8 @@ from loguru import logger
 from torch.utils.data import DataLoader
 
 from contrastyou import get_cc_data_path
-from contrastyou.data import DatasetBase, extract_sub_dataset_based_on_scan_names, InfiniteRandomSampler, ScanBatchSampler
+from contrastyou.data import DatasetBase, extract_sub_dataset_based_on_scan_names, InfiniteRandomSampler, \
+    ScanBatchSampler
 from contrastyou.utils import fix_all_seed_within_context
 from semi_seg.augment import ACDCStrongTransforms, SpleenStrongTransforms, ProstateStrongTransforms
 from semi_seg.data import ACDCDataset, ProstateDataset, mmWHSCTDataset, mmWHSMRDataset, ProstateMDDataset
@@ -28,6 +29,7 @@ def create_dataset(name: str, total_freedom: bool = True):
     tra_transform._total_freedom = total_freedom
     tra_set = data_class(root_dir=get_cc_data_path(), mode="train", transforms=tra_transform)
     test_set = data_class(root_dir=get_cc_data_path(), mode="val", transforms=aug_transform.val)
+    assert set(tra_set.get_scan_list()) & set(test_set.get_scan_list()) == set()
     return tra_set, test_set
 
 
