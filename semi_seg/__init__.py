@@ -10,7 +10,7 @@ if on_cc():
     acdc_ratios = [0.01, 0.015, 0.025, 1.0]
     prostate_ratio = [0.05, 0.1, 0.2, 1.0]  # 2, 4, 8, 40
     mmwhsct_ratio = [0.1, 0.2, 0.4, 1.0]
-    prostate_md_ratio = [0.06, 0.12, 0.24, 0.48, 1.0]  # 1, 2, 4, 8
+    prostate_md_ratio = [0.06, 0.12, 0.24, 1.0]  # 1, 2, 4, 8
     mmwhsmr_ratio = [0.12, 0.24, 0.45, 1.0]
 
 ratio_zoom = {

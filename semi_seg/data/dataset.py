@@ -9,6 +9,7 @@ from torch import Tensor
 from contrastyou.augment import SequentialWrapper
 from contrastyou.data import ACDCDataset as _acdc, ProstateDataset as _prostate, mmWHSCTDataset as _mmct, \
     mmWHSMRDataset as _mmmr, ProstateMDDataset as _prostate_md
+from contrastyou.data.dataset.base import get_stem
 from .rearr import ContrastDataset
 
 
@@ -45,7 +46,7 @@ class ACDCDataset(ContrastDataset, _acdc):
         return [self._get_partition(f) for f in next(iter(self.get_memory_dictionary().values()))]
 
     def show_scan_names(self) -> List[str]:
-        return [self._get_scan_name(f) for f in next(iter(self.get_memory_dictionary().values()))]
+        return [self._get_scan_name(stem=get_stem(f)) for f in next(iter(self.get_memory_dictionary().values()))]
 
 
 class ProstateDataset(ContrastDataset, _prostate):
@@ -73,11 +74,11 @@ class ProstateDataset(ContrastDataset, _prostate):
         return [self._get_partition(f) for f in next(iter(self.get_memory_dictionary().values()))]
 
     def show_scan_names(self) -> List[str]:
-        return [self._get_scan_name(f) for f in next(iter(self.get_memory_dictionary().values()))]
+        return [self._get_scan_name(stem=get_stem(f)) for f in next(iter(self.get_memory_dictionary().values()))]
 
 
 class ProstateMDDataset(ContrastDataset, _prostate_md):
-    partition_num = 6
+    partition_num = 4
 
     def __init__(self, *, root_dir: str, mode: str, transforms: SequentialWrapper = None) -> None:
         super().__init__(root_dir=root_dir, mode=mode, transforms=transforms)
@@ -101,7 +102,7 @@ class ProstateMDDataset(ContrastDataset, _prostate_md):
         return [self._get_partition(f) for f in next(iter(self.get_memory_dictionary().values()))]
 
     def show_scan_names(self) -> List[str]:
-        return [self._get_scan_name(f) for f in next(iter(self.get_memory_dictionary().values()))]
+        return [self._get_scan_name(stem=get_stem(f)) for f in next(iter(self.get_memory_dictionary().values()))]
 
 
 class _mmWHSBase(ContrastDataset):
@@ -131,7 +132,7 @@ class _mmWHSBase(ContrastDataset):
         return [self._get_partition(f) for f in next(iter(self.get_memory_dictionary().values()))]
 
     def show_scan_names(self) -> List[str]:
-        return [self._get_scan_name(f) for f in next(iter(self.get_memory_dictionary().values()))]
+        return [self._get_scan_name(get_stem(f)) for f in next(iter(self.get_memory_dictionary().values()))]
 
     @property
     def metainfo_ct(self):
