@@ -166,6 +166,6 @@ elif args.stage == "entropy":
 else:
     raise NotImplemented(args.stage)
 
-job_submiter = JobSubmiter(project_path="../", on_local=args.on_local, time=args.time, mem=64)
+job_submiter = JobSubmiter(project_path="../", on_local=args.on_local, time=args.time, mem=20)
 
 run_jobs(job_submiter, job_array, args, )
