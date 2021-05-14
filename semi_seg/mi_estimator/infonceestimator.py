@@ -1,11 +1,11 @@
 from contrastyou.arch import UNet
 from contrastyou.projectors.heads import ProjectionHead, DenseProjectionHead
 
-from .base import _SingleEstimator
+from .base import SingleEstimator
 
 
 # todo: unclear to see what would happen.
-class InfoNCEEstimator(_SingleEstimator):
+class InfoNCEEstimator(SingleEstimator):
     """IICEestimator is the estimator for one single layer for the Unet"""
     __projector_initialized = False
     __criterion_initialized = False

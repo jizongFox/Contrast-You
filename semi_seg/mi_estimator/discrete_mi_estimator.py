@@ -1,18 +1,17 @@
 from typing import Dict, Union, List
 
 import torch
-from deepclustering2.configparser._utils import get_config
+from deepclustering2.configparser._utils import get_config  # noqa
 
+from contrastyou.projectors.heads import DenseClusterHead as _LocalClusterHead, ClusterHead as _EncoderClusterHead
 from contrastyou.utils import average_iter
-from semi_seg.arch import UNet
-from ._utils import encoder_names
-from .base import _SingleEstimator, _EstimatorList
+from .base import SingleEstimator, EstimatorList, encoder_names
 from ..arch.unet import get_channel_dim
-from ..utils import _LocalClusterHead, _EncoderClusterHead, IIDLoss, IIDSegmentationSmallPathLoss, _nlist, \
+from ..utils import IIDLoss, IIDSegmentationSmallPathLoss, _nlist, \
     _filter_encodernames, _filter_decodernames
 
 
-class IICEstimator(_SingleEstimator):
+class IICEstimator(SingleEstimator):
     """IICEestimator is the estimator for one single layer for the Unet"""
     __projector_initialized = False
     __criterion_initialized = False
@@ -66,7 +65,7 @@ class IICEstimator(_SingleEstimator):
         return loss
 
 
-class IICEstimatorArray(_EstimatorList):
+class IICEstimatorArray(EstimatorList):
 
     def add(self, *, name: str, projector_params: Dict = None, criterion_params: Dict = None, **kwargs):
         assert name not in self._estimator_dictionary, self._estimator_dictionary.keys()

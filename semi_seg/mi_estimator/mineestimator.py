@@ -3,10 +3,10 @@ from contrastyou.arch.unet import UNet
 from torch import nn
 from torch.nn import functional as F, Flatten
 
-from .base import _SingleEstimator, _EstimatorList
+from .base import SingleEstimator, EstimatorList
 
 
-class MineEstimator(_SingleEstimator):
+class MineEstimator(SingleEstimator):
     __projector_initialized = False
     __criterion_initialized = False
 
@@ -36,7 +36,7 @@ class MineEstimator(_SingleEstimator):
         return Em - Ej
 
 
-class MineEstimatorArray(_EstimatorList):
+class MineEstimatorArray(EstimatorList):
 
     def add(self, name: str, **params):
         single_estimator = MineEstimator(layer_name=name)

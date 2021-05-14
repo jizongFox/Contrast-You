@@ -25,12 +25,12 @@ def get_model(model):
 
 
 def _filter_encodernames(feature_list):
-    encoder_list = UNet().encoder_names
+    encoder_list = UNet.encoder_names
     return list(filter(lambda x: x in encoder_list, feature_list))
 
 
 def _filter_decodernames(feature_list):
-    decoder_list = UNet().decoder_names
+    decoder_list = UNet.decoder_names
     return list(filter(lambda x: x in decoder_list, feature_list))
 
 

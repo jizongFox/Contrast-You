@@ -12,7 +12,7 @@ from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
 from semi_seg.epochers import MITrainEpocher, ConsistencyMIEpocher, InfoNCEMeanTeacherEpocher
 from semi_seg.epochers import TrainEpocher, EvalEpocher, ConsistencyTrainEpocher, EntropyMinEpocher, MeanTeacherEpocher, \
     MIMeanTeacherEpocher, MIDLPaperEpocher, InfoNCEEpocher, UCMeanTeacherEpocher
-from semi_seg.miestimator.iicestimator import IICEstimatorArray
+from semi_seg.mi_estimator.discrete_mi_estimator import IICEstimatorArray
 from semi_seg.trainers._helper import _FeatureExtractor
 from semi_seg.trainers.base import SemiTrainer
 from semi_seg.utils import ContrastiveProjectorWrapper, _nlist
@@ -99,7 +99,7 @@ class MineTrainer(IICTrainer):
     def _init(self):
         super(IICTrainer, self)._init()
         config = deepcopy(self._config["IICRegParameters"])
-        from semi_seg.miestimator.mineestimator import MineEstimatorArray
+        from semi_seg.mi_estimator.mineestimator import MineEstimatorArray
         self._mi_estimator_array = MineEstimatorArray()
         self._mi_estimator_array.add_interface(self.feature_positions)
 

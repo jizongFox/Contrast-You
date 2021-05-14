@@ -2,12 +2,19 @@ from abc import ABCMeta, abstractmethod
 
 from torch import nn
 
+from semi_seg.arch import UNet
 
-class _SingleEstimator(nn.Module):
+__all__ = ["encoder_names", "decoder_names", "SingleEstimator", "EstimatorList"]
+
+encoder_names = UNet.encoder_names
+decoder_names = UNet.decoder_names
+
+
+class SingleEstimator(nn.Module):
     pass
 
 
-class _EstimatorList(nn.Module, metaclass=ABCMeta):
+class EstimatorList(nn.Module, metaclass=ABCMeta):
     def __init__(self) -> None:
         super().__init__()
         self._estimator_dictionary = nn.ModuleDict()

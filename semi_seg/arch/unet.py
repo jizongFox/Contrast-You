@@ -9,7 +9,7 @@ from torch import nn
 
 from .utils import get_requires_grad, get_bn_track
 
-__all__ = ["UNet", "arch_order"]
+__all__ = ["UNet", "arch_order", "get_channel_dim"]
 
 
 @lru_cache()
@@ -279,7 +279,7 @@ class UNet(nn.Module):
         return self._num_classes
 
 
-def get_channel_dim(layer_name: str, max_channel=None):
+def get_channel_dim(layer_name: str, *, max_channel=None):
     max_channel = max_channel or 256
     assert layer_name in {k: v for k, v in UNet.layer_dimension.items() if v is not None}
     return int(UNet.layer_dimension[layer_name] / 16 * max_channel)

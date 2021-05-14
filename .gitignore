@@ -45,7 +45,7 @@ __pycache__/
 *.out
 # C extensions
 *.so
-
+zzz*
 # Distribution / packaging
 .Python
 build/

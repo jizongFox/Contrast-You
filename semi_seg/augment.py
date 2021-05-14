@@ -55,7 +55,7 @@ class ACDCStrongTransforms:
 class ProstateStrongTransforms:
     pretrain = SequentialWrapperTwice(
         com_transform=pil_augment.Compose([
-            pil_augment.Resize(224, Image.NEAREST),
+            pil_augment.Resize(224, ),
             pil_augment.RandomRotation(10),
             pil_augment.RandomVerticalFlip(),
             pil_augment.RandomHorizontalFlip(),
@@ -72,7 +72,7 @@ class ProstateStrongTransforms:
     )
     label = SequentialWrapperTwice(
         com_transform=pil_augment.Compose([
-            pil_augment.Resize(224, Image.NEAREST),
+            pil_augment.Resize(224, ),
             pil_augment.RandomCrop(224),
         ]),
         image_transform=pil_augment.Compose([
@@ -84,7 +84,7 @@ class ProstateStrongTransforms:
     )
     val = SequentialWrapper(
 
-        com_transform=pil_augment.Resize(224, Image.NEAREST),
+        com_transform=pil_augment.Resize(224, ),
     )
     trainval = SequentialWrapperTwice(
         com_transform=pil_augment.Compose([
@@ -104,7 +104,7 @@ class ProstateStrongTransforms:
 class SpleenStrongTransforms:
     pretrain = SequentialWrapperTwice(
         com_transform=pil_augment.Compose([
-            pil_augment.Resize((256, 256), Image.NEAREST),
+            pil_augment.Resize((256, 256), ),
             pil_augment.RandomRotation(10),
             pil_augment.RandomVerticalFlip(),
             pil_augment.RandomHorizontalFlip(),
@@ -122,7 +122,7 @@ class SpleenStrongTransforms:
     )
     label = SequentialWrapperTwice(
         com_transform=pil_augment.Compose([
-            pil_augment.Resize((256, 256), Image.NEAREST),
+            pil_augment.Resize((256, 256), ),
             pil_augment.RandomCrop(256, padding=20),
             pil_augment.RandomRotation(10),
         ]),
@@ -134,7 +134,7 @@ class SpleenStrongTransforms:
         ]),
     )
     val = SequentialWrapper(
-        com_transform=pil_augment.Resize((256, 256), Image.NEAREST),
+        com_transform=pil_augment.Resize((256, 256), ),
     )
 
 

@@ -7,7 +7,7 @@ from loguru import logger
 
 from .unet import UNet
 
-__all__ = ["FeatureExtractor"]
+__all__ = ["FeatureExtractor", "SingleFeatureExtractor"]
 
 
 class _FeatureCollector:
@@ -40,7 +40,7 @@ class _FeatureCollector:
         return self._enable
 
 
-class _SingleFeatureExtractor:
+class SingleFeatureExtractor:
 
     def __init__(self, model: UNet, feature_name: str) -> None:
         super().__init__()
@@ -63,6 +63,7 @@ class _SingleFeatureExtractor:
     def remove(self):
         logger.opt(depth=2).trace(f"Remove {self.__class__.__name__}")
         self._hook_handler.remove()
+        self.__bind_done__ = False
 
     def __enter__(self, ):
         self.bind()
@@ -80,14 +81,17 @@ class _SingleFeatureExtractor:
             return torch.cat(list(collected_feature_dict.values()), dim=0)
         raise RuntimeError("no feature has been recorded.")
 
+    def set_enable(self, enable=True):
+        self._feature_extractor.set_enable(enable=enable)
+
     @contextmanager
     def enable_register(self, enable=True):
         prev_state = self._feature_extractor.enable
         logger.opt(depth=3).trace(f"{'enable' if enable else 'disable'} recording")
-        self._feature_extractor.set_enable(enable=enable)
+        self.set_enable(enable)
         yield
         logger.opt(depth=3).trace(f"restore previous recording status")
-        self._feature_extractor.set_enable(enable=prev_state)
+        self.set_enable(prev_state)
 
     """ # a second way of doing it.
     def enable_register(self, enable=True):
@@ -108,16 +112,26 @@ class FeatureExtractor:
     def __init__(self, model: UNet, feature_names: Union[str, List[str]]):
         super().__init__()
         self._feature_names = (feature_names,) if isinstance(feature_names, str) else feature_names
-        self._extractor_list = [_SingleFeatureExtractor(model, f) for f in self._feature_names]
+        self._extractor_list = [SingleFeatureExtractor(model, f) for f in self._feature_names]
 
-    def __enter__(self):
+    def bind(self):
         for e in self._extractor_list:
             e.bind()
+
+    def remove(self):
+        for e in self._extractor_list:
+            e.remove()
+
+    def __enter__(self):
+        self.bind()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        self.remove()
+
+    def set_enable(self, enable=True):
         for e in self._extractor_list:
-            e.remove()
+            e.set_enable(enable)
 
     @contextmanager
     def enable_register(self, enable=True):

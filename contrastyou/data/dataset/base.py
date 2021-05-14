@@ -196,7 +196,7 @@ class DatasetBase(Dataset):
         return self._transforms
 
     @transforms.setter
-    def transforms(self, transforms=SequentialWrapper):
+    def transforms(self, transforms: SequentialWrapper):
         assert isinstance(transforms, SequentialWrapper), type(transforms)
         self._transforms = transforms
 

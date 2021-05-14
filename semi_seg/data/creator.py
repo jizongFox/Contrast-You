@@ -60,6 +60,14 @@ def split_dataset(dataset: DatasetBase, *ratios: float, seed: int = 1) -> List[D
     return sub_datasets
 
 
+def create_infinite_loader(dataset, shuffle=True, num_workers: int = 8, batch_size: int = 4):
+    sampler = InfiniteRandomSampler(dataset, shuffle=shuffle)
+    loader = DataLoader(
+        dataset, sampler=sampler, batch_size=batch_size, num_workers=num_workers, pin_memory=True
+    )
+    return loader
+
+
 def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params, pretrain=False, group_test=True,
                      total_freedom=False):
     data_name = data_params["name"]
@@ -72,8 +80,8 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
         labeled_data_ratio = 0.5
     label_set, unlabeled_set = split_dataset(tra_set, labeled_data_ratio)
 
-    if len(label_set.get_scan_list()) == 0 and len(unlabeled_set.get_scan_list()) == 0:
-        raise RuntimeError("split dataset error")
+    if len(label_set.get_scan_list()) == 0:
+        raise RuntimeError("void labeled dataset, split dataset error")
 
     shuffle_l = labeled_loader_params["shuffle"]
     shuffle_u = unlabeled_loader_params["shuffle"]
@@ -84,20 +92,20 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
     n_workers_l = labeled_loader_params["num_workers"]
     n_workers_u = labeled_loader_params["num_workers"]
 
-    labeled_sampler = InfiniteRandomSampler(label_set, shuffle=shuffle_l)
-    unlabeled_sampler = InfiniteRandomSampler(unlabeled_set, shuffle=shuffle_u)
+    labeled_loader = create_infinite_loader(label_set, shuffle=shuffle_l, num_workers=n_workers_l,
+                                            batch_size=batch_size_l)
+    logger.debug(f"creating labeled_loader with {len(label_set.get_scan_list())} scans")
+    logger.trace(f"with {','.join(sorted(set(label_set.show_scan_names())))}")
 
-    labeled_loader = DataLoader(
-        label_set, sampler=labeled_sampler, batch_size=batch_size_l, num_workers=n_workers_l, pin_memory=True)
-    unlabeled_loader = DataLoader(
-        unlabeled_set, sampler=unlabeled_sampler, batch_size=batch_size_u, num_workers=n_workers_u, pin_memory=True)
+    unlabeled_loader = create_infinite_loader(unlabeled_set, shuffle=shuffle_u, num_workers=n_workers_u,
+                                              batch_size=batch_size_u)
+    logger.debug(f"creating unlabeled_loader with {len(unlabeled_set.get_scan_list())} scans")
+    logger.trace(f"with {','.join(sorted(set(unlabeled_set.show_scan_names())))}")
+
     group_test = group_test if data_name not in ("spleen", "mmwhsct", "mmwhsmr", "prostate_md") else False
     test_loader = DataLoader(test_set, batch_size=1 if group_test else 4,
                              batch_sampler=ScanBatchSampler(test_set, shuffle=False) if group_test else None)
-    logger.debug(f"creating labeled_loader with {len(label_set.get_scan_list())} scans")
-    logger.trace(f"with {','.join(sorted(set(label_set.show_scan_names())))}")
-    logger.debug(f"creating unlabeled_loader with {len(unlabeled_set.get_scan_list())} scans")
-    logger.trace(f"with {','.join(sorted(set(unlabeled_set.show_scan_names())))}")
+
     return labeled_loader, unlabeled_loader, test_loader
 
 
