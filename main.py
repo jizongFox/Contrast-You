@@ -7,11 +7,14 @@ from contrastyou import CONFIG_PATH
 from contrastyou.utils import fix_all_seed
 from semi_seg.arch import UNet
 from semi_seg.data import get_data_loaders, create_val_loader
-from semi_seg.hooks.creator import create_infonce_hook, create_iic_hook
-from semi_seg.hooks.entmin import EntropyMinTrainerHook
-from semi_seg.trainers.new_pretrain import SemiTrainer
+from semi_seg.hooks.creator import create_iic_hook
+from semi_seg.trainers.new_pretrain import SemiTrainer, PretrainTrainer
+from semi_seg.trainers.new_trainer import FineTuneTrainer
 
-# set_deterministic(True)
+trainer_zoo = {"semi": SemiTrainer,
+               "ft": FineTuneTrainer,
+               "pretrain": PretrainTrainer}
+
 fix_all_seed(1)
 
 with ConfigManger(base_path=os.path.join(CONFIG_PATH, "base.yaml"),
@@ -25,9 +28,11 @@ with ConfigManger(base_path=os.path.join(CONFIG_PATH, "base.yaml"),
         unlabeled_loader_params=config["UnlabeledLoader"], pretrain=False, group_test=True, total_freedom=False
     )
     val_loader, test_loader = create_val_loader(test_loader=test_loader)
-    trainer = SemiTrainer(model=model, labeled_loader=labeled_loader,
-                          unlabeled_loader=unlabeled_loader, val_loader=val_loader, test_loader=test_loader,
-                          criterion=KL_div(), config=config, inference_until="Conv5", **config["Trainer"])
+    trainer_name = config["Trainer"]["name"]
+    Trainer = trainer_zoo[trainer_name]
+    trainer = Trainer(model=model, labeled_loader=labeled_loader,
+                      unlabeled_loader=unlabeled_loader, val_loader=val_loader, test_loader=test_loader,
+                      criterion=KL_div(), config=config, inference_until="Up_conv2", **config["Trainer"])
     iic_hook = create_iic_hook(["Conv5", "Up_conv3", "Up_conv2"], [0.1, 0.05, 0.05], 5, model=model)
     trainer.register_hook(iic_hook)
     # infonce_hook = create_infonce_hook(["Conv5"], weights=[1],

@@ -5,9 +5,9 @@ from .infonce_mi import SelfPacedINFONCEHook
 
 
 def create_iic_hook(feature_names, iic_weights, consistency_weight, model):
-    mi_hooks = [DiscreteMITrainHook(name=f"iic/{f}", model=model, feature_name=f, weight=w) for f, w in
+    mi_hooks = [DiscreteMITrainHook(name=f"iic/{f.lower()}", model=model, feature_name=f, weight=w) for f, w in
                 zip(feature_names, iic_weights)]
-    consistency_hook = ConsistencyTrainerHook(name="iic/Consistency", weight=consistency_weight)
+    consistency_hook = ConsistencyTrainerHook(name="iic/consist.", weight=consistency_weight)
     return CombineTrainerHook(*mi_hooks, consistency_hook)
 
 
