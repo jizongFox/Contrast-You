@@ -12,7 +12,7 @@ __all__ = ["FeatureExtractor", "SingleFeatureExtractor"]
 
 class _FeatureCollector:
 
-    def __init__(self, max_limit=10) -> None:
+    def __init__(self, max_limit=5) -> None:
         self.__n = 0
         self.feature: OrderedDict = OrderedDict()
         self._enable = False
@@ -52,7 +52,7 @@ class SingleFeatureExtractor:
         self.__bind_done__ = False
 
     def bind(self):
-        logger.opt(depth=2).trace(f"Initialize {self.__class__.__name__}")
+        logger.opt(depth=2).trace(f"binding {self._feature_name}")
         model = self._model
         extractor = _FeatureCollector()
         handler = getattr(model, "_" + self._feature_name).register_forward_hook(extractor)

@@ -1,4 +1,5 @@
 import atexit
+import math
 
 from tqdm import tqdm as _tqdm
 
@@ -14,7 +15,20 @@ def create_meter_display(group_dict, ignore_start_with="_"):
                 if k.startswith(ignore):
                     del dictionary[k]
 
+    def prune_nan(dictionary: dict, father_dictionary: dict = None):
+
+        for k, v in dictionary.copy().items():
+            if isinstance(v, dict):
+                prune_nan(v, dictionary)
+            else:
+                if math.isnan(v):
+                    del dictionary[k]
+                    if father_dictionary is not None:
+                        if len(father_dictionary) == 1:
+                            del father_dictionary
+
     prune_dict(group_dict, ignore_start_with)
+    # prune_nan(group_dict)
 
     display = str(item2str(group_dict))
     return display
@@ -48,7 +62,7 @@ class tqdm(_tqdm):
         des = f"{epocher.__class__.__name__:<15} {epocher._cur_epoch:03d}"
         return self.set_description(desc=des)
 
-    def set_postfix_statics(self, group_dictionary, group_iter_time=None, cache_time=10):
+    def set_postfix_statics(self, group_dictionary, group_iter_time=None, cache_time=1):
         self._cur_iter += 1
         if not hasattr(self, "__cached__"):
             self.__cached__ = dict(group_dictionary)

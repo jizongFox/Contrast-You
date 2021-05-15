@@ -11,9 +11,9 @@ class MeterInterface:
     without considering historical record and save/load state_dict function.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, default_focus="tra") -> None:
         self._group_bank: Dict[str, Dict[str, metric.Metric]] = defaultdict(OrderedDict)
-        self.__group_focus = "tra"
+        self.__group_focus = default_focus
 
     def register_meter(self, name: str, meter: metric.Metric):
         return self._register_meter(name=name, meter=meter, group_name=self.__group_focus)

@@ -1,14 +1,14 @@
 import torch
 from deepclustering2.decorator import FixRandomSeed
-from deepclustering2.meters2 import MeterInterface, AverageValueMeter
 from torch import nn
 
+from contrastyou.hooks.base import TrainerHook, EpocherHook
+from contrastyou.meters import AverageValueMeter
 from semi_seg.arch.hook import SingleFeatureExtractor
-from semi_seg.hooks.base import TrainHook, EpochHook
 from semi_seg.mi_estimator.base import decoder_names, encoder_names
 
 
-class MIEstimatorHook(TrainHook):
+class MIEstimatorHook(TrainerHook):
 
     def __init__(self, *, name, model: nn.Module, feature_name: str, weight: float = 1.0, num_clusters=20,
                  num_subheads=5, padding=None) -> None:
@@ -27,8 +27,7 @@ class MIEstimatorHook(TrainHook):
 
     def __call__(self):
         return _MIEpochHook(name=self._hook_name, weight=self._weight, extractor=self._extractor,
-                            projector=self._projector,
-                            criterion=self._criterion)
+                            projector=self._projector, criterion=self._criterion)
 
     def init_projector(self, *, input_dim, num_clusters, num_subheads=5):
         projector = self.projector_class(input_dim=input_dim, num_clusters=num_clusters,
@@ -67,29 +66,32 @@ class MIEstimatorHook(TrainHook):
         return IIDSegmentationLoss
 
 
-class _MIEpochHook(EpochHook):
+class _MIEpochHook(EpocherHook):
 
     def __init__(self, *, name: str, weight: float, extractor, projector, criterion) -> None:
         super().__init__(name)
         self._extractor = extractor
         self._extractor.bind()
-        self._extractor.set_enable(True)
         self._weight = weight
         self._projector = projector
         self._criterion = criterion
-        self.meters = MeterInterface()
-        self.configure_meters(self.meters)
 
-    @staticmethod
-    def configure_meters(meters):
-        meters.register_meter("mi", AverageValueMeter())
+    def configure_meters(self, meters):
+        with meters.focus_on(self._name):
+            meters.register_meter("mi", AverageValueMeter())
 
     def before_forward_pass(self, **kwargs):
         self._extractor.clear()
+        self._extractor.set_enable(True)
 
-    def __call__(self, *, affine_transformer, seed, **kwargs):
-        feature_ = self._extractor.feature()
+    def after_forward_pass(self, **kwargs):
+        self._extractor.set_enable(False)
+
+    def __call__(self, *, unlabeled_image, affine_transformer, seed, **kwargs):
+        n_unl = len(unlabeled_image)
+        feature_ = self._extractor.feature()[-n_unl * 2:]
         proj_feature, proj_tf_feature = torch.chunk(feature_, 2, dim=0)
+        assert proj_feature.shape == proj_tf_feature.shape
         with FixRandomSeed(seed):
             proj_feature_tf = affine_transformer(proj_feature)
 
@@ -100,6 +102,9 @@ class _MIEpochHook(EpochHook):
         )
 
         loss = sum([self._criterion(x1, x2) for x1, x2 in zip(prob1, prob2)]) / len(prob1)
+        with self.meters.focus_on(self._name):
+            self.meters["mi"].add(loss.item())
+        return loss * self._weight
 
-        self.meters["mi"].add(loss.item())
-        return loss * self._weight, self.meters.tracking_status()
+    def close(self):
+        self._extractor.remove()

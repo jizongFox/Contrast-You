@@ -31,10 +31,9 @@ UnlabeledLoader:
   num_workers: 5
 
 Trainer:
-  name: finetune
   save_dir: tmp
   device: cuda
   num_batches: 200
   max_epoch: 75
-  two_stage_training: false
-  disable_bn_track_for_unlabeled_data: false
+  two_stage: false
+  disable_bn: false
