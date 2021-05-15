@@ -46,7 +46,7 @@ class AverageValueMeter(Metric):
 
     def _summary(self) -> dict:
         # this function returns a dict and tends to aggregate the historical results.
-        return {"mean": self.mean, "_std": self.std}
+        return self.mean
 
 
 class MultipleAverageValueMeter(Metric):
@@ -65,7 +65,7 @@ class MultipleAverageValueMeter(Metric):
     def _summary(self):
         result = {}
         for k, v in self._meter_dicts.items():
-            result[k] = v.summary()["mean"]
+            result[k] = v.summary()
         return result
 
 

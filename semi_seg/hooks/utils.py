@@ -1,9 +1,8 @@
 from functools import lru_cache
 
-from deepclustering2.configparser._utils import get_config
 from loguru import logger
 
-from semi_seg.epochers._helper import PartitionLabelGenerator, PatientLabelGenerator, ACDCCycleGenerator, \
+from semi_seg.epochers.helper import PartitionLabelGenerator, PatientLabelGenerator, ACDCCycleGenerator, \
     SIMCLRGenerator
 
 
@@ -43,22 +42,21 @@ def global_label_generator(dataset_name: str, contrast_on: str):
         NotImplementedError(dataset_name)
 
 
-def get_label(contrast_on, partition_group, label_group):
-    dataset_name = get_config(scope="base")["Data"]["name"]
-    if dataset_name == "acdc":
+def get_label(contrast_on, data_name, partition_group, label_group):
+    if data_name == "acdc":
         labels = global_label_generator(dataset_name="acdc", contrast_on=contrast_on) \
             (partition_list=partition_group,
              patient_list=[p.split("_")[0] for p in label_group],
              experiment_list=[p.split("_")[1] for p in label_group])
-    elif dataset_name == "prostate":
+    elif data_name in ("prostate", "prostate_md"):
         labels = global_label_generator(dataset_name="prostate", contrast_on=contrast_on) \
             (partition_list=partition_group,
              patient_list=[p.split("_")[0] for p in label_group])
-    elif dataset_name in ("mmwhsct", "mmwhsmr"):
+    elif data_name in ("mmwhsct", "mmwhsmr"):
         labels = global_label_generator(dataset_name="mmwhs", contrast_on=contrast_on) \
             (partition_list=partition_group,
              patient_list=label_group)
-    elif dataset_name == "prostate_md":
+    elif data_name == "prostate_md":
         labels = global_label_generator(dataset_name="prostate", contrast_on=contrast_on) \
             (partition_list=partition_group,
              patient_list=label_group)

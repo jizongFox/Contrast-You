@@ -1,4 +1,5 @@
 import random
+from abc import ABC
 from contextlib import nullcontext
 from functools import lru_cache
 from typing import Any
@@ -16,7 +17,7 @@ from torch import nn, Tensor
 from contrastyou.epochers.base import EpocherBase as _EpocherBase
 from contrastyou.meters import MeterInterface, UniversalDice, AverageValueMeter
 from contrastyou.utils import get_dataset
-from semi_seg.epochers._helper import preprocess_input_with_twice_transformation, \
+from semi_seg.epochers.helper import preprocess_input_with_twice_transformation, \
     preprocess_input_with_single_transformation
 from semi_seg.utils import _num_class_mixin
 
@@ -96,7 +97,7 @@ class EvalEpocher(EpocherBase):
         return image, target, filename, partition, group
 
 
-class SemiSupervisedEpocher(EpocherBase):
+class SemiSupervisedEpocher(EpocherBase, ABC):
     meter_focus = "semi"
 
     def __init__(self, *, model: nn.Module, optimizer: T_optim, labeled_loader: T_loader,
@@ -231,13 +232,18 @@ class SemiSupervisedEpocher(EpocherBase):
         return sum(reg_losses)
 
 
-class FineTuneEpocher(SemiSupervisedEpocher):
+class FineTuneEpocher(SemiSupervisedEpocher, ABC):
 
     def __init__(self, *, model: nn.Module, optimizer: T_optim, labeled_loader: T_loader, sup_criterion: T_loss,
                  num_batches: int, cur_epoch=0, device="cpu", **kwargs) -> None:
         super().__init__(model=model, optimizer=optimizer, labeled_loader=labeled_loader,
                          sup_criterion=sup_criterion, num_batches=num_batches,  # noqa
                          cur_epoch=cur_epoch, device=device, **kwargs)
+
+    def configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters = super().configure_meters(meters)
+        meters.delete_meter("reg_loss")
+        return meters
 
     def _run(self, *args, **kwargs):
         self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer))

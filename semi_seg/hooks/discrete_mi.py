@@ -10,7 +10,7 @@ from semi_seg.arch.hook import SingleFeatureExtractor
 from semi_seg.mi_estimator.base import decoder_names, encoder_names
 
 
-class MIEstimatorHook(TrainerHook):
+class DiscreteMITrainHook(TrainerHook):
 
     @property
     def learnable_modules(self) -> List[nn.Module]:
@@ -30,8 +30,8 @@ class MIEstimatorHook(TrainerHook):
         self._criterion = self.init_criterion(padding=padding)
 
     def __call__(self):
-        return _MIEpochHook(name=self._hook_name, weight=self._weight, extractor=self._extractor,
-                            projector=self._projector, criterion=self._criterion)
+        return _DiscreteMIEpochHook(name=self._hook_name, weight=self._weight, extractor=self._extractor,
+                                    projector=self._projector, criterion=self._criterion)
 
     def init_projector(self, *, input_dim, num_clusters, num_subheads=5):
         projector = self.projector_class(input_dim=input_dim, num_clusters=num_clusters,
@@ -70,7 +70,7 @@ class MIEstimatorHook(TrainerHook):
         return IIDSegmentationLoss
 
 
-class _MIEpochHook(EpocherHook):
+class _DiscreteMIEpochHook(EpocherHook):
 
     def __init__(self, *, name: str, weight: float, extractor, projector, criterion) -> None:
         super().__init__(name)
@@ -97,7 +97,7 @@ class _MIEpochHook(EpocherHook):
         proj_feature, proj_tf_feature = torch.chunk(feature_, 2, dim=0)
         assert proj_feature.shape == proj_tf_feature.shape
         with FixRandomSeed(seed):
-            proj_feature_tf = affine_transformer(proj_feature)
+            proj_feature_tf = torch.stack([affine_transformer(x) for x in proj_feature], dim=0)
 
         prob1, prob2 = list(
             zip(*[torch.chunk(x, 2, 0) for x in self._projector(

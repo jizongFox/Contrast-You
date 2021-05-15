@@ -26,7 +26,7 @@ from contrastyou.projectors.nn import Normalize
 from contrastyou.utils import average_iter, weighted_average_iter
 from semi_seg.arch.hook import FeatureExtractor
 from semi_seg.utils import ContrastiveProjectorWrapper
-from ._helper import unl_extractor
+from .helper import unl_extractor
 from ._mixins import _FeatureExtractorMixin, _MeanTeacherMixin
 from .base import TrainEpocher
 from .miepocher import MITrainEpocher, ConsistencyTrainEpocher
@@ -305,7 +305,7 @@ class _InfoNCEBasedEpocher(_FeatureExtractorMixin, TrainEpocher, ):
 
     @lru_cache()
     def global_label_generator(self, dataset_name: str, contrast_on: str):
-        from ._helper import PartitionLabelGenerator, PatientLabelGenerator, ACDCCycleGenerator, SIMCLRGenerator
+        from .helper import PartitionLabelGenerator, PatientLabelGenerator, ACDCCycleGenerator, SIMCLRGenerator
         if dataset_name == "acdc":
             logger.debug("initialize {} label generator for encoder training", contrast_on)
             if contrast_on == "partition":

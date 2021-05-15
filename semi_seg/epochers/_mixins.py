@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 
 from contrastyou.utils import weighted_average_iter, get_dataset
 from semi_seg.arch.hook import FeatureExtractor
-from ._helper import unl_extractor, preprocess_input_with_twice_transformation
+from .helper import unl_extractor, preprocess_input_with_twice_transformation
 
 
 class _FeatureExtractorMixin:

@@ -1,4 +1,5 @@
 import atexit
+import math
 
 from torch.utils.tensorboard import SummaryWriter as _SummaryWriter
 
@@ -38,6 +39,8 @@ class SummaryWriter(_SummaryWriter):
         tag_scalar_dict = flatten_dict(tag_scalar_dict, sep=".")
 
         for k, v in tag_scalar_dict.items():
+            if math.isnan(v):
+                continue
             self.add_scalar(tag=f"{tag}   |   {k}", scalar_value=v, global_step=global_step, walltime=walltime)
 
     def add_scalars_from_meter_interface(self, *, epoch: int, **kwargs):

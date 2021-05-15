@@ -9,6 +9,7 @@ from semi_seg.epochers.new_epocher import EpocherBase, SemiSupervisedEpocher, Fi
 
 
 class SemiTrainer(Trainer):
+    activate_hooks = True
 
     def __init__(self, *, model: nn.Module, labeled_loader: T_loader, unlabeled_loader: T_loader, val_loader: T_loader,
                  test_loader: T_loader, criterion: _criterion_type, save_dir: str, max_epoch: int = 100,
@@ -36,8 +37,9 @@ class SemiTrainer(Trainer):
             unlabeled_loader=self._unlabeled_loader, sup_criterion=self._criterion, num_batches=self._num_batches,
             cur_epoch=self._cur_epoch, device=self._device, two_stage=self._two_stage, disable_bn=self._disable_bn
         )
-        if len(self.__hooks__) > 0:
-            epocher.add_hooks([h() for h in self.__hooks__])
+        if self.activate_hooks:
+            if len(self.__hooks__) > 0:
+                epocher.add_hooks([h() for h in self.__hooks__])
         epocher.init()
         return epocher
 
@@ -49,6 +51,7 @@ class SemiTrainer(Trainer):
 
 
 class FineTuneTrainer(SemiTrainer):
+    activate_hooks = False
 
     def __init__(self, *, model: nn.Module, labeled_loader: T_loader, val_loader: T_loader,
                  test_loader: T_loader, criterion: _criterion_type, save_dir: str, max_epoch: int = 100,
@@ -56,8 +59,7 @@ class FineTuneTrainer(SemiTrainer):
                  **kwargs) -> None:
         super().__init__(model=model, labeled_loader=labeled_loader,
                          val_loader=val_loader, test_loader=test_loader, criterion=criterion, save_dir=save_dir,
-                         max_epoch=max_epoch, num_batches=num_batches, device=device, disable_bn=False,
-                         two_stage=False, config=config, **kwargs)
+                         max_epoch=max_epoch, num_batches=num_batches, device=device, config=config, **kwargs)
 
     @property
     def train_epocher(self) -> Type[EpocherBase]:
