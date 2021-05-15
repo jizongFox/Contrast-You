@@ -1,3 +1,5 @@
+from typing import List
+
 from torch import nn
 
 from contrastyou.hooks.base import TrainerHook, EpocherHook
@@ -5,8 +7,12 @@ from contrastyou.meters import AverageValueMeter, MeterInterface
 
 
 class ConsistencyTrainerHook(TrainerHook):
-    def __init__(self, hook_name: str, weight: float):
-        super().__init__(hook_name)
+    @property
+    def learnable_modules(self) -> List[nn.Module]:
+        return []
+
+    def __init__(self, name: str, weight: float):
+        super().__init__(name)
         self._weight = weight
         self._criterion = nn.MSELoss()
 
@@ -31,3 +37,8 @@ class _ConsistencyEpocherHook(EpocherHook):
         with self.meters.focus_on(self._name):
             self.meters["loss"].add(loss.item())
         return self._weight * loss
+
+
+if __name__ == '__main__':
+    hook = ConsistencyTrainerHook(name="1", weight=10)
+    print(list(hook.parameters()))

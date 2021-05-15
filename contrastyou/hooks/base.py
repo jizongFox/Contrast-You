@@ -1,6 +1,6 @@
 # this hook collaborates with the Epocher to provide a scalable thing.
 import weakref
-from typing import Iterator
+from typing import Iterator, List
 
 from torch import nn
 from torch.nn import Parameter
@@ -21,7 +21,6 @@ class _ClassNameMeta(type):
 
 
 class TrainerHook(nn.Module, metaclass=_ClassNameMeta):
-    learnable_modules = ()
 
     def __init__(self, hook_name: str, ):
         super().__init__()
@@ -31,9 +30,9 @@ class TrainerHook(nn.Module, metaclass=_ClassNameMeta):
         for m in self.learnable_modules:
             yield from m.parameters(recurse=recurse)
 
-    @classmethod
-    def create_from_trainer(cls, trainer):
-        pass
+    @property
+    def learnable_modules(self) -> List[nn.Module]:
+        raise NotImplementedError()
 
 
 class CombineTrainerHook(TrainerHook):
@@ -42,12 +41,12 @@ class CombineTrainerHook(TrainerHook):
         super().__init__("")
         self._hooks = nn.ModuleList(trainer_hook)
 
-    def parameters(self, recurse: bool = True) -> Iterator[Parameter]:
-        for h in self._hooks:
-            yield from h.parameters(recurse=recurse)
-
     def __call__(self):
         return CombineEpochHook(*[h() for h in self._hooks])
+
+    @property
+    def learnable_modules(self):
+        return self._hooks
 
 
 class EpocherHook:

@@ -1,3 +1,5 @@
+from typing import List
+
 import torch
 from deepclustering2.decorator import FixRandomSeed
 from torch import nn
@@ -9,6 +11,10 @@ from semi_seg.mi_estimator.base import decoder_names, encoder_names
 
 
 class MIEstimatorHook(TrainerHook):
+
+    @property
+    def learnable_modules(self) -> List[nn.Module]:
+        return [self._projector, ]
 
     def __init__(self, *, name, model: nn.Module, feature_name: str, weight: float = 1.0, num_clusters=20,
                  num_subheads=5, padding=None) -> None:
@@ -22,8 +28,6 @@ class MIEstimatorHook(TrainerHook):
         input_dim = model.get_channel_dim(feature_name)
         self._projector = self.init_projector(input_dim=input_dim, num_clusters=num_clusters, num_subheads=num_subheads)
         self._criterion = self.init_criterion(padding=padding)
-
-        self._learnable_models = (self._projector,)
 
     def __call__(self):
         return _MIEpochHook(name=self._hook_name, weight=self._weight, extractor=self._extractor,

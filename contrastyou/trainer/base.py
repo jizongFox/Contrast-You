@@ -100,9 +100,11 @@ class Trainer(_DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
                 train_metrics = self.run_tra_epoch()
                 if self.on_master():
                     eval_metrics, cur_score = self.run_eval_epoch(model=self._model, loader=self._val_loader)
-                    self._storage.add_from_meter_interface(tra=train_metrics, val=eval_metrics, epoch=self._cur_epoch)
-                    self._writer.add_scalars_from_meter_interface(tra=train_metrics, val=eval_metrics,
-                                                                  epoch=self._cur_epoch)
+                    test_metrics, _ = self.run_eval_epoch(model=self._model, loader=self._test_loader)
+                    self._storage.add_from_meter_interface(
+                        tra=train_metrics, val=eval_metrics, test=test_metrics, epoch=self._cur_epoch)
+                    self._writer.add_scalars_from_meter_interface(
+                        tra=train_metrics, val=eval_metrics, test=test_metrics, epoch=self._cur_epoch)
 
                 if hasattr(self, "_scheduler"):
                     self._scheduler.step()
