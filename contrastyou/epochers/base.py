@@ -62,7 +62,7 @@ class EpocherBase(_DDPMixin, metaclass=ABCMeta):
         self.indicator.set_desc_from_epocher(self)
         yield
         self.indicator.close()
-        # self.indicator.print_result()
+        self.indicator.log_result()
 
     @contextmanager
     def _register_meters(self):

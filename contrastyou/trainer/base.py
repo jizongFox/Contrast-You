@@ -6,6 +6,7 @@ import torch
 from deepclustering2 import optim
 from deepclustering2.ddp.ddp import _DDPMixin  # noqa
 from deepclustering2.schedulers import GradualWarmupScheduler
+from loguru import logger
 from torch import nn
 
 from contrastyou import PROJECT_PATH
@@ -26,7 +27,7 @@ class Trainer(_DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
                  val_loader: _loader_type, save_dir: str, max_epoch: int = 100, num_batches: int = 100, device="cpu",
                  config: Dict[str, Any], **kwargs) -> None:
         super().__init__(save_dir=save_dir, max_epoch=max_epoch, num_batches=num_batches, device=device, **kwargs)
-        self._model = model
+        self._model = self._inference_model = model
         self._criterion = criterion
         self._tra_loader: _dataiter_type = tra_loader
         self._val_loader: _loader_type = val_loader
@@ -99,8 +100,9 @@ class Trainer(_DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
             with self._storage:  # save csv each epoch
                 train_metrics = self.run_tra_epoch()
                 if self.on_master():
-                    eval_metrics, cur_score = self.run_eval_epoch(model=self._model, loader=self._val_loader)
-                    test_metrics, _ = self.run_eval_epoch(model=self._model, loader=self._test_loader)
+                    inference_model = self._inference_model
+                    eval_metrics, cur_score = self.run_eval_epoch(model=inference_model, loader=self._val_loader)
+                    test_metrics, _ = self.run_eval_epoch(model=inference_model, loader=self._test_loader)
                     self._storage.add_from_meter_interface(
                         tra=train_metrics, val=eval_metrics, test=test_metrics, epoch=self._cur_epoch)
                     self._writer.add_scalars_from_meter_interface(
@@ -140,3 +142,7 @@ class Trainer(_DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
     def _run_eval_epoch(epocher):
         epocher.run()
         return epocher.get_metric(), epocher.get_score()
+
+    def set_model4inference(self, model: nn.Module):
+        logger.trace(f"change inference model from {id(self._inference_model)} to {id(model)}")
+        self._inference_model = model

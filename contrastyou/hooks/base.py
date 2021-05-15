@@ -60,6 +60,10 @@ class EpocherHook:
         self.meters = weakref.proxy(epocher.meters)
         self.configure_meters(self.meters)
 
+    @property
+    def epocher(self):
+        return self._epocher
+
     def configure_meters(self, meters: MeterInterface):
         return meters
 

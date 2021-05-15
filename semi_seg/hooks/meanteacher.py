@@ -22,15 +22,20 @@ class MeanTeacherTrainerHook(TrainerHook):
 
     def __call__(self):
         return _MeanTeacherEpocherHook(name=self._hook_name, weight=self._weight, criterion=self._criterion,
-                                       teacher_model=self._teacher_model)
+                                       teacher_model=self._teacher_model, updater=self._updater)
+
+    @property
+    def teacher_model(self):
+        return self._teacher_model
 
 
 class _MeanTeacherEpocherHook(EpocherHook):
-    def __init__(self, name: str, weight: float, criterion, teacher_model) -> None:
+    def __init__(self, name: str, weight: float, criterion, teacher_model, updater) -> None:
         super().__init__(name)
         self._weight = weight
         self._criterion = criterion
         self._teacher_model = teacher_model
+        self._updater = updater
 
     def configure_meters(self, meters: MeterInterface):
         with self.meters.focus_on(self._name):
@@ -45,4 +50,5 @@ class _MeanTeacherEpocherHook(EpocherHook):
         loss = self._criterion(teacher_unlabeled_prob_tf, student_unlabeled_tf_prob)
         with self.meters.focus_on(self._name):
             self.meters["loss"].add(loss.item())
+        self._updater(ema_model=self._teacher_model, student_model=self.epocher._model)  # noqa
         return self._weight * loss

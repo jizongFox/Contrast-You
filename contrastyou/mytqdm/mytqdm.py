@@ -1,6 +1,7 @@
 import atexit
 import math
 
+from loguru import logger
 from tqdm import tqdm as _tqdm
 
 from .utils import item2str
@@ -51,9 +52,9 @@ class tqdm(_tqdm):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    def print_result(self):
+    def log_result(self):
         if hasattr(self, "__cached__"):
-            print(self.desc + "    " + create_meter_display(self.__cached__))
+            logger.info(self.desc + "    " + create_meter_display(self.__cached__))
 
     def __enter__(self):
         return self
