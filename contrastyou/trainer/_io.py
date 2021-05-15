@@ -49,11 +49,12 @@ class _IOMixin(_BufferMixin, metaclass=ABCMeta):
         self._register_buffer("_cur_epoch", 0)
 
     def dump_config(self, config, path: typePath = None, save_name="config.yaml"):
+        path_ = self._save_dir
         if path:
             path_ = path2Path(path)
             if not path_.is_absolute():
                 path_ = Path(self.RUN_PATH) / path_
-            yaml_write(config, str(path_), save_name=save_name)
+        yaml_write(config, str(path_), save_name=save_name)
 
     def state_dict(self, **kwargs) -> dict:
         buffer_state_dict = super(_IOMixin, self).state_dict()

@@ -63,11 +63,6 @@ class SummaryWriter(_SummaryWriter):
             pass
         super(SummaryWriter, self).close()
 
-    def add_hparams(
-        self, hparam_dict, metric_dict, hparam_domain_discrete=None, run_name=None
-    ):
-        pass
-
 
 def get_tb_writer() -> SummaryWriter:
     if len(__tensorboard_queue__) == 0:
