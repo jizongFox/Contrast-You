@@ -1,21 +1,20 @@
 import random
 from contextlib import nullcontext
-from typing import Union, Callable
+from typing import Callable
 
 import torch
 from deepclustering2.augment.tensor_augment import TensorRandomFlip
 from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.decorator.decorator import _disable_tracking_bn_stats  # noqa
 from deepclustering2.epoch import _Epocher  # noqa
-from deepclustering2.meters2 import EpochResultDict, AverageValueMeter, UniversalDice, MeterInterface
-from deepclustering2.meters2.individual_meters.averagemeter import AverageValueListMeter
-from deepclustering2.models import Model
 from deepclustering2.optim import get_lrs_from_optimizer
 from deepclustering2.type import T_loader, T_loss, T_optim
 from deepclustering2.utils import class2one_hot
 from loguru import logger
 from torch import nn, Tensor
 
+from contrastyou.meters import MeterInterface, AverageValueListMeter, UniversalDice, AverageValueMeter
+from contrastyou.mytqdm import tqdm
 from contrastyou.utils import get_dataset
 from semi_seg.epochers._helper import preprocess_input_with_twice_transformation
 # to enable init and _init, in order to insert assertion of params
@@ -28,6 +27,8 @@ class Epocher(_num_class_mixin, _Epocher):
     def __init__(self, **kwargs):
         super(Epocher, self).__init__(**kwargs)
         self._hooks = []
+        self.meters = MeterInterface()
+        self._indicator = tqdm(range(self._num_batches))
 
     def init(self, *args, **kwargs):
         self._assertion()
@@ -61,7 +62,7 @@ class Epocher(_num_class_mixin, _Epocher):
 
 class ExperimentalEpocher(Epocher):
 
-    def __init__(self, *, model: Union[Model, nn.Module], optimizer: T_optim, labeled_loader: T_loader,
+    def __init__(self, *, model: nn.Module, optimizer: T_optim, labeled_loader: T_loader,
                  unlabeled_loader: T_loader, sup_criterion: T_loss, num_batches: int, cur_epoch=0,
                  device="cpu", train_with_two_stage: bool = False,
                  disable_bn_track_for_unlabeled_data: bool = False, **kwargs) -> None:
@@ -94,10 +95,8 @@ class ExperimentalEpocher(Epocher):
         C = self.num_classes
         report_axis = list(range(1, C))
         meters.register_meter("lr", AverageValueListMeter())
-        meters.register_meter("reg_weight", AverageValueMeter())
         meters.register_meter("sup_loss", AverageValueMeter())
-        meters.register_meter("reg_loss", AverageValueMeter())
-        meters.register_meter("sup_dice", UniversalDice(C, report_axises=report_axis, ))
+        meters.register_meter("sup_dice", UniversalDice(C, report_axises=report_axis))
         return meters
 
     def _run(self, *args, **kwargs):
@@ -108,7 +107,7 @@ class ExperimentalEpocher(Epocher):
     def _set_model_state(self, model) -> None:
         model.train()
 
-    def _run_semi(self, *args, **kwargs) -> EpochResultDict:
+    def _run_semi(self, *args, **kwargs):
         for self.cur_batch_num, labeled_data, unlabeled_data in zip(self._indicator, self._labeled_loader,
                                                                     self._unlabeled_loader):
             seed = random.randint(0, int(1e7))
@@ -136,7 +135,7 @@ class ExperimentalEpocher(Epocher):
             onehot_target = class2one_hot(labeled_target.squeeze(1), self.num_classes)
             sup_loss = self._sup_criterion(label_logits.softmax(1), onehot_target)
             # regularized part
-            reg_loss = self.regularization(
+            reg_loss, reg_statistics = self.regularization(
                 unlabeled_tf_logits=unlabeled_tf_logits,
                 unlabeled_logits_tf=unlabeled_logits_tf,
                 seed=seed,
@@ -160,11 +159,8 @@ class ExperimentalEpocher(Epocher):
                     self.meters["sup_loss"].add(sup_loss.item())
                     self.meters["sup_dice"].add(label_logits.max(1)[1], labeled_target.squeeze(1),
                                                 group_name=label_group)
-                    self.meters["reg_loss"].add(reg_loss.item())
-                    report_dict = self.meters.tracking_status()
-                    self._indicator.set_postfix_dict(report_dict)
-        report_dict = self.meters.tracking_status(final=True)
-        return report_dict
+                report_dict = self.meters.statistics()
+                self._indicator.set_postfix_statics(report_dict)
 
     def _forward_pass(self, labeled_image, unlabeled_image, unlabeled_image_tf):
         n_l, n_unl = len(labeled_image), len(unlabeled_image)
@@ -172,7 +168,7 @@ class ExperimentalEpocher(Epocher):
             # if train with only single stage
             predict_logits = self._model(torch.cat([labeled_image, unlabeled_image, unlabeled_image_tf], dim=0))
             label_logits, unlabeled_logits, unlabeled_tf_logits = torch.split(predict_logits,
-                                                                          [n_l, n_unl, n_unl], dim=0)
+                                                                              [n_l, n_unl, n_unl], dim=0)
         else:
             # train with two stages, while their feature extractions are the same
             label_logits = self._model(labeled_image)
@@ -192,12 +188,15 @@ class ExperimentalEpocher(Epocher):
         return (image, image_ct), target, filename, partition, group
 
     def _regularization(self, **kwargs):
-        return sum([h(**kwargs) for h in self._hooks])
+        if len(self._hooks) > 0:
+            reg_losses, reg_statistics = list(zip(*[h(**kwargs) for h in self._hooks]))
+            return sum(reg_losses), reg_statistics
+        return 0, {}
 
 
 class ExpFineTuneEpocher(ExperimentalEpocher):
 
-    def __init__(self, *, model: Union[Model, nn.Module], optimizer: T_optim, labeled_loader: T_loader,
+    def __init__(self, *, model: nn.Module, optimizer: T_optim, labeled_loader: T_loader,
                  sup_criterion: T_loss, num_batches: int, cur_epoch=0, device="cpu",
                  **kwargs) -> None:
         super().__init__(model=model, optimizer=optimizer, labeled_loader=labeled_loader,
@@ -216,7 +215,7 @@ class ExpFineTuneEpocher(ExperimentalEpocher):
         assert self._model.training, self._model.training
         return self._run_only_label(*args, **kwargs)
 
-    def _run_only_label(self, *args, **kwargs) -> EpochResultDict:
+    def _run_only_label(self, *args, **kwargs):
         for self.cur_batch_num, labeled_data in zip(self._indicator, self._labeled_loader):
             (labeled_image, _), labeled_target, labeled_filename, _, label_group = \
                 self._unzip_data(labeled_data, self._device)

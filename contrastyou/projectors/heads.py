@@ -158,7 +158,7 @@ class DenseClusterHead(_ProjectorHeadBase):
 
         headers = [
             init_dense_sub_header(head_type=head_type, input_dim=self._input_dim, hidden_dim=hidden_dim,
-                                  num_clusters=self._num_clusters, normalize=self._normalize, T=self._T)
+                                  num_clusters=num_clusters, normalize=self._normalize, T=self._T)
             for _ in range(num_subheads)
         ]
         self._headers = nn.ModuleList(headers)

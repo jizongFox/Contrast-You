@@ -93,19 +93,6 @@ class SingleFeatureExtractor:
         logger.opt(depth=3).trace(f"restore previous recording status")
         self.set_enable(prev_state)
 
-    """ # a second way of doing it.
-    def enable_register(self, enable=True):
-        class Register:
-            def __enter__(this):
-                this.prev_state = self._feature_extractor.enable
-                self._feature_extractor.set_enable(enable=enable)
-                return self
-
-            def __exit__(this, *args, **kwargs):
-                self._feature_extractor.set_enable(enable=this.prev_state)
-        return Register()
-    """
-
 
 class FeatureExtractor:
 
