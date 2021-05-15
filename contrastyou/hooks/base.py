@@ -32,7 +32,7 @@ class TrainerHook(nn.Module, metaclass=_ClassNameMeta):
 
     @property
     def learnable_modules(self) -> List[nn.Module]:
-        raise NotImplementedError()
+        return []
 
 
 class CombineTrainerHook(TrainerHook):

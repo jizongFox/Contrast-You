@@ -4,10 +4,14 @@ from deepclustering2.configparser import ConfigManger
 from deepclustering2.loss import KL_div
 
 from contrastyou import CONFIG_PATH
+from contrastyou.utils import set_deterministic, fix_all_seed
 from semi_seg.arch import UNet
 from semi_seg.data import get_data_loaders, create_val_loader
 from semi_seg.hooks.creator import create_iic_hook
 from semi_seg.trainers.new_experiment import SemiTrainer
+
+set_deterministic(True)
+fix_all_seed(1)
 
 with ConfigManger(base_path=os.path.join(CONFIG_PATH, "base.yaml"))(scope="base") as config:
     model = UNet(num_classes=4, input_dim=1)
