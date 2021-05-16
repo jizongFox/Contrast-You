@@ -12,7 +12,7 @@ from contrastyou.losses.contrast_loss3 import SelfPacedSupConLoss, SupConLoss1
 from contrastyou.meters import MeterInterface, AverageValueMeter
 from semi_seg.arch.hook import SingleFeatureExtractor
 from semi_seg.mi_estimator.base import decoder_names, encoder_names
-from .utils import get_label
+from .utils import get_label, meter_focus
 
 
 class PScheduler(WeightScheduler):
@@ -118,10 +118,10 @@ class _INFONCEEpochHook(EpocherHook):
         self._criterion = criterion
         self._label_generator = label_generator
 
+    @meter_focus
     def configure_meters(self, meters: MeterInterface):
-        meters = super().configure_meters(meters)
-        with meters.focus_on(self._name):
-            meters.register_meter("loss", AverageValueMeter())
+        # meters = super().configure_meters(meters)
+        meters.register_meter("loss", AverageValueMeter())
 
     def before_forward_pass(self, **kwargs):
         self._extractor.clear()
@@ -130,6 +130,7 @@ class _INFONCEEpochHook(EpocherHook):
     def after_forward_pass(self, **kwargs):
         self._extractor.set_enable(False)
 
+    @meter_focus
     def __call__(self, *, affine_transformer, seed, unlabeled_tf_logits, unlabeled_logits_tf, partition_group,
                  label_group, **kwargs):
         n_unl = len(unlabeled_logits_tf)
@@ -141,6 +142,5 @@ class _INFONCEEpochHook(EpocherHook):
             self._projector(torch.cat([proj_feature_tf, proj_tf_feature], dim=0)), 2)
         labels = self._label_generator(partition_group=partition_group, label_group=label_group)
         loss = self._criterion(norm_feature_tf, norm_tf_feature, target=labels)
-        with self.meters.focus_on(self._name):
-            self.meters["loss"].add(loss.item())
+        self.meters["loss"].add(loss.item())
         return loss * self._weight

@@ -2,6 +2,7 @@ from torch import nn
 
 from contrastyou.hooks.base import TrainerHook, EpocherHook
 from contrastyou.meters import AverageValueMeter, MeterInterface
+from .utils import meter_focus
 
 
 class ConsistencyTrainerHook(TrainerHook):
@@ -21,9 +22,9 @@ class _ConsistencyEpocherHook(EpocherHook):
         self._weight = weight
         self._criterion = criterion
 
+    @meter_focus
     def configure_meters(self, meters: MeterInterface):
-        with self.meters.focus_on(self._name):
-            self.meters.register_meter("loss", AverageValueMeter())
+        self.meters.register_meter("loss", AverageValueMeter())
 
     def __call__(self, *, unlabeled_tf_logits, unlabeled_logits_tf, seed, affine_transformer, **kwargs):
         unlabeled_tf_prob = unlabeled_tf_logits.softmax(1)

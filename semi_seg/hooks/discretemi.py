@@ -7,6 +7,7 @@ from torch import nn
 from contrastyou.hooks.base import TrainerHook, EpocherHook
 from contrastyou.meters import AverageValueMeter
 from semi_seg.arch.hook import SingleFeatureExtractor
+from semi_seg.hooks.utils import meter_focus
 from semi_seg.mi_estimator.base import decoder_names, encoder_names
 
 
@@ -80,9 +81,9 @@ class _DiscreteMIEpochHook(EpocherHook):
         self._projector = projector
         self._criterion = criterion
 
+    @meter_focus
     def configure_meters(self, meters):
-        with meters.focus_on(self._name):
-            meters.register_meter("mi", AverageValueMeter())
+        meters.register_meter("mi", AverageValueMeter())
 
     def before_forward_pass(self, **kwargs):
         self._extractor.clear()
@@ -91,6 +92,7 @@ class _DiscreteMIEpochHook(EpocherHook):
     def after_forward_pass(self, **kwargs):
         self._extractor.set_enable(False)
 
+    @meter_focus
     def __call__(self, *, unlabeled_image, affine_transformer, seed, **kwargs):
         n_unl = len(unlabeled_image)
         feature_ = self._extractor.feature()[-n_unl * 2:]
@@ -104,10 +106,8 @@ class _DiscreteMIEpochHook(EpocherHook):
                 torch.cat([proj_feature_tf, proj_tf_feature], dim=0)
             )])
         )
-
         loss = sum([self._criterion(x1, x2) for x1, x2 in zip(prob1, prob2)]) / len(prob1)
-        with self.meters.focus_on(self._name):
-            self.meters["mi"].add(loss.item())
+        self.meters["mi"].add(loss.item())
         return loss * self._weight
 
     def close(self):

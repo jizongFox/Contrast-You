@@ -1,7 +1,7 @@
 from contrastyou.hooks.base import CombineTrainerHook
 from .consistency import ConsistencyTrainerHook
-from .discrete_mi import DiscreteMITrainHook
-from .infonce_mi import SelfPacedINFONCEHook
+from .discretemi import DiscreteMITrainHook
+from .infonce import SelfPacedINFONCEHook
 
 
 def create_iic_hook(feature_names, iic_weights, consistency_weight, model):

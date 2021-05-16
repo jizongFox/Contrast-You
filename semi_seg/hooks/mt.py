@@ -7,6 +7,7 @@ from torch import nn
 
 from contrastyou.hooks.base import TrainerHook, EpocherHook
 from contrastyou.meters import AverageValueMeter, MeterInterface
+from semi_seg.hooks import meter_focus
 
 
 class MeanTeacherTrainerHook(TrainerHook):
@@ -37,10 +38,11 @@ class _MeanTeacherEpocherHook(EpocherHook):
         self._teacher_model = teacher_model
         self._updater = updater
 
+    @meter_focus
     def configure_meters(self, meters: MeterInterface):
-        with self.meters.focus_on(self._name):
-            self.meters.register_meter("loss", AverageValueMeter())
+        self.meters.register_meter("loss", AverageValueMeter())
 
+    @meter_focus
     def __call__(self, *, unlabeled_tf_logits, unlabeled_image, seed, affine_transformer,
                  **kwargs):
         student_unlabeled_tf_prob = unlabeled_tf_logits.softmax(1)
@@ -48,7 +50,6 @@ class _MeanTeacherEpocherHook(EpocherHook):
         with FixRandomSeed(seed):
             teacher_unlabeled_prob_tf = torch.stack([affine_transformer(x) for x in teacher_unlabeled_prob], dim=0)
         loss = self._criterion(teacher_unlabeled_prob_tf, student_unlabeled_tf_prob)
-        with self.meters.focus_on(self._name):
-            self.meters["loss"].add(loss.item())
+        self.meters["loss"].add(loss.item())
         self._updater(ema_model=self._teacher_model, student_model=self.epocher._model)  # noqa
         return self._weight * loss

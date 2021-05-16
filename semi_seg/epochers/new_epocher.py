@@ -22,7 +22,7 @@ from semi_seg.epochers.helper import preprocess_input_with_twice_transformation,
 from semi_seg.utils import _num_class_mixin
 
 
-class EpocherBase(_EpocherBase, _num_class_mixin):
+class EpocherBase(_EpocherBase, _num_class_mixin, ABC):
 
     def init(self):
         self._assertion()
