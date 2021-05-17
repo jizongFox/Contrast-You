@@ -85,26 +85,31 @@ class SelfPacedINFONCEHook(INFONCEHook):
 
     def __init__(self, *, name, model: nn.Module, feature_name: str, weight: float = 1.0, spatial_size=(1, 1),
                  data_name: str, contrast_on: str, mode="soft", p=0.5, begin_value=1e6, end_value=1e6,
-                 max_epoch: int) -> None:
+                 correct_grad: bool = False, max_epoch: int) -> None:
         self._mode = mode
         self._p = float(p)
         self._begin_value = float(begin_value)
         self._end_value = float(end_value)
         self._max_epoch = int(max_epoch)
+        self._correct_grad = correct_grad
         super().__init__(name=name, model=model, feature_name=feature_name, weight=weight, spatial_size=spatial_size,
                          data_name=data_name, contrast_on=contrast_on)
 
     def init_criterion(self):
         self._scheduler = PScheduler(max_epoch=self._max_epoch, begin_value=self._begin_value,
                                      end_value=self._end_value, p=self._p)
-        self._criterion = SelfPacedSupConLoss(weight_update=self._mode)
+        self._criterion = SelfPacedSupConLoss(weight_update=self._mode, correct_grad=self._correct_grad)
         return self._criterion
 
     def __call__(self):
         gamma = self._scheduler.value
         self._scheduler.step()
         self._criterion.set_gamma(gamma)
-        return super().__call__()
+        hook = _SPINFONCEEpochHook(
+            name=self._hook_name, weight=self._weight, extractor=self._extractor, projector=self._projector,
+            criterion=self._criterion, label_generator=self._label_generator
+        )
+        return hook
 
 
 class _INFONCEEpochHook(EpocherHook):
@@ -120,8 +125,9 @@ class _INFONCEEpochHook(EpocherHook):
 
     @meter_focus
     def configure_meters(self, meters: MeterInterface):
-        # meters = super().configure_meters(meters)
+        meters = super().configure_meters(meters)
         meters.register_meter("loss", AverageValueMeter())
+        return meters
 
     def before_forward_pass(self, **kwargs):
         self._extractor.clear()
@@ -144,3 +150,23 @@ class _INFONCEEpochHook(EpocherHook):
         loss = self._criterion(norm_feature_tf, norm_tf_feature, target=labels)
         self.meters["loss"].add(loss.item())
         return loss * self._weight
+
+    def close(self):
+        self._extractor.remove()
+
+
+class _SPINFONCEEpochHook(_INFONCEEpochHook):
+    @meter_focus
+    def configure_meters(self, meters: MeterInterface):
+        meters = super().configure_meters(meters)
+        meters.register_meter("sp_weight", AverageValueMeter())
+        return meters
+
+    @meter_focus
+    def __call__(self, *, affine_transformer, seed, unlabeled_tf_logits, unlabeled_logits_tf, partition_group,
+                 label_group, **kwargs):
+        loss = super().__call__(affine_transformer=affine_transformer, seed=seed,
+                                unlabeled_tf_logits=unlabeled_tf_logits, unlabeled_logits_tf=unlabeled_logits_tf,
+                                partition_group=partition_group, label_group=label_group, **kwargs)
+        self.meters["sp_weight"].add(self._criterion.downgrade_ratio)
+        return loss

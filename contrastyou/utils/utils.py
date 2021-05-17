@@ -5,11 +5,13 @@ import os
 import random
 import warnings
 from contextlib import contextmanager
+from itertools import repeat
 from typing import Union, Dict
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from torch._six import container_abcs
 from torch.utils.data.dataloader import DataLoader, _BaseDataLoaderIter  # noqa
 
 
@@ -170,3 +172,27 @@ def fix_all_seed_within_context(seed):
     if cuda_support:
         torch.cuda.set_rng_state(torch_cuda_state)
         torch.cuda.set_rng_state_all(torch_cuda_state_all)
+
+
+def ntuple(n):
+    def parse(x):
+        if isinstance(x, str):
+            return tuple(repeat(x, n))
+        if isinstance(x, container_abcs.Iterable):
+            x = list(x)
+            if len(x) == 1:
+                return tuple(repeat(x[0], n))
+            else:
+                if len(x) != n:
+                    raise RuntimeError(f"inconsistent shape between {x} and {n}")
+            return x
+
+        return tuple(repeat(x, n))
+
+    return parse
+
+
+_single = ntuple(1)
+_pair = ntuple(2)
+_triple = ntuple(3)
+_quadruple = ntuple(4)

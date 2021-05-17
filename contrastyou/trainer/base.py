@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import List, Union, Dict, Any
+from typing import Dict, Any
 
 import torch
 from deepclustering2 import optim
@@ -50,11 +50,10 @@ class Trainer(_DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
         assert isinstance(hook, TrainerHook), hook
         self.__hooks__.append(hook)
 
-    def register_hooks(self, hooks: Union[TrainerHook, List[TrainerHook]]):
+    def register_hooks(self, *hook: TrainerHook):
         if self.__initialized__:
             raise RuntimeError("`register_hook must be called before `init()``")
-        hooks = hooks if isinstance(hooks, (list, tuple)) else [hooks, ]
-        for h in hooks:
+        for h in hook:
             assert isinstance(h, TrainerHook), h
             self.register_hook(h)
 

@@ -52,7 +52,7 @@ class SingleFeatureExtractor:
         self.__bind_done__ = False
 
     def bind(self):
-        logger.opt(depth=2).trace(f"binding {self._feature_name}")
+        logger.opt(depth=3).trace(f"Binding {self.__class__.__name__}@{self._feature_name}")
         model = self._model
         extractor = _FeatureCollector()
         handler = getattr(model, "_" + self._feature_name).register_forward_hook(extractor)
@@ -61,7 +61,7 @@ class SingleFeatureExtractor:
         self.__bind_done__ = True
 
     def remove(self):
-        logger.opt(depth=2).trace(f"Remove {self.__class__.__name__}")
+        logger.opt(depth=3).trace(f"Remove {self.__class__.__name__}@{self._feature_name}")
         self._hook_handler.remove()
         self.__bind_done__ = False
 

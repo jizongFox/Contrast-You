@@ -20,7 +20,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from contrastyou.losses.contrast_loss2 import is_normalized, SupConLoss1
-from contrastyou.losses.iic_loss import _ntuple  # noqa
+from contrastyou.utils.utils import ntuple
 from contrastyou.projectors.heads import ProjectionHead
 from contrastyou.projectors.nn import Normalize
 from contrastyou.utils import average_iter, weighted_average_iter
@@ -544,7 +544,7 @@ class InfoNCEEpocher(_InfoNCEBasedEpocher):
 
     @lru_cache()
     def generate_relation_masks(self, output_size) -> Tensor:
-        _pair = _ntuple(2)
+        _pair = ntuple(2)
         output_size = _pair(output_size)
         size = output_size[0] * output_size[1]
         mask = torch.zeros(size, size, dtype=torch.float, device=self._device)

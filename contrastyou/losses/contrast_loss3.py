@@ -3,11 +3,8 @@ from contextlib import contextmanager
 from typing import Tuple
 
 import matplotlib
-import matplotlib.pyplot as plt
 import torch
 from deepclustering2.configparser._utils import get_config  # noqa
-from deepclustering2.meters2 import AverageValueMeter
-from deepclustering2.writer import SummaryWriter
 from loguru import logger
 from torch import Tensor, nn
 
@@ -112,56 +109,19 @@ class SupConLoss1(nn.Module):
             raise RuntimeError(loss)
         return loss
 
-    @contextmanager
-    def register_writer(self, writer: SummaryWriter, epoch=0, extra_tag=None):
-        yield
-        sim_exp = self.sim_exp.detach().cpu().numpy()
-        sim_logits = self.sim_logits.detach().cpu().numpy()
-        pos_mask = self.pos_mask.detach().cpu().numpy()
-        neg_mask = self.neg_mask.detach().cpu().numpy()
-        with switch_plt_backend("agg"):
-            fig1 = plt.figure()
-            plt.imshow(sim_exp, cmap="gray")
-            plt.colorbar()
-            dest = "/".join([x for x in [extra_tag, "sim_exp"] if x is not None])
-            writer.add_figure(tag=dest, figure=fig1, global_step=epoch)
-            fig1 = plt.figure()
-            plt.imshow(sim_logits, cmap="gray")
-            plt.colorbar()
-            dest = "/".join([x for x in [extra_tag, "sim_logits"] if x is not None])
-            writer.add_figure(tag=dest, figure=fig1, global_step=epoch)
-            fig1 = plt.figure()
-            plt.imshow(pos_mask, cmap="gray")
-            plt.colorbar()
-            dest = "/".join([x for x in [extra_tag, "pos_mask"] if x is not None])
-            writer.add_figure(tag=dest, figure=fig1, global_step=epoch)
-            fig1 = plt.figure()
-            plt.imshow(neg_mask, cmap="gray")
-            plt.colorbar()
-            dest = "/".join([x for x in [extra_tag, "neg_mask"] if x is not None])
-            writer.add_figure(tag=dest, figure=fig1, global_step=epoch)
-
-    def epoch_start(self):
-        pass
-
-    def epoch_end(self):
-        return {}
-
 
 class SelfPacedSupConLoss(nn.Module):
     def __repr__(self):
         message = f"{self.__class__.__name__} with T: {self._t}, method: {self._weight_update} gamma: {self.__gamma}"
         return message
 
-    def __init__(self, temperature=0.07, weight_update="hard", **kwargs):
+    def __init__(self, temperature=0.07, weight_update="hard", correct_grad=False, **kwargs):
         super().__init__()
         self._t = temperature
         self._weight_update = weight_update
         self.__gamma = 1e6
-        self._scheduler_type = type
-        logger.info(f"initializing {self.__class__.__name__} with t: {self._t} ")
-
-        self._scheduler_tracker = AverageValueMeter()
+        self._correct_grad = correct_grad
+        logger.info(f"initializing {self.__class__.__name__} with t: {self._t}, cor_grad: {self._correct_grad} ")
 
     def forward(self, proj_feat1, proj_feat2, target=None, mask: Tensor = None, **kwargs):
         batch_size = proj_feat1.size(0)
@@ -224,80 +184,37 @@ class SelfPacedSupConLoss(nn.Module):
         log_pos_div_sum_pos_neg = sim_logits - torch.log(pos_sum + neg_sum + 1e-16)
         assert log_pos_div_sum_pos_neg.shape == torch.Size([batch_size * 2, batch_size * 2])
 
-        log_pos_div_sum_pos_neg = self._selfpaced_weighted_loss(log_pos_div_sum_pos_neg, gamma, pos_mask=pos_mask)
+        self_paced_mask = self._self_paced_mask(log_pos_div_sum_pos_neg, gamma, pos_mask=pos_mask)
+        batch_downgrade_ratio = torch.masked_select(self_paced_mask, pos_mask.bool()).mean().item()
+
+        self.downgrade_ratio = batch_downgrade_ratio
+
+        log_pos_div_sum_pos_neg *= self_paced_mask
 
         # over positive mask
         loss = (log_pos_div_sum_pos_neg * pos_mask).sum(1) / pos_count
         loss = -loss.mean()
 
-        if torch.isnan(loss):
+        if self._correct_grad:
+            if batch_downgrade_ratio > 0:
+                loss /= batch_downgrade_ratio
+
+        if torch.isnan(loss) or not loss.requires_grad:
             raise RuntimeError(loss)
         return loss
 
-    def _selfpaced_weighted_loss(self, loglikelihoodmatrix, gamma, *, pos_mask):
-        l_i_j = -loglikelihoodmatrix.detach()
-        weight: Tensor
+    @torch.no_grad()
+    def _self_paced_mask(self, llh_matrix, gamma, *, pos_mask):
+        l_i_j = -llh_matrix
         if self._weight_update == "hard":
-            weight = (l_i_j <= gamma).float()
+            _weight = (l_i_j <= gamma).float()
         else:
-            weight = torch.max(1 - 1 / gamma * l_i_j, torch.zeros_like(l_i_j))
-        self.weight = weight  # * pos_mask
-        assert torch.logical_and(weight >= 0, weight <= 1).any()
-
-        return loglikelihoodmatrix * weight
-
-    @contextmanager
-    def register_writer(self, writer: SummaryWriter, epoch=0, extra_tag=None):
-        yield
-        sim_exp = self.sim_exp.detach().cpu().numpy()
-        sim_logits = self.sim_logits.detach().cpu().numpy()
-        pos_mask = self.pos_mask.detach().cpu().numpy()
-        neg_mask = self.neg_mask.detach().cpu().numpy()
-        weight_mask = self.weight.detach().cpu().numpy()
-        with switch_plt_backend("agg"):
-            fig1 = plt.figure()
-            plt.imshow(sim_exp, cmap="gray")
-            plt.colorbar()
-            dest = "/".join([x for x in [extra_tag, "sim_exp"] if x is not None])
-            writer.add_figure(tag=dest, figure=fig1, global_step=epoch)
-            fig1 = plt.figure()
-            plt.imshow(sim_logits, cmap="gray")
-            plt.colorbar()
-            dest = "/".join([x for x in [extra_tag, "sim_logits"] if x is not None])
-            writer.add_figure(tag=dest, figure=fig1, global_step=epoch)
-            fig1 = plt.figure()
-            plt.imshow(pos_mask, cmap="gray")
-            plt.colorbar()
-            dest = "/".join([x for x in [extra_tag, "pos_mask"] if x is not None])
-            writer.add_figure(tag=dest, figure=fig1, global_step=epoch)
-            fig1 = plt.figure()
-            plt.imshow(neg_mask, cmap="gray")
-            plt.colorbar()
-            dest = "/".join([x for x in [extra_tag, "neg_mask"] if x is not None])
-            writer.add_figure(tag=dest, figure=fig1, global_step=epoch)
-            fig1 = plt.figure()
-            plt.imshow(weight_mask, cmap="gray")
-            plt.colorbar()
-            dest = "/".join([x for x in [extra_tag, "self-paced"] if x is not None])
-            writer.add_figure(tag=dest, figure=fig1, global_step=epoch)
-
-    def epoch_start(self):
-        gamma = self._scheduler.value
-        self._scheduler_tracker.reset()
-        self._scheduler_tracker.add(gamma)
-        self.set_gamma(gamma)
-        self._chosen_percentage_meter.reset()
-        self._real_chosen_percentage_meter.reset()
-
-    def epoch_end(self):
-        self._scheduler.step()
-        return {"chosen_percentage": self._chosen_percentage_meter.summary(),
-                "real_percentage": self._real_chosen_percentage_meter.summary(),
-                "gamma": self._scheduler_tracker.summary()}
+            _weight = torch.max(1 - 1 / gamma * l_i_j, torch.zeros_like(l_i_j))
+        return torch.max(_weight, 1 - pos_mask)
 
     def set_gamma(self, gamma):
-        logger.debug(f"{self.__class__.__name__} set gamma as {gamma}")
-        self.__gamma = gamma
+        logger.trace(f"{self.__class__.__name__} set gamma as {gamma}")
+        self.__gamma = float(gamma)
 
 
 if __name__ == '__main__':

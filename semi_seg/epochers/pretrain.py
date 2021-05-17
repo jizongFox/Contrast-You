@@ -6,7 +6,6 @@ from deepclustering2.configparser._utils import get_config  # noqa
 from deepclustering2.decorator.decorator import _disable_tracking_bn_stats as disable_bn  # noqa
 from torch import Tensor
 
-from contrastyou.losses.iic_loss import _ntuple  # noqa
 from semi_seg.epochers import unl_extractor, ProjectionHead
 from ._mixins import _PretrainEpocherMixin, _PretrainMonitorEpocherMxin
 from .comparable import InfoNCEEpocher

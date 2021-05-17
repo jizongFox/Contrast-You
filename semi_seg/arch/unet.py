@@ -9,7 +9,7 @@ from torch import nn
 
 from .utils import get_requires_grad, get_bn_track
 
-__all__ = ["UNet", "arch_order", "get_channel_dim"]
+__all__ = ["UNet", "arch_order", "get_channel_dim", "sort_arch"]
 
 
 @lru_cache()

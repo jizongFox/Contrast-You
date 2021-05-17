@@ -84,7 +84,9 @@ class EpocherBase(_DDPMixin, metaclass=ABCMeta):
         self.to(self.device)  # put all things into the same device
         with self._register_meters(), \
             self._register_indicator():
-            return self._run(**kwargs)
+            run_result = self._run(**kwargs)
+        self.close_hooks()
+        return run_result
 
     def get_metric(self) -> Dict[str, Dict[str, float]]:
         return dict(self.meters.statistics())

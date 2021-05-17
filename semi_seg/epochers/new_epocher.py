@@ -228,8 +228,10 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
         return (image, image_ct), target, filename, partition, group
 
     def _regularization(self, **kwargs):
-        reg_losses = [h(**kwargs) for h in self._hooks]
-        return sum(reg_losses)
+        if len(self._hooks) > 0:
+            reg_losses = [h(**kwargs) for h in self._hooks]
+            return sum(reg_losses)
+        return torch.tensor(0, device=self.device, dtype=torch.float)
 
 
 class FineTuneEpocher(SemiSupervisedEpocher, ABC):

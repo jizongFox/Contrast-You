@@ -1,5 +1,4 @@
 import sys
-from itertools import repeat
 
 import numpy as np
 import torch
@@ -12,28 +11,7 @@ from torch._six import container_abcs  # noqa
 from torch.nn import functional as F
 
 from contrastyou.utils import average_iter
-
-
-def _ntuple(n):
-    def parse(x):
-        if isinstance(x, str):
-            return tuple(repeat(x, n))
-        if isinstance(x, container_abcs.Iterable):
-            x = list(x)
-            if len(x) == 1:
-                return tuple(repeat(x[0], n))
-            else:
-                if len(x) != n:
-                    raise RuntimeError(f"inconsistent shape between {x} and {n}")
-            return x
-
-    return parse
-
-
-_single = _ntuple(1)
-_pair = _ntuple(2)
-_triple = _ntuple(3)
-_quadruple = _ntuple(4)
+from contrastyou.utils.utils import _pair
 
 
 class IIDLoss(nn.Module):
@@ -78,7 +56,7 @@ class IIDSegmentationLoss(nn.Module):
         self, lamda=1.0, padding=7, eps: float = sys.float_info.epsilon
     ) -> None:
         super(IIDSegmentationLoss, self).__init__()
-        print(colored(f"Initialize {self.__class__.__name__}.", "green"))
+        logger.trace(f"Initialize {self.__class__.__name__} with padding = {padding}.")
         self.lamda = lamda
         self.padding = padding
         self.eps = eps

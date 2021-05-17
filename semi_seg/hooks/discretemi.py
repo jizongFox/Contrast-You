@@ -42,9 +42,9 @@ class DiscreteMITrainHook(TrainerHook):
     def init_criterion(self, padding: int = None):
         if self._feature_name in encoder_names:
             return self._init_criterion()
-        return self._init_dense_criterion(padding=padding or 1)
+        return self._init_dense_criterion(padding=padding or 0)
 
-    def _init_dense_criterion(self, padding: int = 3):
+    def _init_dense_criterion(self, padding: int = 0):
         criterion = self.criterion_class(padding=padding)
         return criterion
 
