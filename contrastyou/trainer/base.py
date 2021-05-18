@@ -101,18 +101,17 @@ class Trainer(_DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
                 if self.on_master():
                     inference_model = self._inference_model
                     eval_metrics, cur_score = self.run_eval_epoch(model=inference_model, loader=self._val_loader)
-                    self.save_to(save_name="last.pth")
-
-                test_metrics = {}
+                    test_metrics, _ = self.run_eval_epoch(model=inference_model, loader=self._test_loader)
 
                 best_case_sofa = self._best_score < cur_score
                 if best_case_sofa:
                     self._best_score = cur_score
-                    if self.on_master():
-                        self.save_to(save_name="best.pth")
-                        test_metrics, _ = self.run_eval_epoch(model=inference_model, loader=self._test_loader)
+                if self.on_master() and best_case_sofa:
+                    self.save_to(save_name="best.pth")
 
                 if self.on_master():
+                    self.save_to(save_name="last.pth")
+
                     self._storage.add_from_meter_interface(tra=train_metrics, val=eval_metrics, test=test_metrics,
                                                            epoch=self._cur_epoch)
                     self._writer.add_scalars_from_meter_interface(tra=train_metrics, val=eval_metrics,

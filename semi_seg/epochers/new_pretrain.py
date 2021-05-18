@@ -91,7 +91,7 @@ class _PretrainEpocherMixin:
                 with torch.no_grad():
                     self.meters["reg_loss"].add(reg_loss.item())
                 report_dict = self.meters.statistics()
-                self.indicator.set_postfix_statics(report_dict, cache_time=10)
+                self.indicator.set_postfix_statics(report_dict, cache_time=20)
 
     def _forward_pass(self, unlabeled_image, unlabeled_image_tf):
         n_l, n_unl = 0, len(unlabeled_image)

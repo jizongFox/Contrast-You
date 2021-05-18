@@ -185,6 +185,7 @@ class SelfPacedSupConLoss(nn.Module):
         assert log_pos_div_sum_pos_neg.shape == torch.Size([batch_size * 2, batch_size * 2])
 
         self_paced_mask = self._self_paced_mask(log_pos_div_sum_pos_neg, gamma, pos_mask=pos_mask)
+        self.sp_mask = self_paced_mask
         batch_downgrade_ratio = torch.masked_select(self_paced_mask, pos_mask.bool()).mean().item()
 
         self.downgrade_ratio = batch_downgrade_ratio
@@ -241,7 +242,7 @@ if __name__ == '__main__':
     feature2 = torch.cat([anchor1 * (1 - alpha) + anchor3 * alpha for alpha in torch.linspace(0, 1, steps=100)], dim=0)
     feature1, feature2 = normalize(feature1, ), normalize(feature2)
 
-    target = [random.choice([0,]) for i in range(100)]
+    target = [random.choice([0, ]) for i in range(100)]
 
     self_paced_criterion = SelfPacedSupConLoss(temperature=0.07, weight_update="soft", correct_grad=False)
     self_paced_criterion.set_gamma(1e1)

@@ -8,6 +8,6 @@ def create_hook_from_config(model, config, is_pretrain=False):
     # info_hook = create_sp_infonce_hooks(model=model, feature_names=["Conv5", ], weights=0.1,
     #                                     contrast_ons=["partition", ], data_name="acdc", begin_values=1e6,
     #                                     end_values=1e6, mode="soft", max_epoch=10, correct_grad=True)
-    info_hook = create_infonce_hooks(model=model, feature_names=["Conv5", ], weights=0.1,
+    info_hook = create_infonce_hooks(model=model, feature_names=["Conv5", ], weights=1,
                                      contrast_ons=["partition", ], data_name="acdc")
     return (info_hook,)

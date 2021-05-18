@@ -1,6 +1,7 @@
 from functools import partial
 from typing import List
 
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from deepclustering2.decorator import FixRandomSeed
@@ -8,11 +9,21 @@ from deepclustering2.schedulers.customized_scheduler import WeightScheduler
 from torch import nn
 
 from contrastyou.hooks.base import TrainerHook, EpocherHook
-from contrastyou.losses.contrast_loss3 import SelfPacedSupConLoss, SupConLoss1
+from contrastyou.losses.contrast_loss3 import SelfPacedSupConLoss, SupConLoss1, switch_plt_backend
 from contrastyou.meters import MeterInterface, AverageValueMeter
+from contrastyou.writer import get_tb_writer
 from semi_seg.arch.hook import SingleFeatureExtractor
 from semi_seg.mi_estimator.base import decoder_names, encoder_names
 from .utils import get_label, meter_focus
+
+
+def figure2board(tensor, name, criterion, writer, epocher):
+    with switch_plt_backend("agg"):
+        fig1 = plt.figure()
+        plt.imshow(tensor, cmap="gray")
+        plt.colorbar()
+        dest = "/".join([criterion.__class__.__name__, name])
+        writer.add_figure(tag=dest, figure=fig1, global_step=epocher._cur_epoch)
 
 
 class PScheduler(WeightScheduler):
@@ -64,7 +75,7 @@ class INFONCEHook(TrainerHook):
         )
         return hook
 
-    def init_criterion(self):
+    def init_criterion(self) -> SupConLoss1:
         self._criterion = SupConLoss1()
         return self._criterion
 
@@ -95,7 +106,7 @@ class SelfPacedINFONCEHook(INFONCEHook):
         super().__init__(name=name, model=model, feature_name=feature_name, weight=weight, spatial_size=spatial_size,
                          data_name=data_name, contrast_on=contrast_on)
 
-    def init_criterion(self):
+    def init_criterion(self) -> SelfPacedSupConLoss:
         self._scheduler = PScheduler(max_epoch=self._max_epoch, begin_value=self._begin_value,
                                      end_value=self._end_value, p=self._p)
         self._criterion = SelfPacedSupConLoss(weight_update=self._mode, correct_grad=self._correct_grad)
@@ -114,7 +125,8 @@ class SelfPacedINFONCEHook(INFONCEHook):
 
 class _INFONCEEpochHook(EpocherHook):
 
-    def __init__(self, *, name: str, weight: float, extractor, projector, criterion, label_generator) -> None:
+    def __init__(self, *, name: str, weight: float, extractor, projector, criterion: SupConLoss1,
+                 label_generator) -> None:
         super().__init__(name)
         self._extractor = extractor
         self._extractor.bind()
@@ -122,6 +134,7 @@ class _INFONCEEpochHook(EpocherHook):
         self._projector = projector
         self._criterion = criterion
         self._label_generator = label_generator
+        self.__n = 0
 
     @meter_focus
     def configure_meters(self, meters: MeterInterface):
@@ -149,6 +162,17 @@ class _INFONCEEpochHook(EpocherHook):
         labels = self._label_generator(partition_group=partition_group, label_group=label_group)
         loss = self._criterion(norm_features_tf, norm_tf_features, target=labels)
         self.meters["loss"].add(loss.item())
+
+        sim_exp = self._criterion.sim_exp.detach().cpu()
+        sim_logits = self._criterion.sim_logits.detach().cpu()
+        pos_mask = self._criterion.pos_mask.cpu()
+        if self.__n == 0:
+            writer = get_tb_writer()
+            figure2board(pos_mask, "mask", self._criterion, writer, self.epocher)
+            figure2board(sim_exp, "sim_exp", self._criterion, writer, self.epocher)
+            figure2board(sim_logits, "sim_logits", self._criterion, writer, self.epocher)
+
+        self.__n += 1
         return loss * self._weight
 
     def close(self):
@@ -156,6 +180,8 @@ class _INFONCEEpochHook(EpocherHook):
 
 
 class _SPINFONCEEpochHook(_INFONCEEpochHook):
+    _criterion: SelfPacedSupConLoss
+
     @meter_focus
     def configure_meters(self, meters: MeterInterface):
         meters = super().configure_meters(meters)
@@ -169,4 +195,10 @@ class _SPINFONCEEpochHook(_INFONCEEpochHook):
                                 unlabeled_tf_logits=unlabeled_tf_logits, unlabeled_logits_tf=unlabeled_logits_tf,
                                 partition_group=partition_group, label_group=label_group, **kwargs)
         self.meters["sp_weight"].add(self._criterion.downgrade_ratio)
+
+        sp_mask = self._criterion.sp_mask
+        if self.__n == 1:
+            writer = get_tb_writer()
+            figure2board(sp_mask, "sp_mask", self._criterion, writer, self.epocher)
+
         return loss

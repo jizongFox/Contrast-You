@@ -5,7 +5,7 @@ Arch:
   input_dim: 1
   num_classes: 4
   checkpoint: null
-  max_channel: base
+  max_channel: 256
 
 Optim:
   name: RAdam

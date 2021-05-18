@@ -11,7 +11,7 @@ def OrderedDict2DataFrame(dictionary: Dict[int, Dict]):
     try:
         validated_table = pd.DataFrame(dictionary).T
     except ValueError:
-        validated_table = pd.DataFrame(dictionary, index=[]).T
+        validated_table = pd.DataFrame(dictionary, index=[""]).T
     return validated_table
 
 
