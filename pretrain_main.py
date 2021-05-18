@@ -12,7 +12,7 @@ from contrastyou.mytqdm.utils import is_iterable
 from contrastyou.types import is_map
 from contrastyou.utils import fix_all_seed_within_context, config_logger, set_deterministic, extract_model_state_dict
 from hook_creator import create_hook_from_config
-from semi_seg import ratio_zoom
+from semi_seg import ratio_zoo
 from semi_seg.arch import UNet
 from semi_seg.data.creator import get_data
 from semi_seg.hooks import feature_until_from_hooks
@@ -78,7 +78,7 @@ def main():
             model = worker(pretrain_config, absolute_save_dir, seed)
 
         val(model=model, save_dir=absolute_save_dir, base_config=base_config, seed=seed,
-            labeled_ratios=ratio_zoom[data_name])
+            labeled_ratios=ratio_zoo[data_name])
 
 
 def worker(config, absolute_save_dir, seed, ):
@@ -99,8 +99,8 @@ def worker(config, absolute_save_dir, seed, ):
                               criterion=KL_div(), config=config,
                               save_dir=os.path.join(absolute_save_dir, "pre"),
                               **{k: v for k, v in config["Trainer"].items() if k != "save_dir"})
-
-    hooks = create_hook_from_config(model, config, is_pretrain=True)
+    with fix_all_seed_within_context(seed):
+        hooks = create_hook_from_config(model, config, is_pretrain=True)
     trainer.register_hooks(*hooks)
     until = feature_until_from_hooks(*hooks)
     trainer.forward_until = until

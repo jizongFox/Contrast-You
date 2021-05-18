@@ -95,7 +95,7 @@ class Trainer(_DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
         start_epoch = max(self._cur_epoch + 1, self._start_epoch)
         self._cur_score: float
 
-        for self._cur_epoch in range(start_epoch, self._max_epoch):
+        for self._cur_epoch in range(start_epoch, self._max_epoch + 1):
             with self._storage:  # save csv each epoch
                 train_metrics = self.run_tra_epoch()
                 if self.on_master():

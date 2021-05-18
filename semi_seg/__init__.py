@@ -13,14 +13,14 @@ if on_cc():
     prostate_md_ratio = [0.06, 0.12, 0.24, 0.48, 1.0]  # 1, 2, 4, 8
     mmwhsmr_ratio = [0.12, 0.24, 0.45, 1.0]
 
-ratio_zoom = {
+ratio_zoo = {
     "acdc": acdc_ratios,
     "prostate": prostate_ratio,
     "prostate_md": prostate_md_ratio,
     "mmwhsct": mmwhsct_ratio,
     "mmwhsmr": mmwhsmr_ratio,
 }
-dataset_name2class_numbers = {
+data2class_numbers = {
     "acdc": 4,
     "prostate": 2,
     "prostate_md": 3,
@@ -29,7 +29,7 @@ dataset_name2class_numbers = {
     "mmwhsmr": 5,
 
 }
-dataset_name2input_dim = {
+data2input_dim = {
     "acdc": 1,
     "prostate": 1,
     "prostate_md": 1,

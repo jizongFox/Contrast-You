@@ -10,10 +10,12 @@ ft_lr=0.0000002
 save_dir=refactorize
 
 python pretrain_main.py Trainer.save_dir=${save_dir}/baseline Trainer.pre_max_epoch=0 Trainer.num_batches=${num_batches} \
-  Trainer.ft_max_epoch=${max_epoch} Optim.pre_lr=${pre_lr} Optim.ft_lr=${ft_lr} --opt-path config/pretrain.yaml
+  Trainer.ft_max_epoch=${max_epoch} Optim.pre_lr=${pre_lr} Optim.ft_lr=${ft_lr} \
+  --opt-path config/pretrain.yaml
 
 python pretrain_main.py Trainer.save_dir=${save_dir}/infonce Trainer.num_batches=${num_batches} \
-  Trainer.max_epoch=${max_epoch} Optim.pre_lr=${pre_lr} Optim.ft_lr=${ft_lr} --opt-path config/pretrain.yaml config/hooks/infonce.yaml
+  Trainer.max_epoch=${max_epoch} Optim.pre_lr=${pre_lr} Optim.ft_lr=${ft_lr} \
+  --opt-path config/pretrain.yaml config/hooks/infonce.yaml
 
 python pretrain_main.py Trainer.save_dir=${save_dir}/spinfonce/cg_true Trainer.num_batches=${num_batches} \
   Trainer.max_epoch=${max_epoch} Optim.pre_lr=${pre_lr} Optim.ft_lr=${ft_lr} \

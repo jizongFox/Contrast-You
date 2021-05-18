@@ -5,7 +5,7 @@ import argparse
 from deepclustering2.cchelper import JobSubmiter
 from deepclustering2.utils import load_yaml
 
-from semi_seg import ratio_zoom, dataset_name2class_numbers, ft_lr_zooms, dataset_name2input_dim
+from semi_seg import ratio_zoo, data2class_numbers, ft_lr_zooms, data2input_dim
 from semi_seg.scripts.helper import __git_hash__, dump_config, \
     run_jobs
 
@@ -52,7 +52,7 @@ entropy.add_argument("--ent_weight", default=0.01, type=str, help="entropy minim
 
 args = parser.parse_args()
 
-labeled_ratios = ratio_zoom[args.dataset_name]
+labeled_ratios = ratio_zoo[args.dataset_name]
 
 if 1.0 in labeled_ratios:
     labeled_ratios.remove(1.0)
@@ -61,8 +61,8 @@ if 1.0 in labeled_ratios:
 dataset_name = args.dataset_name
 num_batches = args.num_batches
 random_seed = args.random_seed
-num_classes = dataset_name2class_numbers[args.dataset_name]
-input_dim = dataset_name2input_dim[args.dataset_name]
+num_classes = data2class_numbers[args.dataset_name]
+input_dim = data2input_dim[args.dataset_name]
 lr = args.lr or f"{ft_lr_zooms[args.dataset_name]:.10f}"
 
 save_dir = args.save_dir

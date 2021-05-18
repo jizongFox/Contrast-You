@@ -217,6 +217,10 @@ class SelfPacedSupConLoss(nn.Module):
         logger.trace(f"{self.__class__.__name__} set gamma as {gamma}")
         self.__gamma = float(gamma)
 
+    @property
+    def age_param(self):
+        return self.__gamma
+
 
 if __name__ == '__main__':
     """ verify the SupContrastLoss1 

@@ -11,7 +11,7 @@ from loguru import logger
 
 from contrastyou import PROJECT_PATH, success
 from contrastyou.utils import extract_model_state_dict, fix_all_seed_within_context, set_deterministic
-from semi_seg import ratio_zoom, ft_lr_zooms, pre_lr_zooms
+from semi_seg import ratio_zoo, ft_lr_zooms, pre_lr_zooms
 from semi_seg.arch import UNet, arch_order
 from semi_seg.data import get_data_loaders, create_val_loader
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos, FineTuneTrainer
@@ -143,7 +143,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
 
     with fix_all_seed_within_context(seed):
         pre_trainer, model, _ = pretrain()
-    ratios = ratio_zoom[config["Data"]["name"]]
+    ratios = ratio_zoo[config["Data"]["name"]]
     for labeled_ratio in ratios:
         with fix_all_seed_within_context(seed):
             finetune(labeled_ratio)

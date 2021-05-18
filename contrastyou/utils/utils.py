@@ -126,11 +126,10 @@ def set_deterministic(enable=True):
     try:
         torch.use_deterministic_algorithms(enable)
     except:
-        pass
-    try:
-        torch.set_deterministic(enable)
-    except:
-        pass
+        try:
+            torch.set_deterministic(enable)
+        finally:
+            return
 
 
 def fix_all_seed(seed):

@@ -1,6 +1,12 @@
 from semi_seg.hooks import create_infonce_hooks, create_sp_infonce_hooks
 
 
+def _hook_config_validator(config, is_pretrain):
+    if is_pretrain:
+        """Do not accept MeanTeacher and Consistency"""
+        pass
+
+
 def create_hook_from_config(model, config, is_pretrain=False):
     data_name = config["Data"]["name"]
     max_epoch = config["Trainer"]["max_epoch"]

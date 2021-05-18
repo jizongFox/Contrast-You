@@ -54,9 +54,9 @@ def worker(config, absolute_save_dir, seed, ):
                       save_dir=absolute_save_dir,
                       **{k: v for k, v in config["Trainer"].items() if k != "save_dir" and k != "name"})
 
-    hooks = create_hook_from_config(model, config, is_pretrain=is_pretrain)
-
     if trainer_name != "ft":
+        with fix_all_seed_within_context(seed):
+            hooks = create_hook_from_config(model, config, is_pretrain=is_pretrain)
         trainer.register_hooks(*hooks)
 
     if is_pretrain:

@@ -12,7 +12,7 @@ from loguru import logger
 from contrastyou import PROJECT_PATH
 from contrastyou.arch import UNet
 from contrastyou.utils import extract_model_state_dict
-from semi_seg import ratio_zoom
+from semi_seg import ratio_zoo
 from semi_seg.helper import semi_train
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos
 
@@ -44,7 +44,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
         logger.info(f"loading checkpoint from  {model_checkpoint}")
         model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=True)
 
-    ratios = ratio_zoom[config["Data"]["name"]]
+    ratios = ratio_zoo[config["Data"]["name"]]
     trainer_name = config["Trainer"]["name"]
     semi_train(model=model, label_ratios=ratios, config=config, seed=seed, save_dir=save_dir,
                trainer_name=trainer_name)

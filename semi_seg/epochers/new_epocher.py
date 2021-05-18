@@ -150,6 +150,10 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
                 self._unzip_data(labeled_data, self._device)
             (unlabeled_image, unlabeled_image_cf), _, unlabeled_filename, unl_partition, unl_group = \
                 self._unzip_data(unlabeled_data, self._device)
+            if self.cur_batch_num < 5:
+                logger.trace(f"{self.__class__.__name__}--"
+                             f"cur_batch:{self.cur_batch_num}, labeled_filenames: {','.join(labeled_filename)}, "
+                             f"unlabeled_filenames: {','.join(unlabeled_filename)}")
 
             with FixRandomSeed(seed):
                 unlabeled_image_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_image_cf], dim=0)
@@ -256,6 +260,11 @@ class FineTuneEpocher(SemiSupervisedEpocher, ABC):
         for self.cur_batch_num, labeled_data in zip(self.indicator, self._labeled_loader):
             (labeled_image, _), labeled_target, labeled_filename, _, label_group = \
                 self._unzip_data(labeled_data, self._device)
+
+            if self.cur_batch_num < 5:
+                logger.trace(f"{self.__class__.__name__}--"
+                             f"cur_batch:{self.cur_batch_num}, labeled_filenames: {','.join(labeled_filename)}, ")
+
             label_logits: Tensor = self.forward_pass(labeled_image=labeled_image)  # noqa
             # supervised part
             onehot_target = class2one_hot(labeled_target.squeeze(1), self.num_classes)

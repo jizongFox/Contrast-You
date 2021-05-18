@@ -39,6 +39,7 @@ def _get_contrastive_dataloader(partial_loader, contrastive_params):
 
     logger.opt(depth=2).debug(f"creating {dataset.__class__.__name__} contrastive dataset with "
                               f"{len(dataset.get_scan_list())} scans")
+
     if is_preload:
         dataset.preload()
 
@@ -51,6 +52,7 @@ def _get_contrastive_dataloader(partial_loader, contrastive_params):
     batch_size = contrastive_params["scan_sample_num"] * get_partition_num(data_name)
     sampler = InfiniteRandomSampler(dataset, shuffle=True)
 
+    logger.opt(depth=2).trace(f" with batch_size = {batch_size}, num_workers = {num_workers} ")
     if data_name == "acdc":
         # only group the acdc dataset
         batch_sampler = ContrastBatchSampler(dataset=dataset, **contrastive_params)

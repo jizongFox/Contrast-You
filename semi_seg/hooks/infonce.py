@@ -187,6 +187,7 @@ class _SPINFONCEEpochHook(_INFONCEEpochHook):
     def configure_meters(self, meters: MeterInterface):
         meters = super().configure_meters(meters)
         meters.register_meter("sp_weight", AverageValueMeter())
+        meters.register_meter("age_param", AverageValueMeter())
         return meters
 
     @meter_focus
@@ -196,6 +197,7 @@ class _SPINFONCEEpochHook(_INFONCEEpochHook):
                                 unlabeled_tf_logits=unlabeled_tf_logits, unlabeled_logits_tf=unlabeled_logits_tf,
                                 partition_group=partition_group, label_group=label_group, **kwargs)
         self.meters["sp_weight"].add(self._criterion.downgrade_ratio)
+        self.meters["age_param"].add(self._criterion.age_param)
 
         sp_mask = self._criterion.sp_mask
         if self._n == 1:

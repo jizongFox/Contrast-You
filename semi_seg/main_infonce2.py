@@ -11,7 +11,7 @@ from loguru import logger
 from contrastyou import PROJECT_PATH
 from contrastyou.arch import UNet
 from contrastyou.utils import extract_model_state_dict
-from semi_seg import ratio_zoom
+from semi_seg import ratio_zoo
 from semi_seg.helper import semi_train, pretrain  # noqa
 from semi_seg.trainers import pre_trainer_zoos, base_trainer_zoos
 
@@ -73,7 +73,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
     finetune_config["Trainer"]["max_epoch"] = int(ft_max_epoch or base_config["Trainer"]["max_epoch"])
     finetune_config["Scheduler"]["multiplier"] = int(base_config["Scheduler"]["multiplier"])
 
-    ratios = ratio_zoom[config["Data"]["name"]]
+    ratios = ratio_zoo[config["Data"]["name"]]
 
     semi_train(
         model=model, label_ratios=ratios, seed=seed, save_dir=save_dir, trainer_name="finetune", config=finetune_config
