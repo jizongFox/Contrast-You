@@ -1,5 +1,5 @@
 from functools import partial
-from typing import List
+from typing import List, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -20,10 +20,10 @@ from .utils import get_label, meter_focus
 def figure2board(tensor, name, criterion, writer, epocher):
     with switch_plt_backend("agg"):
         fig1 = plt.figure()
-        plt.imshow(tensor, cmap="gray")
+        plt.imshow(tensor.detach().cpu().numpy(), cmap="gray")
         plt.colorbar()
         dest = "/".join([criterion.__class__.__name__, name])
-        writer.add_figure(tag=dest, figure=fig1, global_step=epocher._cur_epoch)
+        writer.add_figure(tag=dest, figure=fig1, global_step=epocher._cur_epoch)  # noqa
 
 
 class PScheduler(WeightScheduler):
@@ -125,7 +125,8 @@ class SelfPacedINFONCEHook(INFONCEHook):
 
 class _INFONCEEpochHook(EpocherHook):
 
-    def __init__(self, *, name: str, weight: float, extractor, projector, criterion: SupConLoss1,
+    def __init__(self, *, name: str, weight: float, extractor, projector,
+                 criterion: Union[SupConLoss1, SelfPacedSupConLoss],
                  label_generator) -> None:
         super().__init__(name)
         self._extractor = extractor
@@ -134,7 +135,7 @@ class _INFONCEEpochHook(EpocherHook):
         self._projector = projector
         self._criterion = criterion
         self._label_generator = label_generator
-        self.__n = 0
+        self._n = 0
 
     @meter_focus
     def configure_meters(self, meters: MeterInterface):
@@ -163,16 +164,16 @@ class _INFONCEEpochHook(EpocherHook):
         loss = self._criterion(norm_features_tf, norm_tf_features, target=labels)
         self.meters["loss"].add(loss.item())
 
-        sim_exp = self._criterion.sim_exp.detach().cpu()
-        sim_logits = self._criterion.sim_logits.detach().cpu()
-        pos_mask = self._criterion.pos_mask.cpu()
-        if self.__n == 0:
+        sim_exp = self._criterion.sim_exp
+        sim_logits = self._criterion.sim_logits
+        pos_mask = self._criterion.pos_mask
+        if self._n == 0:
             writer = get_tb_writer()
             figure2board(pos_mask, "mask", self._criterion, writer, self.epocher)
             figure2board(sim_exp, "sim_exp", self._criterion, writer, self.epocher)
             figure2board(sim_logits, "sim_logits", self._criterion, writer, self.epocher)
 
-        self.__n += 1
+        self._n += 1
         return loss * self._weight
 
     def close(self):
@@ -197,7 +198,7 @@ class _SPINFONCEEpochHook(_INFONCEEpochHook):
         self.meters["sp_weight"].add(self._criterion.downgrade_ratio)
 
         sp_mask = self._criterion.sp_mask
-        if self.__n == 1:
+        if self._n == 1:
             writer = get_tb_writer()
             figure2board(sp_mask, "sp_mask", self._criterion, writer, self.epocher)
 
