@@ -196,3 +196,19 @@ _single = ntuple(1)
 _pair = ntuple(2)
 _triple = ntuple(3)
 _quadruple = ntuple(4)
+
+
+def config_logger(save_dir):
+    abs_save_dir = os.path.abspath(save_dir)
+    from loguru import logger
+    logger.add(os.path.join(abs_save_dir, "loguru.log"), level="TRACE", diagnose=True)
+
+
+def fix_seed(func):
+    functools.wraps(func)
+
+    def func_wrapper(*args, **kwargs):
+        with fix_all_seed_within_context(1):
+            return func(*args, **kwargs)
+
+    return func_wrapper

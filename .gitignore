@@ -15,7 +15,7 @@ cotra_idea/test/
 *.pptx
 */*.pptx
 semi_seg/transfer.sh
-
+runs*
 
 demo/MNIST/
 demo/cifar-10-batches-py/

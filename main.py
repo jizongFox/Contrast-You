@@ -1,54 +1,80 @@
 import os
 
-import torch
-from deepclustering2.configparser import ConfigManger
 from deepclustering2.loss import KL_div
+from loguru import logger
 
-from contrastyou import CONFIG_PATH
-from contrastyou.utils import fix_all_seed
+from contrastyou import CONFIG_PATH, success
+from contrastyou.config import ConfigManger
+from contrastyou.utils import fix_all_seed_within_context, config_logger, set_deterministic, extract_model_state_dict
+from hook_creator import create_hook_from_config
 from semi_seg.arch import UNet
-from semi_seg.data import get_data_loaders, create_val_loader
-from semi_seg.hooks import create_sp_infonce_hooks, create_discrete_mi_consistency_hook, feature_until_from_hooks
-from semi_seg.trainers.new_pretrain import SemiTrainer, PretrainTrainer
-from semi_seg.trainers.new_trainer import FineTuneTrainer
+from semi_seg.data.creator import get_data
+from semi_seg.hooks import feature_until_from_hooks
+from semi_seg.trainers.new_pretrain import PretrainTrainer
+from semi_seg.trainers.new_trainer import SemiTrainer, FineTuneTrainer  # noqa
 
 trainer_zoo = {"semi": SemiTrainer,
                "ft": FineTuneTrainer,
                "pretrain": PretrainTrainer}
 
-fix_all_seed(1)
 
-with ConfigManger(
-    base_path=os.path.join(CONFIG_PATH, "base.yaml"),
-    optional_paths=os.path.join(CONFIG_PATH, "specific", "pretrain.yaml"), strict=False,
-)(scope="base") as config:
-    checkpoint = config["Arch"].pop("checkpoint", None)
-    model = UNet(**config["Arch"])
-    if checkpoint:
-        model.load_state_dict(torch.load(checkpoint, map_location="cpu"))
+def main():
+    with ConfigManger(
+        base_path=os.path.join(CONFIG_PATH, "base.yaml"),
+    )(scope="base") as config:
+        seed = config.get("RandomSeed", 10)
+        _save_dir = config["Trainer"]["save_dir"]
+        absolute_save_dir = os.path.abspath(os.path.join(SemiTrainer.RUN_PATH, _save_dir))
+        config_logger(absolute_save_dir)
+        with fix_all_seed_within_context(seed):
+            worker(config, absolute_save_dir, seed)
 
-    labeled_loader, unlabeled_loader, test_loader = get_data_loaders(
-        data_params=config["Data"], labeled_loader_params=config["LabeledLoader"],
-        unlabeled_loader_params=config["UnlabeledLoader"], pretrain=True, group_test=True, total_freedom=True
-    )
-    val_loader, test_loader = create_val_loader(test_loader=test_loader)
+
+def worker(config, absolute_save_dir, seed, ):
+    model_checkpoint = config["Arch"].pop("checkpoint", None)
+    with fix_all_seed_within_context(seed):
+        model = UNet(**config["Arch"])
+    if model_checkpoint:
+        logger.info(f"loading checkpoint from  {model_checkpoint}")
+        model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=True)
+
     trainer_name = config["Trainer"]["name"]
+    is_pretrain = trainer_name == "pretrain"
+
+    labeled_loader, unlabeled_loader, val_loader, test_loader = get_data(
+        data_params=config["Data"], labeled_loader_params=config["LabeledLoader"],
+        unlabeled_loader_params=config["UnlabeledLoader"], pretrain=is_pretrain)
+
     Trainer = trainer_zoo[trainer_name]
+    checkpoint = config.get("trainer_checkpoint")
 
     trainer = Trainer(model=model, labeled_loader=labeled_loader, unlabeled_loader=unlabeled_loader,
                       val_loader=val_loader, test_loader=test_loader,
-                      criterion=KL_div(), config=config, **config["Trainer"])
+                      criterion=KL_div(), config=config,
+                      save_dir=absolute_save_dir,
+                      **{k: v for k, v in config["Trainer"].items() if k != "save_dir" and k != "name"})
 
-    iic_hook = create_discrete_mi_consistency_hook(model=model, feature_names=["Conv5", "Up_conv3", "Up_conv2"],
-                                                   mi_weights=[0.1, 0.05, 0.05], dense_paddings=[0, 1],
-                                                   consistency_weight=1.0)
-    info_hook = create_sp_infonce_hooks(model=model, feature_names=["Conv5", ], weights=0.1,
-                                        contrast_ons=["partition", ], data_name="acdc", begin_values=1e6,
-                                        end_values=1e6, mode="soft", max_epoch=10, correct_grad=True)
+    hooks = create_hook_from_config(model, config, is_pretrain=is_pretrain)
 
-    trainer.register_hooks(iic_hook)
+    if trainer_name != "ft":
+        trainer.register_hooks(*hooks)
 
-    trainer.forward_until = feature_until_from_hooks(iic_hook, )
+    if is_pretrain:
+        until = feature_until_from_hooks(*hooks)
+        trainer.forward_until = until
+        with model.set_grad(False, start=until, include_start=False):
+            trainer.init()
+            if checkpoint:
+                trainer.resume_from_path(checkpoint)
+            trainer.start_training()
+    else:
+        trainer.init()
+        if checkpoint:
+            trainer.resume_from_path(checkpoint)
+        trainer.start_training()
+    success(save_dir=trainer.save_dir)
 
-    trainer.init()
-    trainer.start_training()
+
+if __name__ == '__main__':
+    set_deterministic(True)
+    main()

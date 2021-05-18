@@ -7,11 +7,9 @@ from torch.utils.data import DataLoader
 from contrastyou import get_cc_data_path
 from contrastyou.data import DatasetBase, extract_sub_dataset_based_on_scan_names, InfiniteRandomSampler, \
     ScanBatchSampler
-from contrastyou.utils import fix_all_seed_within_context
+from contrastyou.utils import fix_all_seed_within_context, fix_seed
 from semi_seg.augment import ACDCStrongTransforms, SpleenStrongTransforms, ProstateStrongTransforms
 from semi_seg.data import ACDCDataset, ProstateDataset, mmWHSCTDataset, mmWHSMRDataset, ProstateMDDataset
-
-__all__ = ["create_dataset", "create_val_loader", "get_data_loaders"]
 
 data_zoo = {"acdc": ACDCDataset, "prostate": ProstateDataset, "prostate_md": ProstateMDDataset,
             "mmwhsct": mmWHSCTDataset, "mmwhsmr": mmWHSMRDataset}
@@ -20,6 +18,8 @@ augment_zoo = {
     "prostate": ProstateStrongTransforms, "mmwhsct": ACDCStrongTransforms, "mmwhsmr": ACDCStrongTransforms,
     "prostate_md": ProstateStrongTransforms,
 }
+
+__all__ = ["create_dataset", "create_val_loader", "get_data_loaders", "get_data"]
 
 
 def create_dataset(name: str, total_freedom: bool = True):
@@ -62,6 +62,7 @@ def split_dataset(dataset: DatasetBase, *ratios: float, seed: int = 1) -> List[D
 
 def create_infinite_loader(dataset, shuffle=True, num_workers: int = 8, batch_size: int = 4):
     sampler = InfiniteRandomSampler(dataset, shuffle=shuffle)
+
     loader = DataLoader(
         dataset, sampler=sampler, batch_size=batch_size, num_workers=num_workers, pin_memory=True
     )
@@ -129,3 +130,13 @@ def create_val_loader(*, test_loader) -> Tuple[DataLoader, DataLoader]:
     logger.trace(f"with {','.join(sorted(set(test_set.show_scan_names())))}")
 
     return val_dataloader, test_dataloader
+
+
+@fix_seed
+def get_data(data_params, labeled_loader_params, unlabeled_loader_params, pretrain=False):
+    labeled_loader, unlabeled_loader, test_loader = get_data_loaders(
+        data_params=data_params, labeled_loader_params=labeled_loader_params,
+        unlabeled_loader_params=unlabeled_loader_params, pretrain=pretrain, group_test=True, total_freedom=pretrain
+    )
+    val_loader, test_loader = create_val_loader(test_loader=test_loader)
+    return labeled_loader, unlabeled_loader, val_loader, test_loader

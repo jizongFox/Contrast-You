@@ -7,6 +7,7 @@ from contrastyou.utils.utils import ntuple
 from .consistency import ConsistencyTrainerHook
 from .discretemi import DiscreteMITrainHook
 from .infonce import SelfPacedINFONCEHook, INFONCEHook
+from ..arch import UNet
 from ..mi_estimator.base import decoder_names
 
 
@@ -25,7 +26,7 @@ def feature_until_from_hooks(*hooks) -> Union[str, None]:
     if len(feature_name_list) > 0:
         from semi_seg.arch import sort_arch
         return sort_arch(feature_name_list)[-1]
-    return None
+    return sorted(UNet.arch_elements)[-1]
 
 
 def create_consistency_hook(weight: float):

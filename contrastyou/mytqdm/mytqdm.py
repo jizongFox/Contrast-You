@@ -54,7 +54,7 @@ class tqdm(_tqdm):
 
     def log_result(self):
         if hasattr(self, "__cached__"):
-            logger.info(self.desc + "    " + create_meter_display(self.__cached__))
+            logger.opt(depth=3).info(self.desc + "    " + create_meter_display(self.__cached__))
 
     def __enter__(self):
         return self

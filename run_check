@@ -1,3 +1,0 @@
-#!/bin/bash
-python main.py Trainer.name=ft Data.name=acdc Data.labeled_data_ratio=0.05 Trainer.two_stage=false Trainer.save_dir=sanity_check/baseline
-python main.py Trainer.name=semi Data.name=acdc Data.labeled_data_ratio=0.05 Trainer.two_stage=false Trainer.save_dir=sanity_check/iic

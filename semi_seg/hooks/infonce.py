@@ -141,13 +141,13 @@ class _INFONCEEpochHook(EpocherHook):
                  label_group, **kwargs):
         n_unl = len(unlabeled_logits_tf)
         feature_ = self._extractor.feature()[-n_unl * 2:]
-        proj_feature, proj_tf_feature = torch.chunk(feature_, 2, dim=0)
+        unlabeled_features, unlabeled_tf_features = torch.chunk(feature_, 2, dim=0)
         with FixRandomSeed(seed):
-            proj_feature_tf = torch.stack([affine_transformer(x) for x in proj_feature], dim=0)
-        norm_feature_tf, norm_tf_feature = torch.chunk(
-            self._projector(torch.cat([proj_feature_tf, proj_tf_feature], dim=0)), 2)
+            unlabeled_features_tf = torch.stack([affine_transformer(x) for x in unlabeled_features], dim=0)
+        norm_features_tf, norm_tf_features = torch.chunk(
+            self._projector(torch.cat([unlabeled_features_tf, unlabeled_tf_features], dim=0)), 2)
         labels = self._label_generator(partition_group=partition_group, label_group=label_group)
-        loss = self._criterion(norm_feature_tf, norm_tf_feature, target=labels)
+        loss = self._criterion(norm_features_tf, norm_tf_features, target=labels)
         self.meters["loss"].add(loss.item())
         return loss * self._weight
 

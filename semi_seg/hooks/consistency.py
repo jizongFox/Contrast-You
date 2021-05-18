@@ -26,12 +26,12 @@ class _ConsistencyEpocherHook(EpocherHook):
     def configure_meters(self, meters: MeterInterface):
         self.meters.register_meter("loss", AverageValueMeter())
 
+    @meter_focus
     def __call__(self, *, unlabeled_tf_logits, unlabeled_logits_tf, seed, affine_transformer, **kwargs):
         unlabeled_tf_prob = unlabeled_tf_logits.softmax(1)
         unlabeled_prob_tf = unlabeled_logits_tf.softmax(1)
         loss = self._criterion(unlabeled_prob_tf.detach(), unlabeled_tf_prob)
-        with self.meters.focus_on(self._name):
-            self.meters["loss"].add(loss.item())
+        self.meters["loss"].add(loss.item())
         return self._weight * loss
 
 

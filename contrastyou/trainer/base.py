@@ -21,7 +21,7 @@ from ..writer import SummaryWriter
 
 
 class Trainer(_DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
-    RUN_PATH = str(Path(PROJECT_PATH) / "semi_seg" / "runs")  # noqa
+    RUN_PATH = str(Path(PROJECT_PATH) / "runs2")  # noqa
 
     def __init__(self, *, model: nn.Module, criterion: _criterion_type, tra_loader: _dataiter_type,
                  val_loader: _loader_type, save_dir: str, max_epoch: int = 100, num_batches: int = 100, device="cpu",
@@ -101,20 +101,25 @@ class Trainer(_DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
                 if self.on_master():
                     inference_model = self._inference_model
                     eval_metrics, cur_score = self.run_eval_epoch(model=inference_model, loader=self._val_loader)
-                    test_metrics, _ = self.run_eval_epoch(model=inference_model, loader=self._test_loader)
-                    self._storage.add_from_meter_interface(
-                        tra=train_metrics, val=eval_metrics, test=test_metrics, epoch=self._cur_epoch)
-                    self._writer.add_scalars_from_meter_interface(
-                        tra=train_metrics, val=eval_metrics, test=test_metrics, epoch=self._cur_epoch)
+                    self.save_to(save_name="last.pth")
+
+                test_metrics = {}
+
+                best_case_sofa = self._best_score < cur_score
+                if best_case_sofa:
+                    self._best_score = cur_score
+                    if self.on_master():
+                        self.save_to(save_name="best.pth")
+                        test_metrics, _ = self.run_eval_epoch(model=inference_model, loader=self._test_loader)
+
+                if self.on_master():
+                    self._storage.add_from_meter_interface(tra=train_metrics, val=eval_metrics, test=test_metrics,
+                                                           epoch=self._cur_epoch)
+                    self._writer.add_scalars_from_meter_interface(tra=train_metrics, val=eval_metrics,
+                                                                  test=test_metrics, epoch=self._cur_epoch)
 
                 if hasattr(self, "_scheduler"):
                     self._scheduler.step()
-
-                self.save_to(save_name="last.pth")
-
-                if self._best_score < cur_score:
-                    self._best_score = cur_score
-                    self.save_to(save_name="best.pth")
 
     def run_tra_epoch(self, **kwargs):
         epocher = self._create_tra_epoch(**kwargs)
@@ -145,3 +150,7 @@ class Trainer(_DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
     def set_model4inference(self, model: nn.Module):
         logger.trace(f"change inference model from {id(self._inference_model)} to {id(model)}")
         self._inference_model = model
+
+    @property
+    def save_dir(self):
+        return str(self._save_dir)

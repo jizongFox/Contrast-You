@@ -253,10 +253,13 @@ class FineTuneEpocher(SemiSupervisedEpocher, ABC):
         return self._run_only_label(*args, **kwargs)
 
     def _run_only_label(self, *args, **kwargs):
+        logger.trace(f"random_state: {torch.random.get_rng_state()}")
+
         for self.cur_batch_num, labeled_data in zip(self.indicator, self._labeled_loader):
             (labeled_image, _), labeled_target, labeled_filename, _, label_group = \
                 self._unzip_data(labeled_data, self._device)
             label_logits: Tensor = self.forward_pass(labeled_image=labeled_image)  # noqa
+            logger.trace(labeled_filename)
             # supervised part
             onehot_target = class2one_hot(labeled_target.squeeze(1), self.num_classes)
             sup_loss = self._sup_criterion(label_logits.softmax(1), onehot_target)

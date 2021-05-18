@@ -35,6 +35,10 @@ class _PretrainTrainerMixin:
 
     def __init__(self, **kwargs):
         super(_PretrainTrainerMixin, self).__init__(**kwargs)
+        if "ContrastiveLoaderParams" not in self._config:
+            raise RuntimeError(
+                f"`ContrastiveLoaderParams` should be found in config, given \n`{', '.join(self._config.keys())}`")
+
         self._contrastive_loader, self._monitor_loader = _get_contrastive_dataloader(
             self._unlabeled_loader, self._config["ContrastiveLoaderParams"]
         )

@@ -1,0 +1,17 @@
+Trainer:
+  num_batches: pretrain
+  max_epoch: pretrain
+
+Optim:
+  name: SGD
+  lr: 1
+  weight_decay: 2
+
+Scheduler:
+  multiplier: 400
+  warmup_max: 10
+
+ContrastiveLoaderParams:
+  scan_sample_num: 7
+  partition_sample_num: 1
+  num_workers: 8

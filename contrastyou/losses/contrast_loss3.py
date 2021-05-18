@@ -124,7 +124,7 @@ class SelfPacedSupConLoss(nn.Module):
         logger.info(f"initializing {self.__class__.__name__} with t: {self._t}, cor_grad: {self._correct_grad} ")
 
     def forward(self, proj_feat1, proj_feat2, target=None, mask: Tensor = None, **kwargs):
-        batch_size = proj_feat1.size(0)
+        batch_size = proj_feat1.shape[0]
         if mask is not None:
             assert mask.shape == torch.Size([batch_size, batch_size])
             pos_mask = mask == 1
@@ -199,7 +199,7 @@ class SelfPacedSupConLoss(nn.Module):
             if batch_downgrade_ratio > 0:
                 loss /= batch_downgrade_ratio
 
-        if torch.isnan(loss) or not loss.requires_grad:
+        if torch.isnan(loss):
             raise RuntimeError(loss)
         return loss
 
@@ -241,9 +241,13 @@ if __name__ == '__main__':
     feature2 = torch.cat([anchor1 * (1 - alpha) + anchor3 * alpha for alpha in torch.linspace(0, 1, steps=100)], dim=0)
     feature1, feature2 = normalize(feature1, ), normalize(feature2)
 
-    target = [random.choice([0, 1, 2]) for i in range(100)]
-    self_paced_criterion = SelfPacedSupConLoss(temperature=0.07, weight_update="hard")
-    loss1 = self_paced_criterion(feature1, feature2, target=target, gamma=1e6)
-    criterion2 = SupConLoss1(temperature=0.07)
-    loss2 = criterion2(feature1, feature2, target=target)
-    assert torch.allclose(loss2, loss1)
+    target = [random.choice([0,]) for i in range(100)]
+
+    self_paced_criterion = SelfPacedSupConLoss(temperature=0.07, weight_update="soft", correct_grad=False)
+    self_paced_criterion.set_gamma(1e1)
+
+    sup_contrast = SupConLoss1(temperature=0.07)
+
+    loss1 = self_paced_criterion(feature1, feature2, target=target)
+    loss2 = sup_contrast(feature1, feature2, target=target)
+    assert torch.allclose(loss1, loss2), (loss1, loss2)

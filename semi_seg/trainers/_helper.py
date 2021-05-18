@@ -1,3 +1,4 @@
+from copy import deepcopy as dcopy
 from functools import partial
 from pathlib import Path
 from typing import List, Dict, Any, Callable
@@ -11,7 +12,7 @@ from torch.utils.data.dataloader import _BaseDataLoaderIter as BaseDataLoaderIte
 
 from contrastyou import get_cc_data_path
 from contrastyou.data import InfiniteRandomSampler, ScanBatchSampler, DatasetBase
-from contrastyou.utils import get_dataset
+from contrastyou.utils import get_dataset, fix_seed
 from semi_seg.data import ACDCDataset, ProstateDataset, mmWHSCTDataset, ProstateMDDataset
 from semi_seg.data.creator import augment_zoo, data_zoo
 from semi_seg.data.rearr import ContrastBatchSampler
@@ -26,7 +27,9 @@ def get_partition_num(name: str):
     return partition_num_zoo[name]
 
 
+@fix_seed
 def _get_contrastive_dataloader(partial_loader, contrastive_params):
+    contrastive_params = dcopy(contrastive_params)
     # going to get all dataset with contrastive sampler
     unlabeled_dataset: DatasetBase = get_dataset(partial_loader)
     data_name = {class_.__name__: name for name, class_ in data_zoo.items()}[unlabeled_dataset._name.split("-")[0]]
@@ -34,7 +37,7 @@ def _get_contrastive_dataloader(partial_loader, contrastive_params):
     dataset_type = unlabeled_dataset.__class__
     dataset = dataset_type(root_dir=get_cc_data_path(), mode="train", transforms=unlabeled_dataset.transforms)
 
-    logger.opt(depth=2).trace(f"creating {dataset.__class__.__name__} contrastive dataset with "
+    logger.opt(depth=2).debug(f"creating {dataset.__class__.__name__} contrastive dataset with "
                               f"{len(dataset.get_scan_list())} scans")
     if is_preload:
         dataset.preload()
