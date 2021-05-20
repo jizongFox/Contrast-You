@@ -1,3 +1,4 @@
+from collections import Iterable
 from copy import deepcopy as dcopy
 from typing import Dict, Any
 
@@ -26,13 +27,13 @@ def dictionary_merge_by_hierachy(dictionary1: Dict[str, Any], new_dictionary: Di
     return dictionary1
 
 
-def remove_dictionary_callback(dictionary):
+def remove_dictionary_callback(dictionary, key="remove"):
     new_dictionary = dcopy(dictionary)
     for k, v in dictionary.items():
         if isinstance(v, mapType):
-            new_dictionary[k] = remove_dictionary_callback(v)
+            new_dictionary[k] = remove_dictionary_callback(v, key)
         try:
-            if v.lower() == "remove":
+            if v.lower() == key:
                 del new_dictionary[k]
         except AttributeError:
             pass
@@ -67,3 +68,25 @@ def flatten_dict(dictionary, parent_key="", sep="_"):
         else:
             items.append((new_key, v))
     return dict(items)
+
+
+def dictionary2string(dictionary, parent_name_list=None, item_list=None):
+    def tostring(item):
+        if isinstance(item, (float,)):
+            return f"{item:.7f}"
+        return str(item)
+
+    if parent_name_list is None:
+        parent_name_list = []
+    if item_list is None:
+        item_list = []
+    for k, v in dictionary.items():
+        if is_map(v):
+            dictionary2string(v, parent_name_list=parent_name_list + [k], item_list=item_list)
+        elif isinstance(v, Iterable) and (not isinstance(v, str)):
+            current_item = ".".join(parent_name_list) + f".{k}=[{','.join([tostring(x) for x in v])}]"
+            item_list.append(current_item)
+        else:
+            current_item = ".".join(parent_name_list) + f".{k}={tostring(v)}"
+            item_list.append(current_item)
+    return " ".join(item_list)
