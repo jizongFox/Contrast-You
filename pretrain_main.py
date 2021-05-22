@@ -72,7 +72,7 @@ def main():
     with config_manager(scope="base") as config:
         seed = config.get("RandomSeed", 10)
         data_name = config["Data"]["name"]
-        absolute_save_dir = os.path.abspath(os.path.join(PretrainTrainer.RUN_PATH, config["Trainer"]["save_dir"]))
+        absolute_save_dir = os.path.abspath(os.path.join(PretrainTrainer.RUN_PATH, str(config["Trainer"]["save_dir"])))
         config_logger(absolute_save_dir)
         with fix_all_seed_within_context(seed):
             model = worker(pretrain_config, absolute_save_dir, seed)

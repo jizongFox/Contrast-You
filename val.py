@@ -5,7 +5,6 @@ from copy import deepcopy as dcopy
 from typing import Dict, Any, List
 
 from deepclustering2.loss import KL_div
-from loguru import logger
 from torch import nn
 
 from contrastyou import success
@@ -49,6 +48,7 @@ def _val(*, model: nn.Module, labeled_data_ratio: float, data_params: Dict[str, 
     data_params, trainer_params, global_config = list(map(dcopy, [data_params, trainer_params, global_config]))
 
     data_params["labeled_data_ratio"] = float(labeled_data_ratio)
+    global_config["Data"]["labeled_data_ratio"] = float(labeled_data_ratio)
 
     labeled_loader, unlabeled_loader, val_loader, test_loader = get_data(
         data_params=data_params, labeled_loader_params=labeled_loader_params,

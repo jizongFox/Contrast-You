@@ -9,6 +9,7 @@ semi_seg/cycle
 semi_seg/patient
 semi_seg/plot/checkpoint
 .data
+script/.temp_config
 runs
 byol_demo/label_smoothing.py
 cotra_idea/test/
