@@ -29,7 +29,7 @@ class PretrainInfoNCEScriptGenerator(PretrainScriptGenerator):
         return {"InfonceParams": {"weights": weight,
                                   "contrast_ons": contrast_on}}
 
-    def grid_search_on(self, seed: int, **kwargs):
+    def grid_search_on(self, *, seed, **kwargs):
         jobs = []
         for param in grid_search(**{**kwargs, **{"seed": seed}}):
             random_seed = param.pop("seed")
@@ -59,7 +59,7 @@ class PretrainSPInfoNCEScriptGenerator(PretrainInfoNCEScriptGenerator):
 
 
 if __name__ == '__main__':
-    submitor = JobSubmiter(on_local=True, project_path="../")
+    submitor = JobSubmiter(on_local=True, project_path="../" ,time=4)
     submitor.prepare_env([
         "module load python/3.8.2 ",
         f"source ~/venv/bin/activate ",
@@ -74,9 +74,9 @@ if __name__ == '__main__':
         "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
         move_dataset()
     ])
-    num_batches = 2
-    pre_max_epoch = 2
-    ft_max_epoch = 2
+    num_batches = 200
+    pre_max_epoch = 80
+    ft_max_epoch = 80
     seed = [10, 20, 30]
 
     baseline_generator = PretrainInfoNCEScriptGenerator(data_name="acdc", num_batches=num_batches,
@@ -99,8 +99,9 @@ if __name__ == '__main__':
         submitor.account = next(account)
         submitor.run(j)
 
-    pretrain_sp_generator = PretrainSPInfoNCEScriptGenerator(data_name="acdc", num_batches=100, save_dir="test_script",
-                                                             pre_max_epoch=10, ft_max_epoch=10)
+    pretrain_sp_generator = PretrainSPInfoNCEScriptGenerator(data_name="acdc", num_batches=num_batches,
+                                                             save_dir="test_script/spinfonce",
+                                                             pre_max_epoch=pre_max_epoch, ft_max_epoch=ft_max_epoch)
     jobs = pretrain_sp_generator.grid_search_on(weight=1, contrast_on=("partition", "cycle", "self", "patient"),
                                                 begin_values=(1, 2, 3, 4), end_values=(20, 30, 40, 50, 60), mode="soft",
                                                 correct_grad=[True, False], seed=seed)

@@ -59,7 +59,7 @@ def _val(*, model: nn.Module, labeled_data_ratio: float, data_params: Dict[str, 
 
     trainer = FineTuneTrainer(model=model, labeled_loader=labeled_loader, unlabeled_loader=unlabeled_loader,
                               val_loader=val_loader, test_loader=test_loader,
-                              criterion=KL_div(), config=global_config, **trainer_params)
+                              criterion=KL_div(verbose=False), config=global_config, **trainer_params)
 
     trainer.init()
     trainer.start_training()

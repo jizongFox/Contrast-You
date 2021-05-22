@@ -33,6 +33,23 @@ def create_dataset(name: str, total_freedom: bool = True):
     return tra_set, test_set
 
 
+def split_dataset_with_predefined_filenames(dataset: DatasetBase, data_name: str, labeled_ratio: float):
+    from semi_seg import labeled_filenames
+    if data_name not in labeled_filenames:
+        raise KeyError(data_name)
+    filenames = labeled_filenames[data_name]
+    labeled_num = int(len(dataset.get_scan_list()) * labeled_ratio)
+    if labeled_num not in filenames:
+        raise ValueError(
+            f"{labeled_num} is not defined for `load_predefined_list`, "
+            f"given only {','.join([str(x) for x in filenames.keys()])}")
+    labeled_scans = filenames[labeled_num]
+    unlabeled_scans = sorted(set(dataset.get_scan_list()) - set(labeled_scans))
+    logger.debug(f"adding default filenames {','.join(labeled_scans)} to {dataset.__class__.__name__}.")
+    return [extract_sub_dataset_based_on_scan_names(dataset, group_names=labeled_scans),
+            extract_sub_dataset_based_on_scan_names(dataset, group_names=unlabeled_scans)]
+
+
 def split_dataset(dataset: DatasetBase, *ratios: float, seed: int = 1) -> List[DatasetBase]:
     assert sum(ratios) <= 1, ratios
     scan_list = sorted(set(dataset.get_scan_list()))
@@ -70,7 +87,7 @@ def create_infinite_loader(dataset, shuffle=True, num_workers: int = 8, batch_si
 
 
 def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params, pretrain=False, group_test=True,
-                     total_freedom=False):
+                     total_freedom=False, load_predefined_list=True):
     data_name = data_params["name"]
     tra_set, test_set = create_dataset(data_name, total_freedom)
     if len(tra_set.get_scan_list()) == 0 or len(test_set.get_scan_list()) == 0:
@@ -79,7 +96,13 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
     labeled_data_ratio = data_params["labeled_data_ratio"]
     if pretrain:
         labeled_data_ratio = 0.5
-    label_set, unlabeled_set = split_dataset(tra_set, labeled_data_ratio)
+        label_set, unlabeled_set = split_dataset(tra_set, labeled_data_ratio)
+    else:
+        if load_predefined_list and labeled_data_ratio < 1:
+            label_set, unlabeled_set = split_dataset_with_predefined_filenames(tra_set, data_name,
+                                                                               labeled_ratio=labeled_data_ratio)
+        else:
+            label_set, unlabeled_set = split_dataset(tra_set, labeled_data_ratio)
 
     if len(label_set.get_scan_list()) == 0:
         raise RuntimeError("void labeled dataset, split dataset error")

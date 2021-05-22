@@ -100,7 +100,7 @@ class ScriptGenerator:
         self.conditions.append(f"Trainer.num_batches={num_batches}")
         self._save_dir = save_dir
 
-    def grid_search_on(self, seed: int, **kwargs):
+    def grid_search_on(self, *, seed: int, **kwargs):
         pass
 
     def add_save_dir(self):

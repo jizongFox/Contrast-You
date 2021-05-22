@@ -13,9 +13,12 @@ from ..types import typePath
 
 
 def safe_save(checkpoint_dictionary, save_path):
-    with tempfile.TemporaryFile()as tmp:
-        torch.save(checkpoint_dictionary, str(tmp))
-        shutil.move(str(tmp), str(save_path))
+    try:
+        with tempfile.TemporaryFile() as tmp:
+            torch.save(checkpoint_dictionary, str(tmp))
+            shutil.move(str(tmp), str(save_path))
+    finally:
+        return
 
 
 def create_save_dir(self, save_dir: str):
