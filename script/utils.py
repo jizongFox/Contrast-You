@@ -102,10 +102,6 @@ class ScriptGenerator:
     def grid_search_on(self, *, seed: int, **kwargs):
         pass
 
-    def add_save_dir(self, save_dir: str):
-        """ save_dir is the true save_dir taking into account the hyperparameters based paths """
-        return f" Trainer.save_dir={save_dir} "
-
 
 class PretrainScriptGenerator(ScriptGenerator):
 

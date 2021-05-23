@@ -37,8 +37,7 @@ class PretrainInfoNCEScriptGenerator(PretrainScriptGenerator):
             sub_save_dir = self.get_hyparam_string(**param)
             merged_config = dictionary_merge_by_hierachy(self.hook_config, hook_params)
             config_path = write_yaml(merged_config, save_dir=TEMP_DIR, save_name=utils.random_string() + ".yaml")
-            true_save_dir = self.add_save_dir(
-                save_dir=os.path.join(self._save_dir, "Seed_" + str(random_seed), sub_save_dir))
+            true_save_dir = os.path.join(self._save_dir, "Seed_" + str(random_seed), sub_save_dir)
             job = self.generate_single_script(save_dir=true_save_dir,
                                               seed=random_seed, hook_path=config_path)
             jobs.append(job)
