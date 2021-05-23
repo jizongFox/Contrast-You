@@ -20,7 +20,7 @@ trainer_zoo = {"semi": SemiTrainer,
 
 def main():
     with ConfigManger(
-        base_path=os.path.join(CONFIG_PATH, "base.yaml"),
+        base_path=os.path.join(CONFIG_PATH, "base.yaml"), strict=True
     )(scope="base") as config:
         seed = config.get("RandomSeed", 10)
         _save_dir = config["Trainer"]["save_dir"]
@@ -55,7 +55,7 @@ def worker(config, absolute_save_dir, seed, ):
                            **{k: v for k, v in config["Trainer"].items() if k != "save_dir" and k != "name"})
 
     if "MixUpParams" not in config:
-        raise RuntimeError("`MixUpParams` should be firstly in `config`")
+        raise RuntimeError("`MixUpParams` should be presented in `config`")
 
     with fix_all_seed_within_context(seed):
         hooks = MixUpHook(hook_name="mx_hook", **config["MixUpParams"])

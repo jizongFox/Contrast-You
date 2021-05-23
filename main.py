@@ -21,7 +21,7 @@ trainer_zoo = {"semi": SemiTrainer,
 
 def main():
     with ConfigManger(
-        base_path=os.path.join(CONFIG_PATH, "base.yaml"),
+        base_path=os.path.join(CONFIG_PATH, "base.yaml"), strict=True
     )(scope="base") as config:
         seed = config.get("RandomSeed", 10)
         _save_dir = config["Trainer"]["save_dir"]

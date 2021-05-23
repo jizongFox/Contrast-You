@@ -12,6 +12,7 @@ from torch import Tensor
 
 from contrastyou.hooks.base import TrainerHook, EpocherHook
 from contrastyou.meters import MeterInterface, AverageValueMeter
+from contrastyou.utils import fix_all_seed_within_context
 from semi_seg.hooks import meter_focus
 
 
@@ -61,13 +62,14 @@ class _MixUpEpocherHook(EpocherHook):
     def __call__(self, *, labeled_image: Tensor,
                  labeled_image_tf: Tensor,
                  labeled_target: Tensor,
-                 labeled_target_tf: Tensor, **kwargs):
+                 labeled_target_tf: Tensor, seed: int, **kwargs):
         labeled_target_oh = class2one_hot(labeled_target, C=self.num_classes)
         labeled_target_tf_oh = class2one_hot(labeled_target_tf, C=self.num_classes)
 
-        mixed_image, mixed_target, = mixup_data(x=torch.cat([labeled_image, labeled_image_tf], dim=0),
-                                                y=torch.cat([labeled_target_oh, labeled_target_tf_oh], dim=0),
-                                                alpha=1, device=self.device)
+        with fix_all_seed_within_context(seed):
+            mixed_image, mixed_target, = mixup_data(x=torch.cat([labeled_image, labeled_image_tf], dim=0),
+                                                    y=torch.cat([labeled_target_oh, labeled_target_tf_oh], dim=0),
+                                                    alpha=1, device=self.device)
         with self.bn_context_manger(self._model):
             mixed_pred = self._model(mixed_image)
         reg_loss = self._criterion(mixed_pred.softmax(1), mixed_target.squeeze())

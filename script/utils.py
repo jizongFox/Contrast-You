@@ -90,8 +90,7 @@ def grid_search(**kwargs):
 
 class ScriptGenerator:
 
-
-    def __init__(self, *, data_name, num_batches, save_dir, ) -> None:
+    def __init__(self, *, data_name, num_batches, save_dir) -> None:
         super().__init__()
         self.conditions = []
         self._data_name = data_name
@@ -103,8 +102,9 @@ class ScriptGenerator:
     def grid_search_on(self, *, seed: int, **kwargs):
         pass
 
-    def add_save_dir(self):
-        pass
+    def add_save_dir(self, save_dir: str):
+        """ save_dir is the true save_dir taking into account the hyperparameters based paths """
+        return f" Trainer.save_dir={save_dir} "
 
 
 class PretrainScriptGenerator(ScriptGenerator):
@@ -124,7 +124,7 @@ class PretrainScriptGenerator(ScriptGenerator):
 
     def get_hyparam_string(self, **kwargs):
         list_string = [f"{k}_{v}" for k, v in kwargs.items()]
-        prefix =  "/".join(list_string)
+        prefix = "/".join(list_string)
         return prefix
 
     def generate_single_script(self, save_dir, seed, hook_path):

@@ -18,7 +18,7 @@ Scheduler:
 
 Data:
   name: acdc
-  labeled_data_ratio: 0.05
+  labeled_scan_num: 1
 
 LabeledLoader:
   shuffle: true

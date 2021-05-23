@@ -10,17 +10,17 @@ from script.utils import TEMP_DIR, yaml_load, write_yaml, grid_search, PretrainS
 from semi_seg import __accounts
 
 account = cycle(__accounts)
+opt_hook_path = {"infonce": "config/hooks/infonce.yaml",
+                 "spinfonce": "config/hooks/spinfonce.yaml"}
 
 
 class PretrainInfoNCEScriptGenerator(PretrainScriptGenerator):
-    opt_hook_path = {"infonce": "config/hooks/infonce.yaml",
-                     "spinfonce": "config/hooks/spinfonce.yaml"}
 
     def __init__(self, *, data_name, num_batches, save_dir, pre_max_epoch, ft_max_epoch) -> None:
         super().__init__(data_name=data_name, num_batches=num_batches, save_dir=save_dir,
                          pre_max_epoch=pre_max_epoch, ft_max_epoch=ft_max_epoch)
 
-        self.hook_config = yaml_load(PROJECT_PATH + "/" + self.opt_hook_path[self.get_hook_name()])
+        self.hook_config = yaml_load(PROJECT_PATH + "/" + opt_hook_path[self.get_hook_name()])
 
     def get_hook_name(self):
         return "infonce"
@@ -37,7 +37,9 @@ class PretrainInfoNCEScriptGenerator(PretrainScriptGenerator):
             sub_save_dir = self.get_hyparam_string(**param)
             merged_config = dictionary_merge_by_hierachy(self.hook_config, hook_params)
             config_path = write_yaml(merged_config, save_dir=TEMP_DIR, save_name=utils.random_string() + ".yaml")
-            job = self.generate_single_script(os.path.join(self._save_dir, "Seed_" + str(random_seed), sub_save_dir),
+            true_save_dir = self.add_save_dir(
+                save_dir=os.path.join(self._save_dir, "Seed_" + str(random_seed), sub_save_dir))
+            job = self.generate_single_script(save_dir=true_save_dir,
                                               seed=random_seed, hook_path=config_path)
             jobs.append(job)
         return jobs
@@ -59,8 +61,8 @@ class PretrainSPInfoNCEScriptGenerator(PretrainInfoNCEScriptGenerator):
 
 
 if __name__ == '__main__':
-    submitor = JobSubmiter(on_local=True, project_path="../" ,time=4)
-    submitor.prepare_env([
+    submittor = JobSubmiter(on_local=True, project_path="../", time=4)
+    submittor.prepare_env([
         "module load python/3.8.2 ",
         f"source ~/venv/bin/activate ",
         'if [ $(which python) == "/usr/bin/python" ]',
@@ -85,26 +87,27 @@ if __name__ == '__main__':
     jobs = baseline_generator.grid_search_on(weight=1, contrast_on=("",), seed=seed)
 
     for j in jobs:
-        submitor.account = next(account)
-        submitor.run(j)
-
-    pretrain_generator = PretrainInfoNCEScriptGenerator(data_name="acdc", num_batches=num_batches,
-                                                        save_dir="test_script/infonce",
-                                                        pre_max_epoch=pre_max_epoch,
-                                                        ft_max_epoch=ft_max_epoch)
-    jobs = pretrain_generator.grid_search_on(weight=1, contrast_on=("partition", "cycle", "self"), seed=seed)
-    print(jobs)
-
-    for j in jobs:
-        submitor.account = next(account)
-        submitor.run(j)
-
-    pretrain_sp_generator = PretrainSPInfoNCEScriptGenerator(data_name="acdc", num_batches=num_batches,
-                                                             save_dir="test_script/spinfonce",
-                                                             pre_max_epoch=pre_max_epoch, ft_max_epoch=ft_max_epoch)
-    jobs = pretrain_sp_generator.grid_search_on(weight=1, contrast_on=("partition", "cycle", "self", "patient"),
-                                                begin_values=(1, 2, 3, 4), end_values=(20, 30, 40, 50, 60), mode="soft",
-                                                correct_grad=[True, False], seed=seed)
-    for j in jobs:
-        submitor.account = next(account)
-        submitor.run(j)
+        submittor.account = next(account)
+        # submittor.run(j)
+        print(j)
+    #
+    # pretrain_generator = PretrainInfoNCEScriptGenerator(data_name="acdc", num_batches=num_batches,
+    #                                                     save_dir="test_script/infonce",
+    #                                                     pre_max_epoch=pre_max_epoch,
+    #                                                     ft_max_epoch=ft_max_epoch)
+    # jobs = pretrain_generator.grid_search_on(weight=1, contrast_on=("partition", "cycle", "self"), seed=seed)
+    # print(jobs)
+    #
+    # for j in jobs:
+    #     submittor.account = next(account)
+    #     submittor.run(j)
+    #
+    # pretrain_sp_generator = PretrainSPInfoNCEScriptGenerator(data_name="acdc", num_batches=num_batches,
+    #                                                          save_dir="test_script/spinfonce",
+    #                                                          pre_max_epoch=pre_max_epoch, ft_max_epoch=ft_max_epoch)
+    # jobs = pretrain_sp_generator.grid_search_on(weight=1, contrast_on=("partition", "cycle", "self", "patient"),
+    #                                             begin_values=(1, 2, 3, 4), end_values=(20, 30, 40, 50, 60), mode="soft",
+    #                                             correct_grad=[True, False], seed=seed)
+    # for j in jobs:
+    #     submittor.account = next(account)
+    #     submittor.run(j)

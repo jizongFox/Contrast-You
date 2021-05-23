@@ -10,8 +10,7 @@ from . import preprocess_input_with_twice_transformation
 from .new_epocher import SemiSupervisedEpocher
 
 
-class MixupEpocher(SemiSupervisedEpocher):
-    meter_focus = "mixup"
+class MixUpEpocher(SemiSupervisedEpocher):
 
     def _assertion(self):
         labeled_set = get_dataset(self._labeled_loader)
@@ -58,6 +57,7 @@ class MixupEpocher(SemiSupervisedEpocher):
                 labeled_image_tf=labeled_image_tf,
                 labeled_target=labeled_target,
                 labeled_target_tf=labeled_target_tf,
+                seed=seed
             )
 
             total_loss = sup_loss + reg_loss

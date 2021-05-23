@@ -93,7 +93,14 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
     if len(tra_set.get_scan_list()) == 0 or len(test_set.get_scan_list()) == 0:
         raise RuntimeError("dataset error")
 
-    labeled_data_ratio = data_params["labeled_data_ratio"]
+    train_scan_num = len(tra_set.get_scan_list())
+
+    labeled_scan_num = data_params["labeled_scan_num"]
+    if labeled_scan_num > train_scan_num:
+        raise RuntimeError(f"labeled scan number {labeled_scan_num} greater than the train set size: {train_scan_num}")
+
+    labeled_data_ratio = float(labeled_scan_num / train_scan_num)
+
     if pretrain:
         labeled_data_ratio = 0.5
         label_set, unlabeled_set = split_dataset(tra_set, labeled_data_ratio)
