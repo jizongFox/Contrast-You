@@ -107,22 +107,11 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
     if len(label_set.get_scan_list()) == 0:
         raise RuntimeError("void labeled dataset, split dataset error")
 
-    shuffle_l = labeled_loader_params["shuffle"]
-    shuffle_u = unlabeled_loader_params["shuffle"]
-
-    batch_size_l = labeled_loader_params["batch_size"]
-    batch_size_u = unlabeled_loader_params["batch_size"]
-
-    n_workers_l = labeled_loader_params["num_workers"]
-    n_workers_u = labeled_loader_params["num_workers"]
-
-    labeled_loader = create_infinite_loader(label_set, shuffle=shuffle_l, num_workers=n_workers_l,
-                                            batch_size=batch_size_l)
+    labeled_loader = create_infinite_loader(label_set, **labeled_loader_params)
     logger.debug(f"creating labeled_loader with {len(label_set.get_scan_list())} scans")
     logger.trace(f"with {','.join(sorted(set(label_set.show_scan_names())))}")
 
-    unlabeled_loader = create_infinite_loader(unlabeled_set, shuffle=shuffle_u, num_workers=n_workers_u,
-                                              batch_size=batch_size_u)
+    unlabeled_loader = create_infinite_loader(unlabeled_set, **unlabeled_loader_params)
     logger.debug(f"creating unlabeled_loader with {len(unlabeled_set.get_scan_list())} scans")
     logger.trace(f"with {','.join(sorted(set(unlabeled_set.show_scan_names())))}")
 
@@ -156,10 +145,10 @@ def create_val_loader(*, test_loader) -> Tuple[DataLoader, DataLoader]:
 
 
 @fix_seed
-def get_data(data_params, labeled_loader_params, unlabeled_loader_params, pretrain=False):
+def get_data(data_params, labeled_loader_params, unlabeled_loader_params, pretrain=False, total_freedom=False):
     labeled_loader, unlabeled_loader, test_loader = get_data_loaders(
         data_params=data_params, labeled_loader_params=labeled_loader_params,
-        unlabeled_loader_params=unlabeled_loader_params, pretrain=pretrain, group_test=True, total_freedom=pretrain
+        unlabeled_loader_params=unlabeled_loader_params, pretrain=pretrain, group_test=True, total_freedom=total_freedom
     )
     val_loader, test_loader = create_val_loader(test_loader=test_loader)
     return labeled_loader, unlabeled_loader, val_loader, test_loader

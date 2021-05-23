@@ -96,7 +96,7 @@ def worker(config, absolute_save_dir, seed, ):
     #
     trainer = PretrainTrainer(model=model, labeled_loader=labeled_loader, unlabeled_loader=unlabeled_loader,
                               val_loader=val_loader, test_loader=test_loader,
-                              criterion=KL_div(), config=config,
+                              criterion=KL_div(verbose=False), config=config,
                               save_dir=os.path.join(absolute_save_dir, "pre"),
                               **{k: v for k, v in config["Trainer"].items() if k != "save_dir"})
     with fix_all_seed_within_context(seed):

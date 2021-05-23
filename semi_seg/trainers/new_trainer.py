@@ -5,6 +5,7 @@ from torch import nn
 
 from contrastyou.trainer.base import Trainer
 from contrastyou.types import criterionType as _criterion_type
+from semi_seg.epochers.new_comparable import MixupEpocher
 from semi_seg.epochers.new_epocher import EpocherBase, SemiSupervisedEpocher, FineTuneEpocher, EvalEpocher
 
 
@@ -53,14 +54,14 @@ class SemiTrainer(Trainer):
 class FineTuneTrainer(SemiTrainer):
     activate_hooks = False
 
-    def __init__(self, *, model: nn.Module, labeled_loader: T_loader, val_loader: T_loader,
-                 test_loader: T_loader, criterion: _criterion_type, save_dir: str, max_epoch: int = 100,
-                 num_batches: int = 100, device="cpu", config: Dict[str, Any],
-                 **kwargs) -> None:
-        super().__init__(model=model, labeled_loader=labeled_loader,
-                         val_loader=val_loader, test_loader=test_loader, criterion=criterion, save_dir=save_dir,
-                         max_epoch=max_epoch, num_batches=num_batches, device=device, config=config, **kwargs)
-
     @property
     def train_epocher(self) -> Type[EpocherBase]:
         return FineTuneEpocher
+
+
+class MixUpTrainer(SemiTrainer):
+    activate_hooks = True
+
+    @property
+    def train_epocher(self) -> Type[EpocherBase]:
+        return MixupEpocher

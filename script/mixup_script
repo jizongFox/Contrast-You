@@ -1,0 +1,28 @@
+#!/bin/bash
+cd ../
+# dataset part
+
+max_epoch=80
+num_batches=250
+
+save_dir=test_mixup
+#baseline
+export PYTHONOPTIMIZE=1
+#export LOGURU_LEVEL=TRACE
+function run_acdc {
+  weight=$1
+  bn=$2
+
+  python main_mixup.py Data.name=acdc Trainer.max_epoch=${max_epoch} Trainer.num_batches=${num_batches} Data.labeled_data_ratio=0.01 Trainer.save_dir=${save_dir}/mixup/labeled_data_1_scan/w_${weight}/bn_${bn} MixUpParams.weight=${weight} MixUpParams.enable_bn=${bn} --opt-path config/hooks/mixup.yaml
+  python main_mixup.py Data.name=acdc Trainer.max_epoch=${max_epoch} Trainer.num_batches=${num_batches} Data.labeled_data_ratio=0.015 Trainer.save_dir=${save_dir}/mixup/labeled_data_2_scan/w_${weight}/bn_${bn} MixUpParams.weight=${weight} MixUpParams.enable_bn=${bn} --opt-path config/hooks/mixup.yaml
+  python main_mixup.py Data.name=acdc Trainer.max_epoch=${max_epoch} Trainer.num_batches=${num_batches} Data.labeled_data_ratio=0.025 Trainer.save_dir=${save_dir}/mixup/labeled_data_4_scan/w_${weight}/bn_${bn} MixUpParams.weight=${weight} MixUpParams.enable_bn=${bn} --opt-path config/hooks/mixup.yaml
+
+}
+run_acdc 0 false
+run_acdc 0.01 true
+#run_acdc 0.1 true
+#run_acdc 0.5 true
+#
+#run_acdc 0.01 false
+#run_acdc 0.1 false
+#run_acdc 0.5 false
