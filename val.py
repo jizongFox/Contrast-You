@@ -47,8 +47,8 @@ def _val(*, model: nn.Module, labeled_data_ratio: float, data_params: Dict[str, 
          trainer_params: Dict[str, Any], global_config: Dict[str, Any]):
     data_params, trainer_params, global_config = list(map(dcopy, [data_params, trainer_params, global_config]))
 
-    data_params["labeled_data_ratio"] = float(labeled_data_ratio)
-    global_config["Data"]["labeled_data_ratio"] = float(labeled_data_ratio)
+    data_params["labeled_scan_num"] = float(labeled_data_ratio)
+    global_config["Data"]["labeled_scan_num"] = float(labeled_data_ratio)
 
     labeled_loader, unlabeled_loader, val_loader, test_loader = get_data(
         data_params=data_params, labeled_loader_params=labeled_loader_params,

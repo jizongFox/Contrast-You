@@ -1,17 +1,17 @@
 from contrastyou import on_cc
 
-acdc_ratios = [0.01, 1.0]
-prostate_ratio = [0.075, 1.0]  # 2 4 8
-prostate_md_ratio = [0.06, 1.0]
-mmwhsct_ratio = [0.1, 1.0]
-mmwhsmr_ratio = [0.12, 1.0]
+acdc_ratios = [1, 174]
+prostate_ratio = [3, 40]  # 2 4 8
+prostate_md_ratio = [1, 17]
+mmwhsct_ratio = [1, 10]
+mmwhsmr_ratio = [1, 10]
 
 if on_cc():
-    acdc_ratios = [0.01, 0.015, 0.025, 1.0]
-    prostate_ratio = [0.075, 0.125, 0.175, 1.0]  # 2, 4, 8, 40
-    mmwhsct_ratio = [0.1, 0.2, 1.0]
-    prostate_md_ratio = [0.06, 0.12, 0.24, 1.0]  # 1, 2, 4, 8
-    mmwhsmr_ratio = [0.12, 0.24, 0.45, 1.0]
+    acdc_ratios = [1, 2, 4, 174]
+    prostate_ratio = [3, 5, 7, 40]  # 2, 4, 8, 40
+    mmwhsct_ratio = [1, 2, 10]
+    prostate_md_ratio = [1, 2, 4, 17]  # 1, 2, 4, 8
+    mmwhsmr_ratio = [1, 2, 10]
 
 ratio_zoo = {
     "acdc": acdc_ratios,
