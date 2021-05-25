@@ -1,6 +1,5 @@
 import os
 
-import torch
 from deepclustering2.loss import KL_div
 from loguru import logger
 
@@ -60,6 +59,8 @@ def worker(config, absolute_save_dir, seed, ):
     if trainer_name != "ft":
         with fix_all_seed_within_context(seed):
             hooks = create_hook_from_config(model, config, is_pretrain=is_pretrain)
+            assert len(hooks) > 0, "void hooks"
+
         trainer.register_hooks(*hooks)
 
     if is_pretrain:

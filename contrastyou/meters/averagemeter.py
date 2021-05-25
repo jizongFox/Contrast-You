@@ -58,7 +58,7 @@ class MultipleAverageValueMeter(Metric):
         for k, v in self._meter_dicts.items():
             v.reset()
 
-    def _add(self, /, **kwargs):
+    def _add(self, **kwargs):
         for k, v in kwargs.items():
             self._meter_dicts[k].add(v)
 
@@ -70,6 +70,6 @@ class MultipleAverageValueMeter(Metric):
 
 
 class AverageValueListMeter(MultipleAverageValueMeter):
-    def add(self, list_value: List[float], **kwargs):
+    def _add(self, list_value: List[float], **kwargs):
         for i, v in enumerate(list_value):
             self._meter_dicts[str(i)].add(v)
