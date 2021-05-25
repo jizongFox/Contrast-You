@@ -2,6 +2,7 @@ import argparse
 import os
 from itertools import cycle
 
+from deepclustering2 import __git_hash__
 from deepclustering2.cchelper import JobSubmiter
 
 from contrastyou import PROJECT_PATH, on_cc
@@ -9,12 +10,14 @@ from contrastyou.config import dictionary_merge_by_hierachy
 from script import utils
 from script.utils import TEMP_DIR, yaml_load, write_yaml, grid_search, ScriptGenerator, \
     move_dataset
-from semi_seg import __accounts, num_batches_zoo, pre_max_epoch_zoo, ft_max_epoch_zoo
+from semi_seg import __accounts, num_batches_zoo, pre_max_epoch_zoo, ft_max_epoch_zoo, ratio_zoo
 
 account = cycle(__accounts)
 opt_hook_path = {
     "udaiic": "config/hooks/udaiic.yaml"
 }
+
+git_hash = __git_hash__[:6] if __git_hash__ is not None else "none"
 
 
 class DiscreteMIScriptGenerator(ScriptGenerator):
@@ -34,17 +37,20 @@ class DiscreteMIScriptGenerator(ScriptGenerator):
                      "consistency_weight": consistency_weight}
                 }
 
-    def generate_single_script(self, save_dir, seed, hook_path):
+    def generate_single_script(self, save_dir, labeled_scan_num, seed, hook_path):
         from semi_seg import ft_lr_zooms
         ft_lr = ft_lr_zooms[self._data_name]
 
-        return f"python main.py Trainer.name=semi Trainer.save_dir={save_dir} " \
-               f" Optim.lr={ft_lr:.7f} RandomSeed={str(seed)} " \
+        return f"python main.py Trainer.name=semi Trainer.two_stage=true Trainer.save_dir={save_dir} " \
+               f" Optim.lr={ft_lr:.7f} RandomSeed={str(seed)} Data.labeled_scan_num={int(labeled_scan_num)} " \
                f" {' '.join(self.conditions)} " \
                f" --opt-path config/pretrain.yaml {hook_path}"
 
     def grid_search_on(self, *, seed, **kwargs):
         jobs = []
+
+        labeled_scan_list = ratio_zoo[self._data_name][:-1]
+
         for param in grid_search(**{**kwargs, **{"seed": seed}}):
             random_seed = param.pop("seed")
             hook_params = self.get_hook_params(**param)
@@ -52,8 +58,12 @@ class DiscreteMIScriptGenerator(ScriptGenerator):
             merged_config = dictionary_merge_by_hierachy(self.hook_config, hook_params)
             config_path = write_yaml(merged_config, save_dir=TEMP_DIR, save_name=utils.random_string() + ".yaml")
             true_save_dir = os.path.join(self._save_dir, "Seed_" + str(random_seed), sub_save_dir)
-            job = self.generate_single_script(save_dir=true_save_dir,
-                                              seed=random_seed, hook_path=config_path)
+
+            job = " && ".join(
+                [self.generate_single_script(save_dir=os.path.join(true_save_dir, "tra", f"labeled_scan_{l:02d}"),
+                                             seed=random_seed, hook_path=config_path, labeled_scan_num=l)
+                 for l in labeled_scan_list])
+
             jobs.append(job)
         return jobs
 
@@ -71,7 +81,7 @@ if __name__ == '__main__':
         f"source ~/venv/bin/activate ",
         'if [ $(which python) == "/usr/bin/python" ]',
         "then",
-        "exit 1314520",
+        "exit 9",
         "fi",
 
         "export OMP_NUM_THREADS=1",
@@ -80,9 +90,9 @@ if __name__ == '__main__':
         "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
         move_dataset()
     ])
-    seed = [10, 20, 30]
+    seed = [10]
     data_name = args.data_name
-    save_dir = f"{args.save_dir}/udaiic/{data_name}"
+    save_dir = f"{args.save_dir}/udaiic/hash_{git_hash}/{data_name}"
     num_batches = num_batches_zoo[data_name]
     pre_max_epoch = pre_max_epoch_zoo[data_name]
     ft_max_epoch = ft_max_epoch_zoo[data_name]
@@ -97,7 +107,7 @@ if __name__ == '__main__':
     jobs2 = script_generator.grid_search_on(feature_names=["Conv5"],
                                             mi_weights=[0.1, 0.5, 0.1],
                                             consistency_weight=[1, 5, 10], seed=seed)
-    for j in [*jobs, *jobs2]:
+    for j in [*jobs]:
         print(j)
         submittor.account = next(account)
         submittor.run(j)

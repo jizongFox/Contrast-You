@@ -5,6 +5,12 @@ prostate_ratio = [3, 40]  # 2 4 8
 prostate_md_ratio = [1, 17]
 mmwhsct_ratio = [1, 10]
 mmwhsmr_ratio = [1, 10]
+if True:
+    acdc_ratios = [1, 2, 4, 8, 174]
+    prostate_ratio = [3, 5, 7, 40]  # 2, 4, 8, 40
+    mmwhsct_ratio = [1, 2, 10]
+    prostate_md_ratio = [1, 2, 4, 17]  # 1, 2, 4, 8
+    mmwhsmr_ratio = [1, 2, 10]
 
 pre_max_epoch_zoo = {
     "acdc": 80,
@@ -24,13 +30,6 @@ num_batches_zoo = {
     "mmwhsmr": 350,
     "prostate": 300,
 }
-
-if on_cc():
-    acdc_ratios = [1, 2, 4, 8, 174]
-    prostate_ratio = [3, 5, 7, 40]  # 2, 4, 8, 40
-    mmwhsct_ratio = [1, 2, 10]
-    prostate_md_ratio = [1, 2, 4, 17]  # 1, 2, 4, 8
-    mmwhsmr_ratio = [1, 2, 10]
 
 ratio_zoo = {
     "acdc": acdc_ratios,
