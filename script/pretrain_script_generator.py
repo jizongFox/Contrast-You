@@ -7,7 +7,7 @@ from contrastyou import PROJECT_PATH
 from contrastyou.config import dictionary_merge_by_hierachy
 from script import utils
 from script.utils import TEMP_DIR, yaml_load, write_yaml, grid_search, PretrainScriptGenerator, move_dataset
-from semi_seg import __accounts
+from semi_seg import __accounts, num_batches_zoo, ft_max_epoch_zoo, pre_max_epoch_zoo
 
 account = cycle(__accounts)
 opt_hook_path = {"infonce": "config/hooks/infonce.yaml",
@@ -75,12 +75,13 @@ if __name__ == '__main__':
         "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
         move_dataset()
     ])
-    num_batches = 350
-    pre_max_epoch = 60
-    ft_max_epoch = 60
+
     seed = [10, 20, 30]
     data_name = "mmwhsct"
     save_dir = f"0526/{data_name}"
+    num_batches = num_batches_zoo[data_name]
+    pre_max_epoch = pre_max_epoch_zoo[data_name]
+    ft_max_epoch = ft_max_epoch_zoo[data_name]
 
     baseline_generator = PretrainInfoNCEScriptGenerator(data_name=data_name, num_batches=num_batches,
                                                         save_dir=f"{save_dir}/baseline",

@@ -12,11 +12,11 @@ import yaml
 from contrastyou import PROJECT_PATH, on_cc
 from semi_seg import data2input_dim, data2class_numbers
 
-T_path = TypeVar("T_path", str, Path)
-
 TEMP_DIR = os.path.join(PROJECT_PATH, "script", ".temp_config")
 if not os.path.exists(TEMP_DIR):
     os.mkdir(TEMP_DIR)
+
+T_path = TypeVar("T_path", str, Path)
 
 
 def path2Path(path: T_path) -> Path:
