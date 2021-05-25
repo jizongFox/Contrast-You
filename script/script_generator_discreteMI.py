@@ -31,10 +31,11 @@ class DiscreteMIScriptGenerator(ScriptGenerator):
     def get_hook_name(self):
         return "udaiic"
 
-    def get_hook_params(self, feature_names, mi_weights, consistency_weight):
+    def get_hook_params(self, feature_names, mi_weights, consistency_weight, two_stage):
         return {"DiscreteMIConsistencyParams":
                     {"feature_names": feature_names, "mi_weights": mi_weights,
-                     "consistency_weight": consistency_weight}
+                     "consistency_weight": consistency_weight},
+                "Trainer.two_stage": two_stage
                 }
 
     def generate_single_script(self, save_dir, labeled_scan_num, seed, hook_path):
@@ -102,12 +103,12 @@ if __name__ == '__main__':
 
     jobs = script_generator.grid_search_on(feature_names=[["Conv5", "Up_conv3", "Up_conv2"]],
                                            mi_weights=[[0.1, 0.05, 0.05], [0.25, 0.1, 0.1]],
-                                           consistency_weight=[1, 5, 10], seed=seed)
+                                           consistency_weight=[1, 5, 10], seed=seed, two_stage=[True])
 
     jobs2 = script_generator.grid_search_on(feature_names=["Conv5"],
                                             mi_weights=[0.1, 0.5, 0.1],
-                                            consistency_weight=[1, 5, 10], seed=seed)
-    for j in [*jobs]:
+                                            consistency_weight=[1, 5, 10], seed=seed, two_stage=[True])
+    for j in [*jobs, *jobs2]:
         print(j)
         submittor.account = next(account)
         submittor.run(j)
