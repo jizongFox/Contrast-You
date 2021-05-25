@@ -34,7 +34,7 @@ class PretrainInfoNCEScriptGenerator(PretrainScriptGenerator):
         for param in grid_search(**{**kwargs, **{"seed": seed}}):
             random_seed = param.pop("seed")
             hook_params = self.get_hook_params(**param)
-            sub_save_dir = self.get_hyparam_string(**param)
+            sub_save_dir = self._get_hyper_param_string(**param)
             merged_config = dictionary_merge_by_hierachy(self.hook_config, hook_params)
             config_path = write_yaml(merged_config, save_dir=TEMP_DIR, save_name=utils.random_string() + ".yaml")
             true_save_dir = os.path.join(self._save_dir, "Seed_" + str(random_seed), sub_save_dir)

@@ -1,6 +1,7 @@
 import argparse
 import os
 from itertools import cycle
+from pprint import pprint
 
 from deepclustering2 import __git_hash__
 from deepclustering2.cchelper import JobSubmiter
@@ -8,7 +9,7 @@ from deepclustering2.cchelper import JobSubmiter
 from contrastyou import PROJECT_PATH, on_cc
 from contrastyou.config import dictionary_merge_by_hierachy
 from script import utils
-from script.utils import TEMP_DIR, yaml_load, write_yaml, grid_search, ScriptGenerator, \
+from script.utils import TEMP_DIR, yaml_load, write_yaml, grid_search, BaselineGenerator, \
     move_dataset
 from semi_seg import __accounts, num_batches_zoo, pre_max_epoch_zoo, ft_max_epoch_zoo, ratio_zoo
 
@@ -20,13 +21,13 @@ opt_hook_path = {
 git_hash = __git_hash__[:6] if __git_hash__ is not None else "none"
 
 
-class DiscreteMIScriptGenerator(ScriptGenerator):
+class DiscreteMIScriptGenerator(BaselineGenerator):
 
-    def __init__(self, *, data_name, num_batches, save_dir, max_epoch: int) -> None:
-        super().__init__(data_name=data_name, num_batches=num_batches, save_dir=save_dir)
+    def __init__(self, *, data_name, num_batches, max_epoch, save_dir, model_checkpoint=None) -> None:
+        super().__init__(data_name=data_name, num_batches=num_batches, max_epoch=max_epoch, save_dir=save_dir,
+                         model_checkpoint=model_checkpoint)
+
         self.hook_config = yaml_load(PROJECT_PATH + "/" + opt_hook_path[self.get_hook_name()])
-        self._max_epoch = max_epoch
-        self.conditions.append(f" Trainer.max_epoch={max_epoch} ")
 
     def get_hook_name(self):
         return "udaiic"
@@ -42,10 +43,10 @@ class DiscreteMIScriptGenerator(ScriptGenerator):
         from semi_seg import ft_lr_zooms
         ft_lr = ft_lr_zooms[self._data_name]
 
-        return f"python main.py Trainer.name=semi Trainer.two_stage=true Trainer.save_dir={save_dir} " \
+        return f"python main.py Trainer.name=semi  Trainer.save_dir={save_dir} " \
                f" Optim.lr={ft_lr:.7f} RandomSeed={str(seed)} Data.labeled_scan_num={int(labeled_scan_num)} " \
                f" {' '.join(self.conditions)} " \
-               f" --opt-path config/pretrain.yaml {hook_path}"
+               f" --opt-path {hook_path}"
 
     def grid_search_on(self, *, seed, **kwargs):
         jobs = []
@@ -55,7 +56,7 @@ class DiscreteMIScriptGenerator(ScriptGenerator):
         for param in grid_search(**{**kwargs, **{"seed": seed}}):
             random_seed = param.pop("seed")
             hook_params = self.get_hook_params(**param)
-            sub_save_dir = self.get_hyparam_string(**param)
+            sub_save_dir = self._get_hyper_param_string(**param)
             merged_config = dictionary_merge_by_hierachy(self.hook_config, hook_params)
             config_path = write_yaml(merged_config, save_dir=TEMP_DIR, save_name=utils.random_string() + ".yaml")
             true_save_dir = os.path.join(self._save_dir, "Seed_" + str(random_seed), sub_save_dir)
@@ -98,17 +99,30 @@ if __name__ == '__main__':
     pre_max_epoch = pre_max_epoch_zoo[data_name]
     ft_max_epoch = ft_max_epoch_zoo[data_name]
 
-    script_generator = DiscreteMIScriptGenerator(data_name=data_name, save_dir=save_dir, num_batches=num_batches,
+    # baseline_generator = BaselineGenerator(data_name=data_name, num_batches=num_batches, max_epoch=ft_max_epoch,
+    #                                        save_dir=os.path.join(save_dir, "baseline"))
+    # b_jobs = baseline_generator.grid_search_on(seed=seed)
+    # for j in b_jobs:
+    #     pprint(b_jobs)
+
+    script_generator = DiscreteMIScriptGenerator(data_name=data_name, save_dir=os.path.join(save_dir, "semi"),
+                                                 num_batches=num_batches,
                                                  max_epoch=ft_max_epoch)
 
+    # jobs = script_generator.grid_search_on(feature_names=[["Conv5", "Up_conv3", "Up_conv2"]],
+    #                                        mi_weights=[[0.1, 0.05, 0.05], [0.25, 0.1, 0.1]],
+    #                                        consistency_weight=[1, 5, 10], seed=seed, two_stage=[True])
     jobs = script_generator.grid_search_on(feature_names=[["Conv5", "Up_conv3", "Up_conv2"]],
-                                           mi_weights=[[0.1, 0.05, 0.05], [0.25, 0.1, 0.1]],
-                                           consistency_weight=[1, 5, 10], seed=seed, two_stage=[True])
+                                           mi_weights=[[0.25, 0.1, 0.1]],
+                                           consistency_weight=[1, ], seed=seed, two_stage=[True, False])
 
-    jobs2 = script_generator.grid_search_on(feature_names=["Conv5"],
-                                            mi_weights=[0.1, 0.5, 0.1],
-                                            consistency_weight=[1, 5, 10], seed=seed, two_stage=[True])
-    for j in [*jobs, *jobs2]:
+    for j in jobs:
+        pprint(j)
+    #
+    # jobs2 = script_generator.grid_search_on(feature_names=["Conv5"],
+    #                                         mi_weights=[0.1, 0.5, 0.1],
+    #                                         consistency_weight=[1, 5, 10], seed=seed, two_stage=[True])
+    for j in [*jobs]:
         print(j)
         submittor.account = next(account)
         submittor.run(j)
