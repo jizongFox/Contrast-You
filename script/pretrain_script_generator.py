@@ -75,13 +75,15 @@ if __name__ == '__main__':
         "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
         move_dataset()
     ])
-    num_batches = 200
-    pre_max_epoch = 80
-    ft_max_epoch = 80
+    num_batches = 350
+    pre_max_epoch = 60
+    ft_max_epoch = 60
     seed = [10, 20, 30]
+    data_name = "mmwhsct"
+    save_dir = f"0526/{data_name}"
 
-    baseline_generator = PretrainInfoNCEScriptGenerator(data_name="prostate", num_batches=num_batches,
-                                                        save_dir="test_script/baseline",
+    baseline_generator = PretrainInfoNCEScriptGenerator(data_name=data_name, num_batches=num_batches,
+                                                        save_dir=f"{save_dir}/baseline",
                                                         pre_max_epoch=0, ft_max_epoch=ft_max_epoch)
     jobs = baseline_generator.grid_search_on(weight=1, contrast_on=("",), seed=seed)
 
@@ -89,8 +91,8 @@ if __name__ == '__main__':
         submittor.account = next(account)
         submittor.run(j)
 
-    pretrain_generator = PretrainInfoNCEScriptGenerator(data_name="prostate", num_batches=num_batches,
-                                                        save_dir="test_script/infonce",
+    pretrain_generator = PretrainInfoNCEScriptGenerator(data_name=data_name, num_batches=num_batches,
+                                                        save_dir=f"{save_dir}/infonce",
                                                         pre_max_epoch=pre_max_epoch,
                                                         ft_max_epoch=ft_max_epoch)
     jobs = pretrain_generator.grid_search_on(weight=1, contrast_on=("partition", "patient", "self"), seed=seed)
@@ -100,12 +102,12 @@ if __name__ == '__main__':
         submittor.account = next(account)
         submittor.run(j)
 
-    pretrain_sp_generator = PretrainSPInfoNCEScriptGenerator(data_name="prostate", num_batches=num_batches,
-                                                             save_dir="test_script/spinfonce",
+    pretrain_sp_generator = PretrainSPInfoNCEScriptGenerator(data_name=data_name, num_batches=num_batches,
+                                                             save_dir=f"{data_name}/spinfonce",
                                                              pre_max_epoch=pre_max_epoch, ft_max_epoch=ft_max_epoch)
     jobs = pretrain_sp_generator.grid_search_on(weight=1, contrast_on=("partition", "self", "patient"),
                                                 begin_values=(1, 2, 3, 4), end_values=(20, 30, 40, 50, 60), mode="soft",
-                                                correct_grad=[True, False], seed=seed)
+                                                correct_grad=[False], seed=seed)
     for j in jobs:
         submittor.account = next(account)
         submittor.run(j)

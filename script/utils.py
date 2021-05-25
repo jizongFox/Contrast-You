@@ -10,6 +10,7 @@ from typing import Union, Dict, Any, TypeVar
 import yaml
 
 from contrastyou import PROJECT_PATH, on_cc
+from semi_seg import data2input_dim, data2class_numbers
 
 T_path = TypeVar("T_path", str, Path)
 
@@ -98,9 +99,23 @@ class ScriptGenerator:
         self._num_batches = num_batches
         self.conditions.append(f"Trainer.num_batches={num_batches}")
         self._save_dir = save_dir
+        self._input_dim = data2input_dim[data_name]
+        self.conditions.append(f"Arch.input_dim={self._input_dim}")
+        self._num_classes = data2class_numbers[data_name]
+        self.conditions.append(f"Arch.num_classes={self._num_classes}")
 
     def grid_search_on(self, *, seed: int, **kwargs):
         pass
+
+    def get_hyparam_string(self, **kwargs):
+        def to_str(v):
+            if isinstance(v, Iterable) and (not isinstance(v, str)):
+                return "_".join([str(x) for x in v])
+            return v
+
+        list_string = [f"{k}_{to_str(v)}" for k, v in kwargs.items()]
+        prefix = "/".join(list_string)
+        return prefix
 
 
 class PretrainScriptGenerator(ScriptGenerator):
@@ -118,18 +133,13 @@ class PretrainScriptGenerator(ScriptGenerator):
     def get_hook_params(self, **kwargs):
         ...
 
-    def get_hyparam_string(self, **kwargs):
-        list_string = [f"{k}_{v}" for k, v in kwargs.items()]
-        prefix = "/".join(list_string)
-        return prefix
-
     def generate_single_script(self, save_dir, seed, hook_path):
         from semi_seg import pre_lr_zooms, ft_lr_zooms
         pre_lr = pre_lr_zooms[self._data_name]
         ft_lr = ft_lr_zooms[self._data_name]
         return f"python pretrain_main.py Trainer.save_dir={save_dir} " \
                f" Optim.pre_lr={pre_lr:.7f} Optim.ft_lr={ft_lr:.7f} RandomSeed={str(seed)} " \
-               f" {' '.join(self.conditions)} Hook_name={self.get_hook_name()} " \
+               f" {' '.join(self.conditions)}  " \
                f" --opt-path config/pretrain.yaml {hook_path}"
 
 

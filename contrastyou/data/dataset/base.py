@@ -15,7 +15,7 @@ from tqdm import tqdm
 from ...augment import SequentialWrapper
 from ...augment.pil_augment import ToTensor, ToLabel
 
-__all__ = ["DatasetBase", "extract_sub_dataset_based_on_scan_names"]
+__all__ = ["DatasetBase", "extract_sub_dataset_based_on_scan_names", "get_stem"]
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 

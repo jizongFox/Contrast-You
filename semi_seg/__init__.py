@@ -60,7 +60,9 @@ __accounts = ["rrg-mpederso", ]
 labeled_filenames = {
     "acdc": {1: ["patient100_00"],
              2: ["patient027_01", "patient100_00"],
-             4: ["patient027_01", "patient038_01", "patient067_01", "patient100_00"]},
+             4: ["patient027_01", "patient038_01", "patient067_01", "patient100_00"],
+             # 8: ["patient027_01", "patient038_01", "patient067_01", "patient100_00"]
+             },
     "prostate": {3: ["Case10", "Case17", "Case45"],
                  5: ["Case00", "Case10", "Case17", "Case37", "Case45"],
                  7: ["Case00", "Case10", "Case17", "Case34", "Case37", "Case38", "Case45"]},
