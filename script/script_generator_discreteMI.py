@@ -32,11 +32,12 @@ class DiscreteMIScriptGenerator(BaselineGenerator):
     def get_hook_name(self):
         return "udaiic"
 
-    def get_hook_params(self, feature_names, mi_weights, consistency_weight, two_stage):
+    def get_hook_params(self, feature_names, mi_weights, consistency_weight, two_stage, dense_paddings):
         return {"DiscreteMIConsistencyParams":
                     {"feature_names": feature_names, "mi_weights": mi_weights,
-                     "consistency_weight": consistency_weight},
-                "Trainer.two_stage": two_stage
+                     "consistency_weight": consistency_weight,
+                     "dense_paddings": dense_paddings},
+                "Trainer": {"two_stage": two_stage}
                 }
 
     def generate_single_script(self, save_dir, labeled_scan_num, seed, hook_path):
@@ -51,7 +52,8 @@ class DiscreteMIScriptGenerator(BaselineGenerator):
     def grid_search_on(self, *, seed, **kwargs):
         jobs = []
 
-        labeled_scan_list = ratio_zoo[self._data_name][:-1]
+        labeled_scan_list = ratio_zoo[self._data_name][:-1] if len(ratio_zoo[self._data_name]) > 1 else ratio_zoo[
+            self._data_name]
 
         for param in grid_search(**{**kwargs, **{"seed": seed}}):
             random_seed = param.pop("seed")
@@ -90,40 +92,36 @@ if __name__ == '__main__':
         "export PYTHONOPTIMIZE=1",
         "export PYTHONWARNINGS=ignore ",
         "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
+        "export LOGURU_LEVEL=TRACE",
         move_dataset()
     ])
-    seed = [10]
+    seed = [10, 20, 30]
     data_name = args.data_name
     save_dir = f"{args.save_dir}/udaiic/hash_{git_hash}/{data_name}"
     num_batches = num_batches_zoo[data_name]
     pre_max_epoch = pre_max_epoch_zoo[data_name]
     ft_max_epoch = ft_max_epoch_zoo[data_name]
 
-    # baseline_generator = BaselineGenerator(data_name=data_name, num_batches=num_batches, max_epoch=ft_max_epoch,
-    #                                        save_dir=os.path.join(save_dir, "baseline"))
-    # b_jobs = baseline_generator.grid_search_on(seed=seed)
-    # for j in b_jobs:
-    #     pprint(b_jobs)
+    baseline_generator = BaselineGenerator(data_name=data_name, num_batches=num_batches, max_epoch=ft_max_epoch,
+                                           save_dir=os.path.join(save_dir, "baseline"))
+    b_jobs = baseline_generator.grid_search_on(seed=seed)
+    for j in b_jobs:
+        pprint(b_jobs)
+
 
     script_generator = DiscreteMIScriptGenerator(data_name=data_name, save_dir=os.path.join(save_dir, "semi"),
                                                  num_batches=num_batches,
                                                  max_epoch=ft_max_epoch)
 
-    # jobs = script_generator.grid_search_on(feature_names=[["Conv5", "Up_conv3", "Up_conv2"]],
-    #                                        mi_weights=[[0.1, 0.05, 0.05], [0.25, 0.1, 0.1]],
-    #                                        consistency_weight=[1, 5, 10], seed=seed, two_stage=[True])
+
     jobs = script_generator.grid_search_on(feature_names=[["Conv5", "Up_conv3", "Up_conv2"]],
-                                           mi_weights=[[0.25, 0.1, 0.1]],
-                                           consistency_weight=[1, ], seed=seed, two_stage=[True, False])
+                                           mi_weights=[[0.0025, 0.001, 0.001], [0.025, 0.01, 0.01], [0.25, 0.1, 0.1],
+                                                       [0.1, 0.05, 0.05], [0.3, 0.15, 0.15]],
+                                           consistency_weight=[1, 0.1, 0.5, 0.01], seed=seed, two_stage=True,
+                                           dense_paddings=[[0, 0], [0, 1], [1, 3]])
 
     for j in jobs:
-        pprint(j)
-    #
-    # jobs2 = script_generator.grid_search_on(feature_names=["Conv5"],
-    #                                         mi_weights=[0.1, 0.5, 0.1],
-    #                                         consistency_weight=[1, 5, 10], seed=seed, two_stage=[True])
-    for j in [*jobs]:
+
         print(j)
         submittor.account = next(account)
         submittor.run(j)
-        # print(j)

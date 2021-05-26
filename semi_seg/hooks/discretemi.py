@@ -93,7 +93,7 @@ class _DiscreteMIEpochHook(EpocherHook):
         self._extractor.set_enable(False)
 
     @meter_focus
-    def __call__(self, *, unlabeled_image, affine_transformer, seed, **kwargs):
+    def __call__(self, *, unlabeled_image, unlabeled_image_tf, affine_transformer, seed, **kwargs):
         n_unl = len(unlabeled_image)
         feature_ = self._extractor.feature()[-n_unl * 2:]
         proj_feature, proj_tf_feature = torch.chunk(feature_, 2, dim=0)
