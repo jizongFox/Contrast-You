@@ -32,10 +32,11 @@ class DiscreteMIScriptGenerator(BaselineGenerator):
     def get_hook_name(self):
         return "udaiic"
 
-    def get_hook_params(self, feature_names, mi_weights, consistency_weight, two_stage):
+    def get_hook_params(self, feature_names, mi_weights, consistency_weight, two_stage, dense_paddings):
         return {"DiscreteMIConsistencyParams":
                     {"feature_names": feature_names, "mi_weights": mi_weights,
-                     "consistency_weight": consistency_weight},
+                     "consistency_weight": consistency_weight,
+                     "dense_paddings": dense_paddings},
                 "Trainer": {"two_stage": two_stage}
                 }
 
@@ -115,13 +116,12 @@ if __name__ == '__main__':
     #                                        mi_weights=[[0.1, 0.05, 0.05], [0.25, 0.1, 0.1]],
     #                                        consistency_weight=[1, 5, 10], seed=seed, two_stage=[True])
     jobs = script_generator.grid_search_on(feature_names=[["Conv5", "Up_conv3", "Up_conv2"]],
-                                           mi_weights=[[0.25, 0.1, 0.1], [0.1, 0.05, 0.05], [0.3, 0.15, 0.15]],
-                                           consistency_weight=[1, 0.1, 0.5], seed=seed, two_stage=True)
+                                           mi_weights=[[0.0025, 0.001, 0.001], [0.025, 0.01, 0.01], [0.25, 0.1, 0.1],
+                                                       [0.1, 0.05, 0.05], [0.3, 0.15, 0.15]],
+                                           consistency_weight=[1, 0.1, 0.5, 0.01], seed=seed, two_stage=True,
+                                           dense_paddings=[[0, 0], [0, 1], [1, 3]])
 
     for j in jobs:
-        pprint(j)
-
-    for j in [*b_jobs, *jobs]:
         print(j)
         submittor.account = next(account)
         submittor.run(j)
