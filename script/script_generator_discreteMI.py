@@ -108,13 +108,12 @@ if __name__ == '__main__':
     for j in b_jobs:
         pprint(b_jobs)
 
+
     script_generator = DiscreteMIScriptGenerator(data_name=data_name, save_dir=os.path.join(save_dir, "semi"),
                                                  num_batches=num_batches,
                                                  max_epoch=ft_max_epoch)
 
-    # jobs = script_generator.grid_search_on(feature_names=[["Conv5", "Up_conv3", "Up_conv2"]],
-    #                                        mi_weights=[[0.1, 0.05, 0.05], [0.25, 0.1, 0.1]],
-    #                                        consistency_weight=[1, 5, 10], seed=seed, two_stage=[True])
+
     jobs = script_generator.grid_search_on(feature_names=[["Conv5", "Up_conv3", "Up_conv2"]],
                                            mi_weights=[[0.0025, 0.001, 0.001], [0.025, 0.01, 0.01], [0.25, 0.1, 0.1],
                                                        [0.1, 0.05, 0.05], [0.3, 0.15, 0.15]],
@@ -122,7 +121,7 @@ if __name__ == '__main__':
                                            dense_paddings=[[0, 0], [0, 1], [1, 3]])
 
     for j in jobs:
+
         print(j)
         submittor.account = next(account)
         submittor.run(j)
-        # print(j)
