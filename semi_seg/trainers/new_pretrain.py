@@ -10,7 +10,7 @@ from contrastyou.epochers.base import EpocherBase
 from contrastyou.meters import Storage
 from contrastyou.writer import SummaryWriter
 from semi_seg.arch import UNet
-from semi_seg.epochers.new_pretrain import PretrainEncoderEpocher
+from semi_seg.epochers.new_pretrain import PretrainEncoderEpocher, PretrainDecoderEpocher
 from semi_seg.trainers._helper import _get_contrastive_dataloader
 from semi_seg.trainers.new_trainer import SemiTrainer
 
@@ -84,10 +84,6 @@ class _PretrainTrainerMixin:
                 if self.on_master():
                     self.save_to(save_name="last.pth")
 
-    @property
-    def train_epocher(self) -> Type[EpocherBase]:
-        return PretrainEncoderEpocher
-
     def _create_tra_epoch(self, **kwargs) -> EpocherBase:
         epocher = self.train_epocher(
             model=self._model, optimizer=self._optimizer, labeled_loader=self._labeled_loader,
@@ -102,5 +98,13 @@ class _PretrainTrainerMixin:
         return epocher
 
 
-class PretrainTrainer(_PretrainTrainerMixin, SemiTrainer):
-    pass
+class PretrainEncoderTrainer(_PretrainTrainerMixin, SemiTrainer):
+    @property
+    def train_epocher(self) -> Type[EpocherBase]:
+        return PretrainEncoderEpocher
+
+
+class PretrainDecoderTrainer(_PretrainTrainerMixin, SemiTrainer):
+    @property
+    def train_epocher(self) -> Type[EpocherBase]:
+        return PretrainDecoderEpocher

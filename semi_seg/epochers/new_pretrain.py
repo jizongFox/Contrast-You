@@ -3,6 +3,7 @@ import random
 from typing import Callable
 
 import torch
+from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.optim import get_lrs_from_optimizer
 from torch import Tensor, nn
 from torch.optim import Optimizer
@@ -53,16 +54,20 @@ class _PretrainEpocherMixin:
             seed = random.randint(0, int(1e7))
             (unlabeled_image, unlabeled_image_tf), _, unlabeled_filename, unl_partition, unl_group = \
                 self._unzip_data(data, self._device)
+            with FixRandomSeed(seed):
+                unlabeled_image_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_image_tf], dim=0)
 
             unlabeled_logits, unlabeled_tf_logits = self.forward_pass(
                 unlabeled_image=unlabeled_image,
                 unlabeled_image_tf=unlabeled_image_tf
             )
+            with FixRandomSeed(seed):
+                unlabeled_logits_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_logits], dim=0)
 
             # regularized part
             reg_loss = self.regularization(
                 unlabeled_tf_logits=unlabeled_tf_logits,
-                unlabeled_logits_tf=unlabeled_tf_logits,
+                unlabeled_logits_tf=unlabeled_logits_tf,
                 seed=seed,
                 unlabeled_image=unlabeled_image,
                 unlabeled_image_tf=unlabeled_image_tf,
