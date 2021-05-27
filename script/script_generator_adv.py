@@ -29,8 +29,8 @@ class AdversarialScriptGenerator(BaselineGenerator):
     def get_hook_name(self):
         return "adv"
 
-    def get_hook_params(self, reg_weight):
-        return {"Trainer": {"reg_weight": reg_weight}}
+    def get_hook_params(self, reg_weight, dis_consider_image):
+        return {"Trainer": {"reg_weight": reg_weight, "dis_consider_image": dis_consider_image}}
 
     def generate_single_script(self, save_dir, labeled_scan_num, seed, hook_path):
         from semi_seg import ft_lr_zooms
@@ -71,7 +71,7 @@ if __name__ == '__main__':
     parser.add_argument("--save_dir", required=True, type=str, help="save_dir")
     args = parser.parse_args()
 
-    submittor = JobSubmiter(on_local=not on_cc(), project_path="../", time=12)
+    submittor = JobSubmiter(on_local=not on_cc(), project_path="../", time=6)
     submittor.prepare_env([
         "module load python/3.8.2 ",
         f"source ~/venv/bin/activate ",
@@ -102,9 +102,10 @@ if __name__ == '__main__':
                                                   num_batches=num_batches,
                                                   max_epoch=ft_max_epoch)
 
-    b_jobs2 = script_generator.grid_search_on(reg_weight=[0, 0.00001, 0.0001, 0.001, 0.01, 0.1], seed=seed)
+    b_jobs2 = script_generator.grid_search_on(reg_weight=[0, 0.00001, 0.0001, 0.001, 0.01, 0.1],
+                                              dis_consider_image=[True, False], seed=seed)
     print(b_jobs)
     print(b_jobs2)
-    for j in [*b_jobs2]:
+    for j in [*jobs, *b_jobs2]:
         submittor.account = next(account)
         submittor.run(j)

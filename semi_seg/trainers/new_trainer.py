@@ -80,14 +80,15 @@ class AdversarialTrainer(SemiTrainer):
     def __init__(self, *, model: nn.Module, labeled_loader: T_loader, unlabeled_loader: T_loader, val_loader: T_loader,
                  test_loader: T_loader, criterion: _criterion_type, save_dir: str, max_epoch: int = 100,
                  num_batches: int = 100, device="cpu", disable_bn: bool, two_stage: bool, config: Dict[str, Any],
-                 reg_weight:int,
-                 **kwargs) -> None:
+                 reg_weight: int, dis_consider_image: bool = False, **kwargs) -> None:
         super().__init__(model=model, labeled_loader=labeled_loader, unlabeled_loader=unlabeled_loader,
                          val_loader=val_loader, test_loader=test_loader, criterion=criterion, save_dir=save_dir,
                          max_epoch=max_epoch, num_batches=num_batches, device=device, disable_bn=disable_bn,
                          two_stage=two_stage, config=config, **kwargs)
-        logger.trace(f"Initializing the discriminator")
-        self._discriminator = Discriminator(input_dim=self._model.num_classes, hidden_dim=64)
+        input_dim = self._model._input_dim + self._model.num_classes if dis_consider_image else self._model.num_classes
+        self._dis_consider_image = dis_consider_image
+        logger.trace(f"Initializing the discriminator with input_dim = {input_dim}")
+        self._discriminator = Discriminator(input_dim=input_dim, hidden_dim=64)
         optim_params = self._config["Optim"]
         logger.trace(
             f'Initializing the discriminator optimizer with '
@@ -109,7 +110,8 @@ class AdversarialTrainer(SemiTrainer):
             model=self._model, optimizer=self._optimizer, labeled_loader=self._labeled_loader,
             unlabeled_loader=self._unlabeled_loader, sup_criterion=self._criterion, num_batches=self._num_batches,
             cur_epoch=self._cur_epoch, device=self._device, two_stage=self._two_stage, disable_bn=self._disable_bn,
-            discriminator=self._discriminator, discr_optimizer=self._dis_optimizer, reg_weight=self._reg_weight
+            discriminator=self._discriminator, discr_optimizer=self._dis_optimizer, reg_weight=self._reg_weight,
+            dis_consider_image=self._dis_consider_image
         )
         epocher.init()
         return epocher
