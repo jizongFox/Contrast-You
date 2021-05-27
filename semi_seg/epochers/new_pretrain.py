@@ -43,16 +43,6 @@ class _PretrainEpocherMixin:
         meter.delete_meters(["sup_loss", "sup_dice"])
         return meter
 
-    def _assertion(self):
-        labeled_set = get_dataset(self._labeled_loader)
-        labeled_transform = labeled_set.transforms
-        assert labeled_transform._total_freedom  # noqa
-
-        if self._unlabeled_loader is not None:
-            unlabeled_set = get_dataset(self._unlabeled_loader)
-            unlabeled_transform = unlabeled_set.transforms
-            assert unlabeled_transform._total_freedom  # noqa
-
     def _run(self, **kwargs):
         self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer))
         self._model.train()
@@ -107,5 +97,25 @@ class _PretrainEpocherMixin:
         return (image, image_ct), None, filename, partition, group
 
 
-class PretrainEpocher(_PretrainEpocherMixin, SemiSupervisedEpocher):
-    pass
+class PretrainEncoderEpocher(_PretrainEpocherMixin, SemiSupervisedEpocher):
+    def _assertion(self):
+        labeled_set = get_dataset(self._labeled_loader)
+        labeled_transform = labeled_set.transforms
+        assert labeled_transform._total_freedom  # noqa
+
+        if self._unlabeled_loader is not None:
+            unlabeled_set = get_dataset(self._unlabeled_loader)
+            unlabeled_transform = unlabeled_set.transforms
+            assert unlabeled_transform._total_freedom  # noqa
+
+
+class PretrainDecoderEpocher(_PretrainEpocherMixin, SemiSupervisedEpocher):
+    def _assertion(self):
+        labeled_set = get_dataset(self._labeled_loader)
+        labeled_transform = labeled_set.transforms
+        assert labeled_transform._total_freedom is False  # noqa
+
+        if self._unlabeled_loader is not None:
+            unlabeled_set = get_dataset(self._unlabeled_loader)
+            unlabeled_transform = unlabeled_set.transforms
+            assert unlabeled_transform._total_freedom is False  # noqa

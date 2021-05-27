@@ -1,15 +1,13 @@
 import os
 from copy import deepcopy as dcopy
 from functools import reduce
-from typing import Dict, Any
 
 from deepclustering2.loss import KL_div
 from loguru import logger
 
 from contrastyou import CONFIG_PATH, success
-from contrastyou.config import ConfigManger, dictionary_merge_by_hierachy, extract_dictionary_from_anchor
-from contrastyou.mytqdm.utils import is_iterable
-from contrastyou.types import is_map
+from contrastyou.config import ConfigManger, dictionary_merge_by_hierachy, extract_dictionary_from_anchor, \
+    extract_params_with_key_prefix
 from contrastyou.utils import fix_all_seed_within_context, config_logger, set_deterministic, extract_model_state_dict
 from hook_creator import create_hook_from_config
 from semi_seg import ratio_zoo
@@ -20,29 +18,7 @@ from semi_seg.trainers.new_pretrain import PretrainTrainer
 from val import val
 
 
-def extract_params_with_key_prefix(dictionary: Dict[str, Any], prefix: str) -> Dict:
-    result_dict = {}
-    for k, v in dictionary.items():
-        if is_map(v):
-            result_dict[k] = extract_params_with_key_prefix(v, prefix=prefix)
-        elif is_iterable(v):
-            result_dict[k] = [extract_params_with_key_prefix(x, prefix=prefix) for x in v]
-        else:
-            if k.startswith(prefix):
-                result_dict[k.replace(prefix, "")] = v
-
-        # clean items with {}
-        for _k, _v in result_dict.copy().items():
-            if _v == {}:
-                del result_dict[_k]
-    return result_dict
-
-
-def main():
-    config_manager = ConfigManger(
-        base_path=os.path.join(CONFIG_PATH, "base.yaml"),
-        optional_paths=os.path.join(CONFIG_PATH, "pretrain.yaml"), strict=False, verbose=False
-    )
+def separate_pretrain_finetune_configs(config_manager):
     input_params = config_manager.parsed_config
     base_config = config_manager.base_config
     opt_params = reduce(dictionary_merge_by_hierachy, config_manager.optional_configs)
@@ -69,6 +45,17 @@ def main():
         base_config,
         extract_params_with_key_prefix(input_params, prefix="ft_"))
 
+    return pretrain_config, base_config
+
+
+def main():
+    config_manager = ConfigManger(
+        base_path=os.path.join(CONFIG_PATH, "base.yaml"),
+        optional_paths=os.path.join(CONFIG_PATH, "pretrain.yaml"), strict=False, verbose=False
+    )
+    # 😁
+    pretrain_config, base_config = separate_pretrain_finetune_configs(config_manager=config_manager)
+
     with config_manager(scope="base") as config:
         seed = config.get("RandomSeed", 10)
         data_name = config["Data"]["name"]
@@ -92,8 +79,8 @@ def worker(config, absolute_save_dir, seed, ):
 
     labeled_loader, unlabeled_loader, val_loader, test_loader = get_data(
         data_params=config["Data"], labeled_loader_params=config["LabeledLoader"],
-        unlabeled_loader_params=config["UnlabeledLoader"], pretrain=True)
-    #
+        unlabeled_loader_params=config["UnlabeledLoader"], pretrain=True, total_freedom=True)
+
     trainer = PretrainTrainer(model=model, labeled_loader=labeled_loader, unlabeled_loader=unlabeled_loader,
                               val_loader=val_loader, test_loader=test_loader,
                               criterion=KL_div(verbose=False), config=config,
