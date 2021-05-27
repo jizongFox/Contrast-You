@@ -1,5 +1,6 @@
 import random
 from abc import ABC
+from functools import lru_cache
 
 import torch
 from deepclustering2.optim import get_lrs_from_optimizer
@@ -128,16 +129,21 @@ class AdversarialEpocher(SemiSupervisedEpocher, ABC):
         with self.meters.focus_on("adv_reg"):
             self.meters["reg_weight"].add(self._reg_weight)
 
-        for self.cur_batch_num, labeled_data, unlabeled_data in zip(self.indicator, self._labeled_loader,
-                                                                    self._unlabeled_loader):
+        for self.cur_batch_num, labeled_data, in zip(self.indicator, self._labeled_loader):
             (labeled_image, _), labeled_target, labeled_filename, _, label_group = \
                 self._unzip_data(labeled_data, self._device)
-            (unlabeled_image, _), _, unlabeled_filename, unl_partition, unl_group = \
-                self._unzip_data(unlabeled_data, self._device)
+            if self._reg_weight > 0:
+                unlabeled_data = next(self.unlabeled_iter)
+                (unlabeled_image, _), _, unlabeled_filename, unl_partition, unl_group = \
+                    self._unzip_data(unlabeled_data, self._device)
             if self.cur_batch_num < 5:
-                logger.trace(f"{self.__class__.__name__}--"
-                             f"cur_batch:{self.cur_batch_num}, labeled_filenames: {','.join(labeled_filename)}, "
-                             f"unlabeled_filenames: {','.join(unlabeled_filename)}")
+                if self._reg_weight > 0:
+                    logger.trace(f"{self.__class__.__name__}--"
+                                 f"cur_batch:{self.cur_batch_num}, labeled_filenames: {','.join(labeled_filename)}, "
+                                 f"unlabeled_filenames: {','.join(unlabeled_filename)}")
+                else:
+                    logger.trace(f"{self.__class__.__name__}--"
+                                 f"cur_batch:{self.cur_batch_num}, labeled_filenames: {','.join(labeled_filename)}")
 
             # update segmentation
             self._optimizer.zero_grad()
@@ -192,3 +198,9 @@ class AdversarialEpocher(SemiSupervisedEpocher, ABC):
 
                 report_dict = self.meters.statistics()
                 self.indicator.set_postfix_statics(report_dict, cache_time=10)
+
+    @property
+    @lru_cache()
+    def unlabeled_iter(self):
+        # this is to match the baseline trainer to avoid any perturbation on the baseline
+        return iter(self._unlabeled_loader)

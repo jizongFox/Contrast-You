@@ -8,6 +8,7 @@ from torch import nn
 from contrastyou.mytqdm import item2str
 from contrastyou.trainer.base import Trainer
 from contrastyou.types import criterionType as _criterion_type
+from contrastyou.utils import fix_all_seed_within_context
 from semi_seg.arch.discr import Discriminator
 from semi_seg.epochers.new_comparable import MixUpEpocher, AdversarialEpocher
 from semi_seg.epochers.new_epocher import EpocherBase, SemiSupervisedEpocher, FineTuneEpocher, EvalEpocher
@@ -88,7 +89,9 @@ class AdversarialTrainer(SemiTrainer):
         input_dim = self._model._input_dim + self._model.num_classes if dis_consider_image else self._model.num_classes
         self._dis_consider_image = dis_consider_image
         logger.trace(f"Initializing the discriminator with input_dim = {input_dim}")
-        self._discriminator = Discriminator(input_dim=input_dim, hidden_dim=64)
+        seed = self._config.get("RandomSeed", 10)
+        with fix_all_seed_within_context(seed):
+            self._discriminator = Discriminator(input_dim=input_dim, hidden_dim=64)
         optim_params = self._config["Optim"]
         logger.trace(
             f'Initializing the discriminator optimizer with '

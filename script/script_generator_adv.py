@@ -106,6 +106,6 @@ if __name__ == '__main__':
                                               dis_consider_image=[True, False], seed=seed)
     print(b_jobs)
     print(b_jobs2)
-    for j in [*jobs, *b_jobs2]:
+    for j in [*b_jobs, *b_jobs2]:
         submittor.account = next(account)
         submittor.run(j)
