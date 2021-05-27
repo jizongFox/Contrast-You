@@ -1,11 +1,15 @@
 from typing import Type, Dict, Any
 
+from deepclustering2 import optim
 from deepclustering2.type import T_loader
+from loguru import logger
 from torch import nn
 
+from contrastyou.mytqdm import item2str
 from contrastyou.trainer.base import Trainer
 from contrastyou.types import criterionType as _criterion_type
-from semi_seg.epochers.new_comparable import MixUpEpocher
+from semi_seg.arch.discr import Discriminator
+from semi_seg.epochers.new_comparable import MixUpEpocher, AdversarialEpocher
 from semi_seg.epochers.new_epocher import EpocherBase, SemiSupervisedEpocher, FineTuneEpocher, EvalEpocher
 
 
@@ -65,3 +69,47 @@ class MixUpTrainer(SemiTrainer):
     @property
     def train_epocher(self) -> Type[EpocherBase]:
         return MixUpEpocher
+
+
+class AdversarialTrainer(SemiTrainer):
+    """
+    adversarial trainer for medical images, without using hooks.
+    """
+    activate_hooks = False
+
+    def __init__(self, *, model: nn.Module, labeled_loader: T_loader, unlabeled_loader: T_loader, val_loader: T_loader,
+                 test_loader: T_loader, criterion: _criterion_type, save_dir: str, max_epoch: int = 100,
+                 num_batches: int = 100, device="cpu", disable_bn: bool, two_stage: bool, config: Dict[str, Any],
+                 reg_weight:int,
+                 **kwargs) -> None:
+        super().__init__(model=model, labeled_loader=labeled_loader, unlabeled_loader=unlabeled_loader,
+                         val_loader=val_loader, test_loader=test_loader, criterion=criterion, save_dir=save_dir,
+                         max_epoch=max_epoch, num_batches=num_batches, device=device, disable_bn=disable_bn,
+                         two_stage=two_stage, config=config, **kwargs)
+        logger.trace(f"Initializing the discriminator")
+        self._discriminator = Discriminator(input_dim=self._model.num_classes, hidden_dim=64)
+        optim_params = self._config["Optim"]
+        logger.trace(
+            f'Initializing the discriminator optimizer with '
+            f'{item2str({k: v for k, v in optim_params.items() if k != "name" and k != "pre_lr" and k != "ft_lr"})}'
+        )
+        self._dis_optimizer = optim.__dict__[optim_params["name"]](
+            params=filter(lambda p: p.requires_grad, self._discriminator.parameters()),
+            **{k: v for k, v in optim_params.items() if k != "name" and k != "pre_lr" and k != "ft_lr"}
+        )
+        self._reg_weight = float(reg_weight)
+        logger.trace(f"Initializing weight = {float(self._reg_weight)}")
+
+    @property
+    def train_epocher(self) -> Type[EpocherBase]:
+        return AdversarialEpocher
+
+    def _create_tra_epoch(self, **kwargs) -> EpocherBase:
+        epocher = self.train_epocher(
+            model=self._model, optimizer=self._optimizer, labeled_loader=self._labeled_loader,
+            unlabeled_loader=self._unlabeled_loader, sup_criterion=self._criterion, num_batches=self._num_batches,
+            cur_epoch=self._cur_epoch, device=self._device, two_stage=self._two_stage, disable_bn=self._disable_bn,
+            discriminator=self._discriminator, discr_optimizer=self._dis_optimizer, reg_weight=self._reg_weight
+        )
+        epocher.init()
+        return epocher
