@@ -1,5 +1,6 @@
 import random
 from abc import ABC
+from functools import lru_cache
 
 import torch
 from deepclustering2.optim import get_lrs_from_optimizer
@@ -92,7 +93,8 @@ class AdversarialEpocher(SemiSupervisedEpocher, ABC):
 
     def __init__(self, *, model: nn.Module, optimizer: T_optim, labeled_loader: T_loader, unlabeled_loader: T_loader,
                  sup_criterion: T_loss, num_batches: int, cur_epoch=0, device="cpu", two_stage: bool = False,
-                 disable_bn: bool = False, discriminator=None, discr_optimizer=None, reg_weight=None, **kwargs) -> None:
+                 disable_bn: bool = False, discriminator=None, discr_optimizer=None, reg_weight=None,
+                 dis_consider_image: bool, **kwargs) -> None:
         super().__init__(model=model, optimizer=optimizer, labeled_loader=labeled_loader,
                          unlabeled_loader=unlabeled_loader, sup_criterion=sup_criterion, num_batches=num_batches,
                          cur_epoch=cur_epoch, device=device, two_stage=two_stage, disable_bn=disable_bn, **kwargs)
@@ -101,6 +103,7 @@ class AdversarialEpocher(SemiSupervisedEpocher, ABC):
         self._reg_weight = float(reg_weight)
         assert isinstance(discriminator, nn.Module)
         assert isinstance(discr_optimizer, torch.optim.Optimizer)
+        self._dis_consider_image = dis_consider_image
 
     def _run(self, **kwargs):
         self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer))
@@ -126,17 +129,21 @@ class AdversarialEpocher(SemiSupervisedEpocher, ABC):
         with self.meters.focus_on("adv_reg"):
             self.meters["reg_weight"].add(self._reg_weight)
 
-        for self.cur_batch_num, labeled_data, unlabeled_data in zip(self.indicator, self._labeled_loader,
-                                                                    self._unlabeled_loader):
-            seed = random.randint(0, int(1e7))
+        for self.cur_batch_num, labeled_data, in zip(self.indicator, self._labeled_loader):
             (labeled_image, _), labeled_target, labeled_filename, _, label_group = \
                 self._unzip_data(labeled_data, self._device)
-            (unlabeled_image, _), _, unlabeled_filename, unl_partition, unl_group = \
-                self._unzip_data(unlabeled_data, self._device)
+            if self._reg_weight > 0:
+                unlabeled_data = next(self.unlabeled_iter)
+                (unlabeled_image, _), _, unlabeled_filename, unl_partition, unl_group = \
+                    self._unzip_data(unlabeled_data, self._device)
             if self.cur_batch_num < 5:
-                logger.trace(f"{self.__class__.__name__}--"
-                             f"cur_batch:{self.cur_batch_num}, labeled_filenames: {','.join(labeled_filename)}, "
-                             f"unlabeled_filenames: {','.join(unlabeled_filename)}")
+                if self._reg_weight > 0:
+                    logger.trace(f"{self.__class__.__name__}--"
+                                 f"cur_batch:{self.cur_batch_num}, labeled_filenames: {','.join(labeled_filename)}, "
+                                 f"unlabeled_filenames: {','.join(unlabeled_filename)}")
+                else:
+                    logger.trace(f"{self.__class__.__name__}--"
+                                 f"cur_batch:{self.cur_batch_num}, labeled_filenames: {','.join(labeled_filename)}")
 
             # update segmentation
             self._optimizer.zero_grad()
@@ -146,7 +153,11 @@ class AdversarialEpocher(SemiSupervisedEpocher, ABC):
             generator_err = torch.tensor(0, device=self.device, dtype=torch.float)
             if self._reg_weight > 0:
                 unlabeled_logits = self._model(unlabeled_image)
-                discr_output_unlabeled = self._discriminator(unlabeled_logits.softmax(1))
+                if self._dis_consider_image:
+                    discr_output_unlabeled = self._discriminator(
+                        torch.cat([unlabeled_image, unlabeled_logits.softmax(1)], dim=1))
+                else:
+                    discr_output_unlabeled = self._discriminator(unlabeled_logits.softmax(1))
 
                 generator_err = criterion(discr_output_unlabeled,
                                           torch.zeros_like(discr_output_unlabeled).fill_(TRUE_LABEL))
@@ -164,11 +175,18 @@ class AdversarialEpocher(SemiSupervisedEpocher, ABC):
             if self._reg_weight > 0:
                 # first # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
                 self._discriminator.zero_grad()
-                discr_output_labeled = self._discriminator(labeled_logits.detach()).view(-1)
+                if self._dis_consider_image:
+                    discr_output_labeled = self._discriminator(
+                        torch.cat([labeled_image, labeled_logits.detach().softmax(1)], dim=1))
+                else:
+                    discr_output_labeled = self._discriminator(labeled_logits.detach().softmax(1))
                 discr_err_labeled = criterion(discr_output_labeled,
                                               torch.zeros_like(discr_output_labeled).fill_(TRUE_LABEL))
-
-                discr_output_unlabeled = self._discriminator(unlabeled_logits.detach()).view(-1)
+                if self._dis_consider_image:
+                    discr_output_unlabeled = self._discriminator(
+                        torch.cat([unlabeled_image, unlabeled_logits.detach().softmax(1)], dim=1))
+                else:
+                    discr_output_unlabeled = self._discriminator(unlabeled_logits.detach().softmax(1))
                 discr_err_unlabeled = criterion(discr_output_unlabeled,
                                                 torch.zeros_like(discr_output_unlabeled).fill_(FAKE_LABEL))
                 disc_loss = discr_err_labeled + discr_err_unlabeled
@@ -180,3 +198,9 @@ class AdversarialEpocher(SemiSupervisedEpocher, ABC):
 
                 report_dict = self.meters.statistics()
                 self.indicator.set_postfix_statics(report_dict, cache_time=10)
+
+    @property
+    @lru_cache()
+    def unlabeled_iter(self):
+        # this is to match the baseline trainer to avoid any perturbation on the baseline
+        return iter(self._unlabeled_loader)
