@@ -2,6 +2,7 @@ from collections import Iterable
 from copy import deepcopy as dcopy
 from typing import Dict, Any
 
+from contrastyou.mytqdm.utils import is_iterable
 from contrastyou.types import mapType, is_map
 
 
@@ -90,3 +91,21 @@ def dictionary2string(dictionary, parent_name_list=None, item_list=None):
             current_item = ".".join(parent_name_list) + f".{k}={tostring(v)}"
             item_list.append(current_item)
     return " ".join(item_list)
+
+
+def extract_params_with_key_prefix(dictionary: Dict[str, Any], prefix: str) -> Dict:
+    result_dict = {}
+    for k, v in dictionary.items():
+        if is_map(v):
+            result_dict[k] = extract_params_with_key_prefix(v, prefix=prefix)
+        elif is_iterable(v):
+            result_dict[k] = [extract_params_with_key_prefix(x, prefix=prefix) for x in v]
+        else:
+            if k.startswith(prefix):
+                result_dict[k.replace(prefix, "")] = v
+
+        # clean items with {}
+        for _k, _v in result_dict.copy().items():
+            if _v == {}:
+                del result_dict[_k]
+    return result_dict

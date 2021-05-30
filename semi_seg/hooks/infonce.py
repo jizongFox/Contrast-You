@@ -17,6 +17,11 @@ from semi_seg.mi_estimator.base import decoder_names, encoder_names
 from .utils import get_label, meter_focus
 
 
+def get_n_point_coordinate(h, w, n):
+    return [(x, y) for x, y in zip(np.random.choice(range(h), n, replace=False),
+                                   np.random.choice(range(w), n, replace=False))]
+
+
 def figure2board(tensor, name, criterion, writer, epocher):
     with switch_plt_backend("agg"):
         fig1 = plt.figure()
@@ -54,7 +59,7 @@ class INFONCEHook(TrainerHook):
     def learnable_modules(self) -> List[nn.Module]:
         return [self._projector, ]
 
-    def __init__(self, *, name, model: nn.Module, feature_name: str, weight: float = 1.0, spatial_size=(1, 1),
+    def __init__(self, *, name, model: nn.Module, feature_name: str, weight: float = 1.0, spatial_size=None,
                  data_name: str, contrast_on: str) -> None:
         super().__init__(hook_name=name)
         assert feature_name in encoder_names + decoder_names, feature_name
@@ -63,23 +68,32 @@ class INFONCEHook(TrainerHook):
 
         self._extractor = SingleFeatureExtractor(model, feature_name=feature_name)  # noqa
         input_dim = model.get_channel_dim(feature_name)
+        if feature_name in encoder_names:
+            spatial_size = spatial_size or (1, 1)
+        else:
+            spatial_size = spatial_size or (10, 10)
         self._projector = self.init_projector(input_dim=input_dim, spatial_size=spatial_size)
         self._criterion = self.init_criterion()
         self._label_generator = partial(get_label, contrast_on=contrast_on, data_name=data_name)
         self._learnable_models = (self._projector,)
 
     def __call__(self):
-        hook = _INFONCEEpochHook(
+        if self.is_encoder:
+            hook = _INFONCEEpochHook(
+                name=self._hook_name, weight=self._weight, extractor=self._extractor, projector=self._projector,
+                criterion=self._criterion, label_generator=self._label_generator
+            )
+            return hook
+        return _INFONCEDenseHook(
             name=self._hook_name, weight=self._weight, extractor=self._extractor, projector=self._projector,
             criterion=self._criterion, label_generator=self._label_generator
         )
-        return hook
 
     def init_criterion(self) -> SupConLoss1:
         self._criterion = SupConLoss1()
         return self._criterion
 
-    def init_projector(self, *, input_dim, spatial_size=(1, 1)):
+    def init_projector(self, *, input_dim, spatial_size):
         projector = self.projector_class(input_dim=input_dim, hidden_dim=256, output_dim=256, head_type="mlp",
                                          normalize=True, spatial_size=spatial_size)
         return projector
@@ -87,9 +101,13 @@ class INFONCEHook(TrainerHook):
     @property
     def projector_class(self):
         from contrastyou.projectors.heads import ProjectionHead, DenseProjectionHead
-        if self._feature_name in encoder_names:
+        if self.is_encoder:
             return ProjectionHead
         return DenseProjectionHead
+
+    @property
+    def is_encoder(self):
+        return self._feature_name in encoder_names
 
 
 class SelfPacedINFONCEHook(INFONCEHook):
@@ -178,6 +196,49 @@ class _INFONCEEpochHook(EpocherHook):
 
     def close(self):
         self._extractor.remove()
+
+
+class _INFONCEDenseHook(_INFONCEEpochHook):
+    @meter_focus
+    def __call__(self, *, affine_transformer, seed, unlabeled_tf_logits, unlabeled_logits_tf, partition_group,
+                 label_group, **kwargs):
+        n_unl = len(unlabeled_logits_tf)
+        feature_ = self._extractor.feature()[-n_unl * 2:]
+        unlabeled_features, unlabeled_tf_features = torch.chunk(feature_, 2, dim=0)
+        with FixRandomSeed(seed):
+            unlabeled_features_tf = torch.stack([affine_transformer(x) for x in unlabeled_features], dim=0)
+        norm_features_tf, norm_tf_features = torch.chunk(
+            self._projector(torch.cat([unlabeled_features_tf, unlabeled_tf_features], dim=0)), 2)
+        with FixRandomSeed(seed):
+            norm_features_tf_selected = self.region_extractor(norm_features_tf, point_nums=5)
+        with FixRandomSeed(seed):
+            norm_tf_features_selected = self.region_extractor(norm_tf_features, point_nums=5)
+
+        labels = list(range(norm_features_tf_selected.shape[0]))
+        loss = self._criterion(norm_features_tf_selected, norm_tf_features_selected, target=labels)
+        self.meters["loss"].add(loss.item())
+
+        sim_exp = self._criterion.sim_exp
+        sim_logits = self._criterion.sim_logits
+        pos_mask = self._criterion.pos_mask
+        if self._n == 0:
+            writer = get_tb_writer()
+            figure2board(pos_mask, "mask", self._criterion, writer, self.epocher)
+            figure2board(sim_exp, "sim_exp", self._criterion, writer, self.epocher)
+            figure2board(sim_logits, "sim_logits", self._criterion, writer, self.epocher)
+
+        self._n += 1
+        return loss * self._weight
+
+    @staticmethod
+    def region_extractor(normalize_features, point_nums=5):
+        def get_feature_selected(feature_map, n_point_coordinate):
+            return torch.stack([feature_map[:, n[0], n[1]] for n in n_point_coordinate], dim=0)
+
+        h, w = normalize_features.shape[2:]
+        return torch.cat(
+            [get_feature_selected(single_feature, get_n_point_coordinate(n=point_nums, h=h, w=w)) for single_feature in
+             normalize_features], dim=0)
 
 
 class _SPINFONCEEpochHook(_INFONCEEpochHook):

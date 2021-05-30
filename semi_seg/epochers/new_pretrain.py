@@ -3,6 +3,7 @@ import random
 from typing import Callable
 
 import torch
+from deepclustering2.decorator import FixRandomSeed
 from deepclustering2.optim import get_lrs_from_optimizer
 from torch import Tensor, nn
 from torch.optim import Optimizer
@@ -43,16 +44,6 @@ class _PretrainEpocherMixin:
         meter.delete_meters(["sup_loss", "sup_dice"])
         return meter
 
-    def _assertion(self):
-        labeled_set = get_dataset(self._labeled_loader)
-        labeled_transform = labeled_set.transforms
-        assert labeled_transform._total_freedom  # noqa
-
-        if self._unlabeled_loader is not None:
-            unlabeled_set = get_dataset(self._unlabeled_loader)
-            unlabeled_transform = unlabeled_set.transforms
-            assert unlabeled_transform._total_freedom  # noqa
-
     def _run(self, **kwargs):
         self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer))
         self._model.train()
@@ -63,16 +54,20 @@ class _PretrainEpocherMixin:
             seed = random.randint(0, int(1e7))
             (unlabeled_image, unlabeled_image_tf), _, unlabeled_filename, unl_partition, unl_group = \
                 self._unzip_data(data, self._device)
+            with FixRandomSeed(seed):
+                unlabeled_image_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_image_tf], dim=0)
 
             unlabeled_logits, unlabeled_tf_logits = self.forward_pass(
                 unlabeled_image=unlabeled_image,
                 unlabeled_image_tf=unlabeled_image_tf
             )
+            with FixRandomSeed(seed):
+                unlabeled_logits_tf = torch.stack([self._affine_transformer(x) for x in unlabeled_logits], dim=0)
 
             # regularized part
             reg_loss = self.regularization(
                 unlabeled_tf_logits=unlabeled_tf_logits,
-                unlabeled_logits_tf=unlabeled_tf_logits,
+                unlabeled_logits_tf=unlabeled_logits_tf,
                 seed=seed,
                 unlabeled_image=unlabeled_image,
                 unlabeled_image_tf=unlabeled_image_tf,
@@ -107,5 +102,25 @@ class _PretrainEpocherMixin:
         return (image, image_ct), None, filename, partition, group
 
 
-class PretrainEpocher(_PretrainEpocherMixin, SemiSupervisedEpocher):
-    pass
+class PretrainEncoderEpocher(_PretrainEpocherMixin, SemiSupervisedEpocher):
+    def _assertion(self):
+        labeled_set = get_dataset(self._labeled_loader)
+        labeled_transform = labeled_set.transforms
+        assert labeled_transform._total_freedom  # noqa
+
+        if self._unlabeled_loader is not None:
+            unlabeled_set = get_dataset(self._unlabeled_loader)
+            unlabeled_transform = unlabeled_set.transforms
+            assert unlabeled_transform._total_freedom  # noqa
+
+
+class PretrainDecoderEpocher(_PretrainEpocherMixin, SemiSupervisedEpocher):
+    def _assertion(self):
+        labeled_set = get_dataset(self._labeled_loader)
+        labeled_transform = labeled_set.transforms
+        assert labeled_transform._total_freedom is False  # noqa
+
+        if self._unlabeled_loader is not None:
+            unlabeled_set = get_dataset(self._unlabeled_loader)
+            unlabeled_transform = unlabeled_set.transforms
+            assert unlabeled_transform._total_freedom is False  # noqa
