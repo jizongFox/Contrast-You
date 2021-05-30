@@ -1,7 +1,6 @@
 import os
-import numpy  # noqa
 
-import torch
+import numpy  # noqa
 from deepclustering2.loss import KL_div
 from loguru import logger
 
@@ -12,12 +11,12 @@ from hook_creator import create_hook_from_config
 from semi_seg.arch import UNet
 from semi_seg.data.creator import get_data
 from semi_seg.hooks import feature_until_from_hooks
-from semi_seg.trainers.new_pretrain import PretrainTrainer
+from semi_seg.trainers.new_pretrain import PretrainEncoderTrainer
 from semi_seg.trainers.new_trainer import SemiTrainer, FineTuneTrainer, MixUpTrainer
 
 trainer_zoo = {"semi": SemiTrainer,
                "ft": FineTuneTrainer,
-               "pretrain": PretrainTrainer,
+               "pretrain": PretrainEncoderTrainer,
                "mixup": MixUpTrainer}
 
 
@@ -78,6 +77,7 @@ def worker(config, absolute_save_dir, seed, ):
         if checkpoint:
             trainer.resume_from_path(checkpoint)
         trainer.start_training()
+
     success(save_dir=trainer.save_dir)
 
 

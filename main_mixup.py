@@ -9,12 +9,12 @@ from contrastyou.utils import fix_all_seed_within_context, config_logger, set_de
 from semi_seg.arch import UNet
 from semi_seg.data.creator import get_data
 from semi_seg.hooks.mixup import MixUpHook
-from semi_seg.trainers.new_pretrain import PretrainTrainer
+from semi_seg.trainers.new_pretrain import PretrainEncoderTrainer
 from semi_seg.trainers.new_trainer import SemiTrainer, FineTuneTrainer, MixUpTrainer
 
 trainer_zoo = {"semi": SemiTrainer,
                "ft": FineTuneTrainer,
-               "pretrain": PretrainTrainer,
+               "pretrain": PretrainEncoderTrainer,
                "mixup": MixUpTrainer}
 
 
