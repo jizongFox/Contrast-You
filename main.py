@@ -1,6 +1,7 @@
 import os
 
 import numpy  # noqa
+import torch
 from deepclustering2.loss import KL_div
 from loguru import logger
 
@@ -82,6 +83,6 @@ def worker(config, absolute_save_dir, seed, ):
 
 
 if __name__ == '__main__':
-    # torch.set_deterministic(True)
+    torch.set_deterministic(True)
     # torch.backends.cudnn.benchmark = True
     main()

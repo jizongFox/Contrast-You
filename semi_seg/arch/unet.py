@@ -65,15 +65,15 @@ def _complete_arch_start2end(start: str, end: str, include_start=True, include_e
 
 
 class _ConvBlock(nn.Module):
-    def __init__(self, in_ch, out_ch):
+    def __init__(self, in_ch, out_ch, momentum: float = 0.1):
         super(_ConvBlock, self).__init__()
 
         self.conv = nn.Sequential(
             nn.Conv2d(in_ch, out_ch, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False),
-            nn.BatchNorm2d(out_ch),
+            nn.BatchNorm2d(out_ch, momentum=momentum),
             nn.ReLU(inplace=True),
             nn.Conv2d(out_ch, out_ch, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False),
-            nn.BatchNorm2d(out_ch),
+            nn.BatchNorm2d(out_ch, momentum=momentum),
             nn.ReLU(inplace=True),
         )
 
@@ -83,12 +83,12 @@ class _ConvBlock(nn.Module):
 
 
 class _UpConv(nn.Module):
-    def __init__(self, in_ch, out_ch):
+    def __init__(self, in_ch, out_ch, momentum=0.1):
         super(_UpConv, self).__init__()
         self.up = nn.Sequential(
             nn.Upsample(scale_factor=2),
             nn.Conv2d(in_ch, out_ch, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False),
-            nn.BatchNorm2d(out_ch),
+            nn.BatchNorm2d(out_ch, momentum=momentum),
             nn.ReLU(inplace=True),
         )
 
@@ -108,7 +108,7 @@ class UNet(nn.Module):
     r"""the difference between layer_dimension and arch_elements is that we allow operations on layer_dimension 
     while the latter can server to intermediate usage, such as gradient stop"""
 
-    def __init__(self, input_dim=3, num_classes=1, max_channel=256):
+    def __init__(self, input_dim=3, num_classes=1, max_channel=256, momentum=0.1):
         super(UNet, self).__init__()
         self._input_dim = input_dim
         self._num_classes = num_classes
@@ -120,23 +120,35 @@ class UNet(nn.Module):
         self._max_pool3 = nn.MaxPool2d(kernel_size=2, stride=2)
         self._max_pool4 = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        self._Conv1 = _ConvBlock(in_ch=input_dim, out_ch=self.get_channel_dim("Conv1"))
-        self._Conv2 = _ConvBlock(in_ch=self.get_channel_dim("Conv1"), out_ch=self.get_channel_dim("Conv2"))
-        self._Conv3 = _ConvBlock(in_ch=self.get_channel_dim("Conv2"), out_ch=self.get_channel_dim("Conv3"))
-        self._Conv4 = _ConvBlock(in_ch=self.get_channel_dim("Conv3"), out_ch=self.get_channel_dim("Conv4"))
-        self._Conv5 = _ConvBlock(in_ch=self.get_channel_dim("Conv4"), out_ch=self.get_channel_dim("Conv5"))
+        self._Conv1 = _ConvBlock(in_ch=input_dim, out_ch=self.get_channel_dim("Conv1"), momentum=momentum)
+        self._Conv2 = _ConvBlock(in_ch=self.get_channel_dim("Conv1"), out_ch=self.get_channel_dim("Conv2"),
+                                 momentum=momentum)
+        self._Conv3 = _ConvBlock(in_ch=self.get_channel_dim("Conv2"), out_ch=self.get_channel_dim("Conv3"),
+                                 momentum=momentum)
+        self._Conv4 = _ConvBlock(in_ch=self.get_channel_dim("Conv3"), out_ch=self.get_channel_dim("Conv4"),
+                                 momentum=momentum)
+        self._Conv5 = _ConvBlock(in_ch=self.get_channel_dim("Conv4"), out_ch=self.get_channel_dim("Conv5"),
+                                 momentum=momentum)
 
-        self._Up5 = _UpConv(in_ch=self.get_channel_dim("Conv5"), out_ch=self.get_channel_dim("Up_conv5"))
-        self._Up_conv5 = _ConvBlock(in_ch=self.get_channel_dim("Conv5"), out_ch=self.get_channel_dim("Up_conv5"))
+        self._Up5 = _UpConv(in_ch=self.get_channel_dim("Conv5"), out_ch=self.get_channel_dim("Up_conv5"),
+                            momentum=momentum)
+        self._Up_conv5 = _ConvBlock(in_ch=self.get_channel_dim("Conv5"), out_ch=self.get_channel_dim("Up_conv5"),
+                                    momentum=momentum)
 
-        self._Up4 = _UpConv(in_ch=self.get_channel_dim("Up_conv5"), out_ch=self.get_channel_dim("Up_conv4"))
-        self._Up_conv4 = _ConvBlock(in_ch=self.get_channel_dim("Up_conv5"), out_ch=self.get_channel_dim("Up_conv4"))
+        self._Up4 = _UpConv(in_ch=self.get_channel_dim("Up_conv5"), out_ch=self.get_channel_dim("Up_conv4"),
+                            momentum=momentum)
+        self._Up_conv4 = _ConvBlock(in_ch=self.get_channel_dim("Up_conv5"), out_ch=self.get_channel_dim("Up_conv4"),
+                                    momentum=momentum)
 
-        self._Up3 = _UpConv(in_ch=self.get_channel_dim("Up_conv4"), out_ch=self.get_channel_dim("Up_conv3"))
-        self._Up_conv3 = _ConvBlock(in_ch=self.get_channel_dim("Up_conv4"), out_ch=self.get_channel_dim("Up_conv3"))
+        self._Up3 = _UpConv(in_ch=self.get_channel_dim("Up_conv4"), out_ch=self.get_channel_dim("Up_conv3"),
+                            momentum=momentum)
+        self._Up_conv3 = _ConvBlock(in_ch=self.get_channel_dim("Up_conv4"), out_ch=self.get_channel_dim("Up_conv3"),
+                                    momentum=momentum)
 
-        self._Up2 = _UpConv(in_ch=self.get_channel_dim("Up_conv3"), out_ch=self.get_channel_dim("Up_conv2"))
-        self._Up_conv2 = _ConvBlock(in_ch=self.get_channel_dim("Up_conv3"), out_ch=self.get_channel_dim("Up_conv2"))
+        self._Up2 = _UpConv(in_ch=self.get_channel_dim("Up_conv3"), out_ch=self.get_channel_dim("Up_conv2"),
+                            momentum=momentum)
+        self._Up_conv2 = _ConvBlock(in_ch=self.get_channel_dim("Up_conv3"), out_ch=self.get_channel_dim("Up_conv2"),
+                                    momentum=momentum)
 
         self._Deconv_1x1 = nn.Conv2d(self.get_channel_dim("Up_conv2"), num_classes, kernel_size=(1, 1), stride=(1, 1),
                                      padding=(0, 0))
