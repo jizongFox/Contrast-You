@@ -6,7 +6,7 @@ import numpy as np
 from deepclustering2.cchelper import JobSubmiter
 
 from contrastyou import PROJECT_PATH, on_cc
-from contrastyou.config import dictionary_merge_by_hierachy
+from contrastyou.configure import dictionary_merge_by_hierachy
 from script import utils
 from script.utils import TEMP_DIR, yaml_load, write_yaml, grid_search, PretrainScriptGenerator, move_dataset
 from semi_seg import __accounts, num_batches_zoo, ft_max_epoch_zoo, pre_max_epoch_zoo

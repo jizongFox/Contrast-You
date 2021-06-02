@@ -6,7 +6,7 @@ from deepclustering2.loss import KL_div
 from loguru import logger
 
 from contrastyou import CONFIG_PATH, success
-from contrastyou.config import ConfigManger
+from contrastyou.configure import ConfigManger
 from contrastyou.utils import fix_all_seed_within_context, config_logger, set_deterministic, extract_model_state_dict
 from semi_seg.arch import UNet
 from semi_seg.data.creator import get_data
