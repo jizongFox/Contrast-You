@@ -7,7 +7,7 @@ from deepclustering2 import __git_hash__
 from deepclustering2.cchelper import JobSubmiter
 
 from contrastyou import PROJECT_PATH, on_cc
-from contrastyou.config import dictionary_merge_by_hierachy
+from contrastyou.configure import dictionary_merge_by_hierachy
 from script import utils
 from script.utils import TEMP_DIR, yaml_load, write_yaml, grid_search, BaselineGenerator, \
     move_dataset

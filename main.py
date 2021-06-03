@@ -1,11 +1,12 @@
 import os
 
 import numpy  # noqa
+import torch
 from deepclustering2.loss import KL_div
 from loguru import logger
 
 from contrastyou import CONFIG_PATH, success
-from contrastyou.config import ConfigManger
+from contrastyou.configure import ConfigManger
 from contrastyou.utils import fix_all_seed_within_context, config_logger, extract_model_state_dict
 from hook_creator import create_hook_from_config
 from semi_seg.arch import UNet

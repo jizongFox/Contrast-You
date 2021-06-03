@@ -6,6 +6,7 @@ Arch:
   num_classes: 4
   checkpoint: null
   max_channel: 256
+  momentum: 0.1
 
 Optim:
   name: RAdam

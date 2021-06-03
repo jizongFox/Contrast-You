@@ -1,6 +1,6 @@
 from functools import reduce
 
-from contrastyou.config import dictionary_merge_by_hierachy, extract_dictionary_from_anchor, \
+from contrastyou.configure import dictionary_merge_by_hierachy, extract_dictionary_from_anchor, \
     extract_params_with_key_prefix
 
 
