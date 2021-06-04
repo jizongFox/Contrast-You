@@ -1,6 +1,5 @@
-from deepclustering2.loss import Entropy
-
 from contrastyou.hooks.base import TrainerHook, EpocherHook
+from contrastyou.losses.kl import Entropy
 from contrastyou.meters import AverageValueMeter, MeterInterface
 from semi_seg.hooks import meter_focus
 

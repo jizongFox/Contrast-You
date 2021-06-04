@@ -23,13 +23,13 @@ class TestACDC(TestCase):
         sampler = InfiniteRandomSampler(dataset, shuffle=False)
         dataloader = DataLoader(dataset, sampler=sampler, batch_size=4)
         for i, data in enumerate(dataloader):
-            print(data)
-            if i == 100:
+            print(data[1:])
+            if i == 10000:
                 break
 
     def test_scan_sampler(self):
         dataset = ACDCDataset(root_dir=DATA_PATH, mode="train", transforms=ACDCStrongTransforms.val)
-        batch_sampler = ScanBatchSampler(dataset)
+        batch_sampler = ScanBatchSampler(dataset, is_infinite=False, shuffle=True)
         for i in batch_sampler:
             print(i)
 

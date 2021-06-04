@@ -5,8 +5,8 @@ Arch:
   input_dim: 1
   num_classes: 4
   checkpoint: null
-  max_channel: 256
-  momentum: 0.1
+  max_channel: 512
+  momentum: 0.01
 
 Optim:
   name: RAdam
@@ -38,4 +38,5 @@ Trainer:
   max_epoch: 75
   two_stage: false
   disable_bn: false
-  name: null
+  name: ft
+  enable_scale: true

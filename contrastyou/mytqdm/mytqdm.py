@@ -4,7 +4,7 @@ import math
 from loguru import logger
 from tqdm import tqdm as _tqdm
 
-from .utils import item2str
+from ..utils.printable import item2str
 
 
 def create_meter_display(group_dict, ignore_start_with="_"):
@@ -29,7 +29,6 @@ def create_meter_display(group_dict, ignore_start_with="_"):
                             del father_dictionary
 
     prune_dict(group_dict, ignore_start_with)
-    # prune_nan(group_dict)
 
     display = str(item2str(group_dict))
     return display

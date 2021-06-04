@@ -4,17 +4,31 @@ from typing import List, Union
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from deepclustering2.decorator import FixRandomSeed
-from deepclustering2.schedulers.customized_scheduler import WeightScheduler
 from torch import nn
 
+from contrastyou.arch import UNet
+from contrastyou.arch.hook import SingleFeatureExtractor
 from contrastyou.hooks.base import TrainerHook, EpocherHook
-from contrastyou.losses.contrast_loss3 import SelfPacedSupConLoss, SupConLoss1, switch_plt_backend
+from contrastyou.losses.contrastive import SelfPacedSupConLoss, SupConLoss1, switch_plt_backend
 from contrastyou.meters import MeterInterface, AverageValueMeter
+from contrastyou.utils import fix_all_seed_for_transforms
 from contrastyou.writer import get_tb_writer
-from semi_seg.arch.hook import SingleFeatureExtractor
-from semi_seg.mi_estimator.base import decoder_names, encoder_names
 from .utils import get_label, meter_focus
+
+decoder_names = UNet.decoder_names
+encoder_names = UNet.encoder_names
+
+
+def region_extractor(normalize_features, *, point_nums=5, seed: int):
+    with fix_all_seed_for_transforms(seed):
+        def get_feature_selected(feature_map, n_point_coordinate):
+            return torch.stack([feature_map[:, n[0], n[1]] for n in n_point_coordinate], dim=0)
+
+        h, w = normalize_features.shape[2:]
+        return torch.cat(
+            [get_feature_selected(single_feature, get_n_point_coordinate(n=point_nums, h=h, w=w))
+             for single_feature in normalize_features],
+            dim=0)
 
 
 def get_n_point_coordinate(h, w, n):
@@ -25,13 +39,13 @@ def get_n_point_coordinate(h, w, n):
 def figure2board(tensor, name, criterion, writer, epocher):
     with switch_plt_backend("agg"):
         fig1 = plt.figure()
-        plt.imshow(tensor.detach().cpu().numpy(), cmap="gray")
+        plt.imshow(tensor.detach().float().cpu().numpy(), cmap="gray")
         plt.colorbar()
         dest = "/".join([criterion.__class__.__name__, name])
         writer.add_figure(tag=dest, figure=fig1, global_step=epocher._cur_epoch)  # noqa
 
 
-class PScheduler(WeightScheduler):
+class PScheduler(object):
     def __init__(self, max_epoch, begin_value=0.0, end_value=1.0, p=0.5):
         super().__init__()
         self.max_epoch = max_epoch
@@ -174,8 +188,7 @@ class _INFONCEEpochHook(EpocherHook):
         n_unl = len(unlabeled_logits_tf)
         feature_ = self._extractor.feature()[-n_unl * 2:]
         unlabeled_features, unlabeled_tf_features = torch.chunk(feature_, 2, dim=0)
-        with FixRandomSeed(seed):
-            unlabeled_features_tf = torch.stack([affine_transformer(x) for x in unlabeled_features], dim=0)
+        unlabeled_features_tf = affine_transformer(unlabeled_features)
         norm_features_tf, norm_tf_features = torch.chunk(
             self._projector(torch.cat([unlabeled_features_tf, unlabeled_tf_features], dim=0)), 2)
         labels = self._label_generator(partition_group=partition_group, label_group=label_group)
@@ -205,14 +218,11 @@ class _INFONCEDenseHook(_INFONCEEpochHook):
         n_unl = len(unlabeled_logits_tf)
         feature_ = self._extractor.feature()[-n_unl * 2:]
         unlabeled_features, unlabeled_tf_features = torch.chunk(feature_, 2, dim=0)
-        with FixRandomSeed(seed):
-            unlabeled_features_tf = torch.stack([affine_transformer(x) for x in unlabeled_features], dim=0)
+        unlabeled_features_tf = affine_transformer(unlabeled_features, seed=seed)
         norm_features_tf, norm_tf_features = torch.chunk(
             self._projector(torch.cat([unlabeled_features_tf, unlabeled_tf_features], dim=0)), 2)
-        with FixRandomSeed(seed):
-            norm_features_tf_selected = self.region_extractor(norm_features_tf, point_nums=5)
-        with FixRandomSeed(seed):
-            norm_tf_features_selected = self.region_extractor(norm_tf_features, point_nums=5)
+        norm_features_tf_selected = region_extractor(norm_features_tf, point_nums=5, seed=seed)
+        norm_tf_features_selected = region_extractor(norm_tf_features, point_nums=5, seed=seed)
 
         labels = list(range(norm_features_tf_selected.shape[0]))
         loss = self._criterion(norm_features_tf_selected, norm_tf_features_selected, target=labels)
@@ -229,16 +239,6 @@ class _INFONCEDenseHook(_INFONCEEpochHook):
 
         self._n += 1
         return loss * self._weight
-
-    @staticmethod
-    def region_extractor(normalize_features, point_nums=5):
-        def get_feature_selected(feature_map, n_point_coordinate):
-            return torch.stack([feature_map[:, n[0], n[1]] for n in n_point_coordinate], dim=0)
-
-        h, w = normalize_features.shape[2:]
-        return torch.cat(
-            [get_feature_selected(single_feature, get_n_point_coordinate(n=point_nums, h=h, w=w)) for single_feature in
-             normalize_features], dim=0)
 
 
 class _SPINFONCEEpochHook(_INFONCEEpochHook):
@@ -260,7 +260,7 @@ class _SPINFONCEEpochHook(_INFONCEEpochHook):
         self.meters["sp_weight"].add(self._criterion.downgrade_ratio)
         self.meters["age_param"].add(self._criterion.age_param)
 
-        sp_mask = self._criterion.sp_mask
+        sp_mask = self._criterion.sp_mask.float()
         if self._n == 1:
             writer = get_tb_writer()
             figure2board(sp_mask, "sp_mask", self._criterion, writer, self.epocher)

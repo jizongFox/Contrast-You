@@ -43,7 +43,6 @@ class _FeatureCollector:
 class SingleFeatureExtractor:
 
     def __init__(self, model: UNet, feature_name: str) -> None:
-        super().__init__()
         self._model = model
         self._feature_name = feature_name
         assert self._feature_name in model.arch_elements, self._feature_name
@@ -97,7 +96,6 @@ class SingleFeatureExtractor:
 class FeatureExtractor:
 
     def __init__(self, model: UNet, feature_names: Union[str, List[str]]):
-        super().__init__()
         self._feature_names = (feature_names,) if isinstance(feature_names, str) else feature_names
         self._extractor_list = [SingleFeatureExtractor(model, f) for f in self._feature_names]
 

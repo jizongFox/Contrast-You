@@ -6,10 +6,11 @@ from pathlib import Path
 from typing import Dict
 
 import torch
-from deepclustering2.utils import path2Path, yaml_write
 
 from ._buffer import _BufferMixin
+from ..configure.yaml_parser import yaml_write
 from ..types import typePath
+from ..utils import path2Path
 
 
 def safe_save(checkpoint_dictionary, save_path):

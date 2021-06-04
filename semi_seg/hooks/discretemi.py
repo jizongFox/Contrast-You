@@ -1,14 +1,16 @@
 from typing import List
 
 import torch
-from deepclustering2.decorator import FixRandomSeed
 from torch import nn
 
+from contrastyou.arch import UNet
+from contrastyou.arch.hook import SingleFeatureExtractor
 from contrastyou.hooks.base import TrainerHook, EpocherHook
 from contrastyou.meters import AverageValueMeter
-from semi_seg.arch.hook import SingleFeatureExtractor
 from semi_seg.hooks.utils import meter_focus
-from semi_seg.mi_estimator.base import decoder_names, encoder_names
+
+decoder_names = UNet.decoder_names
+encoder_names = UNet.encoder_names
 
 
 class DiscreteMITrainHook(TrainerHook):
@@ -65,7 +67,7 @@ class DiscreteMITrainHook(TrainerHook):
 
     @property
     def criterion_class(self):
-        from contrastyou.losses.iic_loss import IIDLoss, IIDSegmentationLoss
+        from contrastyou.losses.discreteMI import IIDLoss, IIDSegmentationLoss
         if self._feature_name in encoder_names:
             return IIDLoss
         return IIDSegmentationLoss
@@ -93,13 +95,12 @@ class _DiscreteMIEpochHook(EpocherHook):
         self._extractor.set_enable(False)
 
     @meter_focus
-    def __call__(self, *, unlabeled_image, unlabeled_image_tf, affine_transformer, seed, **kwargs):
+    def __call__(self, *, unlabeled_image, unlabeled_image_tf, affine_transformer, **kwargs):
         n_unl = len(unlabeled_image)
         feature_ = self._extractor.feature()[-n_unl * 2:]
         proj_feature, proj_tf_feature = torch.chunk(feature_, 2, dim=0)
         assert proj_feature.shape == proj_tf_feature.shape
-        with FixRandomSeed(seed):
-            proj_feature_tf = torch.stack([affine_transformer(x) for x in proj_feature], dim=0)
+        proj_feature_tf = affine_transformer(proj_feature)
 
         prob1, prob2 = list(
             zip(*[torch.chunk(x, 2, 0) for x in self._projector(

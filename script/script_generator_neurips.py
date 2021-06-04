@@ -8,9 +8,10 @@ from deepclustering2.cchelper import JobSubmiter
 from contrastyou import PROJECT_PATH, on_cc
 from contrastyou.configure import dictionary_merge_by_hierachy
 from script import utils
-from script.utils import TEMP_DIR, yaml_load, write_yaml, grid_search, PretrainScriptGenerator, move_dataset
+from script.utils import TEMP_DIR, grid_search, PretrainScriptGenerator, move_dataset
+from contrastyou.utils import write_yaml, yaml_load
 from semi_seg import __accounts, num_batches_zoo, ft_max_epoch_zoo, pre_max_epoch_zoo
-from semi_seg.trainers.new_trainer import SemiTrainer
+from semi_seg.trainers.trainer import SemiTrainer
 
 RUN_DIR = SemiTrainer.RUN_PATH
 

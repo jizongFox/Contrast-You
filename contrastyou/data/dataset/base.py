@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import List, Tuple, Dict, Union, Any, TypeVar, OrderedDict as OrderedDictType
 
 from PIL import Image, ImageFile
-from deepclustering2.utils import path2Path
 from loguru import logger
 from torch import Tensor
 from torch.utils.data import Dataset
@@ -14,12 +13,13 @@ from tqdm import tqdm
 
 from ...augment import SequentialWrapper
 from ...augment.pil_augment import ToTensor, ToLabel
-
-__all__ = ["DatasetBase", "extract_sub_dataset_based_on_scan_names", "get_stem"]
+from ...utils import path2Path
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 typePath = TypeVar("typePath", str, Path)
+
+__all__ = ["DatasetBase", "extract_sub_dataset_based_on_scan_names", "get_stem"]
 
 
 def read_image(path, mode):
@@ -42,8 +42,7 @@ def default_transform() -> SequentialWrapper:
 
 
 def get_stem(path: typePath):
-    path_ = path2Path(path)
-    return path_.stem
+    return path2Path(path).stem
 
 
 def check_folder_types(type_: str):
@@ -142,7 +141,6 @@ class DatasetBase(Dataset):
         labels = [x for x, t in zip(image_list, self._sub_folder_types) if not t]
 
         images_, labels_ = self._transforms(images, labels)
-        del images, labels
         return [*images_, *labels_], filename
 
     def _getitem_index(self, index):
@@ -153,7 +151,6 @@ class DatasetBase(Dataset):
 
         stem_set = set([get_stem(x) for x in filename_list])
         assert len(stem_set) == 1, stem_set
-        del stem_set
 
         return image_list.copy(), filename_list.copy()
 

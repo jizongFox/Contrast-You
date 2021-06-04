@@ -3,11 +3,8 @@ import random
 import string
 from collections import Iterable
 from itertools import product
-from pathlib import Path, PosixPath
-from pprint import pprint
-from typing import Union, Dict, Any, TypeVar, List
-
-import yaml
+from pathlib import Path
+from typing import Union, TypeVar, List
 
 from contrastyou import PROJECT_PATH, on_cc
 from semi_seg import data2input_dim, data2class_numbers, ratio_zoo
@@ -19,53 +16,12 @@ if not os.path.exists(TEMP_DIR):
 T_path = TypeVar("T_path", str, Path)
 
 
-def path2Path(path: T_path) -> Path:
-    assert isinstance(path, (Path, str)), type(path)
-    return Path(path) if isinstance(path, str) else path
-
-
-def path2str(path: T_path) -> str:
-    assert isinstance(path, (Path, str)), type(path)
-    return str(path)
-
-
 def check_hook_name(name):
     assert name in ("infonce", "spinfonce")
 
 
 def random_string(N=20):
     return ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for _ in range(N))
-
-
-def write_yaml(
-    dictionary: Dict, save_dir: Union[Path, str], save_name: str, force_overwrite=True
-) -> str:
-    save_path = path2Path(save_dir) / save_name
-    path2Path(save_dir).mkdir(exist_ok=True, parents=True)
-    if save_path.exists():
-        if force_overwrite is False:
-            save_name = (
-                save_name.split(".")[0] + "_copy" + "." + save_name.split(".")[1]
-            )
-    with open(str(save_path), "w") as outfile:  # type: ignore
-        yaml.dump(dictionary, outfile, default_flow_style=False)
-    return str(save_path)
-
-
-def yaml_load(yaml_path: Union[Path, str], verbose=False) -> Dict[str, Any]:
-    """
-    load yaml file given a file string-like file path. return must be a dictionary.
-    :param yaml_path:
-    :param verbose:
-    :return:
-    """
-    assert isinstance(yaml_path, (Path, str, PosixPath)), type(yaml_path)
-    with open(path2str(yaml_path), "r") as stream:
-        data_loaded: dict = yaml.safe_load(stream)
-    if verbose:
-        print(f"Loaded yaml path:{str(yaml_path)}")
-        pprint(data_loaded)
-    return data_loaded
 
 
 def is_true_iterator(value):

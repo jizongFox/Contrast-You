@@ -4,7 +4,6 @@ from typing import Tuple
 
 import matplotlib
 import torch
-from deepclustering2.configparser._utils import get_config  # noqa
 from loguru import logger
 from torch import Tensor, nn
 
@@ -249,7 +248,7 @@ if __name__ == '__main__':
     target = [random.choice([0, ]) for i in range(100)]
 
     self_paced_criterion = SelfPacedSupConLoss(temperature=0.07, weight_update="soft", correct_grad=False)
-    self_paced_criterion.set_gamma(1e1)
+    self_paced_criterion.set_gamma(1e10)
 
     sup_contrast = SupConLoss1(temperature=0.07)
 

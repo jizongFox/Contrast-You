@@ -4,12 +4,12 @@ from typing import List, Union
 
 import numpy as np
 import torch
-from deepclustering2.type import to_device
 from skimage.io import imsave
 from sklearn.preprocessing import LabelEncoder
 from torch import Tensor
 
-from semi_seg.arch.hook import FeatureExtractor
+from contrastyou.arch.hook import FeatureExtractor
+from contrastyou.types import to_device
 
 
 class unl_extractor:

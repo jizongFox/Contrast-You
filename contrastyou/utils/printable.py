@@ -1,4 +1,4 @@
-from collections import Iterable
+from typing import Iterable
 
 
 def is_float(v):

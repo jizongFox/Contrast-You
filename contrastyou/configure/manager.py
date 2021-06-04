@@ -5,17 +5,18 @@ from functools import reduce, partial
 from pprint import pprint
 from typing import List, Tuple, Dict, Union, Optional
 
-from deepclustering2.utils import path2Path, yaml_load
 from loguru import logger
 
 from ._merge_checker import merge_checker as _merge_checker
 from .dictionary_utils import dictionary_merge_by_hierachy
-from .yaml_parser import yamlArgParser
+from .yaml_parser import yamlArgParser, yaml_load
 from ..types import typePath
 
 __all__ = ["ConfigManger", "get_config"]
 
 __config_dictionary__: OrderedDict = OrderedDict()
+
+from ..utils import path2Path
 
 
 class ConfigManger:

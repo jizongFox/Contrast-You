@@ -1,29 +1,30 @@
 from abc import ABCMeta, abstractmethod
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Dict, Any
 
 import torch
-from deepclustering2 import optim
-from deepclustering2.ddp.ddp import _DDPMixin  # noqa
-from deepclustering2.schedulers import GradualWarmupScheduler
 from loguru import logger
 from torch import nn
 
-from contrastyou import PROJECT_PATH
+from contrastyou import PROJECT_PATH, optim
 from ._functional import _ToMixin
 from ._io import _IOMixin
+from ..amp import DDPMixin
 from ..epochers.base import EpocherBase
 from ..hooks.base import TrainerHook
+from ..losses.kl import KL_div
 from ..meters import Storage
-from ..types import criterionType as _criterion_type, dataIterType as _dataiter_type, genericLoaderType as _loader_type, \
+from ..optim import GradualWarmupScheduler
+from ..types import dataIterType as _dataiter_type, genericLoaderType as _loader_type, \
     optimizerType as _optimizer_type
 from ..writer import SummaryWriter
 
 
-class Trainer(_DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
+class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
     RUN_PATH = str(Path(PROJECT_PATH) / "runs2")  # noqa
 
-    def __init__(self, *, model: nn.Module, criterion: _criterion_type, tra_loader: _dataiter_type,
+    def __init__(self, *, model: nn.Module, criterion: KL_div(), tra_loader: _dataiter_type,
                  val_loader: _loader_type, save_dir: str, max_epoch: int = 100, num_batches: int = 100, device="cpu",
                  config: Dict[str, Any], **kwargs) -> None:
         super().__init__(save_dir=save_dir, max_epoch=max_epoch, num_batches=num_batches, device=device, **kwargs)
@@ -46,16 +47,12 @@ class Trainer(_DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
         self._scheduler = self._init_scheduler(self._optimizer, scheduler_params=self._config.get("Scheduler", None))
         self.__initialized__ = True
 
-    def register_hook(self, hook: TrainerHook):
-        assert isinstance(hook, TrainerHook), hook
-        self.__hooks__.append(hook)
-
-    def register_hooks(self, *hook: TrainerHook):
+    def register_hook(self, *hook: TrainerHook):
         if self.__initialized__:
             raise RuntimeError("`register_hook must be called before `init()``")
         for h in hook:
             assert isinstance(h, TrainerHook), h
-            self.register_hook(h)
+            self.__hooks__.append(h)
 
     def _init_optimizer(self) -> _optimizer_type:
         optim_params = self._config["Optim"]
@@ -97,11 +94,11 @@ class Trainer(_DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
 
         for self._cur_epoch in range(start_epoch, self._max_epoch + 1):
             with self._storage:  # save csv each epoch
-                train_metrics = self.run_tra_epoch()
+                train_metrics = self.tra_epoch()
                 if self.on_master():
                     inference_model = self._inference_model
-                    eval_metrics, cur_score = self.run_eval_epoch(model=inference_model, loader=self._val_loader)
-                    test_metrics, _ = self.run_eval_epoch(model=inference_model, loader=self._test_loader)
+                    eval_metrics, cur_score = self.eval_epoch(model=inference_model, loader=self._val_loader)
+                    test_metrics, _ = self.eval_epoch(model=inference_model, loader=self._test_loader)
 
                 best_case_sofa = self._best_score < cur_score
                 if best_case_sofa:
@@ -120,20 +117,21 @@ class Trainer(_DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
                 if hasattr(self, "_scheduler"):
                     self._scheduler.step()
 
-    def run_tra_epoch(self, **kwargs):
+    def tra_epoch(self, **kwargs):
         epocher = self._create_tra_epoch(**kwargs)
         return self._run_tra_epoch(epocher)
 
-    @staticmethod
-    def _run_tra_epoch(epocher):
-        epocher.run()
+    def _run_tra_epoch(self, epocher: EpocherBase):
+        with epocher.register_hook(*[h() for h in self.__hooks__]) if self.activate_hooks and len(
+            self.__hooks__) > 0 else nullcontext():
+            epocher.run()
         return epocher.get_metric()
 
     @abstractmethod
     def _create_tra_epoch(self, **kwargs) -> EpocherBase:
         ...
 
-    def run_eval_epoch(self, *, model, loader, **kwargs):
+    def eval_epoch(self, *, model, loader, **kwargs):
         epocher = self._create_eval_epoch(model=model, loader=loader, **kwargs)
         return self._run_eval_epoch(epocher)
 
@@ -141,8 +139,7 @@ class Trainer(_DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
     def _create_eval_epoch(self, *, model, loader, **kwargs) -> EpocherBase:
         ...
 
-    @staticmethod
-    def _run_eval_epoch(epocher):
+    def _run_eval_epoch(self, epocher):
         epocher.run()
         return epocher.get_metric(), epocher.get_score()
 

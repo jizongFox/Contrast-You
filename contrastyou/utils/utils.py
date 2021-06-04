@@ -6,13 +6,18 @@ import random
 import warnings
 from contextlib import contextmanager
 from itertools import repeat
-from typing import Union, Dict
+from pathlib import Path
+from typing import List
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from torch import nn
 from torch._six import container_abcs
+from torch.optim import Optimizer
 from torch.utils.data.dataloader import DataLoader, _BaseDataLoaderIter  # noqa
+
+from script.utils import T_path
 
 
 def flatten_dict(d, parent_key="", sep="_"):
@@ -28,31 +33,11 @@ def flatten_dict(d, parent_key="", sep="_"):
 
 def get_dataset(dataloader):
     if isinstance(dataloader, _BaseDataLoaderIter):
-        return dataloader._dataset
+        return dataloader._dataset  # noqa
     elif isinstance(dataloader, DataLoader):
         return dataloader.dataset
     else:
         raise NotImplementedError(type(dataloader))
-
-
-# make a flatten dictionary to be printablely nice.
-def nice_dict(input_dict: Dict[str, Union[int, float]]) -> str:
-    """
-    this function is to return a nice string to dictionary displace propose.
-    :param input_dict: dictionary
-    :return: string
-    """
-    assert isinstance(
-        input_dict, dict
-    ), f"{input_dict} should be a dict, given {type(input_dict)}."
-    is_flat_dict = True
-    for k, v in input_dict.items():
-        if isinstance(v, dict):
-            is_flat_dict = False
-            break
-    flat_dict = input_dict if is_flat_dict else flatten_dict(input_dict, sep="")
-    string_list = [f"{k}:{v:.3f}" for k, v in flat_dict.items()]
-    return ", ".join(string_list)
 
 
 def average_iter(a_list):
@@ -169,8 +154,8 @@ def fix_all_seed_within_context(seed):
     np.random.set_state(np_state)  # noqa
     torch.random.set_rng_state(torch_state)  # noqa
     if cuda_support:
-        torch.cuda.set_rng_state(torch_cuda_state)
-        torch.cuda.set_rng_state_all(torch_cuda_state_all)
+        torch.cuda.set_rng_state(torch_cuda_state)  # noqa
+        torch.cuda.set_rng_state_all(torch_cuda_state_all)  # noqa
 
 
 def ntuple(n):
@@ -211,3 +196,43 @@ def fix_seed(func):
             return func(*args, **kwargs)
 
     return func_wrapper
+
+
+def path2Path(path: T_path) -> Path:
+    assert isinstance(path, (Path, str)), type(path)
+    return Path(path) if isinstance(path, str) else path
+
+
+def path2str(path: T_path) -> str:
+    assert isinstance(path, (Path, str)), type(path)
+    return str(path)
+
+
+def class_name(class_) -> str:
+    return class_.__class__.__name__
+
+
+def get_lrs_from_optimizer(optimizer: Optimizer) -> List[float]:
+    return [p["lr"] for p in optimizer.param_groups]
+
+
+@contextmanager
+def disable_tracking_bn_stats(model):
+    def switch_attr(m):
+        if hasattr(m, "track_running_stats"):
+            m.track_running_stats ^= True
+
+    # let the track_running_stats to be inverse
+    model.apply(switch_attr)
+    # return the model
+    yield
+    # let the track_running_stats to be inverse
+    model.apply(switch_attr)
+
+
+def get_model(model):
+    if isinstance(model, (nn.parallel.DistributedDataParallel, nn.parallel.DataParallel)):
+        return model.module
+    elif isinstance(model, nn.Module):
+        return model
+    raise TypeError(type(model))

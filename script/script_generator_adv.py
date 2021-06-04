@@ -7,7 +7,8 @@ from deepclustering2.cchelper import JobSubmiter
 from contrastyou import PROJECT_PATH, on_cc, __git_hash__
 from contrastyou.configure import dictionary_merge_by_hierachy
 from script import utils
-from script.utils import TEMP_DIR, yaml_load, write_yaml, grid_search, BaselineGenerator, move_dataset
+from script.utils import TEMP_DIR, grid_search, BaselineGenerator, move_dataset
+from contrastyou.utils import write_yaml, yaml_load
 from semi_seg import __accounts, ratio_zoo, num_batches_zoo, pre_max_epoch_zoo, ft_max_epoch_zoo
 
 account = cycle(__accounts)

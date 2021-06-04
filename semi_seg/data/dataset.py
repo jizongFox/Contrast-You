@@ -1,7 +1,7 @@
 import os
 import re
 from pathlib import Path
-from typing import Tuple, List, Callable
+from typing import Tuple, List, Callable, Dict
 
 import numpy as np
 from torch import Tensor
@@ -9,7 +9,6 @@ from torch import Tensor
 from contrastyou.augment import SequentialWrapper
 from contrastyou.data import ACDCDataset as _acdc, ProstateDataset as _prostate, mmWHSCTDataset as _mmct, \
     mmWHSMRDataset as _mmmr, ProstateMDDataset as _prostate_md
-from contrastyou.data.dataset.base import get_stem
 from .rearr import ContrastDataset
 
 
@@ -31,22 +30,16 @@ class ACDCDataset(ContrastDataset, _acdc):
         scan_num = self._get_scan_name(filename)
         return images, filename, (partition, scan_num)
 
-    def _get_partition(self, filename) -> str:
+    def _get_partition(self, stem) -> str:
         # set partition
-        max_len_given_group = self._acdc_info[self._get_scan_name(filename)]  # noqa
+        max_len_given_group = self._acdc_info[self._get_scan_name(stem)]  # noqa
         cutting_point = max_len_given_group // self.partition_num
-        cur_index = int(re.compile(r"\d+").findall(filename)[-1])
+        cur_index = int(re.compile(r"\d+").findall(stem)[-1])
         if cur_index <= cutting_point - 1:
             return str(0)
         if cur_index <= 2 * cutting_point:
             return str(1)
         return str(2)
-
-    def show_partitions(self) -> List[str]:
-        return [self._get_partition(f) for f in next(iter(self.get_memory_dictionary().values()))]
-
-    def show_scan_names(self) -> List[str]:
-        return [self._get_scan_name(stem=get_stem(f)) for f in next(iter(self.get_memory_dictionary().values()))]
 
 
 class ProstateDataset(ContrastDataset, _prostate):
@@ -54,7 +47,8 @@ class ProstateDataset(ContrastDataset, _prostate):
 
     def __init__(self, *, root_dir: str, mode: str, transforms: SequentialWrapper = None) -> None:
         super().__init__(root_dir=root_dir, mode=mode, transforms=transforms)
-        self._prostate_info = np.load(os.path.join(self._root_dir, "prostate_info.npy"), allow_pickle=True).item()
+        self._prostate_info: Dict[str, int] \
+            = np.load(os.path.join(self._root_dir, "prostate_info.npy"), allow_pickle=True).item()  # noqa
         assert isinstance(self._prostate_info, dict) and len(self._prostate_info) == 50
 
     def __getitem__(self, index) -> Tuple[List[Tensor], str, Tuple[str, str]]:
@@ -70,19 +64,14 @@ class ProstateDataset(ContrastDataset, _prostate):
         cur_index = int(re.compile(r"\d+").findall(filename)[-1])
         return str(cur_index // (cutting_point + 1))
 
-    def show_partitions(self) -> List[str]:
-        return [self._get_partition(f) for f in next(iter(self.get_memory_dictionary().values()))]
-
-    def show_scan_names(self) -> List[str]:
-        return [self._get_scan_name(stem=get_stem(f)) for f in next(iter(self.get_memory_dictionary().values()))]
-
 
 class ProstateMDDataset(ContrastDataset, _prostate_md):
     partition_num = 4
 
     def __init__(self, *, root_dir: str, mode: str, transforms: SequentialWrapper = None) -> None:
         super().__init__(root_dir=root_dir, mode=mode, transforms=transforms)
-        self._prostate_info = np.load(os.path.join(self._root_dir, "prostate_info.npy"), allow_pickle=True).item()
+        self._prostate_info: Dict[str, int] = \
+            np.load(os.path.join(self._root_dir, "prostate_info.npy"), allow_pickle=True).item()  # noqa
         assert isinstance(self._prostate_info, dict) and len(self._prostate_info) == 32
 
     def __getitem__(self, index) -> Tuple[List[Tensor], str, Tuple[str, str]]:
@@ -98,19 +87,13 @@ class ProstateMDDataset(ContrastDataset, _prostate_md):
         cur_index = int(re.compile(r"\d+").findall(filename)[-1])
         return str(cur_index // (cutting_point + 1))
 
-    def show_partitions(self) -> List[str]:
-        return [self._get_partition(f) for f in next(iter(self.get_memory_dictionary().values()))]
-
-    def show_scan_names(self) -> List[str]:
-        return [self._get_scan_name(stem=get_stem(f)) for f in next(iter(self.get_memory_dictionary().values()))]
-
 
 class _mmWHSBase(ContrastDataset):
     partition_num = 8
     _get_scan_name: Callable[[str], str]
 
     def __init__(self, *, root_dir: str, mode: str, transforms: SequentialWrapper = None) -> None:
-        super().__init__(root_dir=root_dir, mode=mode, transforms=transforms)
+        super().__init__(root_dir=root_dir, mode=mode, transforms=transforms, )
 
         self._meta_info = {"ct": np.load(str(Path(root_dir, "MMWHS", "meta_ct.npy")), allow_pickle=True).tolist(),
                            "mr": np.load(str(Path(root_dir, "MMWHS", "meta_mr.npy")), allow_pickle=True).tolist()}
@@ -128,30 +111,16 @@ class _mmWHSBase(ContrastDataset):
         cur_index = int(re.compile(r"\d+").findall(filename)[-1])
         return str(cur_index // (cutting_point + 1))
 
-    def show_partitions(self) -> List[str]:
-        return [self._get_partition(f) for f in next(iter(self.get_memory_dictionary().values()))]
-
-    def show_scan_names(self) -> List[str]:
-        return [self._get_scan_name(get_stem(f)) for f in next(iter(self.get_memory_dictionary().values()))]
-
-    @property
-    def metainfo_ct(self):
-        return self._meta_info["ct"]
-
-    @property
-    def metainfo_mr(self):
-        return self._meta_info["mr"]
-
-    def get_meta(self):
+    def get_meta(self) -> Dict[str, int]:
         ...
 
 
 class mmWHSMRDataset(_mmWHSBase, _mmmr):
 
     def get_meta(self):
-        return self.metainfo_mr
+        return self._meta_info["mr"]
 
 
 class mmWHSCTDataset(_mmWHSBase, _mmct):
     def get_meta(self):
-        return self.metainfo_ct
+        return self._meta_info["ct"]

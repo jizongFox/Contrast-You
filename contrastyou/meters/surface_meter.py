@@ -1,24 +1,15 @@
 from typing import List, Union
 
 import numpy as np
-from deepclustering2.meters2.individual_meters._metric import _Metric, MeterResultDict
-from deepclustering2.utils import (
-    simplex,
-    one_hot,
-    class2one_hot,
-    probs2one_hot,
-    to_float,
-)
 from torch import Tensor
 
-from .surface_distance import (
-    mod_hausdorff_distance,
-    hausdorff_distance,
-    average_surface_distance,
-)
+from . import Metric
+from .surface_distance import mod_hausdorff_distance, hausdorff_distance, average_surface_distance
+from ..types import to_float
+from ..utils.general import one_hot, simplex, probs2one_hot, class2one_hot
 
 
-class SurfaceMeter(_Metric):
+class SurfaceMeter(Metric):
     meter_choices = {
         "mod_hausdorff": mod_hausdorff_distance,
         "hausdorff": hausdorff_distance,
@@ -50,7 +41,7 @@ class SurfaceMeter(_Metric):
         self._mhd = []
         self._n = 0
 
-    def add(
+    def _add(
         self,
         pred: Tensor,
         target: Tensor,
@@ -84,29 +75,20 @@ class SurfaceMeter(_Metric):
 
     def summary(self) -> dict:
         means, stds = self.value()
-        return MeterResultDict(
-            {
-                f"{self._abbr}{i}": to_float(means[num])
-                for num, i in enumerate(self._report_axis)
-            }
-        )
+        return {
+            f"{self._abbr}{i}": to_float(means[num])
+            for num, i in enumerate(self._report_axis)
+        }
 
     def detailed_summary(self) -> dict:
         means, stds = self.value()
-        return MeterResultDict(
-            {
-                **{
-                    f"{self._abbr}{i}": to_float(means[num])
-                    for num, i in enumerate(self._report_axis)
-                },
-                **{
-                    f"{self._abbr}{i}": to_float(stds[num].item())
-                    for num, i in enumerate(self._report_axis)
-                },
-            }
-        )
+        return {**{f"{self._abbr}{i}": to_float(means[num])
+                   for num, i in enumerate(self._report_axis)
+                   },
+                **{f"{self._abbr}{i}": to_float(stds[num].item())
+                   for num, i in enumerate(self._report_axis)}}
 
-    def _evalue(self, pred: Tensor, target: Tensor, voxelspacing):
+    def _evalue(self, pred: Tensor, target: Tensor, voxel_spacing):
         """
         return the B\times C list
         :param pred: onehot pred
@@ -122,7 +104,7 @@ class SurfaceMeter(_Metric):
                 zip(one_batch_img[self._report_axis], one_batch_gt[self._report_axis])
             ):
                 mhd = self._surface_function(
-                    one_slice_img, one_slice_gt, voxelspacing=voxelspacing
+                    one_slice_img, one_slice_gt, voxel_spacing=voxel_spacing
                 )
                 result[b, c] = mhd
         return result

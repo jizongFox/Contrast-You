@@ -1,20 +1,24 @@
 import functools
 from abc import ABCMeta
 from collections import defaultdict
-from typing import List, Dict
+from pathlib import Path
+from typing import List, Dict, TypeVar
 
 import pandas as pd
-from deepclustering2.utils import path2Path
 from termcolor import colored
 
 from .utils import HistoricalContainer, rename_df_columns
 
+from ..utils import path2Path
+
 __all__ = ["Storage"]
 
-from ..data.dataset.base import typePath
+typePath = TypeVar("typePath", str, Path)
 
 
 class Storage(metaclass=ABCMeta):
+    r""" A container that includes all the meter results.
+    """
     def __init__(self, save_dir: typePath, csv_name="storage.csv") -> None:
         super().__init__()
         self.__storage = defaultdict(HistoricalContainer)

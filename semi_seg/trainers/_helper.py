@@ -3,16 +3,15 @@ from functools import partial
 from pathlib import Path
 from typing import List, Dict, Any, Callable
 
-from deepclustering2.meters2 import StorageIncomeDict, Storage, EpochResultDict
-from deepclustering2.tqdm import item2str
-from deepclustering2.writer import SummaryWriter
 from loguru import logger
 from torch import nn
 from torch.utils.data.dataloader import _BaseDataLoaderIter as BaseDataLoaderIter, DataLoader  # noqa
 
 from contrastyou import get_cc_data_path
 from contrastyou.data import InfiniteRandomSampler, ScanBatchSampler, DatasetBase
+from contrastyou.meters import Storage
 from contrastyou.utils import get_dataset, fix_seed
+from contrastyou.writer import SummaryWriter
 from semi_seg.data import ACDCDataset, ProstateDataset, mmWHSCTDataset, ProstateMDDataset
 from semi_seg.data.creator import augment_zoo, data_zoo
 from semi_seg.data.rearr import ContrastBatchSampler
@@ -118,7 +117,6 @@ class _PretrainTrainerMixin:
     _save_dir: str
     init: Callable[..., None]
     on_master: Callable[[], bool]
-    run_epoch: Callable[[], EpochResultDict]
     _save_to: Callable[[str, str], None]
     _contrastive_loader = BaseDataLoaderIter
     _storage: Storage
@@ -135,7 +133,7 @@ class _PretrainTrainerMixin:
             self._unlabeled_loader, self._config["ContrastiveLoaderParams"]
         )
 
-    def _run_epoch(self, epocher, *args, **kwargs) -> EpochResultDict:
+    def _run_epoch(self, epocher, *args, **kwargs):
         epocher.init = partial(epocher.init, chain_dataloader=self._contrastive_loader,
                                monitor_dataloader=self._monitor_loader)
         return super(_PretrainTrainerMixin, self)._run_epoch(epocher, *args, **kwargs)  # noqa

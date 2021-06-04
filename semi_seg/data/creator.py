@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from contrastyou import get_cc_data_path
 from contrastyou.data import DatasetBase, extract_sub_dataset_based_on_scan_names, InfiniteRandomSampler, \
     ScanBatchSampler
-from contrastyou.utils import fix_all_seed_within_context, fix_seed
+from contrastyou.utils import fix_all_seed_within_context
 from semi_seg.augment import ACDCStrongTransforms, SpleenStrongTransforms, ProstateStrongTransforms
 from semi_seg.data import ACDCDataset, ProstateDataset, mmWHSCTDataset, mmWHSMRDataset, ProstateMDDataset
 
@@ -116,11 +116,11 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
 
     labeled_loader = create_infinite_loader(label_set, **labeled_loader_params)
     logger.debug(f"creating labeled_loader with {len(label_set.get_scan_list())} scans")
-    logger.trace(f"with {','.join(sorted(set(label_set.show_scan_names())))}")
+    logger.trace(f"with {','.join(sorted(set(label_set.get_scan_list())))}")
 
     unlabeled_loader = create_infinite_loader(unlabeled_set, **unlabeled_loader_params)
     logger.debug(f"creating unlabeled_loader with {len(unlabeled_set.get_scan_list())} scans")
-    logger.trace(f"with {','.join(sorted(set(unlabeled_set.show_scan_names())))}")
+    logger.trace(f"with {','.join(sorted(set(unlabeled_set.get_scan_list())))}")
 
     group_test = group_test if data_name not in ("spleen", "mmwhsct", "mmwhsmr", "prostate_md") else False
     test_loader = DataLoader(test_set, batch_size=1 if group_test else 4,
@@ -144,14 +144,13 @@ def create_val_loader(*, test_loader) -> Tuple[DataLoader, DataLoader]:
     test_dataloader = DataLoader(test_set, batch_sampler=test_batch_sampler, batch_size=4 if not is_group_scan else 1)
 
     logger.debug(f"splitting val_loader with {len(val_set.get_scan_list())} scans")
-    logger.trace(f" with {','.join(sorted(set(val_set.show_scan_names())))}")
+    logger.trace(f" with {','.join(sorted(set(val_set.get_scan_list())))}")
     logger.debug(f"splitting test_loader with {len(test_set.get_scan_list())} scans")
-    logger.trace(f"with {','.join(sorted(set(test_set.show_scan_names())))}")
+    logger.trace(f"with {','.join(sorted(set(test_set.get_scan_list())))}")
 
     return val_dataloader, test_dataloader
 
 
-@fix_seed
 def get_data(data_params, labeled_loader_params, unlabeled_loader_params, pretrain=False, total_freedom=False):
     labeled_loader, unlabeled_loader, test_loader = get_data_loaders(
         data_params=data_params, labeled_loader_params=labeled_loader_params,
