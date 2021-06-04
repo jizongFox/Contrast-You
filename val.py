@@ -4,10 +4,10 @@ from contextlib import contextmanager
 from copy import deepcopy as dcopy
 from typing import Dict, Any, List
 
-from deepclustering2.loss import KL_div
 from torch import nn
 
 from contrastyou import success
+from contrastyou.losses.kl import KL_div
 from contrastyou.utils import fix_all_seed_within_context
 from semi_seg.data.creator import get_data
 from semi_seg.trainers.trainer import FineTuneTrainer
@@ -59,7 +59,7 @@ def _val(*, model: nn.Module, labeled_data_ratio: float, data_params: Dict[str, 
 
     trainer = FineTuneTrainer(model=model, labeled_loader=labeled_loader, unlabeled_loader=unlabeled_loader,
                               val_loader=val_loader, test_loader=test_loader,
-                              criterion=KL_div(verbose=False), config=global_config, **trainer_params)
+                              criterion=KL_div(), config=global_config, **trainer_params)
 
     trainer.init()
     trainer.start_training()

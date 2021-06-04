@@ -146,7 +146,7 @@ def yaml_load(yaml_path: Union[Path, str], verbose=False) -> Dict[str, Any]:
 
 def yaml_write(
     dictionary: Dict, save_dir: Union[Path, str], save_name: str, force_overwrite=True
-) -> None:
+) -> str:
     save_path = path2Path(save_dir) / save_name
     path2Path(save_dir).mkdir(exist_ok=True, parents=True)
     if save_path.exists():
@@ -156,3 +156,4 @@ def yaml_write(
             )
     with open(str(save_path), "w") as outfile:  # type: ignore
         yaml.dump(dictionary, outfile, default_flow_style=False)
+    return str(save_path)

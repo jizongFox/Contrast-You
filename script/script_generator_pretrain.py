@@ -1,13 +1,12 @@
 import os
 from itertools import cycle
 
-from deepclustering2.cchelper import JobSubmiter
-
 from contrastyou import PROJECT_PATH
 from contrastyou.configure import dictionary_merge_by_hierachy
+from contrastyou.configure.yaml_parser import yaml_load, yaml_write
+from contrastyou.submitter import CCSubmitter as JobSubmiter
 from script import utils
 from script.utils import TEMP_DIR, grid_search, PretrainScriptGenerator, move_dataset
-from contrastyou.utils import write_yaml, yaml_load
 from semi_seg import __accounts, num_batches_zoo, ft_max_epoch_zoo, pre_max_epoch_zoo
 
 account = cycle(__accounts)
@@ -37,12 +36,21 @@ class PretrainInfoNCEScriptGenerator(PretrainScriptGenerator):
             hook_params = self.get_hook_params(**param)
             sub_save_dir = self._get_hyper_param_string(**param)
             merged_config = dictionary_merge_by_hierachy(self.hook_config, hook_params)
-            config_path = write_yaml(merged_config, save_dir=TEMP_DIR, save_name=utils.random_string() + ".yaml")
+            config_path = yaml_write(merged_config, save_dir=TEMP_DIR, save_name=utils.random_string() + ".yaml")
             true_save_dir = os.path.join(self._save_dir, "Seed_" + str(random_seed), sub_save_dir)
             job = self.generate_single_script(save_dir=true_save_dir,
                                               seed=random_seed, hook_path=config_path)
             jobs.append(job)
         return jobs
+    def generate_single_script(self, save_dir, seed, hook_path):
+        from semi_seg import pre_lr_zooms, ft_lr_zooms
+        pre_lr = pre_lr_zooms[self._data_name]
+        ft_lr = ft_lr_zooms[self._data_name]
+        return f"python main_pretrain_encoder.py Trainer.save_dir={save_dir} " \
+               f" Optim.pre_lr={pre_lr:.7f} Optim.ft_lr={ft_lr:.7f} RandomSeed={str(seed)} " \
+               f" {' '.join(self.conditions)}  " \
+               f" --opt-path config/pretrain.yaml {hook_path}"
+
 
 
 class PretrainSPInfoNCEScriptGenerator(PretrainInfoNCEScriptGenerator):
@@ -61,21 +69,21 @@ class PretrainSPInfoNCEScriptGenerator(PretrainInfoNCEScriptGenerator):
 
 
 if __name__ == '__main__':
-    submittor = JobSubmiter(on_local=True, project_path="../", time=4)
-    submittor.prepare_env([
+    submittor = JobSubmiter(work_dir="../", stop_on_error=True)
+    submittor.configure_environment([
         "module load python/3.8.2 ",
         f"source ~/venv/bin/activate ",
         'if [ $(which python) == "/usr/bin/python" ]',
         "then",
         "exit 1314520",
         "fi",
-
         "export OMP_NUM_THREADS=1",
         "export PYTHONOPTIMIZE=1",
         "export PYTHONWARNINGS=ignore ",
         "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
         move_dataset()
     ])
+    submittor.configure_sbatch(account=None)
 
     seed = [10, 20, 30]
     data_name = "mmwhsct"
@@ -91,7 +99,7 @@ if __name__ == '__main__':
 
     for j in jobs:
         submittor.account = next(account)
-        submittor.run(j)
+        submittor.submit(j, on_local=True, )
 
     pretrain_generator = PretrainInfoNCEScriptGenerator(data_name=data_name, num_batches=num_batches,
                                                         save_dir=f"{save_dir}/infonce",
