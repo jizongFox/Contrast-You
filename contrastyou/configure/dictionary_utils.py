@@ -2,7 +2,7 @@ from collections import Iterable
 from copy import deepcopy as dcopy
 from typing import Dict, Any
 
-from contrastyou.mytqdm.utils import is_iterable
+from contrastyou.utils.printable import is_iterable
 from contrastyou.types import mapType, is_map
 
 

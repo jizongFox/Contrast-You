@@ -3,7 +3,7 @@ from unittest import TestCase
 from torch.optim import Adam
 
 from contrastyou.arch import UNet
-from contrastyou.losses.contrast_loss import SupConLoss2
+from contrastyou.losses.contrastive import SupConLoss2
 from deepclustering2.configparser import ConfigManger
 from deepclustering2.loss import KL_div
 from semi_seg.utils import ContrastiveProjectorWrapper  # noqa

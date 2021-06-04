@@ -2,18 +2,18 @@ import os
 
 import numpy  # noqa
 import torch
-from deepclustering2.loss import KL_div
 from loguru import logger
 
 from contrastyou import CONFIG_PATH, success
+from contrastyou.arch import UNet
 from contrastyou.configure import ConfigManger
+from contrastyou.losses.kl import KL_div
 from contrastyou.utils import fix_all_seed_within_context, config_logger, extract_model_state_dict
 from hook_creator import create_hook_from_config
-from semi_seg.arch import UNet
 from semi_seg.data.creator import get_data
 from semi_seg.hooks import feature_until_from_hooks
-from semi_seg.trainers.new_pretrain import PretrainEncoderTrainer
-from semi_seg.trainers.new_trainer import SemiTrainer, FineTuneTrainer, MixUpTrainer
+from semi_seg.trainers.pretrain import PretrainEncoderTrainer
+from semi_seg.trainers.trainer import SemiTrainer, FineTuneTrainer, MixUpTrainer
 
 trainer_zoo = {"semi": SemiTrainer,
                "ft": FineTuneTrainer,
@@ -53,17 +53,15 @@ def worker(config, absolute_save_dir, seed, ):
     checkpoint = config.get("trainer_checkpoint")
 
     trainer = Trainer(model=model, labeled_loader=labeled_loader, unlabeled_loader=unlabeled_loader,
-                      val_loader=val_loader, test_loader=test_loader,
-                      criterion=KL_div(), config=config,
+                      val_loader=val_loader, test_loader=test_loader, criterion=KL_div(), config=config,
                       save_dir=absolute_save_dir,
                       **{k: v for k, v in config["Trainer"].items() if k != "save_dir" and k != "name"})
 
     if trainer_name != "ft":
         with fix_all_seed_within_context(seed):
             hooks = create_hook_from_config(model, config, is_pretrain=is_pretrain)
-            assert len(hooks) > 0, "void hooks"
-
-        trainer.register_hooks(*hooks)
+            assert len(hooks) > 0, f"You should provide `Hook` configuration for `{trainer_name}` Trainer"
+        trainer.register_hook(*hooks)
 
     if is_pretrain:
         until = feature_until_from_hooks(*hooks)
@@ -83,6 +81,6 @@ def worker(config, absolute_save_dir, seed, ):
 
 
 if __name__ == '__main__':
-    torch.set_deterministic(True)
-    # torch.backends.cudnn.benchmark = True
+    # torch.set_deterministic(True)
+    torch.backends.cudnn.benchmark = True
     main()

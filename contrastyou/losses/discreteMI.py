@@ -2,7 +2,6 @@ import sys
 
 import numpy as np
 import torch
-from deepclustering2.utils import simplex
 from loguru import logger
 from termcolor import colored
 from torch import Tensor
@@ -11,6 +10,7 @@ from torch._six import container_abcs  # noqa
 from torch.nn import functional as F
 
 from contrastyou.utils import average_iter
+from contrastyou.utils.general import simplex
 from contrastyou.utils.utils import _pair
 
 

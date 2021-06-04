@@ -10,7 +10,7 @@ from contrastyou.configure import ConfigManger
 from contrastyou.utils import fix_all_seed_within_context, config_logger, set_deterministic, extract_model_state_dict
 from semi_seg.arch import UNet
 from semi_seg.data.creator import get_data
-from semi_seg.trainers.new_trainer import SemiTrainer, AdversarialTrainer
+from semi_seg.trainers.trainer import SemiTrainer, AdversarialTrainer
 
 
 def main():

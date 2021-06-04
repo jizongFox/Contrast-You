@@ -1,7 +1,7 @@
 import time
 from abc import ABCMeta
 
-from deepclustering2.meters2 import AverageValueMeter
+from contrastyou.meters import AverageValueMeter
 
 
 class EpocherTimer(metaclass=ABCMeta):

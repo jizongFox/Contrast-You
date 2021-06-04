@@ -2,13 +2,15 @@ from typing import List, Union
 
 from torch import nn
 
+from contrastyou.arch import UNet
 from contrastyou.hooks.base import CombineTrainerHook, TrainerHook
 from contrastyou.utils.utils import ntuple
 from .consistency import ConsistencyTrainerHook
 from .discretemi import DiscreteMITrainHook
 from .infonce import SelfPacedINFONCEHook, INFONCEHook
-from ..arch import UNet
-from ..mi_estimator.base import decoder_names
+
+decoder_names = UNet.decoder_names
+encoder_names = UNet.encoder_names
 
 
 def get_individual_hook(*hooks):
@@ -24,7 +26,7 @@ def feature_until_from_hooks(*hooks) -> Union[str, None]:
     hook_iter = get_individual_hook(*hooks)
     feature_name_list = [h._feature_name for h in hook_iter if hasattr(h, "_feature_name")]
     if len(feature_name_list) > 0:
-        from semi_seg.arch import sort_arch
+        from contrastyou.arch import sort_arch
         return sort_arch(feature_name_list)[-1]
     return sorted(UNet.arch_elements)[-1]
 

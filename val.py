@@ -10,7 +10,7 @@ from torch import nn
 from contrastyou import success
 from contrastyou.utils import fix_all_seed_within_context
 from semi_seg.data.creator import get_data
-from semi_seg.trainers.new_trainer import FineTuneTrainer
+from semi_seg.trainers.trainer import FineTuneTrainer
 
 
 @contextmanager

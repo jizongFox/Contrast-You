@@ -3,17 +3,12 @@ from typing import Union, List
 
 import numpy as np
 import torch
-from deepclustering2.type import to_float
-from deepclustering2.utils import iter_average as average_list
-from deepclustering2.utils import (
-    simplex,
-    one_hot,
-    class2one_hot,
-    probs2one_hot,
-)
 from torch import Tensor
 
 from contrastyou.meters import Metric
+from contrastyou.types import to_float
+from contrastyou.utils import average_iter
+from contrastyou.utils.general import one_hot, class2one_hot, simplex, probs2one_hot
 
 
 class UniversalDice(Metric):
@@ -119,7 +114,7 @@ class UniversalDice(Metric):
     def _summary(self) -> dict:
         means, stds = self.value()
         report_dict = {f"DSC{i}": to_float(means[i]) for i in self._report_axis}
-        report_dict.update({"DSC_mean": average_list(report_dict.values())})
+        report_dict.update({"DSC_mean": average_iter(report_dict.values())})
         return report_dict
 
     @property
@@ -172,4 +167,4 @@ class UniversalDice(Metric):
 
     def __repr__(self):
         string = f"C={self._C}, report_axis={self._report_axis}\n"
-        return string + "\t" + str(self.detailed_summary())
+        return string + "\t" + str(self.summary())

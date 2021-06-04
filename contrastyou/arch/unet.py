@@ -56,12 +56,15 @@ def _check_params(start, end, include_start, include_end):
 
 
 def _complete_arch_start2end(start: str, end: str, include_start=True, include_end=True):
-    start_index = arch_order(start)
-    end_index = arch_order(end)
+    start_index, end_index = arch_order(start), arch_order(end)
     assert start_index <= end_index, (start, end)
     all_index = list(
-        range(start_index if include_start else start_index + 1, end_index + 1 if include_end else end_index))
-    return [_index2arch_element(i) for i in all_index]
+        range(start_index if include_start else start_index + 1, end_index + 1 if include_end else end_index)
+    )
+    component_list = [_index2arch_element(i) for i in all_index]
+    if len(component_list) == 0:
+        logger.opt(depth=2).debug("component list None")
+    return component_list
 
 
 class _ConvBlock(nn.Module):

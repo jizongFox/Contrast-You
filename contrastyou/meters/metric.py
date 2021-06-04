@@ -1,6 +1,7 @@
 import atexit
 from abc import ABCMeta, abstractmethod
 from threading import Thread
+from typing import final, Dict, Union
 
 from loguru import logger
 
@@ -31,6 +32,7 @@ class Metric(metaclass=ABCMeta):
     def reset(self):
         pass
 
+    @final
     def add(self, *args, **kwargs):
         assert self._initialized, f"{self.__class__.__name__} must be initialized by overriding __init__"
         if not self._threaded:
@@ -44,11 +46,12 @@ class Metric(metaclass=ABCMeta):
     def _add_queue(self, *args, **kwargs):
         self._queue.put((args, kwargs))
 
+    @final
     def summary(self):
         return self._summary()
 
     @abstractmethod
-    def _summary(self):
+    def _summary(self) -> Union[Dict[str, float], float]:
         pass
 
     def _worker_func(self, input_queue: ThreadQueue):
@@ -61,6 +64,7 @@ class Metric(metaclass=ABCMeta):
                 break
             self._add(*args, **kwags)
 
+    @final
     def join(self):
         if not self._threaded:
             return
@@ -69,5 +73,7 @@ class Metric(metaclass=ABCMeta):
         self._worker.join()
         logger.trace(f"{self.__class__.__name__} end the thread")
 
+    @final
     def close(self):
-        self._add_queue(_StopToken())
+        if self._threaded:
+            self._add_queue(_StopToken())

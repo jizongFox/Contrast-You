@@ -1,9 +1,10 @@
 import math
 
 import torch
-from deepclustering2.utils import simplex
 from torch import nn
 from torch.nn import functional as F
+
+from contrastyou.utils import simplex
 
 
 class PUILoss(nn.Module):

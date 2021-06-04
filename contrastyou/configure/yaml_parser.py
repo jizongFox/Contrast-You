@@ -1,13 +1,17 @@
 import argparse
 from copy import deepcopy
 from functools import reduce
-from typing import List, Dict, Any, Tuple, Optional
+from pathlib import Path
+from pprint import pprint
+from typing import List, Dict, Any, Tuple, Optional, Union
 
 import yaml
 
 from .dictionary_utils import dictionary_merge_by_hierachy
 
 __all__ = ["yamlArgParser", "str2bool"]
+
+from ..utils import path2Path
 
 dType = Dict[str, Any]
 
@@ -115,3 +119,40 @@ def str2bool(v):
         return False
     else:
         raise argparse.ArgumentTypeError("Boolean value expected.")
+
+
+def yaml_load(yaml_path: Union[Path, str], verbose=False) -> Dict[str, Any]:
+    """
+    load yaml file given a file string-like file path. return must be a dictionary.
+    :param yaml_path:
+    :param verbose:
+    :return:
+    """
+    yaml_path = path2Path(yaml_path)
+    assert path2Path(yaml_path).exists(), yaml_path
+    if yaml_path.is_dir():
+        if (yaml_path / "config.yaml").exists():
+            yaml_path = yaml_path / "config.yaml"
+        else:
+            raise FileNotFoundError(f"config.yaml does not found in {str(yaml_path)}")
+
+    with open(str(yaml_path), "r") as stream:
+        data_loaded: dict = yaml.safe_load(stream)
+    if verbose:
+        print(f"Loaded yaml path:{str(yaml_path)}")
+        pprint(data_loaded)
+    return data_loaded
+
+
+def yaml_write(
+    dictionary: Dict, save_dir: Union[Path, str], save_name: str, force_overwrite=True
+) -> None:
+    save_path = path2Path(save_dir) / save_name
+    path2Path(save_dir).mkdir(exist_ok=True, parents=True)
+    if save_path.exists():
+        if force_overwrite is False:
+            save_path = (
+                save_name.split(".")[0] + "_copy" + "." + save_name.split(".")[1]
+            )
+    with open(str(save_path), "w") as outfile:  # type: ignore
+        yaml.dump(dictionary, outfile, default_flow_style=False)

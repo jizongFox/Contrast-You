@@ -1,12 +1,15 @@
-import torch
 from torch import nn
 
 
+def class_name(class_) -> str:
+    return class_.__class__.__name__
+
+
 def weights_init(m):
-    classname = m.__class__.__name__
-    if classname.find('Conv') != -1:
+    name = class_name(m)
+    if name.find('Conv') != -1:
         nn.init.normal_(m.weight.data, 0.0, 0.02)
-    elif classname.find('BatchNorm') != -1:
+    elif name.find('BatchNorm') != -1:
         nn.init.normal_(m.weight.data, 1.0, 0.02)
         nn.init.constant_(m.bias.data, 0)
 
@@ -38,10 +41,3 @@ class Discriminator(nn.Module):
 
     def forward(self, input_):
         return self._main(input_)
-
-
-if __name__ == '__main__':
-    input_image = torch.randn(1, 3, 224, 224)
-    discriminator = Discriminator(3, 64)
-    pred = discriminator(input_image)
-    print(pred.shape)

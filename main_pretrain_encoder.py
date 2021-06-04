@@ -13,7 +13,7 @@ from semi_seg import ratio_zoo
 from semi_seg.arch import UNet
 from semi_seg.data.creator import get_data
 from semi_seg.hooks import feature_until_from_hooks
-from semi_seg.trainers.new_pretrain import PretrainEncoderTrainer
+from semi_seg.trainers.pretrain import PretrainEncoderTrainer
 from utils import separate_pretrain_finetune_configs
 from val import val
 

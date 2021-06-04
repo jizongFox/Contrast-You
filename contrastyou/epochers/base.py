@@ -1,25 +1,33 @@
 import weakref
 from abc import abstractmethod, ABCMeta
 from contextlib import contextmanager
-from typing import Union, Dict, List
+from typing import Union, Dict
 
 import torch
-from deepclustering2.ddp.ddp import _DDPMixin
 from torch import nn
+from torch.cuda.amp import GradScaler
 
+from ..amp import AMPScaler, DDPMixin
 from ..hooks.base import EpocherHook
 from ..meters import MeterInterface
 from ..meters.averagemeter import AverageValueListMeter
 from ..mytqdm import tqdm
 
 
-class EpocherBase(_DDPMixin, metaclass=ABCMeta):
+class EpocherBase(AMPScaler, DDPMixin, metaclass=ABCMeta):
+    """ EpocherBase class to control the behavior of the training within one epoch.
+    >>> hooks = ...
+    >>> epocher = EpocherBase(...)
+    >>> with epocher.register_hook(*hooks):
+    >>>     epocher.run()
+    >>> epocher_result, best_score = epocher.get_metric(), epocher.get_score()
+    """
+
     meter_focus = "tra"
 
-    def __init__(self, *, model: nn.Module, num_batches: int, cur_epoch=0, device="cpu", **kwargs) -> None:
-        super().__init__()
-        self.__bind_trainer_done__ = False
-
+    def __init__(self, *, model: nn.Module, num_batches: int, cur_epoch=0, device="cpu", scaler: GradScaler,
+                 accumulate_iter: int, **kwargs) -> None:
+        super().__init__(scaler=scaler, accumulate_iter=accumulate_iter)
         self._model = model
         self._device = device if isinstance(device, torch.device) else torch.device(device)
         self._num_batches = num_batches
@@ -31,23 +39,20 @@ class EpocherBase(_DDPMixin, metaclass=ABCMeta):
         self.indicator = tqdm(range(self._num_batches), disable=not self.on_master())
 
         self._trainer = None
-
+        self.__bind_trainer_done__ = False
         self._hooks = []
 
-    def add_hook(self, hook: EpocherHook):
-        assert isinstance(hook, EpocherHook), hook
-        self._hooks.append(hook)
-        hook.set_epocher(self)
+    @contextmanager
+    def register_hook(self, *hook: EpocherHook):
+        for h in hook:
+            self._hooks.append(h)
+            h.set_epocher(self)
+        yield
+        self.close_hook()
 
-    def close_hooks(self):
+    def close_hook(self):
         for h in self._hooks:
             h.close()
-
-    def add_hooks(self, hooks: Union[List[EpocherHook], EpocherHook]):
-        if isinstance(hooks, EpocherHook):
-            hooks = [hooks, ]
-        for h in hooks:
-            self.add_hook(h)
 
     @property
     def device(self):
@@ -58,18 +63,10 @@ class EpocherBase(_DDPMixin, metaclass=ABCMeta):
         assert isinstance(
             self._num_batches, int
         ), f"self._num_batches must be provided as an integer, given {self._num_batches}."
-
         self.indicator.set_desc_from_epocher(self)
         yield
         self.indicator.close()
         self.indicator.log_result()
-
-    @contextmanager
-    def _register_meters(self):
-        meters = self.meters
-        meters.reset()
-        yield meters
-        meters.join()
 
     @abstractmethod
     def configure_meters(self, meters: MeterInterface) -> MeterInterface:
@@ -82,16 +79,16 @@ class EpocherBase(_DDPMixin, metaclass=ABCMeta):
 
     def run(self, **kwargs):
         self.to(self.device)  # put all things into the same device
-        with self._register_meters(), \
-            self._register_indicator():
+
+        with self.meters, self._register_indicator():
             run_result = self._run(**kwargs)
-        self.close_hooks()
+
         return run_result
 
     def get_metric(self) -> Dict[str, Dict[str, float]]:
         return dict(self.meters.statistics())
 
-    def get_score(self):
+    def get_score(self) -> float:
         raise NotImplementedError()
 
     def to(self, device: Union[torch.device, str] = torch.device("cpu")):
@@ -112,4 +109,3 @@ class EpocherBase(_DDPMixin, metaclass=ABCMeta):
         if not self.__bind_trainer_done__:
             raise RuntimeError(f"{self.__class__.__name__} should call `set_trainer` first")
         return self._trainer
-
