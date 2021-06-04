@@ -1,5 +1,19 @@
 from torch.optim.lr_scheduler import ReduceLROnPlateau, _LRScheduler
 
+from contrastyou.utils import get_lrs_from_optimizer
+
+
+class _enable_get_lr_call:
+
+    def __init__(self, o):
+        self.o = o
+
+    def __enter__(self):
+        self.o._get_lr_called_within_step = True
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.o._get_lr_called_within_step = False
 
 class GradualWarmupScheduler(_LRScheduler):
     """ Gradually warm-up(increasing) learning rate in optimizer.
@@ -29,7 +43,8 @@ class GradualWarmupScheduler(_LRScheduler):
                         base_lr * self.multiplier for base_lr in self.base_lrs
                     ]
                     self.finished = True
-                return self.after_scheduler.get_last_lr()
+                with _enable_get_lr_call(self.after_scheduler):
+                    return self.after_scheduler.get_lr()
             return [base_lr * self.multiplier for base_lr in self.base_lrs]
 
         return [
@@ -69,3 +84,25 @@ class GradualWarmupScheduler(_LRScheduler):
                 return super(GradualWarmupScheduler, self).step(epoch)
         else:
             self.step_ReduceLROnPlateau(metrics, epoch)
+
+
+if __name__ == '__main__':
+    import torch
+    from torchvision import models
+
+    model = models.resnet18()
+    optimizer = torch.optim.Adam(model.parameters())
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=90)
+    scheduler = GradualWarmupScheduler(optimizer=optimizer, multiplier=100, total_epoch=10, after_scheduler=scheduler)
+
+    lrs = []
+    for i in range(100):
+        lrs.append(get_lrs_from_optimizer(optimizer=optimizer)[0])
+        optimizer.step()
+        scheduler.step()
+        
+
+    import matplotlib.pyplot as plt
+
+    plt.plot(list(range(100)), lrs)
+    plt.show()
