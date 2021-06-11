@@ -81,6 +81,7 @@ if __name__ == '__main__':
         "export PYTHONOPTIMIZE=1",
         "export PYTHONWARNINGS=ignore ",
         "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
+        "echo $(pwd)",
         move_dataset()
     ])
     submittor.configure_sbatch(account=None)

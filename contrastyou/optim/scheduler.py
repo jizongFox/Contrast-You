@@ -15,6 +15,7 @@ class _enable_get_lr_call:
     def __exit__(self, type, value, traceback):
         self.o._get_lr_called_within_step = False
 
+
 class GradualWarmupScheduler(_LRScheduler):
     """ Gradually warm-up(increasing) learning rate in optimizer.
     Proposed in 'Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour'.
@@ -100,7 +101,6 @@ if __name__ == '__main__':
         lrs.append(get_lrs_from_optimizer(optimizer=optimizer)[0])
         optimizer.step()
         scheduler.step()
-        
 
     import matplotlib.pyplot as plt
 

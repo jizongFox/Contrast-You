@@ -37,7 +37,7 @@ class CCSubmitter:
         self._sbatch_kwargs = {}
         self._configure_sbatch_done = False
         self._stop_on_error = stop_on_error
-        self._verbose= verbose
+        self._verbose = verbose
 
     def configure_sbatch(self, **kwargs):
         self._sbatch_kwargs = kwargs
@@ -48,12 +48,13 @@ class CCSubmitter:
             cmd_list = [cmd_list, ]
         self._env = cmd_list
 
-    def submit(self, job: str, on_local=False,  **kwargs):
+    def submit(self, job: str, on_local=False, **kwargs):
 
         env_script = "\n".join(self._env)
+        cd_script = f"cd {os.path.abspath(self._work_dir)}"
 
         script = "\n".join(
-            [_create_sbatch_prefix(**{**self._sbatch_kwargs, **kwargs}), env_script, job])
+            [_create_sbatch_prefix(**{**self._sbatch_kwargs, **kwargs}), env_script, cd_script, job])
         code = self._write_and_run(script, on_local, verbose=self._verbose)
         if code != 0:
             if self._stop_on_error:
@@ -61,9 +62,7 @@ class CCSubmitter:
 
     def _write_and_run(self, full_script, on_local, verbose=False):
         random_name = randomString() + ".sh"
-        workdir = os.path.dirname(__file__)
-        if self._work_dir:
-            workdir = os.path.abspath(self._work_dir)
+        workdir = os.path.abspath(self._work_dir)
         random_bash = os.path.join(workdir, random_name)
 
         with open(random_bash, "w") as f:

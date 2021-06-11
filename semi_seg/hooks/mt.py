@@ -5,7 +5,20 @@ from torch import nn
 
 from contrastyou.hooks.base import TrainerHook, EpocherHook
 from contrastyou.meters import AverageValueMeter, MeterInterface
+from contrastyou.utils import simplex
 from semi_seg.hooks import meter_focus
+
+
+class L2LossChecker:
+    """this checker is to check if the input of the criterion to be simplex"""
+
+    def __init__(self, criterion) -> None:
+        super().__init__()
+        self.criterion = criterion
+
+    def __call__(self, input1, input2):
+        assert simplex(input1) and simplex(input2)
+        return self.criterion(input1, input2)
 
 
 class EMAUpdater:
@@ -69,7 +82,7 @@ class _MeanTeacherEpocherHook(EpocherHook):
     def __init__(self, name: str, weight: float, criterion, teacher_model, updater) -> None:
         super().__init__(name)
         self._weight = weight
-        self._criterion = criterion
+        self._criterion = L2LossChecker(criterion)
         self._teacher_model = teacher_model
         self._updater = updater
 
@@ -82,7 +95,7 @@ class _MeanTeacherEpocherHook(EpocherHook):
                  **kwargs):
         student_unlabeled_tf_prob = unlabeled_tf_logits.softmax(1)
         teacher_unlabeled_prob = self._teacher_model(unlabeled_image).softmax(1)
-        teacher_unlabeled_prob_tf = affine_transformer(teacher_unlabeled_prob, seed=seed)
+        teacher_unlabeled_prob_tf = affine_transformer(teacher_unlabeled_prob)
         loss = self._criterion(teacher_unlabeled_prob_tf, student_unlabeled_tf_prob)
         self.meters["loss"].add(loss.item())
         self._updater(ema_model=self._teacher_model, student_model=self.epocher._model)  # noqa

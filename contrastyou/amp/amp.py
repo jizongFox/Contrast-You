@@ -24,6 +24,9 @@ class AMPScaler:
             if cur_iter < 5:
                 logger.opt(depth=1).trace(f"zero_grad optimizer given cur_iter: {cur_iter}")
 
+    def scale_update(self):
+        self.scaler.update()
+
     @property
     def use_mixed_train(self) -> bool:
         return self.scaler._enabled

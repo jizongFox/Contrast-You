@@ -213,6 +213,7 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
             self.scale_loss(total_loss).backward()
             self.optimizer_step(self._optimizer, cur_iter=self.cur_batch_num)
             self.optimizer_zero(self._optimizer, cur_iter=self.cur_batch_num)
+            self.scale_update()
 
             # recording can be here or in the regularization method
             if self.on_master():

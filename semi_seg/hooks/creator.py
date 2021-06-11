@@ -17,7 +17,7 @@ def get_individual_hook(*hooks):
     for h in hooks:
         assert isinstance(h, TrainerHook)
         if isinstance(h, CombineTrainerHook):
-            yield from get_individual_hook(*h._hooks)
+            yield from get_individual_hook(*h._hooks)  # noqa
         else:
             yield h
 

@@ -109,3 +109,4 @@ class EpocherBase(AMPScaler, DDPMixin, metaclass=ABCMeta):
         if not self.__bind_trainer_done__:
             raise RuntimeError(f"{self.__class__.__name__} should call `set_trainer` first")
         return self._trainer
+
