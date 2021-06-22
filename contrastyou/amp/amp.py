@@ -4,7 +4,7 @@ from torch.cuda.amp import GradScaler, autocast
 
 class AMPScaler:
 
-    def __init__(self, *, scaler: GradScaler, accumulate_iter=10) -> None:
+    def __init__(self, *, scaler: GradScaler, accumulate_iter: int = 1) -> None:
         self.scaler = scaler
         self._accumulate_iter = accumulate_iter
 
@@ -12,6 +12,7 @@ class AMPScaler:
         return self.scaler.scale(loss)
 
     def optimizer_step(self, optimizer, *, cur_iter: int):
+        """this step updates the optimizer and the scaler in the same time."""
         if cur_iter % self._accumulate_iter == 0:
             self.scaler.step(optimizer)
             self.scaler.update()
@@ -23,9 +24,6 @@ class AMPScaler:
             optimizer.zero_grad()
             if cur_iter < 5:
                 logger.opt(depth=1).trace(f"zero_grad optimizer given cur_iter: {cur_iter}")
-
-    def scale_update(self):
-        self.scaler.update()
 
     @property
     def use_mixed_train(self) -> bool:

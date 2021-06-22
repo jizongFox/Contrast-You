@@ -61,7 +61,7 @@ def get_label(contrast_on, data_name, partition_group, label_group):
             (partition_list=partition_group,
              patient_list=label_group)
     else:
-        raise NotImplementedError()
+        raise NotImplementedError(data_name)
     return labels
 
 

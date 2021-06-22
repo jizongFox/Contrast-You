@@ -34,16 +34,16 @@ class SemiTrainer(Trainer):
         self._disable_bn = disable_bn
         self._two_stage = two_stage
         self._enable_scale = enable_scale
-        logger.info(f"{'Enable' if enable_scale else 'Disable'} mixed precision training")
         self.scaler = GradScaler(enabled=enable_scale)
-        logger.info(f"Accumulate iter: {accumulate_iter}")
         self._accumulate_iter = accumulate_iter
+        logger.info(f"{'Enable' if enable_scale else 'Disable'} mixed precision training "
+                    f"with an accumulate iter: {accumulate_iter}")
 
     @property
     def train_epocher(self) -> Type[EpocherBase]:
         return SemiSupervisedEpocher
 
-    def _create_tra_epoch(self, **kwargs) -> EpocherBase:
+    def _create_initialized_tra_epoch(self, **kwargs) -> EpocherBase:
         epocher = self.train_epocher(
             model=self._model, optimizer=self._optimizer, labeled_loader=self._labeled_loader,
             unlabeled_loader=self._unlabeled_loader, sup_criterion=self._criterion, num_batches=self._num_batches,
@@ -53,7 +53,7 @@ class SemiTrainer(Trainer):
         epocher.init()
         return epocher
 
-    def _create_eval_epoch(self, *, model, loader, **kwargs) -> EpocherBase:
+    def _create_initialized_eval_epoch(self, *, model, loader, **kwargs) -> EpocherBase:
         epocher = EvalEpocher(model=model, loader=loader, sup_criterion=self._criterion, cur_epoch=self._cur_epoch,
                               device=self._device, scaler=self.scaler, accumulate_iter=self._accumulate_iter)
         epocher.init()
@@ -113,7 +113,7 @@ class AdversarialTrainer(SemiTrainer):
     def train_epocher(self) -> Type[EpocherBase]:
         return AdversarialEpocher
 
-    def _create_tra_epoch(self, **kwargs) -> EpocherBase:
+    def _create_initialized_tra_epoch(self, **kwargs) -> EpocherBase:
         epocher = self.train_epocher(
             model=self._model, optimizer=self._optimizer, labeled_loader=self._labeled_loader,
             unlabeled_loader=self._unlabeled_loader, sup_criterion=self._criterion, num_batches=self._num_batches,

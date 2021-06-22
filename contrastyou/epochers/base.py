@@ -36,7 +36,7 @@ class EpocherBase(AMPScaler, DDPMixin, metaclass=ABCMeta):
         self.meters = MeterInterface(default_focus=self.meter_focus)
         self.configure_meters(self.meters)
 
-        self.indicator = tqdm(range(self._num_batches), disable=not self.on_master())
+        self.indicator = tqdm(range(self._num_batches), disable=not self.on_master(), leave=False, ncols=2)
 
         self._trainer = None
         self.__bind_trainer_done__ = False
@@ -44,6 +44,12 @@ class EpocherBase(AMPScaler, DDPMixin, metaclass=ABCMeta):
 
     @contextmanager
     def register_hook(self, *hook: EpocherHook):
+        """
+        >>> epocher = EpocherBase(...)
+        >>> hooks = ...
+        >>> with epocher.register_hook(*hooks):
+        >>>     epocher.run()
+        """
         for h in hook:
             self._hooks.append(h)
             h.set_epocher(self)
@@ -109,4 +115,3 @@ class EpocherBase(AMPScaler, DDPMixin, metaclass=ABCMeta):
         if not self.__bind_trainer_done__:
             raise RuntimeError(f"{self.__class__.__name__} should call `set_trainer` first")
         return self._trainer
-

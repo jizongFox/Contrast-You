@@ -118,7 +118,7 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
                     self._scheduler.step()
 
     def tra_epoch(self, **kwargs):
-        epocher = self._create_tra_epoch(**kwargs)
+        epocher = self._create_initialized_tra_epoch(**kwargs)
         return self._run_tra_epoch(epocher)
 
     def _run_tra_epoch(self, epocher: EpocherBase):
@@ -128,15 +128,15 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
         return epocher.get_metric()
 
     @abstractmethod
-    def _create_tra_epoch(self, **kwargs) -> EpocherBase:
+    def _create_initialized_tra_epoch(self, **kwargs) -> EpocherBase:
         ...
 
     def eval_epoch(self, *, model, loader, **kwargs):
-        epocher = self._create_eval_epoch(model=model, loader=loader, **kwargs)
+        epocher = self._create_initialized_eval_epoch(model=model, loader=loader, **kwargs)
         return self._run_eval_epoch(epocher)
 
     @abstractmethod
-    def _create_eval_epoch(self, *, model, loader, **kwargs) -> EpocherBase:
+    def _create_initialized_eval_epoch(self, *, model, loader, **kwargs) -> EpocherBase:
         ...
 
     def _run_eval_epoch(self, epocher):

@@ -62,10 +62,12 @@ class ContrastBatchSampler(Sampler):
             # for each group sample, choose at most partition_sample_num slices per partition
             for cur_group in cur_group_samples:
                 available_slices_given_group = self._group2index[cur_group]
-                for savailbleslices in self._partition2index.values():
+                for s_available_slices in self._partition2index.values():
                     try:
-                        sampled_slices = random.sample(sorted(set(available_slices_given_group) & set(savailbleslices)),
-                                                       self._partition_sample_num)
+                        sampled_slices = random.sample(
+                            sorted(set(available_slices_given_group) & set(s_available_slices)),
+                            self._partition_sample_num
+                        )
                         batch_index.extend(sampled_slices)
                     except ValueError:
                         continue

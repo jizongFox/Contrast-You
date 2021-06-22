@@ -81,6 +81,6 @@ def worker(config, absolute_save_dir, seed, ):
 
 
 if __name__ == '__main__':
-    torch.set_deterministic(True)
-    # torch.backends.cudnn.benchmark = True
+    # torch.set_deterministic(True)
+    torch.backends.cudnn.benchmark = True
     main()

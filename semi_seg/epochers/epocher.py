@@ -2,7 +2,7 @@ import random
 from abc import ABC
 from contextlib import nullcontext
 from functools import lru_cache, partial
-from typing import Any
+from typing import Any, Dict, Optional
 
 import torch
 from loguru import logger
@@ -29,6 +29,15 @@ def assert_transform_freedom(dataloader, is_true):
 
 
 class EpocherBase(_EpocherBase, ABC):
+    """ EpocherBase class to control the behavior of the training within one epoch.
+    we add some control flow for sanity check
+    >>> hooks = ...
+    >>> epocher = EpocherBase(...)
+    >>> epocher.init() # configuration check
+    >>> with epocher.register_hook(*hooks):
+    >>>     epocher.run(...)
+    >>> epocher_result, best_score = epocher.get_metric(), epocher.get_score()
+    """
 
     @property
     def num_classes(self):
@@ -49,6 +58,22 @@ class EpocherBase(_EpocherBase, ABC):
         """we added an assertion to control the hyper-parameters."""
         self._assertion()
         self._initialized = True
+
+    def _batch_update(self, **kwargs) -> Optional[Dict[str, Any]]:
+        """
+        returning the predicted dictionary, to pass to possible metric meter.
+        """
+        ...
+
+    def batch_update(self, **kwargs) -> Optional[Dict[str, Any]]:
+        """batch updater given labeled and unlabeled images, including model update, zero grad and optimizer steps.
+        Gan style update should be included in this function as well."""
+        for h in self._hooks:
+            h.before_batch_update(**kwargs)
+        predicted_result_dict = self._batch_update(**kwargs)
+        for h in self._hooks:
+            h.after_batch_update(**kwargs, result_dict=predicted_result_dict)
+        return predicted_result_dict
 
     def _assertion(self):
         pass
@@ -99,22 +124,27 @@ class EvalEpocher(EpocherBase):
 
     def _run(self, **kwargs):
         self._model.eval()
-        return self._run_eval()
+        return self._run_implement()
 
     @torch.no_grad()
-    def _run_eval(self):
+    def _run_implement(self):
         for i, eval_data in zip(self.indicator, self._loader):
-            with self.autocast:
-                eval_img, eval_target, file_path, _, group = self._unzip_data(eval_data, self._device)
-                eval_logits = self._model(eval_img)
-                onehot_target = class2one_hot(eval_target.squeeze(1), self.num_classes)
-                eval_loss = self._sup_criterion(eval_logits.softmax(1), onehot_target, disable_assert=True)
-
-            self.meters["loss"].add(eval_loss.item())
-            self.meters["dice"].add(eval_logits.max(1)[1], eval_target.squeeze(1), group_name=group)
+            eval_img, eval_target, file_path, _, group = self._unzip_data(eval_data, self._device)
+            self.batch_update(eval_img=eval_img,
+                              eval_target=eval_target,
+                              eval_group=group)
 
             report_dict = self.meters.statistics()
             self.indicator.set_postfix_statics(report_dict)
+
+    def _batch_update(self, *, eval_img, eval_target, eval_group):
+        with self.autocast:
+            eval_logits = self._model(eval_img)
+            onehot_target = class2one_hot(eval_target.squeeze(1), self.num_classes)
+            eval_loss = self._sup_criterion(eval_logits.softmax(1), onehot_target, disable_assert=True)
+
+        self.meters["loss"].add(eval_loss.item())
+        self.meters["dice"].add(eval_logits.max(1)[1], eval_target.squeeze(1), group_name=eval_group)
 
     @staticmethod
     def _unzip_data(data, device):
@@ -165,66 +195,72 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
     def _run(self, **kwargs):
         self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer))
         self._model.train()
-        return self._run_semi()
+        return self._run_implement()
 
-    def _run_semi(self):
+    def _run_implement(self):
         for self.cur_batch_num, labeled_data, unlabeled_data in zip(self.indicator, self._labeled_loader,
                                                                     self._unlabeled_loader):
             seed = random.randint(0, int(1e7))
-            with self.autocast:
-                (labeled_image, _), labeled_target, labeled_filename, _, label_group = \
-                    self._unzip_data(labeled_data, self._device)
-                (unlabeled_image, unlabeled_image_cf), _, unlabeled_filename, unl_partition, unl_group = \
-                    self._unzip_data(unlabeled_data, self._device)
-                if self.cur_batch_num < 5:
-                    logger.trace(f"{class_name(self)}--"
-                                 f"cur_batch:{self.cur_batch_num}, labeled_filenames: {','.join(labeled_filename)}, "
-                                 f"unlabeled_filenames: {','.join(unlabeled_filename)}")
+            (labeled_image, _), labeled_target, labeled_filename, _, label_group = \
+                self._unzip_data(labeled_data, self._device)
+            (unlabeled_image, unlabeled_image_cf), _, unlabeled_filename, unl_partition, unl_group = \
+                self._unzip_data(unlabeled_data, self._device)
 
-                unlabeled_image_tf = self.transform_with_seed(unlabeled_image, seed=seed)
+            unlabeled_image_tf = self.transform_with_seed(unlabeled_image_cf, seed=seed)
 
-                label_logits, unlabeled_logits, unlabeled_tf_logits = self.forward_pass(
-                    labeled_image=labeled_image,
-                    unlabeled_image=unlabeled_image,
-                    unlabeled_image_tf=unlabeled_image_tf
-                )
+            self.batch_update(cur_batch_num=self.cur_batch_num,
+                              labeled_image=labeled_image,
+                              labeled_target=labeled_target,
+                              labeled_filename=labeled_filename,
+                              label_group=label_group, unlabeled_image=unlabeled_image,
+                              unlabeled_image_tf=unlabeled_image_tf,
+                              seed=seed, unl_group=unl_group, unl_partition=unl_partition,
+                              unlabeled_filename=unlabeled_filename)
 
-                unlabeled_logits_tf = self.transform_with_seed(unlabeled_logits, seed=seed)
+            report_dict = self.meters.statistics()
+            self.indicator.set_postfix_statics(report_dict, cache_time=20)
 
-                # supervised part
-                one_hot_target = class2one_hot(labeled_target.squeeze(1), self.num_classes)
-                sup_loss = self._sup_criterion(label_logits.softmax(1), one_hot_target)
-                # regularized part
-                reg_loss = self.regularization(
-                    unlabeled_tf_logits=unlabeled_tf_logits,
-                    unlabeled_logits_tf=unlabeled_logits_tf,
-                    seed=seed,
-                    unlabeled_image=unlabeled_image,
-                    unlabeled_image_tf=unlabeled_image_tf,
-                    label_group=unl_group,
-                    partition_group=unl_partition,
-                    unlabeled_filename=unlabeled_filename,
-                    labeled_filename=labeled_filename,
-                    affine_transformer=partial(self.transform_with_seed, seed=seed)
-                )
+    def _batch_update(self, *, cur_batch_num: int, labeled_image, labeled_target, labeled_filename, label_group,
+                      unlabeled_image, unlabeled_image_tf, seed, unl_group, unl_partition, unlabeled_filename):
+        with self.autocast:
+            label_logits, unlabeled_logits, unlabeled_tf_logits = self.forward_pass(
+                labeled_image=labeled_image,
+                unlabeled_image=unlabeled_image,
+                unlabeled_image_tf=unlabeled_image_tf
+            )
 
-            total_loss = sup_loss + reg_loss
-            # gradient backpropagation
-            self.scale_loss(total_loss).backward()
-            self.optimizer_step(self._optimizer, cur_iter=self.cur_batch_num)
-            self.optimizer_zero(self._optimizer, cur_iter=self.cur_batch_num)
-            self.scale_update()
+            unlabeled_logits_tf = self.transform_with_seed(unlabeled_logits, seed=seed)
 
-            # recording can be here or in the regularization method
-            if self.on_master():
-                with torch.no_grad():
-                    self.meters["sup_loss"].add(sup_loss.item())
-                    self.meters["sup_dice"].add(label_logits.max(1)[1], labeled_target.squeeze(1),
-                                                group_name=label_group)
-                    self.meters["reg_loss"].add(reg_loss.item())
+            # supervised part
+            one_hot_target = class2one_hot(labeled_target.squeeze(1), self.num_classes)
+            sup_loss = self._sup_criterion(label_logits.softmax(1), one_hot_target)
+            # regularized part
+            reg_loss = self.regularization(
+                seed=seed,
+                unlabeled_image=unlabeled_image,
+                unlabeled_image_tf=unlabeled_image_tf,
+                unlabeled_tf_logits=unlabeled_tf_logits,
+                unlabeled_logits_tf=unlabeled_logits_tf,
+                label_group=unl_group,
+                partition_group=unl_partition,
+                labeled_filename=labeled_filename,
+                unlabeled_filename=unlabeled_filename,
+                affine_transformer=partial(self.transform_with_seed, seed=seed)
+            )
 
-                report_dict = self.meters.statistics()
-                self.indicator.set_postfix_statics(report_dict, cache_time=10)
+        total_loss = sup_loss + reg_loss
+        # gradient backpropagation
+        self.scale_loss(total_loss).backward()
+        self.optimizer_step(self._optimizer, cur_iter=cur_batch_num)
+        self.optimizer_zero(self._optimizer, cur_iter=cur_batch_num)
+
+        # recording can be here or in the regularization method
+        if self.on_master():
+            with torch.no_grad():
+                self.meters["sup_loss"].add(sup_loss.item())
+                self.meters["sup_dice"].add(label_logits.max(1)[1], labeled_target.squeeze(1),
+                                            group_name=label_group)
+                self.meters["reg_loss"].add(reg_loss.item())
 
     def _forward_pass(self, labeled_image, unlabeled_image, unlabeled_image_tf):
         n_l, n_unl = len(labeled_image), len(unlabeled_image)
@@ -234,10 +270,10 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
                 unlabeled_logits, unlabeled_tf_logits = \
                     torch.split(self._model(torch.cat([unlabeled_image, unlabeled_image_tf], dim=0)),
                                 [n_unl, n_unl], dim=0)
-        else:
-            predict_logits = self._model(torch.cat([labeled_image, unlabeled_image, unlabeled_image_tf], dim=0))
-            label_logits, unlabeled_logits, unlabeled_tf_logits = \
-                torch.split(predict_logits, [n_l, n_unl, n_unl], dim=0)
+            return label_logits, unlabeled_logits, unlabeled_tf_logits
+        predict_logits = self._model(torch.cat([labeled_image, unlabeled_image, unlabeled_image_tf], dim=0))
+        label_logits, unlabeled_logits, unlabeled_tf_logits = \
+            torch.split(predict_logits, [n_l, n_unl, n_unl], dim=0)
         return label_logits, unlabeled_logits, unlabeled_tf_logits
 
     @property
@@ -272,40 +308,25 @@ class FineTuneEpocher(SemiSupervisedEpocher, ABC):
         meters.delete_meter("reg_loss")
         return meters
 
-    def _run(self, *args, **kwargs):
-        self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer))
-        self._model.train()
-        return self._run_only_label()
-
-    def _run_only_label(self):
-        for self.cur_batch_num, labeled_data in zip(self.indicator, self._labeled_loader):
-            with self.autocast:
-                (labeled_image, _), labeled_target, labeled_filename, _, label_group = \
-                    self._unzip_data(labeled_data, self._device)
-
-                if self.cur_batch_num < 5:
-                    logger.trace(f"{class_name(self)}--"
-                                 f"cur_batch:{self.cur_batch_num}, labeled_filenames: {','.join(labeled_filename)}, ")
-
-                label_logits: Tensor = self.forward_pass(labeled_image=labeled_image)  # noqa
-                # supervised part
-                onehot_target = class2one_hot(labeled_target.squeeze(1), self.num_classes)
-                sup_loss = self._sup_criterion(label_logits.softmax(1), onehot_target)
-
-            total_loss = sup_loss
-            # gradient backpropagation
-            self.scale_loss(total_loss).backward()
-            self.optimizer_step(self._optimizer, cur_iter=self.cur_batch_num)
-            self.optimizer_zero(self._optimizer, cur_iter=self.cur_batch_num)
-            # recording can be here or in the regularization method
-            if self.on_master():
-                with torch.no_grad():
-                    self.meters["sup_loss"].add(sup_loss.item())
-                    self.meters["sup_dice"].add(label_logits.max(1)[1], labeled_target.squeeze(1),
-                                                group_name=label_group)
-                report_dict = self.meters.statistics()
-                self.indicator.set_postfix_statics(report_dict, cache_time=10)
-
     def _forward_pass(self, labeled_image, **kwargs):
         label_logits = self._model(labeled_image)
         return label_logits
+
+    def _batch_update(self, *, cur_batch_num: int, labeled_image, labeled_target, label_group, **kwargs):
+        with self.autocast:
+            label_logits: Tensor = self.forward_pass(labeled_image=labeled_image)  # noqa
+            # supervised part
+            onehot_target = class2one_hot(labeled_target.squeeze(1), self.num_classes)
+            sup_loss = self._sup_criterion(label_logits.softmax(1), onehot_target)
+
+        total_loss = sup_loss
+        # gradient backpropagation
+        self.scale_loss(total_loss).backward()
+        self.optimizer_step(self._optimizer, cur_iter=cur_batch_num)
+        self.optimizer_zero(self._optimizer, cur_iter=cur_batch_num)
+        # recording can be here or in the regularization method
+        if self.on_master():
+            with torch.no_grad():
+                self.meters["sup_loss"].add(sup_loss.item())
+                self.meters["sup_dice"].add(label_logits.max(1)[1], labeled_target.squeeze(1),
+                                            group_name=label_group)

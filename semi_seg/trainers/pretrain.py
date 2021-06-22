@@ -89,7 +89,8 @@ class _PretrainTrainerMixin:
             model=self._model, optimizer=self._optimizer, labeled_loader=self._labeled_loader,
             unlabeled_loader=self._unlabeled_loader, sup_criterion=self._criterion, num_batches=self._num_batches,
             cur_epoch=self._cur_epoch, device=self._device, two_stage=self._two_stage, disable_bn=self._disable_bn,
-            chain_dataloader=self._contrastive_loader, inference_until=self._inference_until, scaler=self.scaler
+            chain_dataloader=self._contrastive_loader, inference_until=self._inference_until, scaler=self.scaler,
+            accumulate_iter=1
         )
         epocher.init()
         return epocher

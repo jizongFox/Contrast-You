@@ -195,10 +195,10 @@ class _INFONCEEpochHook(EpocherHook):
         loss = self._criterion(norm_features_tf, norm_tf_features, target=labels)
         self.meters["loss"].add(loss.item())
 
-        sim_exp = self._criterion.sim_exp
-        sim_logits = self._criterion.sim_logits
-        pos_mask = self._criterion.pos_mask
         if self._n == 0:
+            sim_exp = self._criterion.sim_exp
+            sim_logits = self._criterion.sim_logits
+            pos_mask = self._criterion.pos_mask
             writer = get_tb_writer()
             figure2board(pos_mask, "mask", self._criterion, writer, self.epocher)
             figure2board(sim_exp, "sim_exp", self._criterion, writer, self.epocher)
@@ -228,10 +228,10 @@ class _INFONCEDenseHook(_INFONCEEpochHook):
         loss = self._criterion(norm_features_tf_selected, norm_tf_features_selected, target=labels)
         self.meters["loss"].add(loss.item())
 
-        sim_exp = self._criterion.sim_exp
-        sim_logits = self._criterion.sim_logits
-        pos_mask = self._criterion.pos_mask
         if self._n == 0:
+            sim_exp = self._criterion.sim_exp
+            sim_logits = self._criterion.sim_logits
+            pos_mask = self._criterion.pos_mask
             writer = get_tb_writer()
             figure2board(pos_mask, "mask", self._criterion, writer, self.epocher)
             figure2board(sim_exp, "sim_exp", self._criterion, writer, self.epocher)
@@ -260,8 +260,8 @@ class _SPINFONCEEpochHook(_INFONCEEpochHook):
         self.meters["sp_weight"].add(self._criterion.downgrade_ratio)
         self.meters["age_param"].add(self._criterion.age_param)
 
-        sp_mask = self._criterion.sp_mask.float()
         if self._n == 1:
+            sp_mask = self._criterion.sp_mask.float()
             writer = get_tb_writer()
             figure2board(sp_mask, "sp_mask", self._criterion, writer, self.epocher)
 

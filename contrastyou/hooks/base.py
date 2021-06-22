@@ -22,7 +22,7 @@ class _ClassNameMeta(type):
 
 class TrainerHook(nn.Module, metaclass=_ClassNameMeta):
 
-    def __init__(self, hook_name: str, ):
+    def __init__(self, *, hook_name: str, ):
         super().__init__()
         self._hook_name = hook_name
 
@@ -37,8 +37,8 @@ class TrainerHook(nn.Module, metaclass=_ClassNameMeta):
 
 class CombineTrainerHook(TrainerHook):
 
-    def __init__(self, *trainer_hook):
-        super().__init__("")
+    def __init__(self, *trainer_hook: TrainerHook):
+        super().__init__(hook_name="")
         self._hooks = nn.ModuleList(trainer_hook)
 
     def __call__(self):
@@ -67,6 +67,9 @@ class EpocherHook:
     def configure_meters(self, meters: MeterInterface):
         return meters
 
+    def before_batch_update(self, **kwargs):
+        pass
+
     def before_forward_pass(self, **kwargs):
         pass
 
@@ -77,6 +80,9 @@ class EpocherHook:
         pass
 
     def after_regularization(self, **kwargs):
+        pass
+
+    def after_batch_update(self, **kwargs):
         pass
 
     def __call__(self, **kwargs):
@@ -109,6 +115,14 @@ class CombineEpochHook(EpocherHook):
     def after_regularization(self, **kwargs):
         for h in self._epocher_hook:
             h.after_regularization(**kwargs)
+
+    def before_batch_update(self, **kwargs):
+        for h in self._epocher_hook:
+            h.before_batch_update(**kwargs)
+
+    def after_batch_update(self, **kwargs):
+        for h in self._epocher_hook:
+            h.after_batch_update(**kwargs)
 
     def __call__(self, **kwargs):
         return sum([h(**kwargs) for h in self._epocher_hook])
