@@ -21,7 +21,6 @@ def _create_sbatch_prefix(*, account: str, time: int = 1, job_name="default_job_
         f"#SBATCH --account={account} \n"
         f"#SBATCH --cpus-per-task={cpus_per_task} \n"
         f"#SBATCH --gres={gres} \n"
-        f"#SBATCH --account={account} \n"
         f"#SBATCH --job-name={job_name} \n"
         f"#SBATCH --nodes={nodes} \n"
         f"#SBATCH --mem={mem}000M \n"

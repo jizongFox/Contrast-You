@@ -4,7 +4,8 @@ from pathlib import Path
 from typing import Dict, Any
 
 import numpy as np
-from deepclustering2.utils import gethash, write_yaml
+# from deepclustering2.utils import gethash, write_yaml
+from networkx import write_yaml
 
 from contrastyou import on_cc
 from semi_seg import __accounts

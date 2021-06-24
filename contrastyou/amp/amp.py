@@ -14,20 +14,20 @@ class AMPScaler:
     def optimizer_step(self, optimizer, *, cur_iter: int):
         """this step updates the optimizer and the scaler in the same time."""
         if cur_iter % self._accumulate_iter == 0:
+            if cur_iter < 5:
+                logger.opt(depth=1).trace(f"update optimizer and scaler given cur_iter: {cur_iter}")
             self.scaler.step(optimizer)
             self.scaler.update()
-            if cur_iter < 5:
-                logger.opt(depth=1).trace(f"update optimizer given cur_iter: {cur_iter}")
 
     def optimizer_zero(self, optimizer, *, cur_iter: int):
         if cur_iter % self._accumulate_iter == 0:
-            optimizer.zero_grad()
             if cur_iter < 5:
                 logger.opt(depth=1).trace(f"zero_grad optimizer given cur_iter: {cur_iter}")
+            optimizer.zero_grad()
 
     @property
     def use_mixed_train(self) -> bool:
-        return self.scaler._enabled
+        return self.scaler._enabled  # noqa
 
     @property
     def autocast(self):

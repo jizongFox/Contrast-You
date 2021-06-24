@@ -2,15 +2,15 @@ import os
 from copy import deepcopy as dcopy
 
 import numpy  # noqa
-from deepclustering2.loss import KL_div
 from loguru import logger
 
 from contrastyou import CONFIG_PATH, success
+from contrastyou.arch import UNet, arch_order
 from contrastyou.configure import ConfigManger
+from contrastyou.losses.kl import KL_div
 from contrastyou.utils import fix_all_seed_within_context, config_logger, extract_model_state_dict
 from hook_creator import create_hook_from_config
 from semi_seg import ratio_zoo
-from semi_seg.arch import UNet, arch_order
 from semi_seg.data.creator import get_data
 from semi_seg.hooks import feature_until_from_hooks
 from semi_seg.trainers.pretrain import PretrainEncoderTrainer, PretrainDecoderTrainer
@@ -54,7 +54,7 @@ def worker(config, absolute_save_dir, seed, ):
 
     trainer = PretrainDecoderTrainer(model=model, labeled_loader=labeled_loader, unlabeled_loader=unlabeled_loader,
                                      val_loader=val_loader, test_loader=test_loader,
-                                     criterion=KL_div(verbose=False), config=config,
+                                     criterion=KL_div(), config=config,
                                      save_dir=os.path.join(absolute_save_dir, "pre"),
                                      **{k: v for k, v in config["Trainer"].items() if k != "save_dir"})
 

@@ -9,7 +9,7 @@ import yaml
 
 from .dictionary_utils import dictionary_merge_by_hierachy
 
-__all__ = ["yamlArgParser", "str2bool"]
+__all__ = ["yamlArgParser", "str2bool", "yaml_load", "yaml_write"]
 
 from ..utils import path2Path
 

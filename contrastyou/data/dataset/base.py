@@ -3,7 +3,7 @@ import re
 from collections import OrderedDict
 from copy import deepcopy as dcopy
 from pathlib import Path
-from typing import List, Tuple, Dict, Union, Any, TypeVar, OrderedDict as OrderedDictType
+from typing import List, Tuple, Dict, Union, Any, TypeVar, OrderedDict as OrderedDictType, Iterable
 
 from PIL import Image, ImageFile
 from loguru import logger
@@ -198,7 +198,7 @@ class DatasetBase(Dataset):
         self._transforms = transforms
 
 
-def extract_sub_dataset_based_on_scan_names(dataset: DatasetBase, group_names: List[str],
+def extract_sub_dataset_based_on_scan_names(dataset: DatasetBase, group_names: Iterable[str],
                                             transforms: SequentialWrapper = None) -> DatasetBase:
     loaded: bool = dataset.is_preloaded()
     available_group_names = sorted(set(dataset.get_scan_list()))

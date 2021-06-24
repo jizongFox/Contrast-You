@@ -42,6 +42,7 @@ class PretrainInfoNCEScriptGenerator(PretrainScriptGenerator):
                                               seed=random_seed, hook_path=config_path)
             jobs.append(job)
         return jobs
+
     def generate_single_script(self, save_dir, seed, hook_path):
         from semi_seg import pre_lr_zooms, ft_lr_zooms
         pre_lr = pre_lr_zooms[self._data_name]
@@ -50,7 +51,6 @@ class PretrainInfoNCEScriptGenerator(PretrainScriptGenerator):
                f" Optim.pre_lr={pre_lr:.7f} Optim.ft_lr={ft_lr:.7f} RandomSeed={str(seed)} " \
                f" {' '.join(self.conditions)}  " \
                f" --opt-path config/pretrain.yaml {hook_path}"
-
 
 
 class PretrainSPInfoNCEScriptGenerator(PretrainInfoNCEScriptGenerator):
@@ -87,7 +87,7 @@ if __name__ == '__main__':
     submittor.configure_sbatch(account=None)
 
     seed = [10, 20, 30]
-    data_name = "mmwhsct"
+    data_name = "acdc"
     save_dir = f"0526/{data_name}"
     num_batches = num_batches_zoo[data_name]
     pre_max_epoch = pre_max_epoch_zoo[data_name]

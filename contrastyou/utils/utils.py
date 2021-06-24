@@ -13,11 +13,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from torch import nn
-from torch._six import container_abcs
 from torch.optim import Optimizer
 from torch.utils.data.dataloader import DataLoader, _BaseDataLoaderIter  # noqa
 
 from script.utils import T_path
+
+try:
+    from torch._six import container_abcs
+except ImportError:
+    import collections.abc as container_abcs
 
 
 def flatten_dict(d, parent_key="", sep="_"):

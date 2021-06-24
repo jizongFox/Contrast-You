@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import Optional
 
 import torch.distributed as dist
@@ -25,5 +26,6 @@ class DDPMixin:
         except (AssertionError, AttributeError, RuntimeError):
             return None
 
+    @lru_cache()
     def on_master(self) -> bool:
         return (self.rank == 0) or (self.rank is None)

@@ -42,7 +42,8 @@ def split_dataset_with_predefined_filenames(dataset: DatasetBase, data_name: str
     if labeled_num not in filenames:
         raise ValueError(
             f"{labeled_num} is not defined for `load_predefined_list`, "
-            f"given only {','.join([str(x) for x in filenames.keys()])}")
+            f"given only {','.join([str(x) for x in filenames.keys()])}"
+        )
     labeled_scans = filenames[labeled_num]
     unlabeled_scans = sorted(set(dataset.get_scan_list()) - set(labeled_scans))
     logger.debug(f"adding default filenames {','.join(labeled_scans)} to {dataset.__class__.__name__}.")
@@ -91,7 +92,7 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
     data_name = data_params["name"]
     tra_set, test_set = create_dataset(data_name, total_freedom)
     if len(tra_set.get_scan_list()) == 0 or len(test_set.get_scan_list()) == 0:
-        raise RuntimeError("dataset error")
+        raise RuntimeError("dataset loading error with empty dataset ont `tra_set` and `val_set`")
 
     train_scan_num = len(tra_set.get_scan_list())
 

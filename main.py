@@ -52,10 +52,11 @@ def worker(config, absolute_save_dir, seed, ):
     Trainer = trainer_zoo[trainer_name]
     checkpoint = config.get("trainer_checkpoint")
 
-    trainer = Trainer(model=model, labeled_loader=labeled_loader, unlabeled_loader=unlabeled_loader,
-                      val_loader=val_loader, test_loader=test_loader, criterion=KL_div(), config=config,
-                      save_dir=absolute_save_dir,
-                      **{k: v for k, v in config["Trainer"].items() if k != "save_dir" and k != "name"})
+    trainer = Trainer(
+        model=model, labeled_loader=labeled_loader, unlabeled_loader=unlabeled_loader, val_loader=val_loader,
+        test_loader=test_loader, criterion=KL_div(), config=config, save_dir=absolute_save_dir,
+        **{k: v for k, v in config["Trainer"].items() if k != "save_dir" and k != "name"}
+    )
 
     if trainer_name != "ft":
         with fix_all_seed_within_context(seed):
@@ -82,5 +83,5 @@ def worker(config, absolute_save_dir, seed, ):
 
 if __name__ == '__main__':
     # torch.set_deterministic(True)
-    torch.backends.cudnn.benchmark = True
+    torch.backends.cudnn.benchmark = True  # noqa
     main()

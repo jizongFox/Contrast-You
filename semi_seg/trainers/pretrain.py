@@ -7,9 +7,9 @@ from torch.optim import Optimizer
 from torch.utils.data.dataloader import _BaseDataLoaderIter as BaseDataLoaderIter, DataLoader  # noqa
 
 from contrastyou.arch import UNet
-from contrastyou.epochers.base import EpocherBase
 from contrastyou.meters import Storage
 from contrastyou.writer import SummaryWriter
+from semi_seg.epochers.epocher import EpocherBase
 from semi_seg.epochers.pretrain import PretrainEncoderEpocher, PretrainDecoderEpocher
 from semi_seg.trainers._helper import _get_contrastive_dataloader
 from semi_seg.trainers.trainer import SemiTrainer
@@ -32,6 +32,7 @@ class _PretrainTrainerMixin:
     activate_hooks = True
     __hooks__: List
     _optimizer: Optimizer
+    train_epocher: Type[EpocherBase]
 
     def __init__(self, **kwargs):
         super(_PretrainTrainerMixin, self).__init__(**kwargs)
@@ -45,7 +46,7 @@ class _PretrainTrainerMixin:
         self._inference_until = None
 
     @property
-    def forward_until(self):
+    def forward_until(self) -> str:
         if self._inference_until is None:
             return list(UNet.decoder_names)[-1]
         return self._inference_until
@@ -84,11 +85,11 @@ class _PretrainTrainerMixin:
                 if self.on_master():
                     self.save_to(save_name="last.pth")
 
-    def _create_tra_epoch(self, **kwargs) -> EpocherBase:
+    def _create_initialized_tra_epoch(self, **kwargs) -> EpocherBase:
         epocher = self.train_epocher(
             model=self._model, optimizer=self._optimizer, labeled_loader=self._labeled_loader,
             unlabeled_loader=self._unlabeled_loader, sup_criterion=self._criterion, num_batches=self._num_batches,
-            cur_epoch=self._cur_epoch, device=self._device, two_stage=self._two_stage, disable_bn=self._disable_bn,
+            cur_epoch=self._cur_epoch, device=self._device, two_stage=False, disable_bn=False,
             chain_dataloader=self._contrastive_loader, inference_until=self._inference_until, scaler=self.scaler,
             accumulate_iter=1
         )
