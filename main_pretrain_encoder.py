@@ -4,17 +4,18 @@ from copy import deepcopy as dcopy
 import numpy  # noqa
 from loguru import logger
 
-from contrastyou import CONFIG_PATH, success
+from contrastyou import CONFIG_PATH
 from contrastyou.arch import UNet
 from contrastyou.configure import ConfigManger
 from contrastyou.losses.kl import KL_div
-from contrastyou.utils import fix_all_seed_within_context, config_logger, set_deterministic, extract_model_state_dict
+from contrastyou.trainer._io import create_save_dir
+from contrastyou.utils import fix_all_seed_within_context, config_logger, extract_model_state_dict, set_deterministic
 from hook_creator import create_hook_from_config
 from semi_seg import ratio_zoo
 from semi_seg.data.creator import get_data
 from semi_seg.hooks import feature_until_from_hooks
 from semi_seg.trainers.pretrain import PretrainEncoderTrainer
-from utils import separate_pretrain_finetune_configs
+from utils import separate_pretrain_finetune_configs, logging_configs
 from val import val
 
 
@@ -26,11 +27,12 @@ def main():
     pretrain_config, base_config = separate_pretrain_finetune_configs(config_manager=config_manager)
 
     with config_manager(scope="base") as config:
-        seed = config.get("RandomSeed", 10)
-        data_name = config["Data"]["name"]
-        absolute_save_dir = os.path.abspath(
-            os.path.join(PretrainEncoderTrainer.RUN_PATH, str(config["Trainer"]["save_dir"])))
+        absolute_save_dir = create_save_dir(PretrainEncoderTrainer, config["Trainer"]["save_dir"])
         config_logger(absolute_save_dir)
+        logging_configs(config_manager, logger)
+        seed = config.get("RandomSeed", 10)
+
+        data_name = config["Data"]["name"]
         with fix_all_seed_within_context(seed):
             model = worker(pretrain_config, absolute_save_dir, seed)
 
@@ -59,7 +61,7 @@ def worker(config, absolute_save_dir, seed, ):
 
     with fix_all_seed_within_context(seed):
         hooks = create_hook_from_config(model, config, is_pretrain=True)
-        assert len(hooks) > 0, "void hooks"
+        assert len(hooks) > 0, "empty hooks"
 
     trainer.register_hook(*hooks)
     until = feature_until_from_hooks(*hooks)
@@ -70,10 +72,10 @@ def worker(config, absolute_save_dir, seed, ):
         trainer.init()
         trainer.start_training()
 
-    success(save_dir=trainer.save_dir)
     return model
 
 
 if __name__ == '__main__':
     set_deterministic(True)
+    # torch.backends.cudnn.benchmark = True  # noqa
     main()

@@ -1,3 +1,5 @@
+import os
+import os
 import shutil
 import tempfile
 import warnings
@@ -23,10 +25,16 @@ def safe_save(checkpoint_dictionary, save_path):
 
 
 def create_save_dir(self, save_dir: str):
+    """
+    return absolute path given a save_dir
+    if save_dir is a relative path, return MODEL_PATH/SAVE_DIR
+    if save_dir is an absolute path, return this path
+    """
     save_dir = str(save_dir)
     if not Path(save_dir).is_absolute():
-        save_dir = str(Path(self.RUN_PATH) / save_dir)
+        save_dir = str(Path(self.RUN_PATH) / save_dir)  # absolute path
     Path(save_dir).mkdir(exist_ok=True, parents=True)
+    assert os.path.isabs(save_dir), f"save_dir must be an absolute path, given {save_dir}."
     return save_dir
 
 
@@ -87,7 +95,7 @@ class _IOMixin(_BufferMixin, metaclass=ABCMeta):
                 continue
 
             if hasattr(module, "load_state_dict") and callable(
-                getattr(module, "load_state_dict", None)
+                    getattr(module, "load_state_dict", None)
             ):
                 try:
                     module.load_state_dict(state_dict[module_name])

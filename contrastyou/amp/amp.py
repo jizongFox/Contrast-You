@@ -1,4 +1,3 @@
-from loguru import logger
 from torch.cuda.amp import GradScaler, autocast
 
 
@@ -14,15 +13,11 @@ class AMPScaler:
     def optimizer_step(self, optimizer, *, cur_iter: int):
         """this step updates the optimizer and the scaler in the same time."""
         if cur_iter % self._accumulate_iter == 0:
-            if cur_iter < 5:
-                logger.opt(depth=1).trace(f"update optimizer and scaler given cur_iter: {cur_iter}")
             self.scaler.step(optimizer)
             self.scaler.update()
 
     def optimizer_zero(self, optimizer, *, cur_iter: int):
         if cur_iter % self._accumulate_iter == 0:
-            if cur_iter < 5:
-                logger.opt(depth=1).trace(f"zero_grad optimizer given cur_iter: {cur_iter}")
             optimizer.zero_grad()
 
     @property

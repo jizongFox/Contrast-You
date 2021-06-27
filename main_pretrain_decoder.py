@@ -60,7 +60,7 @@ def worker(config, absolute_save_dir, seed, ):
 
     with fix_all_seed_within_context(seed):
         hooks = create_hook_from_config(model, config, is_pretrain=True)
-        assert len(hooks) > 0, "void hooks"
+        assert len(hooks) > 0, "empty hooks"
 
     trainer.register_hooks(*hooks)
     until = feature_until_from_hooks(*hooks)

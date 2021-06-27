@@ -6,6 +6,9 @@ from itertools import product
 from pathlib import Path
 from typing import Union, TypeVar, List
 
+import numpy as np
+import torch
+
 from contrastyou import PROJECT_PATH, on_cc
 from semi_seg import data2input_dim, data2class_numbers, ratio_zoo
 
@@ -16,17 +19,13 @@ if not os.path.exists(TEMP_DIR):
 T_path = TypeVar("T_path", str, Path)
 
 
-def check_hook_name(name):
-    assert name in ("infonce", "spinfonce")
-
-
 def random_string(N=20):
     return ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for _ in range(N))
 
 
 def is_true_iterator(value):
     if isinstance(value, Iterable):
-        if not isinstance(value, str):
+        if not isinstance(value, (str, np.ndarray, torch.Tensor)):
             return True
     return False
 

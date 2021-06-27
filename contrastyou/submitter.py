@@ -1,9 +1,14 @@
 import os
 import subprocess
+from itertools import cycle
 from pprint import pprint
 from typing import List, Union
 
 from termcolor import colored
+
+
+class SubmitError(RuntimeError):
+    pass
 
 
 def randomString():
@@ -13,7 +18,10 @@ def randomString():
     return ''.join(random.choice(letters) for i in range(10))
 
 
-def _create_sbatch_prefix(*, account: str, time: int = 1, job_name="default_job_name", nodes=1, gres="gpu:1",
+default_cc_account = ["def-chdesa", "rrg-mpederso", "def-mpederso"]
+
+
+def _create_sbatch_prefix(*, account: str, time: int = 4, job_name="default_job_name", nodes=1, gres="gpu:1",
                           cpus_per_task=6, mem: int = 16, mail_user="jizong.peng.1@etsmtl.net"):
     return (
         f"#!/bin/bash \n"
@@ -29,14 +37,26 @@ def _create_sbatch_prefix(*, account: str, time: int = 1, job_name="default_job_
     )
 
 
-class CCSubmitter:
-    def __init__(self, work_dir="./", stop_on_error=False, verbose=True) -> None:
+class SlurmSubmitter:
+    def __init__(self, work_dir="./", stop_on_error=False, verbose=True, on_local=False,
+                 account_list: List[str] = None) -> None:
         self._work_dir = work_dir
         self._env = []
         self._sbatch_kwargs = {}
-        self._configure_sbatch_done = False
         self._stop_on_error = stop_on_error
         self._verbose = verbose
+        self._on_local = on_local
+        self._def_account_iter = cycle(default_cc_account)
+        if account_list:
+            self._def_account_iter = cycle(account_list)
+
+    @property
+    def absolute_work_dir(self) -> str:
+        return os.path.abspath(self._work_dir)
+
+    @property
+    def env(self) -> str:
+        return "\n".join(self._env)
 
     def configure_sbatch(self, **kwargs):
         self._sbatch_kwargs = kwargs
@@ -47,35 +67,49 @@ class CCSubmitter:
             cmd_list = [cmd_list, ]
         self._env = cmd_list
 
-    def submit(self, job: str, on_local=False, **kwargs):
+    def submit(self, job: str, *, on_local: bool = None, force_show=False, **kwargs):
 
-        env_script = "\n".join(self._env)
-        cd_script = f"cd {os.path.abspath(self._work_dir)}"
+        if on_local is None:
+            on_local = self._on_local  # take the global parameters
 
-        script = "\n".join(
-            [_create_sbatch_prefix(**{**self._sbatch_kwargs, **kwargs}), env_script, cd_script, job])
-        code = self._write_and_run(script, on_local, verbose=self._verbose)
+        cd_script = f"cd {self.absolute_work_dir}"
+
+        if "account" not in kwargs:
+            kwargs['account'] = next(self._def_account_iter)  # use global parameter
+
+        full_script = "\n".join([
+            _create_sbatch_prefix(**{**self._sbatch_kwargs, **kwargs}),  # slurm parameters
+            self.env,  # set environment
+            cd_script,  # go to the working folder
+            job  # run job
+        ])
+
+        code = self._write_and_run(full_script, on_local=on_local, verbose=self._verbose, force_show=force_show)
+
         if code != 0:
             if self._stop_on_error:
-                raise RuntimeError(code)
+                raise SubmitError(code)
 
-    def _write_and_run(self, full_script, on_local, verbose=False):
+    def _write_and_run(self, full_script, *, on_local: bool = False, verbose: bool = False, force_show=False):
         random_name = randomString() + ".sh"
-        workdir = os.path.abspath(self._work_dir)
+        workdir = self.absolute_work_dir
         random_bash = os.path.join(workdir, random_name)
 
+        if force_show:
+            verbose = True
         with open(random_bash, "w") as f:
             f.write(full_script)
         try:
             if verbose:
                 print(colored(full_script, "green"), "\n")
+                if force_show:
+                    return 0
             if on_local:
                 code = subprocess.call(f"bash {random_bash}", shell=True)
             else:
                 code = subprocess.call(f"sbatch {random_bash}", shell=True)
         finally:
             os.remove(random_bash)
-            # pass
         return code
 
 
@@ -100,7 +134,7 @@ def get_args():
 
 def main():
     args = get_args()
-    submitter = CCSubmitter(work_dir=args.work_dir)
+    submitter = SlurmSubmitter(work_dir=args.work_dir)
     submitter.configure_environment(args.env)
     submitter.configure_sbatch(cpus_per_task=args.cpus_per_task, mem=args.mem, time=args.time, nodes=1)
     submitter.submit(args.single_job, account=args.account[0], on_local=args.on_local, verbose=args.verbose)

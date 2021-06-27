@@ -6,4 +6,4 @@ SPInfonceParams:
   end_values: 10000
   mode: soft
   p: 0.5
-  correct_grad: true
+  correct_grad: false

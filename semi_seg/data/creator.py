@@ -1,3 +1,5 @@
+import json
+import os
 from typing import Tuple, List
 
 import numpy as np
@@ -33,26 +35,27 @@ def create_dataset(name: str, total_freedom: bool = True):
     return tra_set, test_set
 
 
-def split_dataset_with_predefined_filenames(dataset: DatasetBase, data_name: str, labeled_ratio: float):
-    from semi_seg import labeled_filenames
-    if data_name not in labeled_filenames:
-        raise KeyError(data_name)
-    filenames = labeled_filenames[data_name]
-    labeled_num = int(len(dataset.get_scan_list()) * labeled_ratio)
-    if labeled_num not in filenames:
-        raise ValueError(
-            f"{labeled_num} is not defined for `load_predefined_list`, "
-            f"given only {','.join([str(x) for x in filenames.keys()])}"
-        )
-    labeled_scans = filenames[labeled_num]
+def split_dataset_with_predefined_filenames(dataset: DatasetBase, data_name: str, labeled_scan_nums: int):
+    try:
+        with open(os.path.join(dataset._root_dir, f"{data_name}_ordering.json"), "r") as f:  # noqa
+            data_ordering: List[str] = json.load(f)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"{data_name} does not have {data_name}_ordering.json to predefine the ordering.")
+
+    assert set(dataset.get_scan_list()) == set(data_ordering), \
+        "dataset inconsistency between ordering.json and the set."
+    assert len(dataset.get_scan_list()) >= labeled_scan_nums, f"labeled_scan_nums greater than the dataset"
+
+    labeled_scans = data_ordering[:labeled_scan_nums]
     unlabeled_scans = sorted(set(dataset.get_scan_list()) - set(labeled_scans))
-    logger.debug(f"adding default filenames {','.join(labeled_scans)} to {dataset.__class__.__name__}.")
+    logger.debug(f"using predefined ordering to {dataset.__class__.__name__}.")
     return [extract_sub_dataset_based_on_scan_names(dataset, group_names=labeled_scans),
             extract_sub_dataset_based_on_scan_names(dataset, group_names=unlabeled_scans)]
 
 
-def split_dataset(dataset: DatasetBase, *ratios: float, seed: int = 1) -> List[DatasetBase]:
-    assert sum(ratios) <= 1, ratios
+def split_dataset(dataset: DatasetBase, *scans: float, seed: int = 1) -> List[DatasetBase]:
+    """this function splits the dataset without considering the predefined ordering, controlled by a seed"""
+    assert sum(scans) <= len(dataset.get_scan_list()), scans
     scan_list = sorted(set(dataset.get_scan_list()))
     with fix_all_seed_within_context(seed):
         scan_list_permuted = np.random.permutation(scan_list).tolist()
@@ -70,7 +73,7 @@ def split_dataset(dataset: DatasetBase, *ratios: float, seed: int = 1) -> List[D
             previous = r
         yield previous, len(scan_list)
 
-    cutting_points = [int(len(scan_list) * x) for x in _sum_iter(ratios)]
+    cutting_points = [x for x in _sum_iter(scans)]
 
     sub_datasets = [extract_sub_dataset_based_on_scan_names(dataset, scan_list_permuted[x:y]) for x, y in
                     _two_element_iter(cutting_points)]
@@ -88,7 +91,7 @@ def create_infinite_loader(dataset, shuffle=True, num_workers: int = 8, batch_si
 
 
 def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params, pretrain=False, group_test=True,
-                     total_freedom=False, load_predefined_list=True):
+                     total_freedom=False):
     data_name = data_params["name"]
     tra_set, test_set = create_dataset(data_name, total_freedom)
     if len(tra_set.get_scan_list()) == 0 or len(test_set.get_scan_list()) == 0:
@@ -96,21 +99,23 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
 
     train_scan_num = len(tra_set.get_scan_list())
 
-    labeled_scan_num = data_params["labeled_scan_num"]
+    labeled_scan_num = int(data_params["labeled_scan_num"])
     if labeled_scan_num > train_scan_num:
         raise RuntimeError(f"labeled scan number {labeled_scan_num} greater than the train set size: {train_scan_num}")
 
-    labeled_data_ratio = float(labeled_scan_num / train_scan_num)
-
     if pretrain:
-        labeled_data_ratio = 0.5
-        label_set, unlabeled_set = split_dataset(tra_set, labeled_data_ratio)
+        labeled_scan_num = int(train_scan_num // 2)
+        label_set, unlabeled_set = split_dataset(tra_set, labeled_scan_num)
     else:
-        if load_predefined_list and labeled_data_ratio < 1:
+        try:
             label_set, unlabeled_set = split_dataset_with_predefined_filenames(tra_set, data_name,
-                                                                               labeled_ratio=labeled_data_ratio)
-        else:
-            label_set, unlabeled_set = split_dataset(tra_set, labeled_data_ratio)
+                                                                               labeled_scan_nums=labeled_scan_num)
+        except FileNotFoundError as e:
+            seed = 1
+            logger.critical(f"{data_name} did not find the ordering json file, "
+                            f"using a random split with random seed: {seed}")
+            logger.critical(e)
+            label_set, unlabeled_set = split_dataset(tra_set, labeled_scan_num, seed=seed)
 
     if len(label_set.get_scan_list()) == 0:
         raise RuntimeError("void labeled dataset, split dataset error")
@@ -132,11 +137,14 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
 
 def create_val_loader(*, test_loader) -> Tuple[DataLoader, DataLoader]:
     test_dataset: DatasetBase = test_loader.dataset
+    test_size = len(test_dataset.get_scan_list())
     batch_sampler = test_loader.batch_sampler
     is_group_scan = isinstance(batch_sampler, ScanBatchSampler)
 
-    ratio = 0.35 if not isinstance(test_dataset, (mmWHSCTDataset, mmWHSMRDataset)) else 0.45
-    val_set, test_set = split_dataset(test_dataset, ratio)
+    if_mmwhs_dataset = isinstance(test_dataset, (mmWHSCTDataset, mmWHSMRDataset))
+
+    scan_nums = int(0.35 * test_size) if not if_mmwhs_dataset else int(0.45 * test_size)
+    val_set, test_set = split_dataset(test_dataset, scan_nums)
     val_batch_sampler = ScanBatchSampler(val_set) if is_group_scan else None
 
     val_dataloader = DataLoader(val_set, batch_sampler=val_batch_sampler, batch_size=4 if not is_group_scan else 1)
