@@ -103,28 +103,28 @@ if __name__ == '__main__':
     ft_max_epoch = ft_max_epoch_zoo[data_name]
     lr = ft_lr_zooms[data_name]
 
-    # baseline_generator = PretrainSPInfoNCEScriptGenerator(
-    #     data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/baseline", pre_max_epoch=0,
-    #     ft_max_epoch=ft_max_epoch
-    # )
-    # jobs = baseline_generator.grid_search_on(
-    #     seed=seed, weight=0, contrast_on="", begin_values=0, end_values=0, mode="", correct_grad=False
-    # )
-    #
-    # for j in jobs:
-    #     submittor.submit(j, on_local=False, account=next(account), force_show=False, time=8)
-    #
-    # infonce_generator = PretrainSPInfoNCEScriptGenerator(
-    #     data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/infonce", pre_max_epoch=pre_max_epoch,
-    #     ft_max_epoch=ft_max_epoch
-    # )
-    # jobs = infonce_generator.grid_search_on(
-    #     seed=seed, weight=1, contrast_on=["partition", "cycle", "patient"], begin_values=1e6, end_values=1e6,
-    #     mode="hard", correct_grad=False
-    # )
-    # for j in jobs:
-    #     submittor.submit(j, on_local=False, account=next(account), force_show=False, time=8)
-    #
+    baseline_generator = PretrainSPInfoNCEScriptGenerator(
+        data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/baseline", pre_max_epoch=0,
+        ft_max_epoch=ft_max_epoch
+    )
+    jobs = baseline_generator.grid_search_on(
+        seed=seed, weight=0, contrast_on="", begin_values=0, end_values=0, mode="", correct_grad=False
+    )
+
+    for j in jobs:
+        submittor.submit(j, on_local=False, account=next(account), force_show=False, time=8)
+
+    infonce_generator = PretrainSPInfoNCEScriptGenerator(
+        data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/infonce", pre_max_epoch=pre_max_epoch,
+        ft_max_epoch=ft_max_epoch
+    )
+    jobs = infonce_generator.grid_search_on(
+        seed=seed, weight=1, contrast_on=["partition", "cycle", "patient"], begin_values=1e6, end_values=1e6,
+        mode="hard", correct_grad=False
+    )
+    for j in jobs:
+        submittor.submit(j, on_local=False, account=next(account), force_show=False, time=8)
+
     spinfonce_generator = PretrainSPInfoNCEScriptGenerator(
         data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/infonce", pre_max_epoch=pre_max_epoch,
         ft_max_epoch=ft_max_epoch
@@ -135,4 +135,4 @@ if __name__ == '__main__':
         mode="soft", correct_grad=False
     )
     for j in jobs:
-        submittor.submit(j, on_local=True, account=next(account), force_show=False, time=8)
+        submittor.submit(j, on_local=False, account=next(account), force_show=False, time=8)
