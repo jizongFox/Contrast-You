@@ -1,5 +1,4 @@
 import os
-from copy import deepcopy
 from itertools import cycle
 from typing import Union, List
 
@@ -86,7 +85,7 @@ if __name__ == '__main__':
         f"source ~/venv/bin/activate ",
         'if [ $(which python) == "/usr/bin/python" ]',
         "then",
-        "exit 1314520",
+        "exit 9",
         "fi",
         "export OMP_NUM_THREADS=1",
         "export PYTHONOPTIMIZE=1",
@@ -98,51 +97,42 @@ if __name__ == '__main__':
 
     seed = [10, 20, 30]
     data_name = "acdc"
-    save_dir = f"test_different_baseline_lrs_ft/{data_name}"
+    save_dir = f"contrastive_learn/{data_name}"
     num_batches = num_batches_zoo[data_name]
     pre_max_epoch = pre_max_epoch_zoo[data_name]
     ft_max_epoch = ft_max_epoch_zoo[data_name]
     lr = ft_lr_zooms[data_name]
-    default_ft_lr_zooms = deepcopy(ft_lr_zooms)
 
-    baseline_generator = PretrainSPInfoNCEScriptGenerator(data_name=data_name, num_batches=num_batches,
-                                                          save_dir=f"{save_dir}/baseline/lr_{lr:.10f}",
-                                                          pre_max_epoch=0, ft_max_epoch=ft_max_epoch)
-    jobs = baseline_generator.grid_search_on(seed=seed, weight=0, contrast_on="", begin_values=0, end_values=0, mode="",
-                                             correct_grad=False)
-
-    for j in jobs:
-        submittor.submit(j, on_local=False, account=next(account), force_show=False)
-
-    ft_lr_zooms[data_name] = default_ft_lr_zooms[data_name] * 10
-    lr = ft_lr_zooms[data_name]
-    baseline_generator = PretrainSPInfoNCEScriptGenerator(data_name=data_name, num_batches=num_batches,
-                                                          save_dir=f"{save_dir}/baseline/lr_{lr:.10f}",
-                                                          pre_max_epoch=0, ft_max_epoch=ft_max_epoch)
-    jobs = baseline_generator.grid_search_on(seed=seed, weight=0, contrast_on="", begin_values=0, end_values=0, mode="",
-                                             correct_grad=False)
+    baseline_generator = PretrainSPInfoNCEScriptGenerator(
+        data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/baseline", pre_max_epoch=0,
+        ft_max_epoch=ft_max_epoch
+    )
+    jobs = baseline_generator.grid_search_on(
+        seed=seed, weight=0, contrast_on="", begin_values=0, end_values=0, mode="", correct_grad=False
+    )
 
     for j in jobs:
         submittor.submit(j, on_local=False, account=next(account), force_show=False)
 
-    ft_lr_zooms[data_name] = default_ft_lr_zooms[data_name] * 100
-    lr = ft_lr_zooms[data_name]
-    baseline_generator = PretrainSPInfoNCEScriptGenerator(data_name=data_name, num_batches=num_batches,
-                                                          save_dir=f"{save_dir}/baseline/lr_{lr:.10f}",
-                                                          pre_max_epoch=0, ft_max_epoch=ft_max_epoch)
-    jobs = baseline_generator.grid_search_on(seed=seed, weight=0, contrast_on="", begin_values=0, end_values=0, mode="",
-                                             correct_grad=False)
-
+    infonce_generator = PretrainSPInfoNCEScriptGenerator(
+        data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/infonce", pre_max_epoch=pre_max_epoch,
+        ft_max_epoch=ft_max_epoch
+    )
+    jobs = infonce_generator.grid_search_on(
+        seed=seed, weight=1, contrast_on=["partition", "cycle", "patient"], begin_values=1e6, end_values=1e6,
+        mode="hard", correct_grad=False
+    )
     for j in jobs:
         submittor.submit(j, on_local=False, account=next(account), force_show=False)
 
-    ft_lr_zooms[data_name] = default_ft_lr_zooms[data_name] * 0.1
-    lr = ft_lr_zooms[data_name]
-    baseline_generator = PretrainSPInfoNCEScriptGenerator(data_name=data_name, num_batches=num_batches,
-                                                          save_dir=f"{save_dir}/baseline/lr_{lr:.10f}",
-                                                          pre_max_epoch=0, ft_max_epoch=ft_max_epoch)
-    jobs = baseline_generator.grid_search_on(seed=seed, weight=0, contrast_on="", begin_values=0, end_values=0, mode="",
-                                             correct_grad=False)
-
+    spinfonce_generator = PretrainSPInfoNCEScriptGenerator(
+        data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/infonce", pre_max_epoch=pre_max_epoch,
+        ft_max_epoch=ft_max_epoch
+    )
+    jobs = spinfonce_generator.grid_search_on(
+        seed=seed, weight=1, contrast_on=["partition", "cycle", "patient"],
+        begin_values=[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5], end_values=[10, 20, 30, 40, 50, 60, 70],
+        mode="soft", correct_grad=False
+    )
     for j in jobs:
         submittor.submit(j, on_local=False, account=next(account), force_show=False)
