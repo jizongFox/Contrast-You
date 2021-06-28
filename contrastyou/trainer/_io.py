@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict
 
 import torch
+from loguru import logger
 
 from ._buffer import _BufferMixin
 from ..configure.yaml_parser import yaml_write
@@ -18,7 +19,9 @@ def safe_save(checkpoint_dictionary, save_path):
     try:
         with tempfile.TemporaryFile() as tmp:
             torch.save(checkpoint_dictionary, str(tmp))
-            shutil.move(str(tmp), str(save_path))
+        shutil.move(str(tmp), str(save_path))
+    except FileNotFoundError as e:
+        logger.error(e)
     finally:
         if os.path.exists(str(tmp)):
             os.remove(str(tmp))
