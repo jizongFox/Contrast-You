@@ -41,7 +41,6 @@ def get_cc_data_path() -> str:
     return DATA_PATH
 
 
-@lru_cache()
 def on_cc() -> bool:
     """return if running on Compute Canada"""
     import socket

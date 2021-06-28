@@ -53,7 +53,8 @@ def worker(config, absolute_save_dir, seed, ):
         data_params=config["Data"], labeled_loader_params=config["LabeledLoader"],
         unlabeled_loader_params=config["UnlabeledLoader"], pretrain=True, total_freedom=True)
 
-    trainer = PretrainEncoderTrainer(model=model, labeled_loader=labeled_loader, unlabeled_loader=unlabeled_loader,
+    trainer = PretrainEncoderTrainer(model=model, labeled_loader=iter(labeled_loader),
+                                     unlabeled_loader=iter(unlabeled_loader),
                                      val_loader=val_loader, test_loader=test_loader,
                                      criterion=KL_div(), config=config,
                                      save_dir=os.path.join(absolute_save_dir, "pre"),
@@ -76,6 +77,7 @@ def worker(config, absolute_save_dir, seed, ):
 
 
 if __name__ == '__main__':
-    set_deterministic(True)
-    # torch.backends.cudnn.benchmark = True  # noqa
-    main()
+    with logger.catch(reraise=True):
+        set_deterministic(True)
+        # torch.backends.cudnn.benchmark = True  # noqa
+        main()

@@ -8,7 +8,7 @@ from .utils import meter_focus
 class ConsistencyTrainerHook(TrainerHook):
 
     def __init__(self, name: str, weight: float):
-        super().__init__(name)
+        super().__init__(hook_name=name)
         self._weight = weight
         self._criterion = nn.MSELoss()
 

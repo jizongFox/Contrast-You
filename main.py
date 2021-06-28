@@ -83,6 +83,8 @@ def worker(config, absolute_save_dir, seed):
 
 
 if __name__ == '__main__':
-    set_deterministic(True)
-    # torch.backends.cudnn.benchmark = True  # noqa
-    main()
+    import torch
+    with logger.catch(reraise=True):
+        # set_deterministic(True)
+        torch.backends.cudnn.benchmark = True  # noqa
+        main()

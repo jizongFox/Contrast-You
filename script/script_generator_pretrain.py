@@ -1,15 +1,40 @@
 import os
 from itertools import cycle
+from typing import Union, List
 
-from contrastyou import PROJECT_PATH
+from contrastyou import CONFIG_PATH
 from contrastyou.configure import dictionary_merge_by_hierachy
 from contrastyou.configure.yaml_parser import yaml_load, yaml_write
 from contrastyou.submitter import SlurmSubmitter as JobSubmiter
 from script import utils
 from script.utils import TEMP_DIR, grid_search, PretrainScriptGenerator, move_dataset
-from semi_seg import __accounts, num_batches_zoo, ft_max_epoch_zoo, pre_max_epoch_zoo
+from semi_seg import __accounts, pre_max_epoch_zoo, num_batches_zoo, ft_max_epoch_zoo, ft_lr_zooms
 
+"""maybe I should let this file to be as easy as possible."""
 account = cycle(__accounts)
+
+"""base script"""
+"""python main_pretrain_encoder.py 
+    *base*
+    Trainer.save_dir:str
+    Trainer.pre_max_epoch:int 
+    Trainer.ft_max_epoch:int 
+    Trainer.num_batches:int
+    RandomSeed:int
+    Data.name:str
+    pre_lr:float
+    ft_lr:float
+    Arch.input_dim:int 
+    Arch.num_classes:int
+    *hook*
+    SPInfonceParams.weights:float
+    SPInfonceParams.contrast_on: str
+    SPInfonceParams.begin_value:float
+    SPInfonceParams.end_values:str
+    SPInfonceParams.mode:str
+    
+    --opt-path ./config/pretrain.yaml  ./config/hooks/spinfonce.yaml
+"""
 
 
 class PretrainSPInfoNCEScriptGenerator(PretrainScriptGenerator):
@@ -18,10 +43,7 @@ class PretrainSPInfoNCEScriptGenerator(PretrainScriptGenerator):
         super().__init__(data_name=data_name, num_batches=num_batches, save_dir=save_dir,
                          pre_max_epoch=pre_max_epoch, ft_max_epoch=ft_max_epoch)
 
-        self.hook_config = yaml_load(PROJECT_PATH + "/" + opt_hook_path[self.get_hook_name()])
-
-    def get_hook_name(self):
-        return "spinfonce"
+        self.hook_config = yaml_load(os.path.join(CONFIG_PATH, "hooks", "spinfonce.yaml"))
 
     def get_hook_params(self, weight, contrast_on, begin_values, end_values, mode, correct_grad):
         return {"SPInfonceParams": {"weights": weight,
@@ -32,7 +54,7 @@ class PretrainSPInfoNCEScriptGenerator(PretrainScriptGenerator):
                                     "correct_grad": correct_grad
                                     }}
 
-    def grid_search_on(self, *, seed, **kwargs):
+    def grid_search_on(self, *, seed: Union[int, List[int]], **kwargs):
         jobs = []
         for param in grid_search(**{**kwargs, **{"seed": seed}}):
             random_seed = param.pop("seed")
@@ -63,7 +85,7 @@ if __name__ == '__main__':
         f"source ~/venv/bin/activate ",
         'if [ $(which python) == "/usr/bin/python" ]',
         "then",
-        "exit 1314520",
+        "exit 9",
         "fi",
         "export OMP_NUM_THREADS=1",
         "export PYTHONOPTIMIZE=1",
@@ -72,41 +94,45 @@ if __name__ == '__main__':
         "echo $(pwd)",
         move_dataset()
     ])
-    submittor.configure_sbatch(account=None)
 
     seed = [10, 20, 30]
     data_name = "acdc"
-    save_dir = f"0526/{data_name}"
+    save_dir = f"contrastive_learn/{data_name}"
     num_batches = num_batches_zoo[data_name]
     pre_max_epoch = pre_max_epoch_zoo[data_name]
     ft_max_epoch = ft_max_epoch_zoo[data_name]
+    lr = ft_lr_zooms[data_name]
 
-    baseline_generator = PretrainSPInfoNCEScriptGenerator(data_name=data_name, num_batches=num_batches,
-                                                          save_dir=f"{save_dir}/baseline",
-                                                          pre_max_epoch=0, ft_max_epoch=ft_max_epoch)
-    jobs = baseline_generator.grid_search_on(weight=1, contrast_on=("",), seed=seed)
-
+    # baseline_generator = PretrainSPInfoNCEScriptGenerator(
+    #     data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/baseline", pre_max_epoch=0,
+    #     ft_max_epoch=ft_max_epoch
+    # )
+    # jobs = baseline_generator.grid_search_on(
+    #     seed=seed, weight=0, contrast_on="", begin_values=0, end_values=0, mode="", correct_grad=False
+    # )
+    #
+    # for j in jobs:
+    #     submittor.submit(j, on_local=False, account=next(account), force_show=False, time=8)
+    #
+    # infonce_generator = PretrainSPInfoNCEScriptGenerator(
+    #     data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/infonce", pre_max_epoch=pre_max_epoch,
+    #     ft_max_epoch=ft_max_epoch
+    # )
+    # jobs = infonce_generator.grid_search_on(
+    #     seed=seed, weight=1, contrast_on=["partition", "cycle", "patient"], begin_values=1e6, end_values=1e6,
+    #     mode="hard", correct_grad=False
+    # )
+    # for j in jobs:
+    #     submittor.submit(j, on_local=False, account=next(account), force_show=False, time=8)
+    #
+    spinfonce_generator = PretrainSPInfoNCEScriptGenerator(
+        data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/infonce", pre_max_epoch=pre_max_epoch,
+        ft_max_epoch=ft_max_epoch
+    )
+    jobs = spinfonce_generator.grid_search_on(
+        seed=seed, weight=1, contrast_on=["partition", "cycle", "patient"],
+        begin_values=[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5], end_values=[10, 20, 30, 40, 50, 60, 70],
+        mode="soft", correct_grad=False
+    )
     for j in jobs:
-        submittor.account = next(account)
-        submittor.submit(j, force_show=True)
-
-    # pretrain_generator = PretrainInfoNCEScriptGenerator(data_name=data_name, num_batches=num_batches,
-    #                                                     save_dir=f"{save_dir}/infonce",
-    #                                                     pre_max_epoch=pre_max_epoch,
-    #                                                     ft_max_epoch=ft_max_epoch)
-    # jobs = pretrain_generator.grid_search_on(weight=1, contrast_on=("partition", "patient", "self"), seed=seed)
-    # print(jobs)
-    #
-    # for j in jobs:
-    #     submittor.account = next(account)
-    #     submittor.run(j)
-    #
-    # pretrain_sp_generator = PretrainSPInfoNCEScriptGenerator(data_name=data_name, num_batches=num_batches,
-    #                                                          save_dir=f"{data_name}/spinfonce",
-    #                                                          pre_max_epoch=pre_max_epoch, ft_max_epoch=ft_max_epoch)
-    # jobs = pretrain_sp_generator.grid_search_on(weight=1, contrast_on=("partition", "self", "patient"),
-    #                                             begin_values=(1, 2, 3, 4), end_values=(20, 30, 40, 50, 60), mode="soft",
-    #                                             correct_grad=[False], seed=seed)
-    # for j in jobs:
-    #     submittor.account = next(account)
-    #     submittor.run(j)
+        submittor.submit(j, on_local=True, account=next(account), force_show=False, time=8)

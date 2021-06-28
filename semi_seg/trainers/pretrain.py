@@ -80,7 +80,7 @@ class _PretrainTrainerMixin:
         start_epoch = max(self._cur_epoch + 1, self._start_epoch)
         self._cur_score: float
 
-        for self._cur_epoch in range(start_epoch, self._max_epoch):
+        for self._cur_epoch in range(start_epoch, self._max_epoch + 1):
             with self._storage:  # save csv each epoch
                 train_metrics = self.tra_epoch()
                 if self.on_master():
@@ -89,10 +89,11 @@ class _PretrainTrainerMixin:
                     self._writer.add_scalars_from_meter_interface(
                         pre_tra=train_metrics, epoch=self._cur_epoch)
 
-                if hasattr(self, "_scheduler"):
-                    self._scheduler.step()
                 if self.on_master():
                     self.save_to(save_name="last.pth")
+
+                if hasattr(self, "_scheduler"):
+                    self._scheduler.step()
 
     def _create_initialized_tra_epoch(self, **kwargs) -> EpocherBase:
         epocher = self.train_epocher(
