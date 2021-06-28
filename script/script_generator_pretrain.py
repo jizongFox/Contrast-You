@@ -106,6 +106,7 @@ if __name__ == '__main__':
     lr = ft_lr_zooms[data_name]
     force_show = False
     on_local = False
+    contrast_on = ["partition", "cycle", "patient"] if data_name == "acdc" else ["partition", "patient"]
 
     baseline_generator = PretrainSPInfoNCEScriptGenerator(
         data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/baseline", pre_max_epoch=0,
@@ -123,18 +124,18 @@ if __name__ == '__main__':
         ft_max_epoch=ft_max_epoch
     )
     jobs = infonce_generator.grid_search_on(
-        seed=seed, weight=1, contrast_on=["partition", "cycle", "patient"], begin_values=1e6, end_values=1e6,
+        seed=seed, weight=1, contrast_on=contrast_on, begin_values=1e6, end_values=1e6,
         mode="hard", correct_grad=False
     )
     for j in jobs:
         submittor.submit(j, on_local=on_local, account=next(account), force_show=force_show, time=8)
 
     spinfonce_generator = PretrainSPInfoNCEScriptGenerator(
-        data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/infonce", pre_max_epoch=pre_max_epoch,
+        data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/spinfonce", pre_max_epoch=pre_max_epoch,
         ft_max_epoch=ft_max_epoch
     )
     jobs = spinfonce_generator.grid_search_on(
-        seed=seed, weight=1, contrast_on=["partition", "cycle", "patient"],
+        seed=seed, weight=1, contrast_on=contrast_on,
         begin_values=[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5], end_values=[10, 20, 30, 40, 50, 60, 70],
         mode="soft", correct_grad=False
     )
