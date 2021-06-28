@@ -7,7 +7,7 @@ from contrastyou import CONFIG_PATH
 from contrastyou.arch import UNet
 from contrastyou.configure import ConfigManger
 from contrastyou.losses.kl import KL_div
-from contrastyou.trainer._io import create_save_dir
+from contrastyou.trainer import create_save_dir
 from contrastyou.utils import fix_all_seed_within_context, config_logger, extract_model_state_dict
 from hook_creator import create_hook_from_config
 from semi_seg.data.creator import get_data
@@ -56,7 +56,7 @@ def worker(config, absolute_save_dir, seed):
     checkpoint = config.get("trainer_checkpoint")
 
     trainer = Trainer(
-        model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
+        model=model, labeled_loader=labeled_loader, unlabeled_loader=unlabeled_loader,
         val_loader=val_loader, test_loader=test_loader, criterion=KL_div(), config=config, save_dir=absolute_save_dir,
         **{k: v for k, v in config["Trainer"].items() if k != "save_dir" and k != "name"}
     )

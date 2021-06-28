@@ -91,6 +91,7 @@ if __name__ == '__main__':
         "export PYTHONOPTIMIZE=1",
         "export PYTHONWARNINGS=ignore ",
         "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
+        # "export LOGURU_LEVEL=TRACE",
         "echo $(pwd)",
         move_dataset()
     ])
@@ -103,6 +104,7 @@ if __name__ == '__main__':
     ft_max_epoch = ft_max_epoch_zoo[data_name]
     lr = ft_lr_zooms[data_name]
     force_show = False
+    on_local = False
 
     baseline_generator = PretrainSPInfoNCEScriptGenerator(
         data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/baseline", pre_max_epoch=0,
@@ -113,7 +115,7 @@ if __name__ == '__main__':
     )
 
     for j in jobs:
-        submittor.submit(j, on_local=False, account=next(account), force_show=force_show, time=8)
+        submittor.submit(j, on_local=on_local, account=next(account), force_show=force_show, time=8)
 
     infonce_generator = PretrainSPInfoNCEScriptGenerator(
         data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/infonce", pre_max_epoch=pre_max_epoch,
@@ -124,7 +126,7 @@ if __name__ == '__main__':
         mode="hard", correct_grad=False
     )
     for j in jobs:
-        submittor.submit(j, on_local=False, account=next(account), force_show=force_show, time=8)
+        submittor.submit(j, on_local=on_local, account=next(account), force_show=force_show, time=8)
 
     spinfonce_generator = PretrainSPInfoNCEScriptGenerator(
         data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/infonce", pre_max_epoch=pre_max_epoch,
@@ -136,4 +138,4 @@ if __name__ == '__main__':
         mode="soft", correct_grad=False
     )
     for j in jobs:
-        submittor.submit(j, on_local=False, account=next(account), force_show=force_show, time=8)
+        submittor.submit(j, on_local=on_local, account=next(account), force_show=force_show, time=8)

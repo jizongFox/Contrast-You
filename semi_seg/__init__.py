@@ -65,4 +65,6 @@ ft_lr_zooms = {
     "mmwhsmr": 0.000002
 }
 __accounts = ["rrg-mpederso", ]
+
+PRETRAIN_BATCH_SIZE_MAX = 50
 # __accounts = ["def-chdesa", "rrg-mpederso", "def-mpederso"]

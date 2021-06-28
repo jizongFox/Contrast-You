@@ -44,6 +44,10 @@ def _get_contrastive_dataloader(partial_loader, contrastive_params):
     batch_sampler = None
 
     batch_size = contrastive_params["scan_sample_num"] * get_partition_num(data_name)
+
+    from semi_seg import PRETRAIN_BATCH_SIZE_MAX
+    batch_size = min(batch_size, PRETRAIN_BATCH_SIZE_MAX)
+
     sampler = InfiniteRandomSampler(dataset, shuffle=True)
 
     logger.opt(depth=2).trace(f" with batch_size = {batch_size}, num_workers = {num_workers} ")

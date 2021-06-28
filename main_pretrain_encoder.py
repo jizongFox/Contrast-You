@@ -8,8 +8,8 @@ from contrastyou import CONFIG_PATH
 from contrastyou.arch import UNet
 from contrastyou.configure import ConfigManger
 from contrastyou.losses.kl import KL_div
-from contrastyou.trainer._io import create_save_dir
-from contrastyou.utils import fix_all_seed_within_context, config_logger, extract_model_state_dict, set_deterministic
+from contrastyou.trainer import create_save_dir
+from contrastyou.utils import fix_all_seed_within_context, config_logger, extract_model_state_dict
 from hook_creator import create_hook_from_config
 from semi_seg import ratio_zoo
 from semi_seg.data.creator import get_data
@@ -53,8 +53,8 @@ def worker(config, absolute_save_dir, seed, ):
         data_params=config["Data"], labeled_loader_params=config["LabeledLoader"],
         unlabeled_loader_params=config["UnlabeledLoader"], pretrain=True, total_freedom=True)
 
-    trainer = PretrainEncoderTrainer(model=model, labeled_loader=iter(labeled_loader),
-                                     unlabeled_loader=iter(unlabeled_loader),
+    trainer = PretrainEncoderTrainer(model=model, labeled_loader=labeled_loader,
+                                     unlabeled_loader=unlabeled_loader,
                                      val_loader=val_loader, test_loader=test_loader,
                                      criterion=KL_div(), config=config,
                                      save_dir=os.path.join(absolute_save_dir, "pre"),
@@ -77,7 +77,9 @@ def worker(config, absolute_save_dir, seed, ):
 
 
 if __name__ == '__main__':
+    import torch
+
     with logger.catch(reraise=True):
-        set_deterministic(True)
+        torch.set_deterministic(True)
         # torch.backends.cudnn.benchmark = True  # noqa
         main()

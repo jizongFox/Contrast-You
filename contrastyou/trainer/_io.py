@@ -1,5 +1,4 @@
 import os
-import os
 import shutil
 import tempfile
 import warnings
@@ -21,7 +20,8 @@ def safe_save(checkpoint_dictionary, save_path):
             torch.save(checkpoint_dictionary, str(tmp))
             shutil.move(str(tmp), str(save_path))
     finally:
-        return
+        if os.path.exists(str(tmp)):
+            os.remove(str(tmp))
 
 
 def create_save_dir(self, save_dir: str):
