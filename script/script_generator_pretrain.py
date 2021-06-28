@@ -96,6 +96,7 @@ if __name__ == '__main__':
         move_dataset(),
         "nvidia-smi"
     ])
+    submittor.configure_sbatch(mem=48)
 
     seed = [10, 20, 30]
     data_name = "acdc"
@@ -104,7 +105,7 @@ if __name__ == '__main__':
     pre_max_epoch = pre_max_epoch_zoo[data_name]
     ft_max_epoch = ft_max_epoch_zoo[data_name]
     lr = ft_lr_zooms[data_name]
-    force_show = False
+    force_show = True
     on_local = False
     contrast_on = ["partition", "cycle", "patient"] if data_name == "acdc" else ["partition", "patient"]
 
