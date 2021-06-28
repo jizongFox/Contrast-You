@@ -21,6 +21,7 @@ def safe_save(checkpoint_dictionary, save_path):
             torch.save(checkpoint_dictionary, str(tmp))
         shutil.move(str(tmp), str(save_path))
     except FileNotFoundError as e:
+        # somethings on CC it does not work
         logger.error(e)
     finally:
         if os.path.exists(str(tmp)):

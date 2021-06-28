@@ -93,7 +93,8 @@ if __name__ == '__main__':
         "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
         # "export LOGURU_LEVEL=TRACE",
         "echo $(pwd)",
-        move_dataset()
+        move_dataset(),
+        "nvidia-smi"
     ])
 
     seed = [10, 20, 30]
