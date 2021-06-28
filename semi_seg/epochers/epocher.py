@@ -204,7 +204,7 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
         if len(self._unlabeled_loader) == 0:
             # in a fully supervised setting
             # maybe not necessary to control the randomness?
-            self._unlabeled_loader = deepcopy(self._labeled_loader)
+            self._unlabeled_loader = self._labeled_loader
         for self.cur_batch_num, labeled_data, unlabeled_data in zip(self.indicator, self._labeled_loader,
                                                                     self._unlabeled_loader):
             seed = random.randint(0, int(1e7))

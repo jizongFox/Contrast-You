@@ -57,7 +57,7 @@ def _val(*, model: nn.Module, labeled_data_ratio: float, data_params: Dict[str, 
     trainer_params["save_dir"] = os.path.join(main_save_dir, "tra",
                                               f"num_labeled_scan_{len(labeled_loader.dataset.get_scan_list())}")
 
-    trainer = FineTuneTrainer(model=model, labeled_loader=labeled_loader, unlabeled_loader=unlabeled_loader,
+    trainer = FineTuneTrainer(model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
                               val_loader=val_loader, test_loader=test_loader,
                               criterion=KL_div(), config=global_config, **trainer_params)
 
