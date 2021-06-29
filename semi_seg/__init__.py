@@ -5,13 +5,13 @@ prostate_md_ratio = [1, 2, 4, 17]  # 1, 2, 4, 8
 mmwhsmr_ratio = [1, 2, 9]
 
 pre_max_epoch_zoo = {
-    "acdc": 100,
+    "acdc": 80,
     "mmwhsct": 80,
     "mmwhsmr": 80,
     "prostate": 80,
 }
 ft_max_epoch_zoo = {
-    "acdc": 100,
+    "acdc": 80,
     "mmwhsct": 60,
     "mmwhsmr": 60,
     "prostate": 80,
