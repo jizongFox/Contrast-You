@@ -63,7 +63,7 @@ def worker(config, absolute_save_dir, seed):
 
     if trainer_name != "ft":
         with fix_all_seed_within_context(seed):
-            hooks = create_hook_from_config(model, config, is_pretrain=is_pretrain)
+            hooks = create_hook_from_config(model, config, is_pretrain=is_pretrain, trainer=trainer)
             assert len(hooks) > 0, f"You should provide `Hook` configuration for `{trainer_name}` Trainer"
         trainer.register_hook(*hooks)
 

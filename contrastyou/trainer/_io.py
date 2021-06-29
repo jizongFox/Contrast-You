@@ -47,8 +47,7 @@ random_name = _RandomNameSequence()
 
 
 def safe_save(checkpoint_dictionary, save_path):
-    tmp_name = next(random_name)
-    print(tmp_name)
+    tmp_name = "/tmp/" + next(random_name)
     try:
         torch.save(checkpoint_dictionary, tmp_name)
         shutil.move(tmp_name, str(save_path))

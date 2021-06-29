@@ -1,4 +1,5 @@
-from semi_seg.hooks import create_infonce_hooks, create_sp_infonce_hooks, create_discrete_mi_consistency_hook
+from semi_seg.hooks import create_infonce_hooks, create_sp_infonce_hooks, create_discrete_mi_consistency_hook, \
+    create_mt_hook
 
 
 def _hook_config_validator(config, is_pretrain):
@@ -7,7 +8,7 @@ def _hook_config_validator(config, is_pretrain):
         pass
 
 
-def create_hook_from_config(model, config, is_pretrain=False):
+def create_hook_from_config(model, config, *, is_pretrain=False, trainer):
     data_name = config["Data"]["name"]
     max_epoch = config["Trainer"]["max_epoch"]
     hooks = []
@@ -24,5 +25,10 @@ def create_hook_from_config(model, config, is_pretrain=False):
             raise RuntimeError("DiscreteMIConsistencyParams are not supported for pretrain stage")
         mi_hook = create_discrete_mi_consistency_hook(model=model, **config["DiscreteMIConsistencyParams"])
         hooks.append(mi_hook)
-
+    if "MeanTeacherParameters" in config:
+        if is_pretrain:
+            raise RuntimeError("`MeanTeacherParameters` are not supported for pretrain stage")
+        mt_hook = create_mt_hook(model=model, **config["MeanTeacherParameters"])
+        hooks.append(mt_hook)
+        trainer.set_model4inference(mt_hook.teacher_model)
     return hooks

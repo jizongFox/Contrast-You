@@ -145,7 +145,7 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
         return epocher.get_metric(), epocher.get_score()
 
     def set_model4inference(self, model: nn.Module):
-        logger.trace(f"change inference model from {id(self._inference_model)} to {id(model)}")
+        logger.debug(f"change inference model from {id(self._inference_model)} to {id(model)}")
         self._inference_model = model
 
     @property
