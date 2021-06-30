@@ -94,7 +94,8 @@ if __name__ == '__main__':
         # "export LOGURU_LEVEL=TRACE",
         "echo $(pwd)",
         move_dataset(),
-        "nvidia-smi"
+        "nvidia-smi",
+        "python -c 'import torch; print(torch.randn(1,1,1,1,device=\"cuda\"))'"
     ])
     submittor.configure_sbatch(mem=48)
 
