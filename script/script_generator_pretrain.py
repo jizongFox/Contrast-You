@@ -2,7 +2,7 @@ import os
 from itertools import cycle
 from typing import Union, List
 
-from contrastyou import CONFIG_PATH, git_hash
+from contrastyou import CONFIG_PATH, git_hash, on_cc
 from contrastyou.configure import dictionary_merge_by_hierachy
 from contrastyou.configure.yaml_parser import yaml_load, yaml_write
 from contrastyou.submitter import SlurmSubmitter as JobSubmiter
@@ -86,8 +86,8 @@ if __name__ == '__main__':
     pre_max_epoch = pre_max_epoch_zoo[data_name]
     ft_max_epoch = ft_max_epoch_zoo[data_name]
     lr = ft_lr_zooms[data_name]
-    force_show = True
-    on_local = False
+    force_show = False
+    on_local = not on_cc()
     contrast_on = ["partition", "cycle", "patient", "self"] if data_name == "acdc" else ["partition", "patient", "self"]
 
     submittor = JobSubmiter(work_dir="../", stop_on_error=False, on_local=on_local)
