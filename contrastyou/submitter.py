@@ -21,7 +21,7 @@ def randomString():
 default_cc_account = ["def-chdesa", "rrg-mpederso", "def-mpederso"]
 
 
-def _create_sbatch_prefix(*, account: str, time: int = 4, job_name="default_job_name", nodes=1, gres="gpu:1",
+def _create_sbatch_prefix(*, account: str, time: int = 4, job_name="default_job_name", nodes=1, gres="gpu:p100:1",
                           cpus_per_task=6, mem: int = 16, mail_user="jizong.peng.1@etsmtl.net"):
     return (
         f"#!/bin/bash \n"
