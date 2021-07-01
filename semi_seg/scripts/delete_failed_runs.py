@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from typing import List, TypeVar
 
-from deepclustering2.utils import path2Path
+from contrastyou.utils import path2Path
 
 _path_type = TypeVar("_path_type", str, Path)
 

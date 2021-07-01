@@ -89,11 +89,11 @@ class _PretrainTrainerMixin:
                     self._writer.add_scalars_from_meter_interface(
                         pre_tra=train_metrics, epoch=self._cur_epoch)
 
-                if self.on_master():
-                    self.save_to(save_name="last.pth")
-
                 if hasattr(self, "_scheduler"):
                     self._scheduler.step()
+
+            if self.on_master():
+                self.save_to(save_name="last.pth")
 
     def _create_initialized_tra_epoch(self, **kwargs) -> EpocherBase:
         epocher = self.train_epocher(

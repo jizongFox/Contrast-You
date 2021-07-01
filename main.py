@@ -14,7 +14,7 @@ from semi_seg.data.creator import get_data
 from semi_seg.hooks import feature_until_from_hooks
 from semi_seg.trainers.pretrain import PretrainEncoderTrainer
 from semi_seg.trainers.trainer import SemiTrainer, FineTuneTrainer, MixUpTrainer
-from utils import logging_configs
+from utils import logging_configs, find_checkpoint
 
 trainer_zoo = {"semi": SemiTrainer,
                "ft": FineTuneTrainer,
@@ -53,13 +53,14 @@ def worker(config, absolute_save_dir, seed):
         unlabeled_loader_params=config["UnlabeledLoader"], pretrain=is_pretrain, total_freedom=total_freedom)
 
     Trainer = trainer_zoo[trainer_name]
-    checkpoint = config.get("trainer_checkpoint")
 
     trainer = Trainer(
         model=model, labeled_loader=labeled_loader, unlabeled_loader=unlabeled_loader,
         val_loader=val_loader, test_loader=test_loader, criterion=KL_div(), config=config, save_dir=absolute_save_dir,
         **{k: v for k, v in config["Trainer"].items() if k != "save_dir" and k != "name"}
     )
+    # find the last.pth from the save folder.
+    checkpoint = find_checkpoint(trainer.absolute_save_dir)
 
     if trainer_name != "ft":
         with fix_all_seed_within_context(seed):

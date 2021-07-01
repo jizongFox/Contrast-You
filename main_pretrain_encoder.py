@@ -15,7 +15,7 @@ from semi_seg import ratio_zoo
 from semi_seg.data.creator import get_data
 from semi_seg.hooks import feature_until_from_hooks
 from semi_seg.trainers.pretrain import PretrainEncoderTrainer
-from utils import separate_pretrain_finetune_configs, logging_configs
+from utils import separate_pretrain_finetune_configs, logging_configs, find_checkpoint
 from val import val
 
 
@@ -60,8 +60,10 @@ def worker(config, absolute_save_dir, seed, ):
                                      save_dir=os.path.join(absolute_save_dir, "pre"),
                                      **{k: v for k, v in config["Trainer"].items() if k != "save_dir"})
 
+    checkpoint = find_checkpoint(trainer.absolute_save_dir)
+
     with fix_all_seed_within_context(seed):
-        hooks = create_hook_from_config(model, config, is_pretrain=True)
+        hooks = create_hook_from_config(model, config, is_pretrain=True, trainer=trainer)
         assert len(hooks) > 0, "empty hooks"
 
     trainer.register_hook(*hooks)
@@ -71,6 +73,8 @@ def worker(config, absolute_save_dir, seed, ):
 
     with model.set_grad(False, start=until, include_start=False):
         trainer.init()
+        if checkpoint:
+            trainer.resume_from_path(checkpoint)
         trainer.start_training()
 
     return model
