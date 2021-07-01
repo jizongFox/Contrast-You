@@ -108,7 +108,7 @@ if __name__ == '__main__':
     lr = ft_lr_zooms[data_name]
     force_show = True
     on_local = False
-    contrast_on = ["partition", "cycle", "patient"] if data_name == "acdc" else ["partition", "patient"]
+    contrast_on = ["partition", "cycle", "patient", "self"] if data_name == "acdc" else ["partition", "patient", "self"]
 
     baseline_generator = PretrainSPInfoNCEScriptGenerator(
         data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/baseline", pre_max_epoch=0,

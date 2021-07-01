@@ -57,11 +57,11 @@ pre_lr_zooms = {
 }
 
 ft_lr_zooms = {
-    "acdc": 0.00002,  # previously  0.0000002
-    "prostate": 0.000005,  # previously 0.0000005
+    "acdc": 0.0000002,
+    "prostate": 0.0000005,
     "prostate_md": 0.0000005,
     "spleen": 0.000001,
-    "mmwhsct": 0.0000002,  # previously 0.000002
+    "mmwhsct": 0.000002,
     "mmwhsmr": 0.000002
 }
 __accounts = ["rrg-mpederso", ]
