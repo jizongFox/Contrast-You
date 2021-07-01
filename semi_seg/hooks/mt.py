@@ -89,6 +89,8 @@ class _MeanTeacherEpocherHook(EpocherHook):
         self._teacher_model = teacher_model
         self._updater = updater
 
+        self._teacher_model.train()
+
     @meter_focus
     def configure_meters(self, meters: MeterInterface):
         self.meters.register_meter("loss", AverageValueMeter())
