@@ -1,11 +1,13 @@
+import os
 import shutil
-import tempfile
 import warnings
 from abc import ABCMeta
 from pathlib import Path
+from random import Random as _Random
 from typing import Dict
 
 import torch
+from loguru import logger
 
 from ._buffer import _BufferMixin
 from ..configure.yaml_parser import yaml_write
@@ -13,20 +15,57 @@ from ..types import typePath
 from ..utils import path2Path
 
 
+class _RandomNameSequence:
+    """An instance of _RandomNameSequence generates an endless
+    sequence of unpredictable strings which can safely be incorporated
+    into file names.  Each string is eight characters long.  Multiple
+    threads can safely use the same instance at the same time.
+
+    _RandomNameSequence is an iterator."""
+
+    characters = "abcdefghijklmnopqrstuvwxyz0123456789_"
+
+    @property
+    def rng(self):
+        cur_pid = os.getpid()
+        if cur_pid != getattr(self, '_rng_pid', None):
+            self._rng = _Random()
+            self._rng_pid = cur_pid
+        return self._rng
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        c = self.characters
+        choose = self.rng.choice
+        letters = [choose(c) for dummy in range(8)]
+        return ''.join(letters)
+
+
+random_name = _RandomNameSequence()
+
+
 def safe_save(checkpoint_dictionary, save_path):
+    tmp_name = "/tmp/" + next(random_name)
     try:
-        with tempfile.TemporaryFile() as tmp:
-            torch.save(checkpoint_dictionary, str(tmp))
-            shutil.move(str(tmp), str(save_path))
-    finally:
-        return
+        torch.save(checkpoint_dictionary, tmp_name)
+        shutil.move(tmp_name, str(save_path))
+    except Exception as e:
+        logger.error(e)
 
 
 def create_save_dir(self, save_dir: str):
+    """
+    return absolute path given a save_dir
+    if save_dir is a relative path, return MODEL_PATH/SAVE_DIR
+    if save_dir is an absolute path, return this path
+    """
     save_dir = str(save_dir)
     if not Path(save_dir).is_absolute():
-        save_dir = str(Path(self.RUN_PATH) / save_dir)
+        save_dir = str(Path(self.RUN_PATH) / save_dir)  # absolute path
     Path(save_dir).mkdir(exist_ok=True, parents=True)
+    assert os.path.isabs(save_dir), f"save_dir must be an absolute path, given {save_dir}."
     return save_dir
 
 
@@ -87,7 +126,7 @@ class _IOMixin(_BufferMixin, metaclass=ABCMeta):
                 continue
 
             if hasattr(module, "load_state_dict") and callable(
-                getattr(module, "load_state_dict", None)
+                    getattr(module, "load_state_dict", None)
             ):
                 try:
                     module.load_state_dict(state_dict[module_name])

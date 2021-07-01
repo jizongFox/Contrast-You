@@ -1,7 +1,11 @@
+import os
 from functools import reduce
+from typing import Optional
+
+from loguru import logger
 
 from contrastyou.configure import dictionary_merge_by_hierachy, extract_dictionary_from_anchor, \
-    extract_params_with_key_prefix
+    extract_params_with_key_prefix, ConfigManger
 
 
 def separate_pretrain_finetune_configs(config_manager):
@@ -32,3 +36,25 @@ def separate_pretrain_finetune_configs(config_manager):
         extract_params_with_key_prefix(input_params, prefix="ft_"))
 
     return pretrain_config, base_config
+
+
+def logging_configs(manager: ConfigManger, logger):
+    import pprint
+    optional_dictionaries = manager.optional_configs
+    parsed_params = manager.parsed_config
+    config_dictionary = manager.config
+    for i, od in enumerate(optional_dictionaries):
+        logger.info(f"optional configs {i}")
+        logger.info("\n" + pprint.pformat(od))
+    logger.info(f"parsed params")
+    logger.info("\n" + pprint.pformat(parsed_params))
+    logger.info("merged params")
+    logger.info("\n" + pprint.pformat(config_dictionary))
+
+
+def find_checkpoint(trainer_folder, name="last.pth") -> Optional[str]:
+    ckpt_path = os.path.join(trainer_folder, name)
+    if os.path.exists(ckpt_path):
+        logger.info(f"Found existing checkpoint from folder {trainer_folder}")
+        return ckpt_path
+    return None

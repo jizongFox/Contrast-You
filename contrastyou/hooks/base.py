@@ -9,7 +9,7 @@ from contrastyou.meters import MeterInterface
 
 
 class _ClassNameMeta(type):
-    names = []
+    names: List[str] = []
 
     def __call__(cls, *args, **kwargs):
         if "hook_name" in kwargs:
@@ -22,7 +22,7 @@ class _ClassNameMeta(type):
 
 class TrainerHook(nn.Module, metaclass=_ClassNameMeta):
 
-    def __init__(self, *, hook_name: str, ):
+    def __init__(self, *, hook_name: str):
         super().__init__()
         self._hook_name = hook_name
 
@@ -51,7 +51,7 @@ class CombineTrainerHook(TrainerHook):
 
 class EpocherHook:
 
-    def __init__(self, name: str, ) -> None:
+    def __init__(self, name: str) -> None:
         self._name = name
         self.meters: MeterInterface
 

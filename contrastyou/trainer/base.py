@@ -1,3 +1,4 @@
+import os
 from abc import ABCMeta, abstractmethod
 from contextlib import nullcontext
 from pathlib import Path
@@ -7,7 +8,7 @@ import torch
 from loguru import logger
 from torch import nn
 
-from contrastyou import PROJECT_PATH, optim
+from contrastyou import optim, MODEL_PATH, success
 from ._functional import _ToMixin
 from ._io import _IOMixin
 from ..amp import DDPMixin
@@ -22,7 +23,7 @@ from ..writer import SummaryWriter
 
 
 class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
-    RUN_PATH = str(Path(PROJECT_PATH) / "runs2")  # noqa
+    RUN_PATH = MODEL_PATH  # type:str # absolute path
 
     def __init__(self, *, model: nn.Module, criterion: KL_div(), tra_loader: _dataiter_type,
                  val_loader: _loader_type, save_dir: str, max_epoch: int = 100, num_batches: int = 100, device="cpu",
@@ -83,10 +84,10 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
         if not self.__initialized__:
             raise RuntimeError(f"{self.__class__.__name__} should call `init()` first")
         self.to(self.device)
-        if self.on_master():
-            with self._writer:
-                return self._start_training(**kwargs)
-        return self._start_training(**kwargs)
+        with self._writer if self.on_master() else nullcontext():
+            self._start_training(**kwargs)
+            if self.on_master():
+                success(save_dir=self.absolute_save_dir)
 
     def _start_training(self, **kwargs):
         start_epoch = max(self._cur_epoch + 1, self._start_epoch)
@@ -103,11 +104,6 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
                 best_case_sofa = self._best_score < cur_score
                 if best_case_sofa:
                     self._best_score = cur_score
-                if self.on_master() and best_case_sofa:
-                    self.save_to(save_name="best.pth")
-
-                if self.on_master():
-                    self.save_to(save_name="last.pth")
 
                     self._storage.add_from_meter_interface(tra=train_metrics, val=eval_metrics, test=test_metrics,
                                                            epoch=self._cur_epoch)
@@ -117,13 +113,18 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
                 if hasattr(self, "_scheduler"):
                     self._scheduler.step()
 
+            if self.on_master():
+                self.save_to(save_name="last.pth")
+                if best_case_sofa:
+                    self.save_to(save_name="best.pth")
+
     def tra_epoch(self, **kwargs):
         epocher = self._create_initialized_tra_epoch(**kwargs)
         return self._run_tra_epoch(epocher)
 
     def _run_tra_epoch(self, epocher: EpocherBase):
-        with epocher.register_hook(*[h() for h in self.__hooks__]) if self.activate_hooks and len(
-            self.__hooks__) > 0 else nullcontext():
+        use_hook = self.activate_hooks and len(self.__hooks__) > 0
+        with epocher.register_hook(*[h() for h in self.__hooks__]) if use_hook else nullcontext():
             epocher.run()
         return epocher.get_metric()
 
@@ -144,9 +145,24 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
         return epocher.get_metric(), epocher.get_score()
 
     def set_model4inference(self, model: nn.Module):
-        logger.trace(f"change inference model from {id(self._inference_model)} to {id(model)}")
+        logger.debug(f"change inference model from {id(self._inference_model)} to {id(model)}")
         self._inference_model = model
 
     @property
-    def save_dir(self):
+    def save_dir(self) -> str:
+        """return absolute save_dir """
         return str(self._save_dir)
+
+    @property
+    def absolute_save_dir(self) -> str:
+        return self.save_dir
+
+    @property
+    def relative_save_dir(self):
+        """return relative save_dir, raise error if the save_dir is given as absolute path in the __init__
+        and not relative to model_path"""
+        return str(Path(self.absolute_save_dir).relative_to(self.RUN_PATH))
+
+    @property
+    def success(self):
+        return ".success" in os.listdir(self.absolute_save_dir)

@@ -11,6 +11,7 @@ from contrastyou.losses.kl import KL_div
 from contrastyou.utils import fix_all_seed_within_context
 from semi_seg.data.creator import get_data
 from semi_seg.trainers.trainer import FineTuneTrainer
+from utils import find_checkpoint
 
 
 @contextmanager
@@ -45,7 +46,7 @@ def val(*, model: nn.Module, save_dir: str, base_config: Dict[str, Any], labeled
 def _val(*, model: nn.Module, labeled_data_ratio: float, data_params: Dict[str, Any],
          labeled_loader_params: Dict[str, Any], unlabeled_loader_params: Dict[str, Any], main_save_dir: str,
          trainer_params: Dict[str, Any], global_config: Dict[str, Any]):
-    data_params, trainer_params, global_config = list(map(dcopy, [data_params, trainer_params, global_config]))
+    data_params, trainer_params, global_config = map(dcopy, [data_params, trainer_params, global_config])
 
     data_params["labeled_scan_num"] = float(labeled_data_ratio)
     global_config["Data"]["labeled_scan_num"] = float(labeled_data_ratio)
@@ -62,5 +63,8 @@ def _val(*, model: nn.Module, labeled_data_ratio: float, data_params: Dict[str, 
                               criterion=KL_div(), config=global_config, **trainer_params)
 
     trainer.init()
+    checkpoint = find_checkpoint(trainer.absolute_save_dir)
+    if checkpoint:
+        trainer.resume_from_path(checkpoint)
     trainer.start_training()
     success(save_dir=trainer.save_dir)

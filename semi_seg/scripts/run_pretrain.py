@@ -1,5 +1,6 @@
 import argparse
 
+from contrastyou import get_git_hash
 from semi_seg import data2class_numbers, ft_lr_zooms, data2input_dim
 from semi_seg.scripts.helper import BindPretrainFinetune, BindContrastive, \
     BindSelfPaced, run_jobs
@@ -37,7 +38,7 @@ BindSelfPaced.bind(selfpaced)
 args = parser.parse_args()
 
 # setting common params
-__git_hash__ = gethash(__file__)
+__git_hash__ = get_git_hash()
 dataset_name = args.dataset_name
 num_batches = args.num_batches
 random_seed = args.random_seed

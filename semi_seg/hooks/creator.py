@@ -8,6 +8,7 @@ from contrastyou.utils.utils import ntuple
 from .consistency import ConsistencyTrainerHook
 from .discretemi import DiscreteMITrainHook
 from .infonce import SelfPacedINFONCEHook, INFONCEHook
+from .mt import MeanTeacherTrainerHook
 
 decoder_names = UNet.decoder_names
 encoder_names = UNet.encoder_names
@@ -20,6 +21,13 @@ def get_individual_hook(*hooks):
             yield from get_individual_hook(*h._hooks)  # noqa
         else:
             yield h
+
+
+def mt_in_hooks(*hooks) -> bool:
+    for h in get_individual_hook(hooks):
+        if isinstance(h, MeanTeacherTrainerHook):
+            return True
+    return False
 
 
 def feature_until_from_hooks(*hooks) -> Union[str, None]:
@@ -124,3 +132,8 @@ def create_sp_infonce_hooks(*, model: nn.Module, feature_names: Union[str, List[
              for f, w, c, b, e, g in zip(feature_names, weights, contrast_ons, begin_values, end_values, correct_grad)]
 
     return CombineTrainerHook(*hooks)
+
+
+def create_mt_hook(*, model: nn.Module, weight: float, alpha: float = 0.999, weight_decay: float = 0.000001):
+    hook = MeanTeacherTrainerHook(name="mt", weight=weight, model=model, alpha=alpha, weight_decay=weight_decay)
+    return hook

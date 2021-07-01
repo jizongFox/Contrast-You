@@ -1,14 +1,8 @@
-acdc_ratios = [1, 174]
-prostate_ratio = [3, 40]  # 2 4 8
-prostate_md_ratio = [1, 17]
-mmwhsct_ratio = [1, 10]
-mmwhsmr_ratio = [1, 10]
-if True:
-    acdc_ratios = [1, 2, 4, 174]
-    prostate_ratio = [3, 5, 7, 40]  # 2, 4, 8, 40
-    mmwhsct_ratio = [1, 2, 10]
-    prostate_md_ratio = [1, 2, 4, 17]  # 1, 2, 4, 8
-    mmwhsmr_ratio = [1, 2, 10]
+acdc_ratios = [1, 2, 4, 8, 174]
+prostate_ratio = [3, 5, 7, 40]  # 2, 4, 8, 40
+mmwhsct_ratio = [1, 2, 10]
+prostate_md_ratio = [1, 2, 4, 17]  # 1, 2, 4, 8
+mmwhsmr_ratio = [1, 2, 9]
 
 pre_max_epoch_zoo = {
     "acdc": 80,
@@ -17,7 +11,7 @@ pre_max_epoch_zoo = {
     "prostate": 80,
 }
 ft_max_epoch_zoo = {
-    "acdc": 60,
+    "acdc": 80,
     "mmwhsct": 60,
     "mmwhsmr": 60,
     "prostate": 80,
@@ -71,18 +65,6 @@ ft_lr_zooms = {
     "mmwhsmr": 0.000002
 }
 __accounts = ["rrg-mpederso", ]
-# __accounts = ["def-chdesa", "rrg-mpederso", "def-mpederso"]
 
-labeled_filenames = {
-    "acdc": {1: ["patient100_00"],
-             2: ["patient027_01", "patient100_00"],
-             4: ["patient027_01", "patient038_01", "patient067_01", "patient100_00"],
-             8: ["patient027_01", "patient038_01", "patient067_01", "patient100_00", "patient002_00", "patient004_00",
-                 "patient006_01", "patient007_00"]
-             },
-    "prostate": {3: ["Case10", "Case17", "Case45"],
-                 5: ["Case00", "Case10", "Case17", "Case37", "Case45"],
-                 7: ["Case00", "Case10", "Case17", "Case34", "Case37", "Case38", "Case45"]},
-    "mmwhsct": {1: ["1003"],
-                2: ["1003", "1010"]}
-}
+PRETRAIN_BATCH_SIZE_MAX = 50
+# __accounts = ["def-chdesa", "rrg-mpederso", "def-mpederso"]

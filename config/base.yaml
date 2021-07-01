@@ -38,6 +38,6 @@ Trainer:
   max_epoch: 75
   two_stage: false
   disable_bn: false
-  name: ft
+  name: null
   enable_scale: true
   accumulate_iter: 1

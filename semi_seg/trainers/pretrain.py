@@ -1,8 +1,10 @@
 from functools import partial
-from typing import Dict, Any, Callable, Type, List, Union
+from typing import Dict, Any, Callable, Type, Union, Optional
 
 from loguru import logger
 from torch import nn
+from torch.cuda.amp import GradScaler
+from torch.nn import ModuleList
 from torch.optim import Optimizer
 from torch.utils.data.dataloader import _BaseDataLoaderIter as BaseDataLoaderIter, DataLoader  # noqa
 
@@ -11,13 +13,15 @@ from contrastyou.meters import Storage
 from contrastyou.writer import SummaryWriter
 from semi_seg.epochers.epocher import EpocherBase
 from semi_seg.epochers.pretrain import PretrainEncoderEpocher, PretrainDecoderEpocher
+from semi_seg.helper import SizedIterable
 from semi_seg.trainers._helper import _get_contrastive_dataloader
 from semi_seg.trainers.trainer import SemiTrainer
 
 
 class _PretrainTrainerMixin:
     _model: nn.Module
-    _unlabeled_loader: iter
+    _labeled_loader: SizedIterable
+    _unlabeled_loader: SizedIterable
     _config: Dict[str, Any]
     _start_epoch: int
     _max_epoch: int
@@ -28,17 +32,22 @@ class _PretrainTrainerMixin:
     save_to: Callable
     _contrastive_loader: BaseDataLoaderIter
     _storage: Storage
-    _writer: SummaryWriter
+    _writer: Optional[SummaryWriter]
     activate_hooks = True
-    __hooks__: List
+    __hooks__: ModuleList
     _optimizer: Optimizer
     train_epocher: Type[EpocherBase]
+    _cur_epoch: int
+    _device: str
+    _num_batches: int
+    scaler: GradScaler
 
     def __init__(self, **kwargs):
         super(_PretrainTrainerMixin, self).__init__(**kwargs)
         if "ContrastiveLoaderParams" not in self._config:
             raise RuntimeError(
-                f"`ContrastiveLoaderParams` should be found in config, given \n`{', '.join(self._config.keys())}`")
+                f"`ContrastiveLoaderParams` should be found in config, given \n`{', '.join(self._config.keys())}`"
+            )
 
         self._contrastive_loader, self._monitor_loader = _get_contrastive_dataloader(
             self._unlabeled_loader, self._config["ContrastiveLoaderParams"]
@@ -56,11 +65,11 @@ class _PretrainTrainerMixin:
         if isinstance(forward_until, str):
             if forward_until == "all":
                 self._inference_until = None
-                logger.debug(f"{self.__class__.__name__} set forward pass to {self.forward_until}")
+                logger.opt(depth=1).debug(f"{self.__class__.__name__} set forward pass to {self.forward_until}")
                 return
             assert forward_until in UNet.arch_elements, forward_until
         self._inference_until = forward_until
-        logger.trace(f"{self.__class__.__name__} set forward pass to {self.forward_until}")
+        logger.opt(depth=1).debug(f"{self.__class__.__name__} set forward pass to {self.forward_until}")
 
     def _run_epoch(self, epocher, *args, **kwargs):
         epocher.init = partial(epocher.init, chain_dataloader=self._contrastive_loader,
@@ -71,7 +80,7 @@ class _PretrainTrainerMixin:
         start_epoch = max(self._cur_epoch + 1, self._start_epoch)
         self._cur_score: float
 
-        for self._cur_epoch in range(start_epoch, self._max_epoch):
+        for self._cur_epoch in range(start_epoch, self._max_epoch + 1):
             with self._storage:  # save csv each epoch
                 train_metrics = self.tra_epoch()
                 if self.on_master():
@@ -82,8 +91,9 @@ class _PretrainTrainerMixin:
 
                 if hasattr(self, "_scheduler"):
                     self._scheduler.step()
-                if self.on_master():
-                    self.save_to(save_name="last.pth")
+
+            if self.on_master():
+                self.save_to(save_name="last.pth")
 
     def _create_initialized_tra_epoch(self, **kwargs) -> EpocherBase:
         epocher = self.train_epocher(

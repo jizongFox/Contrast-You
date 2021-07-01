@@ -1,8 +1,9 @@
 import random
 from abc import ABC
 from contextlib import nullcontext
+from copy import deepcopy
 from functools import lru_cache, partial
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, final
 
 import torch
 from loguru import logger
@@ -20,6 +21,7 @@ from contrastyou.utils.general import class2one_hot
 from contrastyou.utils.utils import disable_tracking_bn_stats, get_model
 from semi_seg.epochers.helper import preprocess_input_with_twice_transformation, \
     preprocess_input_with_single_transformation
+from semi_seg.helper import SizedIterable
 
 
 def assert_transform_freedom(dataloader, is_true):
@@ -49,6 +51,7 @@ class EpocherBase(_EpocherBase, ABC):
                          **kwargs)
         self._initialized = False
 
+    @final
     def run(self):
         if not self._initialized:
             raise RuntimeError(f"Call {class_name(self)}.init() before {class_name(self)}.run()")
@@ -167,8 +170,8 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
         super().__init__(model=model, num_batches=num_batches, cur_epoch=cur_epoch, device=device, scaler=scaler,
                          accumulate_iter=accumulate_iter)
         self._optimizer = optimizer
-        self._labeled_loader = labeled_loader
-        self._unlabeled_loader = unlabeled_loader
+        self._labeled_loader: SizedIterable = labeled_loader
+        self._unlabeled_loader: SizedIterable = unlabeled_loader
         self._sup_criterion = sup_criterion
         self._affine_transformer = TensorRandomFlip(axis=[1, 2], threshold=0.8)
         self._two_stage = two_stage
@@ -198,6 +201,10 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
         return self._run_implement()
 
     def _run_implement(self):
+        if len(self._unlabeled_loader) == 0:
+            # in a fully supervised setting
+            # maybe not necessary to control the randomness?
+            self._unlabeled_loader = self._labeled_loader
         for self.cur_batch_num, labeled_data, unlabeled_data in zip(self.indicator, self._labeled_loader,
                                                                     self._unlabeled_loader):
             seed = random.randint(0, int(1e7))
@@ -221,7 +228,8 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
             self.indicator.set_postfix_statics(report_dict, cache_time=20)
 
     def _batch_update(self, *, cur_batch_num: int, labeled_image, labeled_target, labeled_filename, label_group,
-                      unlabeled_image, unlabeled_image_tf, seed, unl_group, unl_partition, unlabeled_filename):
+                      unlabeled_image, unlabeled_image_tf, seed, unl_group, unl_partition, unlabeled_filename,
+                      **kwargs):
         with self.autocast:
             label_logits, unlabeled_logits, unlabeled_tf_logits = self.forward_pass(
                 labeled_image=labeled_image,
@@ -276,7 +284,7 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
             torch.split(predict_logits, [n_l, n_unl, n_unl], dim=0)
         return label_logits, unlabeled_logits, unlabeled_tf_logits
 
-    @property
+    @property  # noqa
     @lru_cache()
     def _bn_context(self):
         return disable_tracking_bn_stats if self._disable_bn else nullcontext
