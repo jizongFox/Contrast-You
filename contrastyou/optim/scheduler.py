@@ -27,7 +27,7 @@ class GradualWarmupScheduler(_LRScheduler):
         after_scheduler: after target_epoch, use this scheduler(eg. ReduceLROnPlateau)
     """
 
-    def __init__(self, optimizer, multiplier, total_epoch, after_scheduler=None):
+    def __init__(self, optimizer, multiplier, total_epoch, after_scheduler: _LRScheduler = None):
         self.multiplier = multiplier
         if self.multiplier <= 1.0:
             raise ValueError("multiplier should be greater than 1.")
@@ -35,6 +35,23 @@ class GradualWarmupScheduler(_LRScheduler):
         self.after_scheduler = after_scheduler
         self.finished = False
         super().__init__(optimizer)
+
+    def state_dict(self):
+        """Returns the state of the scheduler as a :class:`dict`.
+
+        It contains an entry for every variable in self.__dict__ which
+        is not the optimizer.
+        """
+        result = {key: value for key, value in self.__dict__.items() if key != 'optimizer' or key != "after_scheduler"}
+        if self.after_scheduler:
+            result.update({"after_scheduler": self.after_scheduler.state_dict()})
+        return result
+
+    def load_state_dict(self, state_dict):
+        after_scheduler_state = state_dict.pop("after_scheduler", None)
+        self.__dict__.update(state_dict)
+        if after_scheduler_state:
+            self.after_scheduler.load_state_dict(after_scheduler_state)
 
     def get_lr(self):
         if self.last_epoch > self.total_epoch:
@@ -101,6 +118,15 @@ if __name__ == '__main__':
         lrs.append(get_lrs_from_optimizer(optimizer=optimizer)[0])
         optimizer.step()
         scheduler.step()
+        if i == 50:
+            old_scheduler = scheduler.state_dict()
+            old_optimizer_state = optimizer.state_dict()
+            optimizer = torch.optim.Adam(model.parameters())
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=90)
+            scheduler = GradualWarmupScheduler(optimizer=optimizer, multiplier=100, total_epoch=10,
+                                               after_scheduler=scheduler)
+            optimizer.load_state_dict(old_optimizer_state)
+            scheduler.load_state_dict(old_scheduler)
 
     import matplotlib.pyplot as plt
 
