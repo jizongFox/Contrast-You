@@ -101,10 +101,6 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
                     eval_metrics, cur_score = self.eval_epoch(model=inference_model, loader=self._val_loader)
                     test_metrics, _ = self.eval_epoch(model=inference_model, loader=self._test_loader)
 
-                best_case_sofa = self._best_score < cur_score
-                if best_case_sofa:
-                    self._best_score = cur_score
-
                     self._storage.add_from_meter_interface(tra=train_metrics, val=eval_metrics, test=test_metrics,
                                                            epoch=self._cur_epoch)
                     self._writer.add_scalars_from_meter_interface(tra=train_metrics, val=eval_metrics,
@@ -112,6 +108,10 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
 
                 if hasattr(self, "_scheduler"):
                     self._scheduler.step()
+
+                best_case_sofa = self._best_score < cur_score
+                if best_case_sofa:
+                    self._best_score = cur_score
 
             if self.on_master():
                 self.save_to(save_name="last.pth")

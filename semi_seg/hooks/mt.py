@@ -18,7 +18,10 @@ class L2LossChecker:
 
     def __call__(self, input1, input2):
         assert simplex(input1) and simplex(input2)
-        return self.criterion(input1, input2)
+        loss = self.criterion(input1, input2)
+        if torch.isnan(loss):
+            raise RuntimeError(loss)
+        return loss
 
 
 class EMAUpdater:
