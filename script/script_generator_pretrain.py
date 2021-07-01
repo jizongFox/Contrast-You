@@ -79,7 +79,18 @@ class PretrainSPInfoNCEScriptGenerator(PretrainScriptGenerator):
 
 
 if __name__ == '__main__':
-    submittor = JobSubmiter(work_dir="../", stop_on_error=True, on_local=True)
+    seed = [10, 20, 30]
+    data_name = "acdc"
+    save_dir = f"contrastive_learn/{data_name}"
+    num_batches = num_batches_zoo[data_name]
+    pre_max_epoch = pre_max_epoch_zoo[data_name]
+    ft_max_epoch = ft_max_epoch_zoo[data_name]
+    lr = ft_lr_zooms[data_name]
+    force_show = True
+    on_local = False
+    contrast_on = ["partition", "cycle", "patient", "self"] if data_name == "acdc" else ["partition", "patient", "self"]
+
+    submittor = JobSubmiter(work_dir="../", stop_on_error=False, on_local=on_local)
     submittor.configure_environment([
         "module load python/3.8.2 ",
         f"source ~/venv/bin/activate ",
@@ -99,17 +110,6 @@ if __name__ == '__main__':
     ])
     submittor.configure_sbatch(mem=48)
 
-    seed = [10, 20, 30]
-    data_name = "acdc"
-    save_dir = f"contrastive_learn/{data_name}"
-    num_batches = num_batches_zoo[data_name]
-    pre_max_epoch = pre_max_epoch_zoo[data_name]
-    ft_max_epoch = ft_max_epoch_zoo[data_name]
-    lr = ft_lr_zooms[data_name]
-    force_show = True
-    on_local = False
-    contrast_on = ["partition", "cycle", "patient", "self"] if data_name == "acdc" else ["partition", "patient", "self"]
-
     baseline_generator = PretrainSPInfoNCEScriptGenerator(
         data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/baseline", pre_max_epoch=0,
         ft_max_epoch=ft_max_epoch
@@ -119,7 +119,7 @@ if __name__ == '__main__':
     )
 
     for j in jobs:
-        submittor.submit(j, on_local=on_local, account=next(account), force_show=force_show, time=8)
+        submittor.submit(j, account=next(account), force_show=force_show, time=8)
 
     infonce_generator = PretrainSPInfoNCEScriptGenerator(
         data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/infonce", pre_max_epoch=pre_max_epoch,
@@ -130,7 +130,7 @@ if __name__ == '__main__':
         mode="hard", correct_grad=False
     )
     for j in jobs:
-        submittor.submit(j, on_local=on_local, account=next(account), force_show=force_show, time=8)
+        submittor.submit(j, account=next(account), force_show=force_show, time=8)
 
     spinfonce_generator = PretrainSPInfoNCEScriptGenerator(
         data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/spinfonce", pre_max_epoch=pre_max_epoch,
@@ -142,4 +142,4 @@ if __name__ == '__main__':
         mode="soft", correct_grad=False
     )
     for j in jobs:
-        submittor.submit(j, on_local=on_local, account=next(account), force_show=force_show, time=8)
+        submittor.submit(j, account=next(account), force_show=force_show, time=8)
