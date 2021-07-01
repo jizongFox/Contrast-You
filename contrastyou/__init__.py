@@ -28,6 +28,9 @@ def get_git_hash() -> Optional[str]:
     return git_hash
 
 
+git_hash = (get_git_hash() or "none")[:6]
+
+
 @lru_cache()
 def get_cc_data_path() -> str:
     """get absolute path of data in CC."""

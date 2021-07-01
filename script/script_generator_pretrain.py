@@ -2,7 +2,7 @@ import os
 from itertools import cycle
 from typing import Union, List
 
-from contrastyou import CONFIG_PATH
+from contrastyou import CONFIG_PATH, git_hash
 from contrastyou.configure import dictionary_merge_by_hierachy
 from contrastyou.configure.yaml_parser import yaml_load, yaml_write
 from contrastyou.submitter import SlurmSubmitter as JobSubmiter
@@ -81,7 +81,7 @@ class PretrainSPInfoNCEScriptGenerator(PretrainScriptGenerator):
 if __name__ == '__main__':
     seed = [10, 20, 30]
     data_name = "acdc"
-    save_dir = f"contrastive_learn/{data_name}"
+    save_dir = f"contrastive_learn/hash_{git_hash}/{data_name}"
     num_batches = num_batches_zoo[data_name]
     pre_max_epoch = pre_max_epoch_zoo[data_name]
     ft_max_epoch = ft_max_epoch_zoo[data_name]

@@ -2,8 +2,7 @@ import argparse
 import os
 from itertools import cycle
 
-from contrastyou import CONFIG_PATH, on_cc
-from contrastyou import get_git_hash
+from contrastyou import CONFIG_PATH, on_cc, git_hash
 from contrastyou.configure import dictionary_merge_by_hierachy
 from contrastyou.configure.yaml_parser import yaml_load, yaml_write
 from contrastyou.submitter import SlurmSubmitter as JobSubmiter
@@ -13,8 +12,6 @@ from script.utils import TEMP_DIR, grid_search, BaselineGenerator, \
 from semi_seg import __accounts, num_batches_zoo, ft_max_epoch_zoo, ratio_zoo
 
 account = cycle(__accounts)
-
-git_hash = (get_git_hash() or "none")[:6]
 
 
 class MeanTeacherScriptGenerator(BaselineGenerator):

@@ -3,7 +3,7 @@ import os
 import numpy  # noqa
 from loguru import logger
 
-from contrastyou import CONFIG_PATH
+from contrastyou import CONFIG_PATH, git_hash
 from contrastyou.arch import UNet
 from contrastyou.configure import ConfigManger
 from contrastyou.losses.kl import KL_div
@@ -29,6 +29,8 @@ def main():
         absolute_save_dir = create_save_dir(SemiTrainer, config["Trainer"]["save_dir"])
         config_logger(absolute_save_dir)
         logging_configs(manager, logger)
+
+        config.update({"GITHASH": git_hash})
 
         seed = config.get("RandomSeed", 10)
         logger.info(f"using seed = {seed}, saved at \"{absolute_save_dir}\"")
