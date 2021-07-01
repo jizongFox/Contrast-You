@@ -17,10 +17,7 @@ class L2LossChecker:
         self.criterion = criterion
 
     def __call__(self, input1, input2):
-        assert_flag = simplex(input1) and simplex(input2)
-        if not assert_flag:
-            raise RuntimeError()
-
+        assert simplex(input1) and simplex(input2)
         return self.criterion(input1, input2)
 
 
