@@ -9,6 +9,7 @@ from loguru import logger
 from torch import nn
 
 from contrastyou import optim, MODEL_PATH, success
+from semi_seg.helper import SizedIterable
 from ._functional import _ToMixin
 from ._io import _IOMixin
 from ..amp import DDPMixin
@@ -17,22 +18,21 @@ from ..hooks.base import TrainerHook
 from ..losses.kl import KL_div
 from ..meters import Storage
 from ..optim import GradualWarmupScheduler
-from ..types import dataIterType as _dataiter_type, genericLoaderType as _loader_type, \
-    optimizerType as _optimizer_type
+from ..types import optimizerType as _optimizer_type
 from ..writer import SummaryWriter
 
 
 class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
     RUN_PATH = MODEL_PATH  # type:str # absolute path
 
-    def __init__(self, *, model: nn.Module, criterion: KL_div(), tra_loader: _dataiter_type,
-                 val_loader: _loader_type, save_dir: str, max_epoch: int = 100, num_batches: int = 100, device="cpu",
+    def __init__(self, *, model: nn.Module, criterion: KL_div(), tra_loader: SizedIterable,
+                 val_loader: SizedIterable, save_dir: str, max_epoch: int = 100, num_batches: int = 100, device="cpu",
                  config: Dict[str, Any], **kwargs) -> None:
         super().__init__(save_dir=save_dir, max_epoch=max_epoch, num_batches=num_batches, device=device, **kwargs)
         self._model = self._inference_model = model
         self._criterion = criterion
-        self._tra_loader: _dataiter_type = tra_loader
-        self._val_loader: _loader_type = val_loader
+        self._tra_loader = tra_loader
+        self._val_loader = val_loader
         self.__hooks__ = nn.ModuleList()
         self._storage = Storage(save_dir=self._save_dir)
         self._writer = None

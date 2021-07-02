@@ -8,28 +8,29 @@ from contrastyou import optim
 from contrastyou.arch.discriminator import Discriminator
 from contrastyou.losses.kl import KL_div
 from contrastyou.trainer.base import Trainer
-from contrastyou.types import criterionType, dataIterType
+from contrastyou.types import criterionType
 from contrastyou.utils import fix_all_seed_within_context
 from contrastyou.utils.printable import item2str
 from semi_seg.epochers.comparable import MixUpEpocher, AdversarialEpocher
 from semi_seg.epochers.epocher import EpocherBase, SemiSupervisedEpocher, FineTuneEpocher, EvalEpocher
+from semi_seg.helper import SizedIterable
 
 
 class SemiTrainer(Trainer):
     activate_hooks = True
 
-    def __init__(self, *, model: nn.Module, labeled_loader: dataIterType, unlabeled_loader: dataIterType,
-                 val_loader: dataIterType, test_loader: dataIterType, criterion: KL_div, save_dir: str,
+    def __init__(self, *, model: nn.Module, labeled_loader: SizedIterable, unlabeled_loader: SizedIterable,
+                 val_loader: SizedIterable, test_loader: SizedIterable, criterion: KL_div, save_dir: str,
                  max_epoch: int = 100, num_batches: int = 100, device="cpu", disable_bn: bool, two_stage: bool,
                  config: Dict[str, Any], enable_scale=True, accumulate_iter: int = 1, **kwargs) -> None:
         super().__init__(model=model, criterion=criterion, tra_loader=None, val_loader=val_loader,  # noqa
                          save_dir=save_dir, max_epoch=max_epoch, num_batches=num_batches, device=device, config=config,
                          **kwargs)
         del self._tra_loader
-        self._labeled_loader = labeled_loader
-        self._unlabeled_loader = unlabeled_loader
-        self._val_loader = val_loader
-        self._test_loader = test_loader
+        self._labeled_loader: SizedIterable = labeled_loader
+        self._unlabeled_loader: SizedIterable = unlabeled_loader
+        self._val_loader: SizedIterable = val_loader
+        self._test_loader: SizedIterable = test_loader
         self._sup_criterion = criterion
         self._disable_bn = disable_bn
         self._two_stage = two_stage
@@ -82,10 +83,10 @@ class AdversarialTrainer(SemiTrainer):
     """
     activate_hooks = False
 
-    def __init__(self, *, model: nn.Module, labeled_loader: dataIterType, unlabeled_loader: dataIterType,
-                 val_loader: dataIterType,
-                 test_loader: dataIterType, criterion: criterionType, save_dir: str, max_epoch: int = 100,
-                 num_batches: int = 100, device="cpu", disable_bn: bool, two_stage: bool, config: Dict[str, Any],
+    def __init__(self, *, model: nn.Module, labeled_loader: SizedIterable, unlabeled_loader: SizedIterable,
+                 val_loader: SizedIterable, test_loader: SizedIterable, criterion: criterionType, save_dir: str,
+                 max_epoch: int = 100, num_batches: int = 100, device="cpu", disable_bn: bool, two_stage: bool,
+                 config: Dict[str, Any],
                  reg_weight: int, dis_consider_image: bool = False, **kwargs) -> None:
         super().__init__(model=model, labeled_loader=labeled_loader, unlabeled_loader=unlabeled_loader,
                          val_loader=val_loader, test_loader=test_loader, criterion=criterion, save_dir=save_dir,
