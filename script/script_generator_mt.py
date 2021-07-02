@@ -22,12 +22,13 @@ class MeanTeacherScriptGenerator(BaselineGenerator):
 
         self.hook_config = yaml_load(os.path.join(CONFIG_PATH, "hooks", "mt.yaml"))
 
-    def get_hook_params(self, weight, two_stage, ):
+    def get_hook_params(self, weight, two_stage, disable_bn):
         return {
             "MeanTeacherParameters":
                 {"weight": weight},
             "Trainer":
-                {"two_stage": two_stage}
+                {"two_stage": two_stage,
+                 "disable_bn": disable_bn}
         }
 
     def generate_single_script(self, save_dir, labeled_scan_num, seed, hook_path):
@@ -101,8 +102,8 @@ if __name__ == '__main__':
                                                   num_batches=num_batches,
                                                   max_epoch=max_epoch)
 
-    jobs = script_generator.grid_search_on(seed=seed, two_stage=[True],
-                                           weight=[0, 0.001, 0.01, 0.1, 1, 5, 10, 20])
+    jobs = script_generator.grid_search_on(seed=seed, two_stage=[True], disable_bn=[True, False],
+                                           weight=[0.001, 0.01, 0.1, 1, 5, 10, 20])
 
     for j in jobs:
         submittor.submit(j, account=next(account), force_show=force_show, time=8)
