@@ -2,8 +2,7 @@ import argparse
 import os
 from itertools import cycle
 
-from contrastyou import CONFIG_PATH, on_cc
-from contrastyou import get_git_hash
+from contrastyou import CONFIG_PATH, on_cc, git_hash
 from contrastyou.configure import dictionary_merge_by_hierachy
 from contrastyou.configure.yaml_parser import yaml_load, yaml_write
 from contrastyou.submitter import SlurmSubmitter as JobSubmiter
@@ -14,8 +13,6 @@ from semi_seg import __accounts, num_batches_zoo, ft_max_epoch_zoo, ratio_zoo
 
 account = cycle(__accounts)
 
-git_hash = (get_git_hash() or "none")[:6]
-
 
 class MeanTeacherScriptGenerator(BaselineGenerator):
 
@@ -25,12 +22,13 @@ class MeanTeacherScriptGenerator(BaselineGenerator):
 
         self.hook_config = yaml_load(os.path.join(CONFIG_PATH, "hooks", "mt.yaml"))
 
-    def get_hook_params(self, weight, two_stage, ):
+    def get_hook_params(self, weight, two_stage, disable_bn):
         return {
             "MeanTeacherParameters":
                 {"weight": weight},
             "Trainer":
-                {"two_stage": two_stage}
+                {"two_stage": two_stage,
+                 "disable_bn": disable_bn}
         }
 
     def generate_single_script(self, save_dir, labeled_scan_num, seed, hook_path):
@@ -104,8 +102,8 @@ if __name__ == '__main__':
                                                   num_batches=num_batches,
                                                   max_epoch=max_epoch)
 
-    jobs = script_generator.grid_search_on(seed=seed, two_stage=[True, False],
-                                           weight=[0.001, 0.01, 0.1, 1, 5, 10, 20])
+    jobs = script_generator.grid_search_on(seed=seed, two_stage=[True], disable_bn=False,
+                                           weight=[0.001, 0.01, 0.1, 0.2, 0.5, 1, 5, 10, 20])
 
     for j in jobs:
         submittor.submit(j, account=next(account), force_show=force_show, time=8)
