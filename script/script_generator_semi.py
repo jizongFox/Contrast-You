@@ -101,11 +101,78 @@ if __name__ == '__main__':
     script_generator = SemiSPInfonceScriptGenerator(data_name=data_name, save_dir=os.path.join(save_dir, "mt"),
                                                     num_batches=num_batches,
                                                     max_epoch=max_epoch)
+    contrast_on = "partition"
 
-    jobs = script_generator.grid_search_on(seed=seed, weight=[0.001, 0.01, 0.1, 1, 5], contrast_on=["partition"],
+    jobs = script_generator.grid_search_on(seed=seed, weight=[0.001, 0.01, 0.1, 0.5, 1, 2, 5, 10],
+                                           contrast_on=contrast_on,
                                            begin_values=10000000,
                                            end_values=10000000,
-                                           mode="soft", correct_grad=False)
+                                           mode="hard", correct_grad=False)
 
+    for j in jobs:
+        submittor.submit(j, account=next(account), force_show=force_show, time=8)
+
+    jobs = script_generator.grid_search_on(seed=seed, weight=[0.001, 0.01, 0.1, 0.5, 1, 2, 5, 10],
+                                           contrast_on=contrast_on,
+                                           begin_values=3,
+                                           end_values=60,
+                                           mode="soft", correct_grad=False)
+    for j in jobs:
+        submittor.submit(j, account=next(account), force_show=force_show, time=8)
+
+    contrast_on = "self"
+
+    jobs = script_generator.grid_search_on(seed=seed, weight=[0.001, 0.01, 0.1, 0.5, 1, 2, 5, 10],
+                                           contrast_on=contrast_on,
+                                           begin_values=10000000,
+                                           end_values=10000000,
+                                           mode="hard", correct_grad=False)
+
+    for j in jobs:
+        submittor.submit(j, account=next(account), force_show=force_show, time=8)
+
+    jobs = script_generator.grid_search_on(seed=seed, weight=[0.001, 0.01, 0.1, 0.5, 1, 2, 5, 10],
+                                           contrast_on=contrast_on,
+                                           begin_values=1.5,
+                                           end_values=50,
+                                           mode="soft", correct_grad=False)
+    for j in jobs:
+        submittor.submit(j, account=next(account), force_show=force_show, time=8)
+
+    contrast_on = "patient"
+
+    jobs = script_generator.grid_search_on(seed=seed, weight=[0.001, 0.01, 0.1, 0.5, 1, 2, 5, 10],
+                                           contrast_on=contrast_on,
+                                           begin_values=10000000,
+                                           end_values=10000000,
+                                           mode="hard", correct_grad=False)
+
+    for j in jobs:
+        submittor.submit(j, account=next(account), force_show=force_show, time=8)
+
+    jobs = script_generator.grid_search_on(seed=seed, weight=[0.001, 0.01, 0.1, 0.5, 1, 2, 5, 10],
+                                           contrast_on=contrast_on,
+                                           begin_values=1.5,
+                                           end_values=70,
+                                           mode="soft", correct_grad=False)
+    for j in jobs:
+        submittor.submit(j, account=next(account), force_show=force_show, time=8)
+
+    contrast_on = "cycle"
+
+    jobs = script_generator.grid_search_on(seed=seed, weight=[0.001, 0.01, 0.1, 0.5, 1, 2, 5, 10],
+                                           contrast_on=contrast_on,
+                                           begin_values=10000000,
+                                           end_values=10000000,
+                                           mode="hard", correct_grad=False)
+
+    for j in jobs:
+        submittor.submit(j, account=next(account), force_show=force_show, time=8)
+
+    jobs = script_generator.grid_search_on(seed=seed, weight=[0.001, 0.01, 0.1, 0.5, 1, 2, 5, 10],
+                                           contrast_on=contrast_on,
+                                           begin_values=5,
+                                           end_values=50,
+                                           mode="soft", correct_grad=False)
     for j in jobs:
         submittor.submit(j, account=next(account), force_show=force_show, time=8)
