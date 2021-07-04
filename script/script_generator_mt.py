@@ -102,8 +102,8 @@ if __name__ == '__main__':
                                                   num_batches=num_batches,
                                                   max_epoch=max_epoch)
 
-    jobs = script_generator.grid_search_on(seed=seed, two_stage=[True], disable_bn=[True, False],
-                                           weight=[0.001, 0.01, 0.1, 1, 5, 10, 20])
+    jobs = script_generator.grid_search_on(seed=seed, two_stage=[True], disable_bn=False,
+                                           weight=[0.001, 0.01, 0.1, 0.2, 0.5, 1, 5, 10, 20])
 
     for j in jobs:
         submittor.submit(j, account=next(account), force_show=force_show, time=8)
