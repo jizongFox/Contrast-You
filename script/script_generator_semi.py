@@ -6,9 +6,8 @@ from contrastyou import CONFIG_PATH, on_cc, git_hash
 from contrastyou.configure import dictionary_merge_by_hierachy
 from contrastyou.configure.yaml_parser import yaml_load, yaml_write
 from contrastyou.submitter import SlurmSubmitter as JobSubmiter
-from script import utils
 from script.utils import TEMP_DIR, grid_search, BaselineGenerator, \
-    move_dataset
+    move_dataset, random_string
 from semi_seg import __accounts, num_batches_zoo, ft_max_epoch_zoo, ratio_zoo
 
 account = cycle(__accounts)
@@ -35,7 +34,7 @@ class SemiSPInfonceScriptGenerator(BaselineGenerator):
         from semi_seg import ft_lr_zooms
         ft_lr = ft_lr_zooms[self._data_name]
 
-        return f"python main.py Trainer.name=semi  Trainer.save_dir={save_dir} " \
+        return f"python main.py Trainer.name=semi  Trainer.two_stage=true Trainer.save_dir={save_dir} " \
                f" Optim.lr={ft_lr:.7f} RandomSeed={str(seed)} Data.labeled_scan_num={int(labeled_scan_num)} " \
                f" {' '.join(self.conditions)} " \
                f" --opt-path {hook_path}"
@@ -51,7 +50,7 @@ class SemiSPInfonceScriptGenerator(BaselineGenerator):
             hook_params = self.get_hook_params(**param)
             sub_save_dir = self._get_hyper_param_string(**param)
             merged_config = dictionary_merge_by_hierachy(self.hook_config, hook_params)
-            config_path = yaml_write(merged_config, save_dir=TEMP_DIR, save_name=utils.random_string() + ".yaml")
+            config_path = yaml_write(merged_config, save_dir=TEMP_DIR, save_name=random_string() + ".yaml")
             true_save_dir = os.path.join(self._save_dir, "Seed_" + str(random_seed), sub_save_dir)
 
             job = " && ".join(
@@ -98,7 +97,7 @@ if __name__ == '__main__':
     max_epoch = ft_max_epoch_zoo[data_name]
     force_show = args.force_show
 
-    script_generator = SemiSPInfonceScriptGenerator(data_name=data_name, save_dir=os.path.join(save_dir, "mt"),
+    script_generator = SemiSPInfonceScriptGenerator(data_name=data_name, save_dir=os.path.join(save_dir, "contrastive_semi"),
                                                     num_batches=num_batches,
                                                     max_epoch=max_epoch)
     contrast_on = "partition"
