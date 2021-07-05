@@ -6,9 +6,8 @@ from contrastyou import CONFIG_PATH, on_cc, git_hash
 from contrastyou.configure import dictionary_merge_by_hierachy
 from contrastyou.configure.yaml_parser import yaml_load, yaml_write
 from contrastyou.submitter import SlurmSubmitter as JobSubmiter
-from script import utils
 from script.utils import TEMP_DIR, grid_search, BaselineGenerator, \
-    move_dataset
+    move_dataset, random_string
 from semi_seg import __accounts, num_batches_zoo, ft_max_epoch_zoo, ratio_zoo
 
 account = cycle(__accounts)
@@ -50,7 +49,7 @@ class DiscreteMIScriptGenerator(BaselineGenerator):
             hook_params = self.get_hook_params(**param)
             sub_save_dir = self._get_hyper_param_string(**param)
             merged_config = dictionary_merge_by_hierachy(self.hook_config, hook_params)
-            config_path = yaml_write(merged_config, save_dir=TEMP_DIR, save_name=utils.random_string() + ".yaml")
+            config_path = yaml_write(merged_config, save_dir=TEMP_DIR, save_name=random_string() + ".yaml")
             true_save_dir = os.path.join(self._save_dir, "Seed_" + str(random_seed), sub_save_dir)
 
             job = " && ".join(
@@ -89,7 +88,7 @@ if __name__ == '__main__':
         "python -c 'import torch; print(torch.randn(1,1,1,1,device=\"cuda\"))'",
         "nvidia-smi"
     ])
-    submittor.configure_sbatch(mem=48)
+    submittor.configure_sbatch(mem=24)
     seed = [10, 20, 30]
     data_name = args.data_name
     save_dir = f"{args.save_dir}/discrete_mi/hash_{git_hash}/{data_name}"
