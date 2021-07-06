@@ -134,6 +134,8 @@ def create_sp_infonce_hooks(*, model: nn.Module, feature_names: Union[str, List[
     return CombineTrainerHook(*hooks)
 
 
-def create_mt_hook(*, model: nn.Module, weight: float, alpha: float = 0.999, weight_decay: float = 0.000001):
-    hook = MeanTeacherTrainerHook(name="mt", weight=weight, model=model, alpha=alpha, weight_decay=weight_decay)
+def create_mt_hook(*, model: nn.Module, weight: float, alpha: float = 0.999, weight_decay: float = 0.000001,
+                   update_bn: bool = False):
+    hook = MeanTeacherTrainerHook(name="mt", weight=weight, model=model, alpha=alpha, weight_decay=weight_decay,
+                                  update_bn=update_bn)
     return hook
