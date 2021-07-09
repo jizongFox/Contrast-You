@@ -1,7 +1,6 @@
 import random
 from abc import ABC
 from contextlib import nullcontext
-from copy import deepcopy
 from functools import lru_cache, partial
 from typing import Any, Dict, Optional, final
 
@@ -245,6 +244,8 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
             # regularized part
             reg_loss = self.regularization(
                 seed=seed,
+                labeled_image=labeled_image,
+                labeled_target = labeled_target,
                 unlabeled_image=unlabeled_image,
                 unlabeled_image_tf=unlabeled_image_tf,
                 unlabeled_tf_logits=unlabeled_tf_logits,
