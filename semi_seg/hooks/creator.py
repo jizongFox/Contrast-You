@@ -141,7 +141,7 @@ def create_mt_hook(*, model: nn.Module, weight: float, alpha: float = 0.999, wei
 
 
 def create_differentiable_mt_hook(*, model: nn.Module, weight: float, alpha: float = 0.999,
-                                  weight_decay: float = 0.000001):
-    hook = DifferentiableMeanTeacherTrainerHook(name="mt", weight=weight, model=model, alpha=alpha,
-                                                weight_decay=weight_decay)
+                                  weight_decay: float = 0.000001, meta_weight=0):
+    hook = DifferentiableMeanTeacherTrainerHook(name="dmt", weight=weight, model=model, alpha=alpha,
+                                                weight_decay=weight_decay, meta_weight=meta_weight)
     return hook

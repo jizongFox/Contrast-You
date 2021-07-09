@@ -3,6 +3,7 @@ from copy import deepcopy
 from typing import Sequence
 
 import torch
+from loguru import logger
 from torch import nn, Tensor
 
 from contrastyou.hooks.base import TrainerHook, EpocherHook
@@ -15,10 +16,10 @@ from semi_seg.hooks.mt import L2LossChecker, EMAUpdater
 @contextmanager
 def manually_forward(network: nn.Module, gradient: Sequence[Tensor], lambda_: float):
     for g, p in zip(gradient, network.parameters()):
-        p.data.add_(g, alpha=lambda_)
+        p.data.sub_(g, alpha=lambda_)
     yield
     for g, p in zip(gradient, network.parameters()):
-        p.data.sub_(g, alpha=lambda_)
+        p.data.add_(g, alpha=lambda_)
 
 
 @contextmanager
@@ -39,6 +40,7 @@ class DifferentiableMeanTeacherTrainerHook(TrainerHook):
         self._updater = EMAUpdater(alpha=alpha, weight_decay=weight_decay)
         self._teacher_model = deepcopy(model)
         self._meta_weight = meta_weight
+        logger.opt(depth=0).trace("meta_weight: {}".format(meta_weight))
 
     def __call__(self):
         return _DifferentiableMeanTeacherEpocherHook(name=self._hook_name, weight=self._weight,
@@ -91,6 +93,7 @@ class _DifferentiableMeanTeacherEpocherHook(EpocherHook):
                 teacher_unlabeled_prob_tf = affine_transformer(teacher_unlabeled_prob)
         loss = self._stud_criterion(teacher_unlabeled_prob_tf, student_unlabeled_tf_prob)
         self.meters["consistency_loss"].add(loss.item())
+        self.meters["teacher_loss"].add(teacher_loss.item())
 
         return self._weight * loss
 
