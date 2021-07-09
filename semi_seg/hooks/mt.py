@@ -36,7 +36,6 @@ class EMAUpdater:
 
     @torch.no_grad()
     def __call__(self, ema_model: nn.Module, student_model: nn.Module):
-
         alpha = self._alpha
         if self._justify_alpha:
             alpha = min(1 - 1 / (self.__global_step + 1), self._alpha)
@@ -74,7 +73,7 @@ class MeanTeacherTrainerHook(TrainerHook):
 
     def __call__(self):
         return _MeanTeacherEpocherHook(name=self._hook_name, weight=self._weight, criterion=self._criterion,
-                                       teacher_model=self._teacher_model, updater=self._updater)
+                                       teacher_model=self.teacher_model, updater=self._updater)
 
     @property
     def teacher_model(self):
@@ -100,7 +99,7 @@ class _MeanTeacherEpocherHook(EpocherHook):
                  **kwargs):
         student_unlabeled_tf_prob = unlabeled_tf_logits.softmax(1)
         with torch.no_grad():
-            teacher_unlabeled_prob = self._teacher_model(unlabeled_image).softmax(1)
+            teacher_unlabeled_prob = self.teacher_model(unlabeled_image).softmax(1)
             teacher_unlabeled_prob_tf = affine_transformer(teacher_unlabeled_prob)
         loss = self._criterion(teacher_unlabeled_prob_tf, student_unlabeled_tf_prob)
         self.meters["loss"].add(loss.item())

@@ -1,6 +1,6 @@
-
 DifferentiableMeanTeacherParameters:
   weight: 0.2
   alpha: 0.999
   weight_decay: 0.000001
   meta_weight: 0.0000001
+  meta_criterion: ce # dice
