@@ -104,5 +104,15 @@ class _MeanTeacherEpocherHook(EpocherHook):
             teacher_unlabeled_prob_tf = affine_transformer(teacher_unlabeled_prob)
         loss = self._criterion(teacher_unlabeled_prob_tf, student_unlabeled_tf_prob)
         self.meters["loss"].add(loss.item())
-        self._updater(ema_model=self._teacher_model, student_model=self.epocher._model)  # noqa
         return self._weight * loss
+
+    def after_batch_update(self, **kwargs):
+        self._updater(ema_model=self._teacher_model, student_model=self.model)
+
+    @property
+    def model(self):
+        return self.epocher._model  # noqa
+
+    @property
+    def teacher_model(self):
+        return self._teacher_model
