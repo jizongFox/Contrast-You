@@ -1,4 +1,5 @@
 import os
+from contextlib import nullcontext
 
 import numpy  # noqa
 from loguru import logger
@@ -68,21 +69,23 @@ def worker(config, absolute_save_dir, seed):
         with fix_all_seed_within_context(seed):
             hooks = create_hook_from_config(model, config, is_pretrain=is_pretrain, trainer=trainer)
             assert len(hooks) > 0, f"You should provide `Hook` configuration for `{trainer_name}` Trainer"
-        trainer.register_hook(*hooks)
 
-    if is_pretrain:
-        until = feature_until_from_hooks(*hooks)
-        trainer.forward_until = until
-        with model.set_grad(False, start=until, include_start=False):
-            trainer.init()
-            if checkpoint:
-                trainer.resume_from_path(checkpoint)
-            return trainer.start_training()
+    hook_registration = trainer.register_hook if trainer_name != "ft" else nullcontext
 
-    trainer.init()
-    if checkpoint:
-        trainer.resume_from_path(checkpoint)
-    return trainer.start_training()
+    with hook_registration(*hooks):
+        if trainer_name == "pretrain":
+            until = feature_until_from_hooks(*hooks)
+            trainer.forward_until = until
+            with model.set_grad(False, start=until, include_start=False):
+                trainer.init()
+                if checkpoint:
+                    trainer.resume_from_path(checkpoint)
+                return trainer.start_training()
+        # semi + ft
+        trainer.init()
+        if checkpoint:
+            trainer.resume_from_path(checkpoint)
+        return trainer.start_training()
 
 
 if __name__ == '__main__':

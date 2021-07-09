@@ -1,6 +1,6 @@
 import os
 from abc import ABCMeta, abstractmethod
-from contextlib import nullcontext
+from contextlib import nullcontext, contextmanager
 from pathlib import Path
 from typing import Dict, Any
 
@@ -48,12 +48,18 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
         self._scheduler = self._init_scheduler(self._optimizer, scheduler_params=self._config.get("Scheduler", None))
         self.__initialized__ = True
 
+    @contextmanager
     def register_hook(self, *hook: TrainerHook):
         if self.__initialized__:
             raise RuntimeError("`register_hook must be called before `init()``")
         for h in hook:
             assert isinstance(h, TrainerHook), h
             self.__hooks__.append(h)
+        logger.trace("bind TrainerHooks")
+        yield
+        for h in hook:
+            h.close()
+        logger.trace("close TrainerHooks")
 
     def _init_optimizer(self) -> _optimizer_type:
         optim_params = self._config["Optim"]

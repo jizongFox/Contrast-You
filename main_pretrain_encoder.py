@@ -70,24 +70,24 @@ def worker(config, absolute_save_dir, seed, ):
         hooks = create_hook_from_config(model, config, is_pretrain=True, trainer=trainer)
         assert len(hooks) > 0, "empty hooks"
 
-    trainer.register_hook(*hooks)
-    until = feature_until_from_hooks(*hooks)
-    assert until == "Conv5"
-    trainer.forward_until = until
+    with trainer.register_hook(*hooks):
+        until = feature_until_from_hooks(*hooks)
+        assert until == "Conv5"
+        trainer.forward_until = until
 
-    with model.set_grad(False, start=until, include_start=False):
-        trainer.init()
-        if checkpoint:
-            trainer.resume_from_path(checkpoint)
-        trainer.start_training()
+        with model.set_grad(False, start=until, include_start=False):
+            trainer.init()
+            if checkpoint:
+                trainer.resume_from_path(checkpoint)
+            trainer.start_training()
 
-    return model
+        return model
 
 
 if __name__ == '__main__':
     import torch
 
     with logger.catch(reraise=True):
-        torch.set_deterministic(True)
-        # torch.backends.cudnn.benchmark = True  # noqa
+        # torch.set_deterministic(True)
+        torch.backends.cudnn.benchmark = True  # noqa
         main()
