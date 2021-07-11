@@ -45,7 +45,6 @@ def set_model_status(model: nn.Module, *, training: bool):
 
 class DifferentiableMeanTeacherTrainerHook(TrainerHook):
 
-
     def __init__(self, *, name: str, model: nn.Module, weight: float, alpha: float = 0.999, weight_decay: float = 1e-5,
                  meta_weight=1e-3, meta_criterion: str, method_name: str):
         super().__init__(hook_name=name)
@@ -154,14 +153,15 @@ class _DifferentiableMeanTeacherEpocherHook2(_DifferentiableMeanTeacherEpocherHo
                  labeled_image, labeled_target, **kwargs):
         # student t checkpoint
 
+        loss = self.mt_update(unlabeled_tf_logits=unlabeled_tf_logits, unlabeled_image=unlabeled_image,
+                              affine_transformer=affine_transformer)
+        self.meters["consistency_loss"].add(loss.item())
+
         self.__student_ckpt = deepcopy(self.model.state_dict())
         self.__teacher_ckpt = deepcopy(self.teacher_model.state_dict())
         self.__optimizer_ckpt = deepcopy(self.optimizer.state_dict())
         self.__scaler_ckpt = deepcopy(self.scaler.state_dict())
 
-        loss = self.mt_update(unlabeled_tf_logits=unlabeled_tf_logits, unlabeled_image=unlabeled_image,
-                              affine_transformer=affine_transformer)
-        self.meters["consistency_loss"].add(loss.item())
         return self._weight * loss
 
     def before_batch_update(self, **kwargs):
@@ -171,7 +171,6 @@ class _DifferentiableMeanTeacherEpocherHook2(_DifferentiableMeanTeacherEpocherHo
     @meter_focus
     def after_batch_update(self, labeled_image, labeled_target, seed, **kwargs):
         # getting a new teacher
-        # print("model p mean after update:", next(self.model.parameters()).max())
         self._updater(ema_model=self.teacher_model, student_model=self.model)
         self.teacher_model.zero_grad()
         with set_model_status(self.teacher_model, training=False):
@@ -187,12 +186,9 @@ class _DifferentiableMeanTeacherEpocherHook2(_DifferentiableMeanTeacherEpocherHo
 
         self.meters["teacher_loss"].add(meta_loss.item())
 
-        self.teacher_model.zero_grad()
         self.model.zero_grad()
         self.teacher_model.load_state_dict(self.__teacher_ckpt)
         self.model.load_state_dict(self.__student_ckpt)
-        # print("statedict p mean:", next(iter(self.__student_ckpt.values())).max())
-        # print("model p mean after reverting checkpoint:", next(self.model.parameters()).max())
         self.optimizer.load_state_dict(self.__optimizer_ckpt)
         self.scaler.load_state_dict(self.__scaler_ckpt)
 
@@ -204,7 +200,6 @@ class _DifferentiableMeanTeacherEpocherHook2(_DifferentiableMeanTeacherEpocherHo
 
         self.scaler.step(self.optimizer)
         self.scaler.update()
-        # print("model p mean after true update:", next(self.model.parameters()).max())
         self._updater(ema_model=self.teacher_model, student_model=self.model)
         self.optimizer.zero_grad()
 
