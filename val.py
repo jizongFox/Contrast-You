@@ -25,7 +25,7 @@ def switch_model_device(model: nn.Module, device: str = "cpu"):
 def val(*, model: nn.Module, save_dir: str, base_config: Dict[str, Any], labeled_ratios: List[float],
         seed: int = 10):
     with switch_model_device(model, device="cpu"):
-        holding_state_dict = OrderedDict(model.state_dict())
+        holding_state_dict = dcopy(OrderedDict(model.state_dict()))
 
     data_params = base_config["Data"]
     loader_l_params = base_config["LabeledLoader"]
