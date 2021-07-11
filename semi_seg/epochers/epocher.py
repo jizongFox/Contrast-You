@@ -49,6 +49,16 @@ class EpocherBase(_EpocherBase, ABC):
         super().__init__(model=model, num_batches=num_batches, cur_epoch=cur_epoch, device=device, scaler=scaler,
                          **kwargs)
         self._initialized = False
+        self._retain_graph = False
+
+    @property
+    def retain_graph(self):
+        return self._retain_graph
+
+    @retain_graph.setter
+    def retain_graph(self, enable):
+        logger.trace(f"retain_graph = {enable}")
+        self._retain_graph = enable
 
     @final
     def run(self):
@@ -162,8 +172,8 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
         if self._unlabeled_loader is not None:
             assert_transform_freedom(self._unlabeled_loader, False)
 
-    def __init__(self, *, model: nn.Module, optimizer: optimizerType, labeled_loader: dataIterType,
-                 unlabeled_loader: dataIterType, sup_criterion: criterionType, num_batches: int, cur_epoch=0,
+    def __init__(self, *, model: nn.Module, optimizer: optimizerType, labeled_loader: SizedIterable,
+                 unlabeled_loader: SizedIterable, sup_criterion: criterionType, num_batches: int, cur_epoch=0,
                  device="cpu", two_stage: bool = False, disable_bn: bool = False, scaler: GradScaler,
                  accumulate_iter: int, **kwargs) -> None:
         super().__init__(model=model, num_batches=num_batches, cur_epoch=cur_epoch, device=device, scaler=scaler,
@@ -221,14 +231,18 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
                               label_group=label_group, unlabeled_image=unlabeled_image,
                               unlabeled_image_tf=unlabeled_image_tf,
                               seed=seed, unl_group=unl_group, unl_partition=unl_partition,
-                              unlabeled_filename=unlabeled_filename)
+                              unlabeled_filename=unlabeled_filename,
+                              retain_graph=self._retain_graph)
 
             report_dict = self.meters.statistics()
             self.indicator.set_postfix_statics(report_dict, cache_time=20)
 
     def _batch_update(self, *, cur_batch_num: int, labeled_image, labeled_target, labeled_filename, label_group,
                       unlabeled_image, unlabeled_image_tf, seed, unl_group, unl_partition, unlabeled_filename,
+                      retain_graph=False,
                       **kwargs):
+        self.optimizer_zero(self._optimizer, cur_iter=cur_batch_num)
+
         with self.autocast:
             label_logits, unlabeled_logits, unlabeled_tf_logits = self.forward_pass(
                 labeled_image=labeled_image,
@@ -245,7 +259,7 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
             reg_loss = self.regularization(
                 seed=seed,
                 labeled_image=labeled_image,
-                labeled_target = labeled_target,
+                labeled_target=labeled_target,
                 unlabeled_image=unlabeled_image,
                 unlabeled_image_tf=unlabeled_image_tf,
                 unlabeled_tf_logits=unlabeled_tf_logits,
@@ -259,9 +273,8 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
 
         total_loss = sup_loss + reg_loss
         # gradient backpropagation
-        self.scale_loss(total_loss).backward()
+        self.scale_loss(total_loss).backward(retain_graph=retain_graph)
         self.optimizer_step(self._optimizer, cur_iter=cur_batch_num)
-        self.optimizer_zero(self._optimizer, cur_iter=cur_batch_num)
 
         # recording can be here or in the regularization method
         if self.on_master():
@@ -321,7 +334,11 @@ class FineTuneEpocher(SemiSupervisedEpocher, ABC):
         label_logits = self._model(labeled_image)
         return label_logits
 
-    def _batch_update(self, *, cur_batch_num: int, labeled_image, labeled_target, label_group, **kwargs):
+    def _batch_update(self, *, cur_batch_num: int, labeled_image, labeled_target, label_group, retain_graph=False,
+                      **kwargs):
+        self.optimizer_zero(self._optimizer, cur_iter=cur_batch_num)
+        # allowing to manipulate the gradient for after_batch_update_hook
+
         with self.autocast:
             label_logits: Tensor = self.forward_pass(labeled_image=labeled_image)  # noqa
             # supervised part
@@ -330,9 +347,8 @@ class FineTuneEpocher(SemiSupervisedEpocher, ABC):
 
         total_loss = sup_loss
         # gradient backpropagation
-        self.scale_loss(total_loss).backward()
+        self.scale_loss(total_loss).backward(retain_graph=retain_graph)
         self.optimizer_step(self._optimizer, cur_iter=cur_batch_num)
-        self.optimizer_zero(self._optimizer, cur_iter=cur_batch_num)
         # recording can be here or in the regularization method
         if self.on_master():
             with torch.no_grad():
