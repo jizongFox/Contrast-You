@@ -160,7 +160,6 @@ class _DifferentiableMeanTeacherEpocherHook2(_DifferentiableMeanTeacherEpocherHo
         self.__student_ckpt = deepcopy(self.model.state_dict())
         self.__teacher_ckpt = deepcopy(self.teacher_model.state_dict())
         self.__optimizer_ckpt = deepcopy(self.optimizer.state_dict())
-        self.__scaler_ckpt = deepcopy(self.scaler.state_dict())
 
         return self._weight * loss
 
@@ -190,7 +189,6 @@ class _DifferentiableMeanTeacherEpocherHook2(_DifferentiableMeanTeacherEpocherHo
         self.teacher_model.load_state_dict(self.__teacher_ckpt)
         self.model.load_state_dict(self.__student_ckpt)
         self.optimizer.load_state_dict(self.__optimizer_ckpt)
-        self.scaler.load_state_dict(self.__scaler_ckpt)
 
         # with autocast(enabled=False):
         # update the weighted gradient.
@@ -199,7 +197,6 @@ class _DifferentiableMeanTeacherEpocherHook2(_DifferentiableMeanTeacherEpocherHo
                 p.grad.data.copy_(student_g.data + self._meta_weight * meta_g.data)
 
         self.scaler.step(self.optimizer)
-        self.scaler.update()
         self._updater(ema_model=self.teacher_model, student_model=self.model)
         self.optimizer.zero_grad()
 

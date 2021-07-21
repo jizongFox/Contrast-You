@@ -86,10 +86,9 @@ def plt_interactive():
     plt.ioff()
 
 
-def extract_model_state_dict(trainer_checkpoint_path: str):
+def extract_model_state_dict(trainer_checkpoint_path: str, *, keyword="_model"):
     trainer_state = torch.load(trainer_checkpoint_path, map_location="cpu")
-
-    return trainer_state["_model"]
+    return trainer_state[keyword]
 
 
 def deprecated(func):
