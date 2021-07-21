@@ -1,7 +1,9 @@
 from copy import deepcopy
 
 import torch
+from loguru import logger
 from torch import nn
+from torch.nn.modules.batchnorm import _BatchNorm
 
 from contrastyou.hooks.base import TrainerHook, EpocherHook
 from contrastyou.meters import AverageValueMeter, MeterInterface
@@ -62,11 +64,14 @@ class EMAUpdater:
 
 class MeanTeacherTrainerHook(TrainerHook):
 
-    def __init__(self, name: str, model: nn.Module, weight: float, alpha: float = 0.999, weight_decay: float = 1e-5):
+    def __init__(self, name: str, model: nn.Module, weight: float, alpha: float = 0.999, weight_decay: float = 1e-5,
+                 update_bn=False):
         super().__init__(hook_name=name)
         self._weight = weight
         self._criterion = nn.MSELoss()
-        self._updater = EMAUpdater(alpha=alpha, weight_decay=weight_decay)
+        if update_bn:
+            logger.info("Update bn and set all bn to be eval model")
+        self._updater = EMAUpdater(alpha=alpha, weight_decay=weight_decay, update_bn=update_bn)
         self._teacher_model = deepcopy(model)
         for p in self._teacher_model.parameters():
             p.detach_()
@@ -89,6 +94,11 @@ class _MeanTeacherEpocherHook(EpocherHook):
         self._updater = updater
 
         self._teacher_model.train()
+        if updater._update_bn:  # noqa
+            # if update bn, then, freeze all bn in the network to eval()
+            for m in self._teacher_model.modules():
+                if isinstance(m, _BatchNorm):
+                    m.eval()
 
     @meter_focus
     def configure_meters(self, meters: MeterInterface):

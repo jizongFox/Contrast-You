@@ -1,8 +1,9 @@
 import os
+from copy import deepcopy
 from itertools import cycle
 from typing import Union, List
 
-from contrastyou import CONFIG_PATH, git_hash
+from contrastyou import CONFIG_PATH, git_hash, on_cc
 from contrastyou.configure import dictionary_merge_by_hierachy
 from contrastyou.configure.yaml_parser import yaml_load, yaml_write
 from contrastyou.submitter import SlurmSubmitter as JobSubmiter
@@ -45,14 +46,19 @@ class PretrainSPInfoNCEScriptGenerator(PretrainScriptGenerator):
 
         self.hook_config = yaml_load(os.path.join(CONFIG_PATH, "hooks", "spinfonce.yaml"))
 
-    def get_hook_params(self, weight, contrast_on, begin_values, end_values, mode, correct_grad):
-        return {"SPInfonceParams": {"weights": weight,
-                                    "contrast_ons": contrast_on,
-                                    "begin_values": begin_values,
-                                    "end_values": end_values,
-                                    "mode": mode,
-                                    "correct_grad": correct_grad
-                                    }}
+    def get_hook_params(self, weight, contrast_on, begin_values, end_values, mode, correct_grad, feature_names="Conv5"):
+        return {
+            "SPInfonceParams":
+                {
+                    "weights": weight,
+                    "contrast_ons": contrast_on,
+                    "begin_values": begin_values,
+                    "end_values": end_values,
+                    "mode": mode,
+                    "correct_grad": correct_grad,
+                    "feature_names": feature_names
+                }
+        }
 
     def grid_search_on(self, *, seed: Union[int, List[int]], **kwargs):
         jobs = []
@@ -86,8 +92,8 @@ if __name__ == '__main__':
     pre_max_epoch = pre_max_epoch_zoo[data_name]
     ft_max_epoch = ft_max_epoch_zoo[data_name]
     lr = ft_lr_zooms[data_name]
-    force_show = True
-    on_local = False
+    force_show = False
+    on_local = not on_cc()
     contrast_on = ["partition", "cycle", "patient", "self"] if data_name == "acdc" else ["partition", "patient", "self"]
 
     submittor = JobSubmiter(work_dir="../", stop_on_error=False, on_local=on_local)
@@ -140,6 +146,19 @@ if __name__ == '__main__':
         seed=seed, weight=1, contrast_on=contrast_on,
         begin_values=[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5], end_values=[10, 20, 30, 40, 50, 60, 70],
         mode="soft", correct_grad=False
+    )
+    for j in jobs:
+        submittor.submit(j, account=next(account), force_show=force_show, time=8)
+
+    # combining the pretrained losses together.'
+    contrast_on_ = deepcopy(contrast_on)
+    if "self" in contrast_on_:
+        contrast_on_.remove("self")
+    jobs = spinfonce_generator.grid_search_on(
+        seed=seed, weight=[[1, 0.1, 0.1], [1, 0.2, 0.1], [1, 0.01, 0.01], [1, 0.001, 0.001]],
+        contrast_on=[contrast_on_],
+        begin_values=[[3, 1.5, 1.5]], end_values=[[60, 50, 70]],
+        mode="soft", correct_grad=False, feature_names=[["Conv5"] * 3]
     )
     for j in jobs:
         submittor.submit(j, account=next(account), force_show=force_show, time=8)

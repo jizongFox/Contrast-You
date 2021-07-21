@@ -64,7 +64,7 @@ class MeanTeacherScriptGenerator(BaselineGenerator):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser("adv method")
+    parser = argparse.ArgumentParser("mt method")
     parser.add_argument("--data-name", required=True, type=str, help="dataset_name",
                         choices=["acdc", "prostate", "mmwhsct"])
     parser.add_argument("--save_dir", required=True, type=str, help="save_dir")
