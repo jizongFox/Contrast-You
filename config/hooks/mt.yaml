@@ -1,6 +1,6 @@
-
 MeanTeacherParameters:
   weight: 10
   alpha: 0.999
   weight_decay: 0.000001
   update_bn: false
+  num_teachers: 1

@@ -22,10 +22,11 @@ class MeanTeacherScriptGenerator(BaselineGenerator):
 
         self.hook_config = yaml_load(os.path.join(CONFIG_PATH, "hooks", "mt.yaml"))
 
-    def get_hook_params(self, weight, two_stage, disable_bn):
+    def get_hook_params(self, weight, two_stage, disable_bn, num_teachers):
         return {
             "MeanTeacherParameters":
-                {"weight": weight},
+                {"weight": weight,
+                 "num_teachers": num_teachers},
             "Trainer":
                 {"two_stage": two_stage,
                  "disable_bn": disable_bn}
@@ -35,7 +36,7 @@ class MeanTeacherScriptGenerator(BaselineGenerator):
         from semi_seg import ft_lr_zooms
         ft_lr = ft_lr_zooms[self._data_name]
 
-        return f"python main.py Trainer.name=semi  Trainer.save_dir={save_dir} " \
+        return f"python main.py Trainer.name=mt  Trainer.save_dir={save_dir} " \
                f" Optim.lr={ft_lr:.7f} RandomSeed={str(seed)} Data.labeled_scan_num={int(labeled_scan_num)} " \
                f" {' '.join(self.conditions)} " \
                f" --opt-path {hook_path}"
@@ -90,7 +91,7 @@ if __name__ == '__main__':
         "python -c 'import torch; print(torch.randn(1,1,1,1,device=\"cuda\"))'",
         "nvidia-smi"
     ])
-    submittor.configure_sbatch(mem=48)
+    submittor.configure_sbatch(mem=16)
     seed = [10, 20, 30]
     data_name = args.data_name
     save_dir = f"{args.save_dir}/mt/hash_{git_hash}/{data_name}"
@@ -103,7 +104,7 @@ if __name__ == '__main__':
                                                   max_epoch=max_epoch)
 
     jobs = script_generator.grid_search_on(seed=seed, two_stage=[True], disable_bn=False,
-                                           weight=[0.001, 0.01, 0.1, 0.2, 0.5, 1, 5, 10, 20])
+                                           weight=[0.001, 0.01, 0.1, 0.2, 0.5, 1, 5, 10, 20], num_teachers=[1, 2, 3, 4])
 
     for j in jobs:
         submittor.submit(j, account=next(account), force_show=force_show, time=8)

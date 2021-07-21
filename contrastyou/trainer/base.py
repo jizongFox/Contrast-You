@@ -103,9 +103,8 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
             with self._storage:  # save csv each epoch
                 train_metrics = self.tra_epoch()
                 if self.on_master():
-                    inference_model = self._inference_model
-                    eval_metrics, cur_score = self.eval_epoch(model=inference_model, loader=self._val_loader)
-                    test_metrics, _ = self.eval_epoch(model=inference_model, loader=self._test_loader)
+                    eval_metrics, cur_score = self.eval_epoch(model=self.inference_model, loader=self._val_loader)
+                    test_metrics, _ = self.eval_epoch(model=self.inference_model, loader=self._test_loader)
 
                     self._storage.add_from_meter_interface(tra=train_metrics, val=eval_metrics, test=test_metrics,
                                                            epoch=self._cur_epoch)
@@ -150,9 +149,20 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
         epocher.run()
         return epocher.get_metric(), epocher.get_score()
 
+    @property
+    def inference_model(self):
+        return self._inference_model
+
     def set_model4inference(self, model: nn.Module):
-        logger.debug(f"change inference model from {id(self._inference_model)} to {id(model)}")
+        logger.trace(f"change inference model from {id(self._inference_model)} to {id(model)}")
         self._inference_model = model
+
+    @contextmanager
+    def switch_inference_model(self, model: nn.Module):
+        previous_ = self.inference_model
+        self.set_model4inference(model)
+        yield
+        self.set_model4inference(previous_)
 
     @property
     def save_dir(self) -> str:

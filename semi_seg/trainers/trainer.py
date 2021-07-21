@@ -14,6 +14,7 @@ from contrastyou.utils.printable import item2str
 from semi_seg.epochers.comparable import MixUpEpocher, AdversarialEpocher
 from semi_seg.epochers.epocher import EpocherBase, SemiSupervisedEpocher, FineTuneEpocher, EvalEpocher
 from semi_seg.helper import SizedIterable
+from semi_seg.hooks import MeanTeacherTrainerHook
 
 
 class SemiTrainer(Trainer):
@@ -59,6 +60,51 @@ class SemiTrainer(Trainer):
                               device=self._device, scaler=self.scaler, accumulate_iter=self._accumulate_iter)
         epocher.init()
         return epocher
+
+
+class MTTrainer(SemiTrainer):
+    def _start_training(self, **kwargs):
+        start_epoch = max(self._cur_epoch + 1, self._start_epoch)
+        self._cur_score: float
+
+        mt_hook = [h for h in self.__hooks__ if isinstance(h, MeanTeacherTrainerHook)]
+        assert len(mt_hook) == 1, mt_hook
+        mt_hook = mt_hook[0]
+
+        for self._cur_epoch in range(start_epoch, self._max_epoch + 1):
+            with self._storage:  # save csv each epoch
+                train_metrics = self.tra_epoch()
+                if self.on_master():
+                    logger.info("inference on teacher model")
+                    with self.switch_inference_model(mt_hook.teacher_model):
+                        eval_metrics, cur_score = self.eval_epoch(model=self.inference_model, loader=self._val_loader)
+                        test_metrics, _________ = self.eval_epoch(model=self.inference_model, loader=self._test_loader)
+                    extra_result = {}
+                    for i, teacher in enumerate(mt_hook.extra_teachers):
+                        logger.info(f"inference on extra teacher model {i}")
+                        with self.switch_inference_model(teacher):
+                            eval_metrics, _ = self.eval_epoch(model=teacher, loader=self._val_loader)
+                            test_metrics, _ = self.eval_epoch(model=teacher, loader=self._test_loader)
+                        extra_result[f"eval_extra_teacher_{i}"] = eval_metrics
+                        extra_result[f"test_extra_teacher_{i}"] = test_metrics
+
+                    self._storage.add_from_meter_interface(tra=train_metrics, val=eval_metrics, test=test_metrics,
+                                                           epoch=self._cur_epoch, **extra_result)
+                    self._writer.add_scalars_from_meter_interface(tra=train_metrics, val=eval_metrics,
+                                                                  test=test_metrics, epoch=self._cur_epoch,
+                                                                  **extra_result)
+
+                if hasattr(self, "_scheduler"):
+                    self._scheduler.step()
+
+                best_case_sofa = self._best_score < cur_score
+                if best_case_sofa:
+                    self._best_score = cur_score
+
+            if self.on_master():
+                self.save_to(save_name="last.pth")
+                if best_case_sofa:
+                    self.save_to(save_name="best.pth")
 
 
 class FineTuneTrainer(SemiTrainer):
