@@ -75,7 +75,7 @@ def worker(config, absolute_save_dir, seed, ):
         assert until == "Conv5"
         trainer.forward_until = until
 
-        with model.set_grad(False, start=until, include_start=False):
+        with model.switch_grad(False, start=until, include_start=False):
             trainer.init()
             if checkpoint:
                 trainer.resume_from_path(checkpoint)

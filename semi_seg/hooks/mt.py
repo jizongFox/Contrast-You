@@ -14,13 +14,13 @@ from semi_seg.hooks import meter_focus
 
 def pair_iterator(model_list: List[nn.Module]) -> Tuple[nn.Module, nn.Module]:
     assert len(model_list) >= 2, len(model_list)
-    current_model = model_list.pop()
-    next_model = model_list.pop()
+    current_model = model_list.pop(0)
+    next_model = model_list.pop(0)
     while True:
         try:
             yield current_model, next_model
             current_model = next_model
-            next_model = model_list.pop()
+            next_model = model_list.pop(0)
         except IndexError:
             break
 

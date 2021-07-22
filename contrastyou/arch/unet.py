@@ -242,7 +242,7 @@ class UNet(nn.Module):
             raise KeyError(name)
 
     @contextmanager
-    def set_grad(self, enable=True, *, start: str = None, end: str = None, include_start=True, include_end=True):
+    def switch_grad(self, enable=True, *, start: str = None, end: str = None, include_start=True, include_end=True):
         _check_params(start, end, include_start, include_end)
         start, end = (start or "Conv1"), (end or "Deconv_1x1")
 
@@ -262,7 +262,7 @@ class UNet(nn.Module):
             cur_module.requires_grad_(prev_state[c])
 
     @contextmanager
-    def set_bn_track(self, enable=True, *, start: str = None, end: str = None, include_start=True, include_end=True):
+    def switch_bn_track(self, enable=True, *, start: str = None, end: str = None, include_start=True, include_end=True):
         _check_params(start, end, include_start, include_end)
         start, end = (start or "Conv1"), (end or "Deconv_1x1")
 
