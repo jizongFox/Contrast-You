@@ -4,4 +4,4 @@ DifferentiableMeanTeacherParameters:
   weight_decay: 0.000001
   meta_weight: 0.00
   meta_criterion: ce # dice
-  method_name: method2 # method1
+  method_name: method1 # method1

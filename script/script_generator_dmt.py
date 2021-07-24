@@ -106,9 +106,10 @@ if __name__ == '__main__':
                                                   max_epoch=max_epoch)
 
     jobs = script_generator.grid_search_on(seed=seed, two_stage=[True],
-                                           weight=[0.1, 0.2],
-                                           meta_weight=[0.0, 0.0000001, 0.000001, 0.00001, 0.0001, 0.001, 0.01],
-                                           meta_criterion=["dice", "ce"], method_name=["method1", "method2"])
+                                           weight=[0.1, 0.2, 0.3],
+                                           # meta_weight=[0.0, 0.0000001, 0.000001, 0.00001, 0.0001, 0.001, 0.01],
+                                           meta_criterion=["dice", "ce"],
+                                           method_name=["mt", "method1", "method2", "method3"])
 
     for j in jobs:
         submittor.submit(j, account=next(account), force_show=force_show, time=12)

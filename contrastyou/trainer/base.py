@@ -1,6 +1,7 @@
 import os
 from abc import ABCMeta, abstractmethod
 from contextlib import nullcontext, contextmanager
+from itertools import chain
 from pathlib import Path
 from typing import Dict, Any
 
@@ -67,8 +68,8 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
             **{k: v for k, v in optim_params.items() if k != "name" and k != "pre_lr" and k != "ft_lr"}
         )
         optimizer.add_param_group(
-            {"params": self.__hooks__.parameters(), **{k: v for k, v in optim_params.items()
-                                                       if k != "name" and k != "pre_lr" and k != "ft_lr"}})
+            {"params": chain(*[x.parameters() for x in self.__hooks__]),
+             **{k: v for k, v in optim_params.items() if k != "name" and k != "pre_lr" and k != "ft_lr"}})
         return optimizer
 
     def _init_scheduler(self, optimizer, scheduler_params):

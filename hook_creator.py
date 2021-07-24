@@ -30,6 +30,7 @@ def create_hook_from_config(model, config, *, is_pretrain=False, trainer):
             raise RuntimeError("`MeanTeacherParameters` are not supported for pretrain stage")
         mt_hook = create_mt_hook(model=model, **config["MeanTeacherParameters"])
         hooks.append(mt_hook)
+        trainer.set_model4inference(mt_hook.teacher_model)
 
     if "DifferentiableMeanTeacherParameters" in config:
         if is_pretrain:
