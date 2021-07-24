@@ -13,7 +13,7 @@ from contrastyou.meters import Storage
 from contrastyou.writer import SummaryWriter
 from semi_seg.epochers.epocher import EpocherBase
 from semi_seg.epochers.pretrain import PretrainEncoderEpocher, PretrainDecoderEpocher
-from semi_seg.helper import SizedIterable
+from contrastyou.types import SizedIterable
 from semi_seg.trainers._helper import _get_contrastive_dataloader
 from semi_seg.trainers.trainer import SemiTrainer
 

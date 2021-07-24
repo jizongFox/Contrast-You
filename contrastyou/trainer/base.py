@@ -9,7 +9,6 @@ from loguru import logger
 from torch import nn
 
 from contrastyou import optim, MODEL_PATH, success
-from semi_seg.helper import SizedIterable
 from ._functional import _ToMixin
 from ._io import _IOMixin
 from ..amp import DDPMixin
@@ -18,7 +17,7 @@ from ..hooks.base import TrainerHook
 from ..losses.kl import KL_div
 from ..meters import Storage
 from ..optim import GradualWarmupScheduler
-from ..types import optimizerType as _optimizer_type
+from ..types import optimizerType as _optimizer_type, SizedIterable
 from ..writer import SummaryWriter
 
 

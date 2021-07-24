@@ -1,6 +1,7 @@
 import random
 from abc import ABC
 from contextlib import nullcontext
+from copy import deepcopy
 from functools import lru_cache, partial
 from typing import Any, Dict, Optional, final
 
@@ -14,13 +15,13 @@ from contrastyou.augment.tensor_augment import TensorRandomFlip
 from contrastyou.epochers.base import EpocherBase as _EpocherBase
 from contrastyou.losses.kl import KL_div
 from contrastyou.meters import MeterInterface, UniversalDice, AverageValueMeter
-from contrastyou.types import criterionType, optimizerType, dataIterType
+from contrastyou.types import criterionType, optimizerType, dataIterType, SizedIterable, CriterionType
 from contrastyou.utils import get_dataset, class_name, fix_all_seed_for_transforms, get_lrs_from_optimizer
 from contrastyou.utils.general import class2one_hot
 from contrastyou.utils.utils import disable_tracking_bn_stats, get_model
 from semi_seg.epochers.helper import preprocess_input_with_twice_transformation, \
     preprocess_input_with_single_transformation
-from semi_seg.helper import SizedIterable
+from semi_seg.hooks import EMAUpdater
 
 
 def assert_transform_freedom(dataloader, is_true):
@@ -355,3 +356,92 @@ class FineTuneEpocher(SemiSupervisedEpocher, ABC):
                 self.meters["sup_loss"].add(sup_loss.item())
                 self.meters["sup_dice"].add(label_logits.max(1)[1], labeled_target.squeeze(1),
                                             group_name=label_group)
+
+
+class DMTEpcoher(SemiSupervisedEpocher):
+    """
+    This class verified the feasibility of `higher` package in the context of mean teacher
+    """
+    meter_focus = "dmt"
+
+    def __init__(self, *, model: nn.Module, teacher_model: nn.Module, optimizer: optimizerType,
+                 labeled_loader: SizedIterable, unlabeled_loader: SizedIterable, sup_criterion: criterionType,
+                 num_batches: int, cur_epoch=0, device="cpu", two_stage: bool = False, disable_bn: bool = False,
+                 scaler: GradScaler, accumulate_iter: int, mt_criterion: CriterionType, ema_updater: EMAUpdater,
+                 mt_weight=10.0, meta_weight=0.001, **kwargs) -> None:
+        super().__init__(model=model, optimizer=optimizer, labeled_loader=labeled_loader,
+                         unlabeled_loader=unlabeled_loader, sup_criterion=sup_criterion, num_batches=num_batches,
+                         cur_epoch=cur_epoch, device=device, two_stage=two_stage, disable_bn=disable_bn, scaler=scaler,
+                         accumulate_iter=accumulate_iter, **kwargs)
+        self._teacher_model = teacher_model
+        self._mt_criterion = mt_criterion
+        self._mt_weight = mt_weight
+        self._ema_updater = ema_updater
+        self._meta_weight = meta_weight
+
+    def _assertion(self):
+        assert len(self._hooks) == 0
+        assert not self.scaler._enabled, "only support traditional training."  # noqa
+
+    def _batch_update(self, *, cur_batch_num: int, labeled_image, labeled_target, labeled_filename, label_group,
+                      unlabeled_image, unlabeled_image_tf, seed, unl_group, unl_partition, unlabeled_filename,
+                      retain_graph=False, **kwargs):
+        self.optimizer_zero(self._optimizer, cur_iter=cur_batch_num)
+        label_logits, unlabeled_logits, unlabeled_tf_logits = self.forward_pass(
+            labeled_image=labeled_image,
+            unlabeled_image=unlabeled_image,
+            unlabeled_image_tf=unlabeled_image_tf
+        )
+
+        unlabeled_logits_tf = self.transform_with_seed(unlabeled_logits, seed=seed)
+        # supervised part
+        one_hot_target = class2one_hot(labeled_target.squeeze(1), self.num_classes)
+        sup_loss = self._sup_criterion(label_logits.softmax(1), one_hot_target)
+        # regularized part
+        reg_loss = self.mt_update(
+            teacher_model=self._teacher_model, unlabeled_tf_logits=unlabeled_tf_logits,
+            unlabeled_image=unlabeled_image,
+            affine_transformer=partial(self.transform_with_seed, seed=seed)
+        )
+        total_loss = sup_loss + reg_loss * 0.1
+        self.teacher_model.zero_grad()
+        old_teacher = deepcopy(self.teacher_model.state_dict())
+
+        # gradient backpropagation
+        first_deriv = torch.autograd.grad(total_loss, tuple(self._model.parameters()), create_graph=True)
+        model_s_1 = [v - self._meta_weight * g for v, g in zip(self._model.parameters(), first_deriv)]
+        model_t_1 = [0.999 * v_t.detach() + 0.001 * v_s_1 for v_t, v_s_1 in
+                     zip(self.teacher_model.parameters(), model_s_1)]
+
+        for p, p_ in zip(self.teacher_model.parameters(), model_t_1):
+            setattr(p, "data", p_.data)
+            setattr(p, "grad", p_.grad)
+
+        meta_loss = self._sup_criterion(self._teacher_model(labeled_image).softmax(1), one_hot_target)
+
+        meta_grad = torch.autograd.grad(meta_loss, tuple(self._model.parameters()), only_inputs=True)
+        self._optimizer.step()
+
+        # recording can be here or in the regularization method
+        self.teacher_model.load_state_dict(old_teacher)
+        self._ema_updater(ema_model=self.teacher_model, student_model=self._model)
+
+        if self.on_master():
+            with torch.no_grad():
+                self.meters["sup_loss"].add(sup_loss.item())
+                self.meters["sup_dice"].add(label_logits.max(1)[1], labeled_target.squeeze(1),
+                                            group_name=label_group)
+                self.meters["reg_loss"].add(reg_loss.item())
+
+    def mt_update(self, *, teacher_model, unlabeled_tf_logits, unlabeled_image, affine_transformer):
+        # taken from mean teacher
+        student_unlabeled_tf_prob = unlabeled_tf_logits.softmax(1)
+        with torch.no_grad():
+            teacher_unlabeled_prob = teacher_model(unlabeled_image).softmax(1)
+            teacher_unlabeled_prob_tf = affine_transformer(teacher_unlabeled_prob)
+        loss = self._mt_criterion(teacher_unlabeled_prob_tf, student_unlabeled_tf_prob)
+        return loss
+
+    @property
+    def teacher_model(self):
+        return self._teacher_model

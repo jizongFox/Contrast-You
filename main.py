@@ -14,13 +14,14 @@ from hook_creator import create_hook_from_config
 from semi_seg.data.creator import get_data
 from semi_seg.hooks import feature_until_from_hooks
 from semi_seg.trainers.pretrain import PretrainEncoderTrainer
-from semi_seg.trainers.trainer import SemiTrainer, FineTuneTrainer, MixUpTrainer, MTTrainer
+from semi_seg.trainers.trainer import SemiTrainer, FineTuneTrainer, MixUpTrainer, MTTrainer, DMTTrainer
 from utils import logging_configs, find_checkpoint
 
 trainer_zoo = {"semi": SemiTrainer,
                "ft": FineTuneTrainer,
                "pretrain": PretrainEncoderTrainer,
                "mt": MTTrainer,
+               "dmt": DMTTrainer,
                "mixup": MixUpTrainer}
 
 
@@ -66,12 +67,13 @@ def worker(config, absolute_save_dir, seed):
     # find the last.pth from the save folder.
     checkpoint = find_checkpoint(trainer.absolute_save_dir)
 
-    if trainer_name != "ft":
+    if trainer_name not in ("ft", "dmt"):
         with fix_all_seed_within_context(seed):
             hooks = create_hook_from_config(model, config, is_pretrain=is_pretrain, trainer=trainer)
             assert len(hooks) > 0, f"You should provide `Hook` configuration for `{trainer_name}` Trainer"
-
-    hook_registration = trainer.register_hook if trainer_name != "ft" else nullcontext
+    else:
+        hooks = []
+    hook_registration = trainer.register_hook if trainer_name not in ("ft", "dmt") else nullcontext
 
     with hook_registration(*hooks):
         if trainer_name == "pretrain":
@@ -82,7 +84,7 @@ def worker(config, absolute_save_dir, seed):
                 if checkpoint:
                     trainer.resume_from_path(checkpoint)
                 return trainer.start_training()
-        # semi + ft
+        # semi + ft +dmt
         trainer.init()
         if checkpoint:
             trainer.resume_from_path(checkpoint)
@@ -93,6 +95,7 @@ if __name__ == '__main__':
     import torch
 
     with logger.catch(reraise=True):
+        torch.autograd.set_detect_anomaly(True)
         torch.set_deterministic(True)
         # torch.backends.cudnn.benchmark = True  # noqa
         main()
