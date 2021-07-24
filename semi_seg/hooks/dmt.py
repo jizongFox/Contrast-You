@@ -279,6 +279,7 @@ class DifferentiableMeanTeacherEpocherHook1(_BaseDMTEpocherHook):
 
     @meter_focus
     def after_batch_update(self, labeled_image: Tensor, labeled_target: Tensor, **kwargs):
+        self._teacher_optimizer.zero_grad()
         self._updater(ema_model=self._teacher_model, student_model=self.model)
         # teacher at t+1
         labeled_prediction_by_teacher = self._teacher_model(labeled_image).softmax(1)
