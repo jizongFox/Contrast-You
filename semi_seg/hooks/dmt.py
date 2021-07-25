@@ -62,12 +62,13 @@ class DifferentiableMeanTeacherTrainerHook(TrainerHook):
         self._method_name = method_name
         logger.info(f"{class_name(self)} method name: {method_name}")
         self._teacher_optimizer = None
-        if method_name in ("method1", "method3"):
+        if method_name in ("method1", "method3", "method4"):
             self._teacher_optimizer = torch.optim.Adam(self._teacher_model.parameters(), lr=meta_weight,
                                                        weight_decay=1e-5)
             self._initialize_teacher_gradient(self._teacher_model, self._teacher_optimizer)
 
-    def _initialize_teacher_gradient(self, teacher_model, teacher_optimizer):
+    @staticmethod
+    def _initialize_teacher_gradient(teacher_model, teacher_optimizer):
         teacher_model(torch.randn(1, 1, 224, 224, device=next(teacher_model.parameters()).device)).mean().backward()
         teacher_optimizer.zero_grad()
 
@@ -84,6 +85,11 @@ class DifferentiableMeanTeacherTrainerHook(TrainerHook):
                 meta_weight=self._meta_weight, teacher_optimizer=self._teacher_optimizer)
         if self._method_name == "method3":
             return DifferentiableMeanTeacherEpocherHook3(
+                name=self._hook_name, model=self._model, weight=self._weight, student_criterion=self._criterion,
+                meta_criterion=self._meta_criterion, teacher_model=self.teacher_model, updater=self._updater,
+                meta_weight=self._meta_weight, teacher_optimizer=self._teacher_optimizer)
+        if self._method_name == "method4":
+            return DifferentiableMeanTeacherEpocherHook4(
                 name=self._hook_name, model=self._model, weight=self._weight, student_criterion=self._criterion,
                 meta_criterion=self._meta_criterion, teacher_model=self.teacher_model, updater=self._updater,
                 meta_weight=self._meta_weight, teacher_optimizer=self._teacher_optimizer)
@@ -129,14 +135,14 @@ class _BaseDMTEpocherHook(EpocherHook):
         self._teacher_model.train()
         self._model.train()
 
-    def mt_update(self, *, unlabeled_tf_logits, unlabeled_image, affine_transformer):
+    def mt_update(self, *, teacher_model, criterion, unlabeled_tf_logits, unlabeled_image, affine_transformer):
         logger.trace("normal mt update.")
         # taken from mean teacher
         student_unlabeled_tf_prob = unlabeled_tf_logits.softmax(1)
         with torch.no_grad():
-            teacher_unlabeled_prob = self.teacher_model(unlabeled_image).softmax(1)
+            teacher_unlabeled_prob = teacher_model(unlabeled_image).softmax(1)
             teacher_unlabeled_prob_tf = affine_transformer(teacher_unlabeled_prob)
-        loss = self._criterion(teacher_unlabeled_prob_tf, student_unlabeled_tf_prob)
+        loss = criterion(teacher_unlabeled_prob_tf, student_unlabeled_tf_prob)
         return loss
 
     @property
@@ -178,6 +184,8 @@ class MTEpocherHook(_BaseDMTEpocherHook):
     def __call__(self, *, unlabeled_tf_logits, unlabeled_image, seed, affine_transformer,
                  **kwargs):
         loss = self.mt_update(
+            teacher_model=self._teacher_model,
+            criterion=self._criterion,
             unlabeled_tf_logits=unlabeled_tf_logits,
             unlabeled_image=unlabeled_image,
             affine_transformer=affine_transformer
@@ -271,7 +279,9 @@ class DifferentiableMeanTeacherEpocherHook1(_BaseDMTEpocherHook):
         loss = self.mt_update(
             unlabeled_tf_logits=unlabeled_tf_logits,
             unlabeled_image=unlabeled_image,
-            affine_transformer=affine_transformer
+            affine_transformer=affine_transformer,
+            teacher_model=self._teacher_model,
+            criterion=self._criterion
         )
         self.meters["consistency_loss"].add(loss.item())
         self._teacher_t_ckpt = deepcopy(OrderedDict(self._teacher_model.state_dict()))  # updated bn for teacher
@@ -368,6 +378,55 @@ class DifferentiableMeanTeacherEpocherHook3(_BaseDMTEpocherHook):
         meta_loss = self._meta_criterion(labeled_prediction_by_teacher, onehot_target)
         meta_loss.backward()
         self._teacher_optimizer.step()
+
+
+class DifferentiableMeanTeacherEpocherHook4(_BaseDMTEpocherHook):
+    """this implements the update rule 2 of christian's proposal with an meta optimizer"""
+
+    def __init__(self, *, name: str, model: nn.Module, teacher_model: nn.Module, student_criterion: CriterionType,
+                 meta_criterion: CriterionType, weight: float, meta_weight: float, updater: EMAUpdater,
+                 teacher_optimizer, **kwargs) -> None:
+        super().__init__(name=name, model=model, teacher_model=teacher_model, student_criterion=student_criterion,
+                         meta_criterion=meta_criterion, weight=weight, meta_weight=meta_weight, updater=updater,
+                         **kwargs)
+        self._teacher_optimizer = teacher_optimizer
+
+    @meter_focus
+    def configure_meters(self, meters: MeterInterface):
+        self.meters.register_meter("consistency_loss", AverageValueMeter())
+        self.meters.register_meter("teacher_loss", AverageValueMeter())
+
+    @meter_focus
+    def before_regularization(self, *, unlabeled_tf_logits, unlabeled_image, seed, affine_transformer,
+                              labeled_image, labeled_target, **kwargs):
+        teacher_model = self.teacher_model
+        self._teacher_optimizer.zero_grad()
+        _ = teacher_model(unlabeled_image).softmax(1)  # to update the bn and save at t
+        self._teacher_ckpt_t = deepcopy(OrderedDict(teacher_model.state_dict()))
+        with switch_model_status(teacher_model, training=False):
+            teacher_labeled_prob = teacher_model(labeled_image).softmax(1)
+        one_hot_target = class2one_hot(labeled_target.squeeze(1), self.num_classes).float()
+
+        teacher_loss = self._meta_criterion(teacher_labeled_prob, one_hot_target)
+        teacher_loss.backward()
+        self._teacher_optimizer.step()
+        # teacher at t+1
+        self.meters["teacher_loss"].add(teacher_loss.item())
+
+    @meter_focus
+    def __call__(self, *, unlabeled_tf_logits, unlabeled_image, seed, affine_transformer,
+                 labeled_image, labeled_target, **kwargs):
+        # a temporal teacher at t + 1 from before_regularization
+        loss = self.mt_update(teacher_model=self._teacher_model, criterion=self._criterion,
+                              unlabeled_image=unlabeled_image, unlabeled_tf_logits=unlabeled_tf_logits,
+                              affine_transformer=affine_transformer)
+        self.meters["consistency_loss"].add(loss.item())
+
+        return self._weight * loss
+
+    def after_batch_update(self, **kwargs):
+        self._teacher_model.load_state_dict(self._teacher_ckpt_t)
+        self._updater(ema_model=self._teacher_model, student_model=self.model)
 
 
 #
