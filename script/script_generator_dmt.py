@@ -22,13 +22,14 @@ class MeanTeacherScriptGenerator(BaselineGenerator):
 
         self.hook_config = yaml_load(os.path.join(CONFIG_PATH, "hooks", "dmt.yaml"))
 
-    def get_hook_params(self, weight, meta_weight, two_stage, meta_criterion, method_name):
+    def get_hook_params(self, weight, meta_weight, two_stage, meta_criterion, method_name, alpha):
         return {
             "DifferentiableMeanTeacherParameters":
                 {"weight": weight,
                  "meta_weight": meta_weight,
                  "meta_criterion": meta_criterion,
-                 "method_name": method_name},
+                 "method_name": method_name,
+                 "alpha": alpha},
             "Trainer":
                 {"two_stage": two_stage,
                  "enable_scale": False}
@@ -108,6 +109,7 @@ if __name__ == '__main__':
     jobs = script_generator.grid_search_on(seed=seed, two_stage=[True],
                                            weight=[0.1, 0.2, 0.3],
                                            meta_weight=[0.0, 0.0000001, 0.000001, 0.00001, 0.0001, 0.001, 0.01],
+                                           alpha=[0.999, 1, 0.99],
                                            meta_criterion=["dice", "ce"],
                                            method_name=["mt", "method1", "method2", "method3", "method4"])
 
