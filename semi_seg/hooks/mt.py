@@ -8,7 +8,7 @@ from torch.nn.modules.batchnorm import _BatchNorm
 
 from contrastyou.hooks.base import TrainerHook, EpocherHook
 from contrastyou.meters import AverageValueMeter, MeterInterface
-from contrastyou.utils import simplex
+from contrastyou.utils import simplex, class2one_hot
 from semi_seg.hooks import meter_focus
 
 
@@ -79,7 +79,7 @@ class EMAUpdater:
 class MeanTeacherTrainerHook(TrainerHook):
 
     def __init__(self, name: str, model: nn.Module, weight: float, alpha: float = 0.999, weight_decay: float = 1e-5,
-                 update_bn=False, num_teachers: int = 1):
+                 update_bn=False, num_teachers: int = 1, hard_clip=False):
         """
         adding parameters: num_teachers to host multiple teacher model
         The first model is going to update the bn or not but the following models must update bn by force
@@ -96,6 +96,7 @@ class MeanTeacherTrainerHook(TrainerHook):
         self._extra_teachers = nn.ModuleList()
         # update extra teacher by force.
         self._extra_teacher_updater = EMAUpdater(alpha=alpha, weight_decay=weight_decay, update_bn=True)
+        self._hard_clip = hard_clip
 
         if num_teachers > 1:
             logger.debug(f"Initializing {num_teachers} extra teachers")
@@ -110,7 +111,8 @@ class MeanTeacherTrainerHook(TrainerHook):
     def __call__(self):
         return _MeanTeacherEpocherHook(name=self._hook_name, weight=self._weight, criterion=self._criterion,
                                        teacher_model=self._teacher_model, updater=self._updater,
-                                       extra_teachers=self._extra_teachers, extra_updater=self._extra_teacher_updater)
+                                       extra_teachers=self._extra_teachers, extra_updater=self._extra_teacher_updater,
+                                       hard_clip=self._hard_clip)
 
     @property
     def teacher_model(self):
@@ -136,12 +138,13 @@ class MeanTeacherTrainerHook(TrainerHook):
 
 class _MeanTeacherEpocherHook(EpocherHook):
     def __init__(self, name: str, weight: float, criterion, teacher_model, updater, extra_teachers,
-                 extra_updater) -> None:
+                 extra_updater, hard_clip: bool = False) -> None:
         super().__init__(name)
         self._weight = weight
         self._criterion = L2LossChecker(criterion)
         self._teacher_model = teacher_model
         self._updater = updater
+        self._hard_clip = hard_clip
 
         self._teacher_model.train()
         if updater._update_bn:  # noqa
@@ -171,6 +174,10 @@ class _MeanTeacherEpocherHook(EpocherHook):
         with torch.no_grad():
             teacher_unlabeled_prob = self.teacher_model(unlabeled_image).softmax(1)
             teacher_unlabeled_prob_tf = affine_transformer(teacher_unlabeled_prob)
+            if self._hard_clip:
+                C = teacher_unlabeled_prob_tf.shape[1]
+                teacher_unlabeled_prob_tf = teacher_unlabeled_prob_tf.max(1)[1]
+                teacher_unlabeled_prob_tf = class2one_hot(teacher_unlabeled_prob_tf, C).float()
         loss = self._criterion(teacher_unlabeled_prob_tf, student_unlabeled_tf_prob)
         self.meters["loss"].add(loss.item())
         return self._weight * loss
