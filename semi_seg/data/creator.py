@@ -35,12 +35,17 @@ def create_dataset(name: str, total_freedom: bool = True):
     return tra_set, test_set
 
 
-def split_dataset_with_predefined_filenames(dataset: DatasetBase, data_name: str, labeled_scan_nums: int):
+def split_dataset_with_predefined_filenames(dataset: DatasetBase, data_name: str, labeled_scan_nums: int, order_num=0):
     try:
-        with open(os.path.join(dataset._root_dir, f"{data_name}_ordering.json"), "r") as f:  # noqa
+        with open(os.path.join(dataset._root_dir, f"{data_name}_ordering_{order_num}.json"), "r") as f:  # noqa
             data_ordering: List[str] = json.load(f)
     except FileNotFoundError:
-        raise FileNotFoundError(f"{data_name} does not have {data_name}_ordering.json to predefine the ordering.")
+        logger.error(f"{data_name} does not have {data_name}_ordering_{order_num}.json.")
+        try:
+            with open(os.path.join(dataset._root_dir, f"{data_name}_ordering.json"), "r") as f:  # noqa
+                data_ordering: List[str] = json.load(f)
+        except FileNotFoundError:
+            raise FileNotFoundError(f"{data_name} does not have {data_name}_ordering.json to predefine the ordering.")
 
     assert set(dataset.get_scan_list()) == set(data_ordering), \
         "dataset inconsistency between ordering.json and the set."
@@ -91,7 +96,7 @@ def create_infinite_loader(dataset, shuffle=True, num_workers: int = 8, batch_si
 
 
 def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params, pretrain=False, group_test=True,
-                     total_freedom=False):
+                     total_freedom=False, order_num: int = 0):
     data_name = data_params["name"]
     tra_set, test_set = create_dataset(data_name, total_freedom)
     if len(tra_set.get_scan_list()) == 0 or len(test_set.get_scan_list()) == 0:
@@ -108,8 +113,8 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
         label_set, unlabeled_set = split_dataset(tra_set, labeled_scan_num)
     else:
         try:
-            label_set, unlabeled_set = split_dataset_with_predefined_filenames(tra_set, data_name,
-                                                                               labeled_scan_nums=labeled_scan_num)
+            label_set, unlabeled_set = split_dataset_with_predefined_filenames(
+                tra_set, data_name, labeled_scan_nums=labeled_scan_num, order_num=order_num)
         except FileNotFoundError as e:
             seed = 1
             logger.critical(f"{data_name} did not find the ordering json file, "
@@ -160,10 +165,12 @@ def create_val_loader(*, test_loader) -> Tuple[DataLoader, DataLoader]:
     return val_dataloader, test_dataloader
 
 
-def get_data(data_params, labeled_loader_params, unlabeled_loader_params, pretrain=False, total_freedom=False):
+def get_data(data_params, labeled_loader_params, unlabeled_loader_params, *, pretrain=False, total_freedom=False,
+             order_num=0):
     labeled_loader, unlabeled_loader, test_loader = get_data_loaders(
         data_params=data_params, labeled_loader_params=labeled_loader_params,
-        unlabeled_loader_params=unlabeled_loader_params, pretrain=pretrain, group_test=True, total_freedom=total_freedom
+        unlabeled_loader_params=unlabeled_loader_params, pretrain=pretrain, group_test=True,
+        total_freedom=total_freedom, order_num=order_num
     )
     val_loader, test_loader = create_val_loader(test_loader=test_loader)
     return labeled_loader, unlabeled_loader, val_loader, test_loader

@@ -53,9 +53,10 @@ def worker(config, absolute_save_dir, seed, ):
         logger.info(f"loading checkpoint from  {model_checkpoint}")
         model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=False)
 
+    order_num = config["Data"]["order_num"]
     labeled_loader, unlabeled_loader, val_loader, test_loader = get_data(
         data_params=config["Data"], labeled_loader_params=config["LabeledLoader"],
-        unlabeled_loader_params=config["UnlabeledLoader"], pretrain=True, total_freedom=True)
+        unlabeled_loader_params=config["UnlabeledLoader"], pretrain=True, total_freedom=True, order_num=order_num)
 
     trainer = PretrainEncoderTrainer(model=model, labeled_loader=labeled_loader,
                                      unlabeled_loader=unlabeled_loader,

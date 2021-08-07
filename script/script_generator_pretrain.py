@@ -85,7 +85,7 @@ class PretrainSPInfoNCEScriptGenerator(PretrainScriptGenerator):
 
 
 if __name__ == '__main__':
-    seed = [10, 20, 30]
+    seed = [10]
     data_name = "acdc"
     save_dir = f"contrastive_learn/hash_{git_hash}/{data_name}"
     num_batches = num_batches_zoo[data_name]
