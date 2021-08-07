@@ -135,6 +135,19 @@ class SpleenStrongTransforms:
     val = SequentialWrapper(
         com_transform=transforms.Resize((256, 256), ),
     )
+    trainval = SequentialWrapperTwice(
+        com_transform=transforms.Compose([
+            transforms.RandomCrop(224),
+
+        ]),
+        image_transform=transforms.Compose([
+            transforms.ToTensor()
+        ]),
+        target_transform=transforms.Compose([
+            pil_augment.ToLabel()
+        ]),
+        total_freedom=True
+    )
 
 
 class MMWHSStrongTransforms:

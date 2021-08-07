@@ -1,5 +1,7 @@
 import argparse
 
+from deepclustering2.cchelper import JobSubmiter
+
 from contrastyou import get_git_hash
 from semi_seg import data2class_numbers, ft_lr_zooms, data2input_dim
 from semi_seg.scripts.helper import BindPretrainFinetune, BindContrastive, \

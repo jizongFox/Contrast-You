@@ -3,7 +3,7 @@ trainer_checkpoint: null
 
 Arch:
   input_dim: 1
-  num_classes: 4
+  num_classes: 2
   checkpoint: null
   max_channel: 512
   momentum: 0.01
@@ -18,18 +18,18 @@ Scheduler:
   warmup_max: 10
 
 Data:
-  name: acdc
+  name: spleen
   labeled_scan_num: 1
 
 LabeledLoader:
   shuffle: true
   batch_size: 5
-  num_workers: 5
+  num_workers: 0
 
 UnlabeledLoader:
   shuffle: true
   batch_size: 5
-  num_workers: 5
+  num_workers: 0
 
 Trainer:
   save_dir: tmp

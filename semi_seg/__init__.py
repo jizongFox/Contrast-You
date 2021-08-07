@@ -3,24 +3,28 @@ prostate_ratio = [3, 5, 7, 40]  # 2, 4, 8, 40
 mmwhsct_ratio = [1, 2, 10]
 prostate_md_ratio = [1, 2, 4, 17]  # 1, 2, 4, 8
 mmwhsmr_ratio = [1, 2, 9]
+spleen_ratios = [1, 2, 4]
 
 pre_max_epoch_zoo = {
     "acdc": 80,
     "mmwhsct": 80,
     "mmwhsmr": 80,
     "prostate": 80,
+    "spleen": 80
 }
 ft_max_epoch_zoo = {
     "acdc": 80,
     "mmwhsct": 60,
     "mmwhsmr": 60,
     "prostate": 80,
+    "spleen": 80
 }
 num_batches_zoo = {
     "acdc": 200,
     "mmwhsct": 350,
     "mmwhsmr": 350,
     "prostate": 300,
+    "spleen": 200
 }
 
 ratio_zoo = {
@@ -29,6 +33,7 @@ ratio_zoo = {
     "prostate_md": prostate_md_ratio,
     "mmwhsct": mmwhsct_ratio,
     "mmwhsmr": mmwhsmr_ratio,
+    "spleen": spleen_ratios
 }
 data2class_numbers = {
     "acdc": 4,
@@ -53,7 +58,8 @@ pre_lr_zooms = {
     "prostate": 0.0000005,
     "prostate_md": 0.000005,
     "mmwhsct": 0.0000005,
-    "mmwhsmr": 0.0000005
+    "mmwhsmr": 0.0000005,
+    "spleen": 0.0000005
 }
 
 ft_lr_zooms = {
@@ -64,7 +70,7 @@ ft_lr_zooms = {
     "mmwhsct": 0.000002,
     "mmwhsmr": 0.000002
 }
-__accounts = ["rrg-mpederso", ]
+__accounts = ["def-chdesa", ]
 
 PRETRAIN_BATCH_SIZE_MAX = 50
 # __accounts = ["def-chdesa", "rrg-mpederso", "def-mpederso"]

@@ -85,8 +85,8 @@ class PretrainSPInfoNCEScriptGenerator(PretrainScriptGenerator):
 
 
 if __name__ == '__main__':
-    seed = [10, 20, 30]
-    data_name = "acdc"
+    seed = [10]
+    data_name = "spleen"
     save_dir = f"contrastive_learn/hash_{git_hash}/{data_name}"
     num_batches = num_batches_zoo[data_name]
     pre_max_epoch = pre_max_epoch_zoo[data_name]
@@ -94,12 +94,13 @@ if __name__ == '__main__':
     lr = ft_lr_zooms[data_name]
     force_show = False
     on_local = not on_cc()
-    contrast_on = ["partition", "cycle", "patient", "self"] if data_name == "acdc" else ["partition", "patient", "self"]
+    # contrast_on = ["partition", "cycle", "patient", "self"] if data_name == "acdc" else ["partition", "patient", "self"]
+    contrast_on = ["partition"]
 
     submittor = JobSubmiter(work_dir="../", stop_on_error=False, on_local=on_local)
     submittor.configure_environment([
         "module load python/3.8.2 ",
-        f"source ~/venv/bin/activate ",
+        f"source ~/torchenv37/bin/activate ",
         'if [ $(which python) == "/usr/bin/python" ]',
         "then",
         "exit 9",
@@ -150,15 +151,15 @@ if __name__ == '__main__':
     for j in jobs:
         submittor.submit(j, account=next(account), force_show=force_show, time=8)
 
-    # combining the pretrained losses together.'
-    contrast_on_ = deepcopy(contrast_on)
-    if "self" in contrast_on_:
-        contrast_on_.remove("self")
-    jobs = spinfonce_generator.grid_search_on(
-        seed=seed, weight=[[1, 0.1, 0.1], [1, 0.2, 0.1], [1, 0.01, 0.01], [1, 0.001, 0.001]],
-        contrast_on=[contrast_on_],
-        begin_values=[[3, 1.5, 1.5]], end_values=[[60, 50, 70]],
-        mode="soft", correct_grad=False, feature_names=[["Conv5"] * 3]
-    )
-    for j in jobs:
-        submittor.submit(j, account=next(account), force_show=force_show, time=8)
+    # # combining the pretrained losses together.'
+    # contrast_on_ = deepcopy(contrast_on)
+    # if "self" in contrast_on_:
+    #     contrast_on_.remove("self")
+    # jobs = spinfonce_generator.grid_search_on(
+    #     seed=seed, weight=[[1, 0.1, 0.1], [1, 0.2, 0.1], [1, 0.01, 0.01], [1, 0.001, 0.001]],
+    #     contrast_on=[contrast_on_],
+    #     begin_values=[[3, 1.5, 1.5]], end_values=[[60, 50, 70]],
+    #     mode="soft", correct_grad=False, feature_names=[["Conv5"] * 3]
+    # )
+    # for j in jobs:
+    #     submittor.submit(j, account=next(account), force_show=force_show, time=8)

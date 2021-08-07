@@ -7,7 +7,7 @@ from torch.utils.data.dataloader import _BaseDataLoaderIter as BaseDataLoaderIte
 from contrastyou import get_cc_data_path
 from contrastyou.data import InfiniteRandomSampler, ScanBatchSampler, DatasetBase
 from contrastyou.utils import get_dataset, fix_seed
-from semi_seg.data import ACDCDataset, ProstateDataset, mmWHSCTDataset, ProstateMDDataset
+from semi_seg.data import ACDCDataset, ProstateDataset, mmWHSCTDataset, ProstateMDDataset, SpleenDataset
 from semi_seg.data.creator import augment_zoo, data_zoo
 from semi_seg.data.rearr import ContrastBatchSampler
 
@@ -17,7 +17,8 @@ def get_partition_num(name: str):
                          "prostate": ProstateDataset.partition_num,
                          "mmwhsct": mmWHSCTDataset.partition_num,
                          "mmwhsmr": mmWHSCTDataset.partition_num,
-                         "prostate_md": ProstateMDDataset.partition_num}
+                         "prostate_md": ProstateMDDataset.partition_num,
+                         "spleen": SpleenDataset.partition_num}
     return partition_num_zoo[name]
 
 

@@ -39,7 +39,7 @@ def preprocess_input_with_twice_transformation(data, device, non_blocking=True):
 def preprocess_input_with_single_transformation(data, device, non_blocking=True):
     if len(data[0]) == 2:
         return data[0][0].to(device, non_blocking=non_blocking), data[0][1].to(device, non_blocking=non_blocking), \
-               data[1], *data[2]
+               data[1], data[2]
     (t2, dw, target), filename, (partition_list, group_list) = \
         to_device(data[0], device, non_blocking), data[1], data[2]
     return torch.cat([t2, dw], dim=1), target, filename, partition_list, group_list
