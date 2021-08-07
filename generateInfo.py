@@ -20,14 +20,14 @@ def glob_folder(current_folder: Path, postfix: str) -> List[str]:
 
 
 if __name__ == "__main__":
-    image_root = Path('.data/Spleen/train/img')
+    image_root = Path('.data/Hippocampus/train/img')
     dataset_postfix = "png"
     content_list = glob_folder(image_root, dataset_postfix)
     imgs_list = os.listdir(image_root)
     info_all =[]
 
-    info_all = {f'Patient_{scan_num}': sum(img_q[0:10] == f'Patient_{scan_num}' for img_q in imgs_list) for scan_num in content_list}
+    info_all = {f'hippocampus_{scan_num}': sum(img_q[0:15] == f'hippocampus_{scan_num}' for img_q in imgs_list) for scan_num in content_list}
 
-    np.save('spleen_info', info_all)
-    np.load(("spleen_info.npy"), allow_pickle=True).item()
+    np.save('hippocampus_info', info_all)
+    # np.load(("hippocampus_info.npy"), allow_pickle=True).item()
 

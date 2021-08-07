@@ -137,7 +137,7 @@ class SpleenStrongTransforms:
     )
     trainval = SequentialWrapperTwice(
         com_transform=transforms.Compose([
-            transforms.RandomCrop(224),
+            transforms.RandomCrop(256),
 
         ]),
         image_transform=transforms.Compose([
@@ -197,3 +197,55 @@ class MMWHSStrongTransforms:
         ]),
         total_freedom=True
     )
+
+
+class HippocampusStrongTransforms:
+    pretrain = SequentialWrapperTwice(
+        com_transform=transforms.Compose([
+            transforms.Resize((144, 144), ),
+            transforms.RandomRotation(10),
+            transforms.RandomVerticalFlip(),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomCrop(144, padding=20),
+
+        ]),
+        image_transform=transforms.Compose([
+            transforms.ColorJitter(brightness=[0.9, 1.1], contrast=[0.9, 1.1], saturation=[0.9, 1.1]),
+            transforms.ToTensor()
+        ]),
+        target_transform=transforms.Compose([
+            pil_augment.ToLabel()
+        ]),
+        total_freedom=True
+    )
+    label = SequentialWrapperTwice(
+        com_transform=transforms.Compose([
+            transforms.Resize((144, 144), ),
+            transforms.RandomCrop(144, padding=20),
+            transforms.RandomRotation(10),
+        ]),
+        image_transform=transforms.Compose([
+            transforms.ToTensor()
+        ]),
+        target_transform=transforms.Compose([
+            pil_augment.ToLabel()
+        ]),
+    )
+    val = SequentialWrapper(
+        com_transform=transforms.Resize((144, 144), ),
+    )
+    trainval = SequentialWrapperTwice(
+        com_transform=transforms.Compose([
+            transforms.RandomCrop(144),
+
+        ]),
+        image_transform=transforms.Compose([
+            transforms.ToTensor()
+        ]),
+        target_transform=transforms.Compose([
+            pil_augment.ToLabel()
+        ]),
+        total_freedom=True
+    )
+
+

@@ -86,7 +86,7 @@ class PretrainSPInfoNCEScriptGenerator(PretrainScriptGenerator):
 
 if __name__ == '__main__':
     seed = [10]
-    data_name = "spleen"
+    data_name = "hippocampus"
     save_dir = f"contrastive_learn/hash_{git_hash}/{data_name}"
     num_batches = num_batches_zoo[data_name]
     pre_max_epoch = pre_max_epoch_zoo[data_name]
@@ -126,7 +126,7 @@ if __name__ == '__main__':
     )
 
     for j in jobs:
-        submittor.submit(j, account=next(account), force_show=force_show, time=8)
+        submittor.submit(j, account=next(account), force_show=force_show, time=2)
 
     infonce_generator = PretrainSPInfoNCEScriptGenerator(
         data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/infonce", pre_max_epoch=pre_max_epoch,
@@ -137,7 +137,7 @@ if __name__ == '__main__':
         mode="hard", correct_grad=False
     )
     for j in jobs:
-        submittor.submit(j, account=next(account), force_show=force_show, time=8)
+        submittor.submit(j, account=next(account), force_show=force_show, time=2)
 
     spinfonce_generator = PretrainSPInfoNCEScriptGenerator(
         data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/spinfonce", pre_max_epoch=pre_max_epoch,
@@ -145,11 +145,13 @@ if __name__ == '__main__':
     )
     jobs = spinfonce_generator.grid_search_on(
         seed=seed, weight=1, contrast_on=contrast_on,
-        begin_values=[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5], end_values=[10, 20, 30, 40, 50, 60, 70],
+        # begin_values=[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5], end_values=[10, 20, 30, 40, 50, 60, 70],
+        begin_values=[1], end_values=[10, 20],
+
         mode="soft", correct_grad=False
     )
     for j in jobs:
-        submittor.submit(j, account=next(account), force_show=force_show, time=8)
+        submittor.submit(j, account=next(account), force_show=force_show, time=2)
 
     # # combining the pretrained losses together.'
     # contrast_on_ = deepcopy(contrast_on)

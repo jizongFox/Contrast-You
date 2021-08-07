@@ -4,27 +4,31 @@ mmwhsct_ratio = [1, 2, 10]
 prostate_md_ratio = [1, 2, 4, 17]  # 1, 2, 4, 8
 mmwhsmr_ratio = [1, 2, 9]
 spleen_ratios = [1, 2, 4]
+hippocampus_ratios = [1, 2, 4]
 
 pre_max_epoch_zoo = {
     "acdc": 80,
     "mmwhsct": 80,
     "mmwhsmr": 80,
     "prostate": 80,
-    "spleen": 80
+    "spleen": 80,
+    "hippocampus": 80
 }
 ft_max_epoch_zoo = {
     "acdc": 80,
     "mmwhsct": 60,
     "mmwhsmr": 60,
     "prostate": 80,
-    "spleen": 80
+    "spleen": 80,
+    "hippocampus": 80
 }
 num_batches_zoo = {
     "acdc": 200,
     "mmwhsct": 350,
     "mmwhsmr": 350,
     "prostate": 300,
-    "spleen": 200
+    "spleen": 200,
+    "hippocampus": 200
 }
 
 ratio_zoo = {
@@ -33,7 +37,8 @@ ratio_zoo = {
     "prostate_md": prostate_md_ratio,
     "mmwhsct": mmwhsct_ratio,
     "mmwhsmr": mmwhsmr_ratio,
-    "spleen": spleen_ratios
+    "spleen": spleen_ratios,
+    "hippocampus": hippocampus_ratios
 }
 data2class_numbers = {
     "acdc": 4,
@@ -42,6 +47,7 @@ data2class_numbers = {
     "spleen": 2,
     "mmwhsct": 5,
     "mmwhsmr": 5,
+    "hippocampus": 3
 
 }
 data2input_dim = {
@@ -51,6 +57,7 @@ data2input_dim = {
     "spleen": 1,
     "mmwhsct": 1,
     "mmwhsmr": 1,
+    "hippocampus": 1
 }
 
 pre_lr_zooms = {
@@ -59,7 +66,8 @@ pre_lr_zooms = {
     "prostate_md": 0.000005,
     "mmwhsct": 0.0000005,
     "mmwhsmr": 0.0000005,
-    "spleen": 0.0000005
+    "spleen": 0.0000005,
+    "hippocampus": 0.0000005,
 }
 
 ft_lr_zooms = {
@@ -68,7 +76,8 @@ ft_lr_zooms = {
     "prostate_md": 0.0000005,
     "spleen": 0.000001,
     "mmwhsct": 0.000002,
-    "mmwhsmr": 0.000002
+    "mmwhsmr": 0.000002,
+    "hippocampus": 0.0000002,
 }
 __accounts = ["def-chdesa", ]
 
