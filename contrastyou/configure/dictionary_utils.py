@@ -117,7 +117,7 @@ def extract_params_with_key_prefix(item: Dict[str, Any], prefix: str) -> Dict:
                     del result_dict[_k]
         return result_dict
     if is_iterable(item):
-        return [extract_params_with_key_prefix(x, prefix=prefix) for x in v]
+        return type(item)([extract_params_with_key_prefix(x, prefix=prefix) for x in item])
     if isinstance(item, (str, Number, torch.Tensor, np.ndarray)):
         return item
     else:
