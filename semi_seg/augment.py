@@ -202,11 +202,11 @@ class MMWHSStrongTransforms:
 class HippocampusStrongTransforms:
     pretrain = SequentialWrapperTwice(
         com_transform=transforms.Compose([
-            transforms.Resize((144, 144), ),
+            transforms.Resize((64, 64), ),
             transforms.RandomRotation(10),
             transforms.RandomVerticalFlip(),
             transforms.RandomHorizontalFlip(),
-            transforms.RandomCrop(144, padding=20),
+            transforms.RandomCrop(64, padding=20),
 
         ]),
         image_transform=transforms.Compose([
@@ -220,8 +220,8 @@ class HippocampusStrongTransforms:
     )
     label = SequentialWrapperTwice(
         com_transform=transforms.Compose([
-            transforms.Resize((144, 144), ),
-            transforms.RandomCrop(144, padding=20),
+            transforms.Resize((64, 64), ),
+            transforms.RandomCrop(64, padding=20),
             transforms.RandomRotation(10),
         ]),
         image_transform=transforms.Compose([
@@ -232,11 +232,11 @@ class HippocampusStrongTransforms:
         ]),
     )
     val = SequentialWrapper(
-        com_transform=transforms.Resize((144, 144), ),
+        com_transform=transforms.Resize((64, 64), ),
     )
     trainval = SequentialWrapperTwice(
         com_transform=transforms.Compose([
-            transforms.RandomCrop(144),
+            transforms.RandomCrop(64),
 
         ]),
         image_transform=transforms.Compose([
