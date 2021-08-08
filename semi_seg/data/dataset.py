@@ -133,7 +133,7 @@ class SpleenDataset(ContrastDataset, _spleen):
         super().__init__(root_dir=root_dir, mode=mode, transforms=transforms)
         self._spleen_info: Dict[str, int] \
             = np.load(os.path.join(self._root_dir, "spleen_info.npy"), allow_pickle=True).item()  # noqa
-        assert isinstance(self._spleen_info, dict) and len(self._spleen_info) == 36
+        assert isinstance(self._spleen_info, dict) and len(self._spleen_info) == 41
 
     def __getitem__(self, index) -> Tuple[List[Tensor], str, Tuple[str, str]]:
         images, filename = super().__getitem__(index)
@@ -160,7 +160,7 @@ class HippocampusDataset(ContrastDataset, _Hippocampus):
         super().__init__(root_dir=root_dir, mode=mode, transforms=transforms)
         self._hippocampus_info: Dict[str, int] \
             = np.load(os.path.join(self._root_dir, "hippocampus_info.npy"), allow_pickle=True).item()  # noqa
-        assert isinstance(self._hippocampus_info, dict) and len(self._hippocampus_info) == 223
+        assert isinstance(self._hippocampus_info, dict) and len(self._hippocampus_info) == 260
 
     def __getitem__(self, index) -> Tuple[List[Tensor], str, Tuple[str, str]]:
         images, filename = super().__getitem__(index)
