@@ -71,5 +71,5 @@ def _get_contrastive_dataloader(partial_loader, contrastive_params):
                                 mode="train", transforms=augment.trainval)
 
     demo_loader = DataLoader(demo_dataset, batch_size=1, batch_sampler=ScanBatchSampler(dataset))
-    logger.opt(depth=2).trace(f"creating {dataset.__class__.__name__} demo dataset with {len(dataset)} scans")
+    logger.opt(depth=2).trace(f"creating {dataset.__class__.__name__} demo dataset with {len(dataset)} images")
     return contrastive_loader, demo_loader
