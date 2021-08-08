@@ -36,16 +36,16 @@ def create_dataset(name: str, total_freedom: bool = True):
 
 
 def split_dataset_with_predefined_filenames(dataset: DatasetBase, data_name: str, labeled_scan_nums: int, order_num=0):
-    try:
-        with open(os.path.join(dataset._root_dir, f"{data_name}_ordering_{order_num}.json"), "r") as f:  # noqa
-            data_ordering: List[str] = json.load(f)
-    except FileNotFoundError:
-        logger.error(f"{data_name} does not have {data_name}_ordering_{order_num}.json.")
-        try:
-            with open(os.path.join(dataset._root_dir, f"{data_name}_ordering.json"), "r") as f:  # noqa
-                data_ordering: List[str] = json.load(f)
-        except FileNotFoundError:
-            raise FileNotFoundError(f"{data_name} does not have {data_name}_ordering.json to predefine the ordering.")
+    order_num_file = os.path.join(dataset._root_dir, f"{data_name}_ordering_{order_num}.json")
+    data_ordering: List[str]
+    if os.path.exists(order_num_file):
+        with open(order_num_file, "r") as f:  # noqa
+            data_ordering = json.load(f)
+    else:
+        logger.error(f"{data_name} does not have {data_name}_ordering_{order_num}.json, loading default split")
+        order_num_file = os.path.join(dataset._root_dir, f"{data_name}_ordering.json")
+        with open(order_num_file, "r") as f:  # noqa
+            data_ordering = json.load(f)
 
     assert set(dataset.get_scan_list()) == set(data_ordering), \
         "dataset inconsistency between ordering.json and the set."
