@@ -6,14 +6,14 @@ from ...augment import SequentialWrapper
 
 
 class SpleenDataset(DatasetBase):
-    download_link = "https://drive.google.com/uc?id=1VG14fqf6EltsR7HUs5dFvN0X7ru0w_wH"
+    download_link = "https://drive.google.com/file/d/1BkZcYU1Dnp1soVz9tTQedoks3gxiOn6-/view?usp=sharing"
     zip_name = "Spleen.zip"
     folder_name = "Spleen"
 
     def __init__(self, *, root_dir: str, mode: str, transforms: SequentialWrapper = None) -> None:
         sub_folders = ["img", "gt"]
         sub_folder_types = ["image", "gt"]
-        group_re = r"Patient_\d+"
+        group_re = r"spleen_\d+"
         path = Path(root_dir, self.folder_name)
         downloading(path, self.folder_name, self.download_link, root_dir, self.zip_name)
 
