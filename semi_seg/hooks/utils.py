@@ -38,6 +38,24 @@ def global_label_generator(dataset_name: str, contrast_on: str):
             return SIMCLRGenerator()
         else:
             raise NotImplementedError(contrast_on)
+    elif dataset_name == "spleen":
+        if contrast_on == "partition":
+            return PartitionLabelGenerator()
+        elif contrast_on == "patient":
+            return PatientLabelGenerator()
+        elif contrast_on == "self":
+            return SIMCLRGenerator()
+        else:
+            raise NotImplementedError(contrast_on)
+    elif dataset_name == "hippocampus":
+        if contrast_on == "partition":
+            return PartitionLabelGenerator()
+        elif contrast_on == "patient":
+            return PatientLabelGenerator()
+        elif contrast_on == "self":
+            return SIMCLRGenerator()
+        else:
+            raise NotImplementedError(contrast_on)
     else:
         NotImplementedError(dataset_name)
 
@@ -58,6 +76,14 @@ def get_label(contrast_on, data_name, partition_group, label_group):
              patient_list=label_group)
     elif data_name == "prostate_md":
         labels = global_label_generator(dataset_name="prostate", contrast_on=contrast_on) \
+            (partition_list=partition_group,
+             patient_list=label_group)
+    elif data_name == "spleen":
+        labels = global_label_generator(dataset_name="spleen", contrast_on=contrast_on) \
+            (partition_list=partition_group,
+             patient_list=label_group)
+    elif data_name == "hippocampus":
+        labels = global_label_generator(dataset_name="hippocampus", contrast_on=contrast_on) \
             (partition_list=partition_group,
              patient_list=label_group)
     else:
