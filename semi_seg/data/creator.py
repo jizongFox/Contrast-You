@@ -109,9 +109,11 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
         raise RuntimeError(f"labeled scan number {labeled_scan_num} greater than the train set size: {train_scan_num}")
 
     if pretrain:
+        logger.debug("creating pretraining dataloaders")
         labeled_scan_num = int(train_scan_num // 2)
         label_set, unlabeled_set = split_dataset(tra_set, labeled_scan_num)
     else:
+        logger.debug("creating true split dataloaders")
         try:
             label_set, unlabeled_set = split_dataset_with_predefined_filenames(
                 tra_set, data_name, labeled_scan_nums=labeled_scan_num, order_num=order_num)
