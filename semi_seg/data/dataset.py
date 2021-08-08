@@ -170,7 +170,7 @@ class HippocampusDataset(ContrastDataset, _Hippocampus):
 
     def _get_partition(self, filename) -> str:
         # set partition
-        max_len_given_group = self._spleen_info[self._get_scan_name(filename)]
+        max_len_given_group = self._hippocampus_info[self._get_scan_name(filename)]
         cutting_point = max_len_given_group // self.partition_num
         cur_index = int(re.compile(r"\d+").findall(filename)[-1])
         if cur_index <= cutting_point - 1:
