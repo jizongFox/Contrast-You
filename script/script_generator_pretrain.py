@@ -1,5 +1,4 @@
 import os
-from copy import deepcopy
 from itertools import cycle
 from typing import Union, List
 
@@ -89,7 +88,7 @@ class PretrainSPInfoNCEScriptGenerator(PretrainScriptGenerator):
 if __name__ == '__main__':
     seed = [10]
     data_name = "acdc"
-    save_dir = f"contrastive_learn/hash_{git_hash}/{data_name}"
+    save_dir = f"rebuttal/hash_{git_hash}/{data_name}"
     num_batches = num_batches_zoo[data_name]
     pre_max_epoch = pre_max_epoch_zoo[data_name]
     ft_max_epoch = ft_max_epoch_zoo[data_name]
@@ -110,7 +109,7 @@ if __name__ == '__main__':
         "export PYTHONOPTIMIZE=1",
         "export PYTHONWARNINGS=ignore ",
         "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
-        # "export LOGURU_LEVEL=TRACE",
+        "export LOGURU_LEVEL=TRACE",
         "echo $(pwd)",
         move_dataset(),
         "nvidia-smi",
@@ -123,7 +122,8 @@ if __name__ == '__main__':
         ft_max_epoch=ft_max_epoch
     )
     jobs = baseline_generator.grid_search_on(
-        seed=seed, weight=0, contrast_on="", begin_values=0, end_values=0, mode="", correct_grad=False
+        seed=seed, weight=0, contrast_on="", begin_values=0, end_values=0, mode="", correct_grad=False,
+        order_num=[0, 1, 2, ]
     )
 
     for j in jobs:
@@ -135,7 +135,7 @@ if __name__ == '__main__':
     )
     jobs = infonce_generator.grid_search_on(
         seed=seed, weight=1, contrast_on=contrast_on, begin_values=1e6, end_values=1e6,
-        mode="hard", correct_grad=False, order_num=[0, 1, 2, 3]
+        mode="hard", correct_grad=False, order_num=[0, 1, 2, ]
     )
     for j in jobs:
         submittor.submit(j, account=next(account), force_show=force_show, time=8)
@@ -147,7 +147,7 @@ if __name__ == '__main__':
     jobs = spinfonce_generator.grid_search_on(
         seed=seed, weight=1, contrast_on=contrast_on,
         begin_values=[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5], end_values=[10, 20, 30, 40, 50, 60, 70],
-        order_num=[0, 1, 2, 3],
+        order_num=[0, 1, 2, ],
         mode="soft", correct_grad=False
     )
     for j in jobs:
