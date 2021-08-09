@@ -54,7 +54,7 @@ def _val(*, model: nn.Module, labeled_data_ratio: float, data_params: Dict[str, 
 
     labeled_loader, unlabeled_loader, val_loader, test_loader = get_data(
         data_params=data_params, labeled_loader_params=labeled_loader_params,
-        unlabeled_loader_params=unlabeled_loader_params, pretrain=False, order_num=order_num)
+        unlabeled_loader_params=unlabeled_loader_params, pretrain=False)
 
     trainer_params["save_dir"] = os.path.join(main_save_dir, "tra",
                                               f"num_labeled_scan_{len(labeled_loader.dataset.get_scan_list())}")

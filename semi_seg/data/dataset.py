@@ -8,7 +8,7 @@ from torch import Tensor
 
 from contrastyou.augment import SequentialWrapper
 from contrastyou.data import ACDCDataset as _acdc, ProstateDataset as _prostate, mmWHSCTDataset as _mmct, \
-    mmWHSMRDataset as _mmmr, ProstateMDDataset as _prostate_md
+    mmWHSMRDataset as _mmmr, ProstateMDDataset as _prostate_md, SpleenDataset as _spleen, HippocampusDataset as _Hippocampus
 from .rearr import ContrastDataset
 
 
@@ -124,3 +124,57 @@ class mmWHSMRDataset(_mmWHSBase, _mmmr):
 class mmWHSCTDataset(_mmWHSBase, _mmct):
     def get_meta(self):
         return self._meta_info["ct"]
+
+
+class SpleenDataset(ContrastDataset, _spleen):
+    partition_num = 3
+
+    def __init__(self, *, root_dir: str, mode: str, transforms: SequentialWrapper = None) -> None:
+        super().__init__(root_dir=root_dir, mode=mode, transforms=transforms)
+        self._spleen_info: Dict[str, int] \
+            = np.load(os.path.join(self._root_dir, "spleen_info.npy"), allow_pickle=True).item()  # noqa
+        assert isinstance(self._spleen_info, dict) and len(self._spleen_info) == 41
+
+    def __getitem__(self, index) -> Tuple[List[Tensor], str, Tuple[str, str]]:
+        images, filename = super().__getitem__(index)
+        partition = self._get_partition(filename)
+        scan_num = self._get_scan_name(filename)
+        return images, filename, (partition, scan_num)
+
+    def _get_partition(self, filename) -> str:
+        # set partition
+        max_len_given_group = self._spleen_info[self._get_scan_name(filename)]
+        cutting_point = max_len_given_group // self.partition_num
+        cur_index = int(re.compile(r"\d+").findall(filename)[-1])
+        if cur_index <= cutting_point - 1:
+            return str(0)
+        if cur_index <= 2 * cutting_point:
+            return str(1)
+        return str(2)
+
+
+class HippocampusDataset(ContrastDataset, _Hippocampus):
+    partition_num = 3
+
+    def __init__(self, *, root_dir: str, mode: str, transforms: SequentialWrapper = None) -> None:
+        super().__init__(root_dir=root_dir, mode=mode, transforms=transforms)
+        self._hippocampus_info: Dict[str, int] \
+            = np.load(os.path.join(self._root_dir, "hippocampus_info.npy"), allow_pickle=True).item()  # noqa
+        assert isinstance(self._hippocampus_info, dict) and len(self._hippocampus_info) == 260
+
+    def __getitem__(self, index) -> Tuple[List[Tensor], str, Tuple[str, str]]:
+        images, filename = super().__getitem__(index)
+        partition = self._get_partition(filename)
+        scan_num = self._get_scan_name(filename)
+        return images, filename, (partition, scan_num)
+
+    def _get_partition(self, filename) -> str:
+        # set partition
+        max_len_given_group = self._hippocampus_info[self._get_scan_name(filename)]
+        cutting_point = max_len_given_group // self.partition_num
+        cur_index = int(re.compile(r"\d+").findall(filename)[-1])
+        if cur_index <= cutting_point - 1:
+            return str(0)
+        if cur_index <= 2 * cutting_point:
+            return str(1)
+        return str(2)

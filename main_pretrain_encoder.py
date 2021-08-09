@@ -57,7 +57,7 @@ def worker(config, absolute_save_dir, seed, ):
     order_num = config["Data"]["order_num"]
     labeled_loader, unlabeled_loader, val_loader, test_loader = get_data(
         data_params=config["Data"], labeled_loader_params=config["LabeledLoader"],
-        unlabeled_loader_params=config["UnlabeledLoader"], pretrain=True, total_freedom=True, order_num=order_num)
+        unlabeled_loader_params=config["UnlabeledLoader"], pretrain=True, total_freedom=True)
 
     trainer = PretrainEncoderTrainer(model=model, labeled_loader=labeled_loader,
                                      unlabeled_loader=unlabeled_loader,

@@ -5,15 +5,15 @@ from .base import DatasetBase
 from ...augment import SequentialWrapper
 
 
-class SpleenDataset(DatasetBase):
-    download_link = "https://drive.google.com/file/d/1BkZcYU1Dnp1soVz9tTQedoks3gxiOn6-/view?usp=sharing"
-    zip_name = "Spleen.zip"
-    folder_name = "Spleen"
+class HippocampusDataset(DatasetBase):
+    download_link = "https://drive.google.com/file/d/1lf-7DqSeFC5EPQocQzXQ6f5QEmmzla3n/view?usp=sharing"
+    zip_name = "Hippocampus.zip"
+    folder_name = "Hippocampus"
 
     def __init__(self, *, root_dir: str, mode: str, transforms: SequentialWrapper = None) -> None:
         sub_folders = ["img", "gt"]
         sub_folder_types = ["image", "gt"]
-        group_re = r"spleen_\d+"
+        group_re = r"hippocampus_\d+"
         path = Path(root_dir, self.folder_name)
         downloading(path, self.folder_name, self.download_link, root_dir, self.zip_name)
 
