@@ -87,7 +87,7 @@ class PretrainSPInfoNCEScriptGenerator(PretrainScriptGenerator):
 if __name__ == '__main__':
     seed = [10]
     data_name = "hippocampus"
-    save_dir = f"contrastive_learn/hash_{git_hash}/{data_name}"
+    save_dir = f"rebuttal_hippocampus_ping/hash_{git_hash}/{data_name}"
     num_batches = num_batches_zoo[data_name]
     pre_max_epoch = pre_max_epoch_zoo[data_name]
     ft_max_epoch = ft_max_epoch_zoo[data_name]
@@ -145,8 +145,8 @@ if __name__ == '__main__':
     )
     jobs = spinfonce_generator.grid_search_on(
         seed=seed, weight=1, contrast_on=contrast_on,
-        # begin_values=[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5], end_values=[10, 20, 30, 40, 50, 60, 70],
-        begin_values=[1, 1.5, 2, 2.5, 3], end_values=[10, 20, 50],
+        begin_values=[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5], end_values=[10, 20, 30, 40, 50, 60, 70],
+        # begin_values=[1, 1.5, 2, 2.5, 3], end_values=[10, 20, 50],
 
         mode="soft", correct_grad=False
     )

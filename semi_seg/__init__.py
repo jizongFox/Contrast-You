@@ -11,8 +11,8 @@ pre_max_epoch_zoo = {
     "mmwhsct": 80,
     "mmwhsmr": 80,
     "prostate": 80,
-    "spleen": 80,
-    "hippocampus": 80
+    "spleen": 40,
+    "hippocampus": 40
 }
 ft_max_epoch_zoo = {
     "acdc": 80,
@@ -79,7 +79,7 @@ ft_lr_zooms = {
     "mmwhsmr": 0.000002,
     "hippocampus": 0.0000002,
 }
-__accounts = ["def-chdesa", ]
+__accounts = ["rrg-mpederso", ]
 
 PRETRAIN_BATCH_SIZE_MAX = 50
 # __accounts = ["def-chdesa", "rrg-mpederso", "def-mpederso"]

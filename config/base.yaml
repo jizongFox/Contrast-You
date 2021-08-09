@@ -18,7 +18,7 @@ Scheduler:
   warmup_max: 10
 
 Data:
-  name: hippocampus
+  name: spleen
   labeled_scan_num: 1
 
 LabeledLoader:
@@ -41,3 +41,8 @@ Trainer:
   name: null
   enable_scale: true
   accumulate_iter: 1
+
+InfonceParams:
+  feature_names: Conv5
+  weights: 1
+  contrast_ons: partition
