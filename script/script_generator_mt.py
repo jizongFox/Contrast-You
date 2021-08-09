@@ -90,8 +90,8 @@ if __name__ == '__main__':
         "python -c 'import torch; print(torch.randn(1,1,1,1,device=\"cuda\"))'",
         "nvidia-smi"
     ])
-    submittor.configure_sbatch(mem=48)
-    seed = [10, 20, 30]
+    submittor.configure_sbatch(mem=20)
+    seed = [10, ]
     data_name = args.data_name
     save_dir = f"{args.save_dir}/mt/hash_{git_hash}/{data_name}"
     num_batches = num_batches_zoo[data_name]
@@ -103,7 +103,7 @@ if __name__ == '__main__':
                                                   max_epoch=max_epoch)
 
     jobs = script_generator.grid_search_on(seed=seed, two_stage=[True], disable_bn=False,
-                                           weight=[0.001, 0.01, 0.1, 0.2, 0.5, 1, 5, 10, 20])
+                                           weight=[0, 0.01, 0.1, 0.2, 0.5, 1, 5, ])
 
     for j in jobs:
-        submittor.submit(j, account=next(account), force_show=force_show, time=8)
+        submittor.submit(j, account=next(account), force_show=force_show, time=6)

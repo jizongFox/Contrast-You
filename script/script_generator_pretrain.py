@@ -1,5 +1,4 @@
 import os
-from copy import deepcopy
 from itertools import cycle
 from typing import Union, List
 
@@ -126,7 +125,7 @@ if __name__ == '__main__':
     )
 
     for j in jobs:
-        submittor.submit(j, account=next(account), force_show=force_show, time=2)
+        submittor.submit(j, account=next(account), force_show=force_show, time=4)
 
     infonce_generator = PretrainSPInfoNCEScriptGenerator(
         data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/infonce", pre_max_epoch=pre_max_epoch,
@@ -137,7 +136,7 @@ if __name__ == '__main__':
         mode="hard", correct_grad=False
     )
     for j in jobs:
-        submittor.submit(j, account=next(account), force_show=force_show, time=4)
+        submittor.submit(j, account=next(account), force_show=force_show, time=6)
 
     spinfonce_generator = PretrainSPInfoNCEScriptGenerator(
         data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/spinfonce", pre_max_epoch=pre_max_epoch,
@@ -151,7 +150,7 @@ if __name__ == '__main__':
         mode="soft", correct_grad=False
     )
     for j in jobs:
-        submittor.submit(j, account=next(account), force_show=force_show, time=2)
+        submittor.submit(j, account=next(account), force_show=force_show, time=6)
 
     # # combining the pretrained losses together.'
     # contrast_on_ = deepcopy(contrast_on)

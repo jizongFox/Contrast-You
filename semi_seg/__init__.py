@@ -11,7 +11,7 @@ pre_max_epoch_zoo = {
     "mmwhsct": 80,
     "mmwhsmr": 80,
     "prostate": 80,
-    "spleen": 2,
+    "spleen": 80,
     "hippocampus": 80
 }
 ft_max_epoch_zoo = {
@@ -19,7 +19,7 @@ ft_max_epoch_zoo = {
     "mmwhsct": 60,
     "mmwhsmr": 60,
     "prostate": 80,
-    "spleen": 2,
+    "spleen": 80,
     "hippocampus": 80
 }
 num_batches_zoo = {
