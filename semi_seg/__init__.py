@@ -74,7 +74,7 @@ ft_lr_zooms = {
     "acdc": 0.0000002,
     "prostate": 0.0000005,
     "prostate_md": 0.0000005,
-    "spleen": 0.00000005,
+    "spleen": 0.0000001,
     "mmwhsct": 0.000002,
     "mmwhsmr": 0.000002,
     "hippocampus": 0.0000002,

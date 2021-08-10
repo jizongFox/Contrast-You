@@ -66,7 +66,7 @@ class MeanTeacherScriptGenerator(BaselineGenerator):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser("mt method")
     parser.add_argument("--data-name", required=True, type=str, help="dataset_name",
-                        choices=["acdc", "prostate", "mmwhsct"])
+                        choices=["acdc", "prostate", "mmwhsct", "spleen"])
     parser.add_argument("--save_dir", required=True, type=str, help="save_dir")
     parser.add_argument("--force-show", action="store_true")
 
@@ -103,7 +103,7 @@ if __name__ == '__main__':
                                                   max_epoch=max_epoch)
 
     jobs = script_generator.grid_search_on(seed=seed, two_stage=[True], disable_bn=False,
-                                           weight=[0, 0.01, 0.1, 0.2, 0.5, 1, 5, ])
+                                           weight=[ 0.1, 0.2,  ])
 
     for j in jobs:
         submittor.submit(j, account=next(account), force_show=force_show, time=6)

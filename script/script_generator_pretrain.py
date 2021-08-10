@@ -94,7 +94,7 @@ if __name__ == '__main__':
     force_show = False
     on_local = not on_cc()
     # contrast_on = ["partition", "cycle", "patient", "self"] if data_name == "acdc" else ["partition", "patient", "self"]
-    contrast_on = ["patient"]
+    contrast_on = ["partition"]
 
     submittor = JobSubmiter(work_dir="../", stop_on_error=False, on_local=on_local)
     submittor.configure_environment([
@@ -136,7 +136,7 @@ if __name__ == '__main__':
         mode="hard", correct_grad=False
     )
     for j in jobs:
-        submittor.submit(j, account=next(account), force_show=force_show, time=6)
+        submittor.submit(j, account=next(account), force_show=force_show, time=4)
 
     spinfonce_generator = PretrainSPInfoNCEScriptGenerator(
         data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/spinfonce", pre_max_epoch=pre_max_epoch,
@@ -144,13 +144,13 @@ if __name__ == '__main__':
     )
     jobs = spinfonce_generator.grid_search_on(
         seed=seed, weight=1, contrast_on=contrast_on,
-        begin_values=[1, 2, 3, 4, 5], end_values=[10, 20, 30, 40, 50, 60, 70],
+        begin_values=[ 2, 3, 4, 5], end_values=[ 30, 40, 50, ],
         # begin_values=[1], end_values=[10, 20],
 
         mode="soft", correct_grad=False
     )
     for j in jobs:
-        submittor.submit(j, account=next(account), force_show=force_show, time=6)
+        submittor.submit(j, account=next(account), force_show=force_show, time=4)
 
     # # combining the pretrained losses together.'
     # contrast_on_ = deepcopy(contrast_on)
