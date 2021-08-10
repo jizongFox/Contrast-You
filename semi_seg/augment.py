@@ -103,10 +103,11 @@ class ProstateStrongTransforms:
 class SpleenStrongTransforms:
     pretrain = SequentialWrapperTwice(
         com_transform=transforms.Compose([
+            transforms.Resize(320),
             transforms.RandomRotation(30),
             transforms.RandomVerticalFlip(),
             transforms.RandomHorizontalFlip(),
-            transforms.RandomCrop(320, padding=20),
+            transforms.RandomCrop(256, padding=20),
         ]),
         image_transform=transforms.Compose([
             transforms.ColorJitter(brightness=[0.9, 1.1], contrast=[0.9, 1.1], saturation=[0.9, 1.1]),
@@ -119,8 +120,9 @@ class SpleenStrongTransforms:
     )
     label = SequentialWrapperTwice(
         com_transform=transforms.Compose([
+            transforms.Resize(320),
             transforms.RandomRotation(10),
-            transforms.RandomCrop(320, padding=20),
+            transforms.RandomCrop(256, padding=20),
         ]),
         image_transform=transforms.Compose([
             transforms.ToTensor()
@@ -130,11 +132,12 @@ class SpleenStrongTransforms:
         ]),
     )
     val = SequentialWrapper(
-        com_transform=transforms.CenterCrop(320)
+        com_transform=transforms.Compose([transforms.Resize(320), transforms.CenterCrop(256)])
     )
     trainval = SequentialWrapperTwice(
         com_transform=transforms.Compose([
-            transforms.RandomCrop(320),
+            transforms.Resize(320),
+            transforms.RandomCrop(256),
         ]),
         image_transform=transforms.Compose([
             transforms.ToTensor()
