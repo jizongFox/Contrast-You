@@ -111,7 +111,7 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
             label_set, unlabeled_set = split_dataset_with_predefined_filenames(tra_set, data_name,
                                                                                labeled_scan_nums=labeled_scan_num)
         except FileNotFoundError as e:
-            seed = 1
+            seed = 2
             logger.critical(f"{data_name} did not find the ordering json file, "
                             f"using a random split with random seed: {seed}")
             logger.critical(e)
