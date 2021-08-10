@@ -103,7 +103,7 @@ if __name__ == '__main__':
                                                   max_epoch=max_epoch)
 
     jobs = script_generator.grid_search_on(seed=seed, two_stage=[True], disable_bn=False,
-                                           weight=[ 0.1, 0.2,  ])
+                                           weight=[0, 0.0001, 0.001, 0.01,  0.1, 0.5  ])
 
     for j in jobs:
-        submittor.submit(j, account=next(account), force_show=force_show, time=6)
+        submittor.submit(j, account=next(account), force_show=force_show, time=4)

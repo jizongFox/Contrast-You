@@ -3,8 +3,8 @@ prostate_ratio = [3, 5, 7, 40]  # 2, 4, 8, 40
 mmwhsct_ratio = [1, 2, 10]
 prostate_md_ratio = [1, 2, 4, 17]  # 1, 2, 4, 8
 mmwhsmr_ratio = [1, 2, 9]
-spleen_ratios = [2, 4]
-hippocampus_ratios = [1, 2, 4]
+spleen_ratios = [2, 4, 36]
+hippocampus_ratios = [1, 2, 4, 223]
 
 pre_max_epoch_zoo = {
     "acdc": 80,
