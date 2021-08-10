@@ -144,8 +144,8 @@ if __name__ == '__main__':
     )
     jobs = spinfonce_generator.grid_search_on(
         seed=seed, weight=1, contrast_on=contrast_on,
-        # begin_values=[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5], end_values=[10, 20, 30, 40, 50, 60, 70],
-        begin_values=[1], end_values=[10, 20],
+        begin_values=[1, 2, 3, 4, 5], end_values=[10, 20, 30, 40, 50, 60, 70],
+        # begin_values=[1], end_values=[10, 20],
 
         mode="soft", correct_grad=False
     )

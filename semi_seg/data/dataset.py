@@ -128,7 +128,7 @@ class mmWHSCTDataset(_mmWHSBase, _mmct):
 
 
 class SpleenDataset(ContrastDataset, _spleen):
-    partition_num = 7
+    partition_num = 5
 
     def __init__(self, *, root_dir: str, mode: str, transforms: SequentialWrapper = None) -> None:
         super().__init__(root_dir=root_dir, mode=mode, transforms=transforms)

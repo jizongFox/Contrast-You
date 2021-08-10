@@ -19,7 +19,7 @@ ft_max_epoch_zoo = {
     "mmwhsct": 60,
     "mmwhsmr": 60,
     "prostate": 80,
-    "spleen": 80,
+    "spleen": 60,
     "hippocampus": 80
 }
 num_batches_zoo = {
