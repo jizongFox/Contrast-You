@@ -29,8 +29,8 @@ class ProstateMDDataset(DatasetBase):
 
     def __init__(self, *, root_dir: str, mode: str, transforms: SequentialWrapper = None, ) -> None:
         path = Path(root_dir, self.folder_name)
-        sub_folders = ["t2",  "gt"]
-        sub_folder_types = ["image",  "gt"]
+        sub_folders = ["t2", "gt"]
+        sub_folder_types = ["image", "gt"]
         group_re = r"prostate_\d+"
 
         downloading(path, self.folder_name, self.download_link, root_dir, self.zip_name)

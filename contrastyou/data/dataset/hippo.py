@@ -6,7 +6,7 @@ from ...augment import SequentialWrapper
 
 
 class HippocampusDataset(DatasetBase):
-    download_link = "https://drive.google.com/uc?id=1VG14fqf6EltsR7HUs5dFvN0X7ru0w_wH" # //spleen link
+    download_link = "https://drive.google.com/uc?id=1VG14fqf6EltsR7HUs5dFvN0X7ru0w_wH"  # //spleen link
     zip_name = "Hippocampus.zip"
     folder_name = "Hippocampus"
 

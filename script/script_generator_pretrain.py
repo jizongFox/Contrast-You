@@ -85,6 +85,7 @@ class PretrainSPInfoNCEScriptGenerator(PretrainScriptGenerator):
 
 
 if __name__ == '__main__':
+
     seed = [10, 20, 30]
     data_name = "acdc"
     save_dir = f"contrastive_learn/hash_{git_hash}/{data_name}"
@@ -144,10 +145,8 @@ if __name__ == '__main__':
         ft_max_epoch=ft_max_epoch
     )
     jobs = spinfonce_generator.grid_search_on(
-        seed=seed, weight=1, contrast_on=contrast_on,
-<<<<<<< HEAD
         begin_values=[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5], end_values=[10, 20, 30, 40, 50, 60, 70],
-        mode="soft", correct_grad=False
+        mode="soft", correct_grad=False, seed=0
     )
     for j in jobs:
         submittor.submit(j, account=next(account), force_show=force_show, time=8)
