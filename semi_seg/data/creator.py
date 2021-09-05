@@ -10,11 +10,14 @@ from contrastyou import get_cc_data_path
 from contrastyou.data import DatasetBase, extract_sub_dataset_based_on_scan_names, InfiniteRandomSampler, \
     ScanBatchSampler
 from contrastyou.utils import fix_all_seed_within_context
-from semi_seg.augment import ACDCStrongTransforms, SpleenStrongTransforms, ProstateStrongTransforms, HippocampusStrongTransforms
-from semi_seg.data import ACDCDataset, ProstateDataset, mmWHSCTDataset, mmWHSMRDataset, ProstateMDDataset, SpleenDataset, HippocampusDataset
+from semi_seg.augment import ACDCStrongTransforms, SpleenStrongTransforms, ProstateStrongTransforms, \
+    HippocampusStrongTransforms
+from semi_seg.data import ACDCDataset, ProstateDataset, mmWHSCTDataset, mmWHSMRDataset, ProstateMDDataset, \
+    SpleenDataset, HippocampusDataset
 
 data_zoo = {"acdc": ACDCDataset, "prostate": ProstateDataset, "prostate_md": ProstateMDDataset,
-            "mmwhsct": mmWHSCTDataset, "mmwhsmr": mmWHSMRDataset, "spleen": SpleenDataset, "hippocampus": HippocampusDataset}
+            "mmwhsct": mmWHSCTDataset, "mmwhsmr": mmWHSMRDataset, "spleen": SpleenDataset,
+            "hippocampus": HippocampusDataset}
 augment_zoo = {
     "acdc": ACDCStrongTransforms, "spleen": SpleenStrongTransforms,
     "prostate": ProstateStrongTransforms, "mmwhsct": ACDCStrongTransforms, "mmwhsmr": ACDCStrongTransforms,
@@ -35,9 +38,9 @@ def create_dataset(name: str, total_freedom: bool = True):
     return tra_set, test_set
 
 
-def split_dataset_with_predefined_filenames(dataset: DatasetBase, data_name: str, labeled_scan_nums: int):
+def split_dataset_with_predefined_filenames(dataset: DatasetBase, data_name: str, labeled_scan_nums: int, order=0):
     try:
-        with open(os.path.join(dataset._root_dir, f"{data_name}_ordering.json"), "r") as f:  # noqa
+        with open(os.path.join(dataset._root_dir, f"{data_name}_ordering_{order}.json"), "r") as f:  # noqa
             data_ordering: List[str] = json.load(f)
     except FileNotFoundError:
         raise FileNotFoundError(f"{data_name} does not have {data_name}_ordering.json to predefine the ordering.")
@@ -128,7 +131,8 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
     logger.debug(f"creating unlabeled_loader with {len(unlabeled_set.get_scan_list())} scans")
     logger.trace(f"with {','.join(sorted(set(unlabeled_set.get_scan_list())))}")
 
-    group_test = group_test if data_name not in ("spleen", "mmwhsct", "mmwhsmr", "prostate_md", "hippocampus") else False
+    group_test = group_test if data_name not in (
+    "spleen", "mmwhsct", "mmwhsmr", "prostate_md", "hippocampus") else False
     test_loader = DataLoader(test_set, batch_size=1 if group_test else 4,
                              batch_sampler=ScanBatchSampler(test_set, shuffle=False) if group_test else None)
 
