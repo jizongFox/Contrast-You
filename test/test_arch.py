@@ -2,8 +2,8 @@ from unittest import TestCase
 
 import torch
 
-from contrastyou.arch import UNet, UNetFeatureExtractor
-from deepclustering2.loss import Entropy
+from contrastyou.arch import UNet
+from contrastyou.losses.kl import Entropy
 
 
 def _if_grad_disabled(grad):

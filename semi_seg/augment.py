@@ -1,52 +1,50 @@
-from PIL import Image
-from contrastyou.augment.sequential_wrapper import SequentialWrapperTwice, SequentialWrapper
-from deepclustering2.augment import pil_augment
 from torchvision import transforms
+
+from contrastyou.augment import pil_augment, SequentialWrapperTwice, SequentialWrapper
 
 
 class ACDCStrongTransforms:
     pretrain = SequentialWrapperTwice(
-        comm_transform=pil_augment.Compose([
-            pil_augment.RandomRotation(45),
-            pil_augment.RandomVerticalFlip(),
-            pil_augment.RandomHorizontalFlip(),
-            pil_augment.RandomCrop(224),
-
+        com_transform=transforms.Compose([
+            transforms.RandomRotation(45),
+            transforms.RandomVerticalFlip(),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomCrop(224),
         ]),
-        img_transform=pil_augment.Compose([
+        image_transform=transforms.Compose([
             transforms.ColorJitter(brightness=[0.5, 1.5], contrast=[0.5, 1.5], saturation=[0.5, 1.5]),
             transforms.ToTensor()
         ]),
-        target_transform=pil_augment.Compose([
+        target_transform=transforms.Compose([
             pil_augment.ToLabel()
         ]),
         total_freedom=True
     )
     label = SequentialWrapperTwice(
-        comm_transform=pil_augment.Compose([
-            pil_augment.RandomCrop(224),
-            pil_augment.RandomRotation(30),
+        com_transform=transforms.Compose([
+            transforms.RandomCrop(224),
+            transforms.RandomRotation(30),
         ]),
-        img_transform=pil_augment.Compose([
+        image_transform=transforms.Compose([
             transforms.ToTensor()
         ]),
-        target_transform=pil_augment.Compose([
+        target_transform=transforms.Compose([
             pil_augment.ToLabel()
         ]),
     )
     val = SequentialWrapper(
-        comm_transform=pil_augment.CenterCrop(224)
+        com_transform=transforms.CenterCrop(224)
     )
 
     trainval = SequentialWrapperTwice(
-        comm_transform=pil_augment.Compose([
-            pil_augment.RandomCrop(224),
+        com_transform=transforms.Compose([
+            transforms.RandomCrop(224),
 
         ]),
-        img_transform=pil_augment.Compose([
+        image_transform=transforms.Compose([
             transforms.ToTensor()
         ]),
-        target_transform=pil_augment.Compose([
+        target_transform=transforms.Compose([
             pil_augment.ToLabel()
         ]),
         total_freedom=True
@@ -55,47 +53,47 @@ class ACDCStrongTransforms:
 
 class ProstateStrongTransforms:
     pretrain = SequentialWrapperTwice(
-        comm_transform=pil_augment.Compose([
-            pil_augment.Resize(224, Image.NEAREST),
-            pil_augment.RandomRotation(10),
-            pil_augment.RandomVerticalFlip(),
-            pil_augment.RandomHorizontalFlip(),
-            pil_augment.RandomCrop(224, padding=20, ),
+        com_transform=transforms.Compose([
+            transforms.Resize(224, ),
+            transforms.RandomRotation(10),
+            transforms.RandomVerticalFlip(),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomCrop(224, padding=20, ),
         ]),
-        img_transform=pil_augment.Compose([
+        image_transform=transforms.Compose([
             transforms.ColorJitter(brightness=[0.9, 1.1], contrast=[0.9, 1.1], saturation=[0.9, 1.1]),
             transforms.ToTensor()
         ]),
-        target_transform=pil_augment.Compose([
+        target_transform=transforms.Compose([
             pil_augment.ToLabel()
         ]),
         total_freedom=True
     )
     label = SequentialWrapperTwice(
-        comm_transform=pil_augment.Compose([
-            pil_augment.Resize(224, Image.NEAREST),
-            pil_augment.RandomCrop(224),
+        com_transform=transforms.Compose([
+            transforms.Resize(224, ),
+            transforms.RandomCrop(224),
         ]),
-        img_transform=pil_augment.Compose([
+        image_transform=transforms.Compose([
             transforms.ToTensor()
         ]),
-        target_transform=pil_augment.Compose([
+        target_transform=transforms.Compose([
             pil_augment.ToLabel()
         ]),
     )
     val = SequentialWrapper(
 
-        comm_transform=pil_augment.Resize(224, Image.NEAREST),
+        com_transform=transforms.Resize(224, ),
     )
     trainval = SequentialWrapperTwice(
-        comm_transform=pil_augment.Compose([
-            pil_augment.RandomCrop(224),
+        com_transform=transforms.Compose([
+            transforms.RandomCrop(224),
 
         ]),
-        img_transform=pil_augment.Compose([
+        image_transform=transforms.Compose([
             transforms.ToTensor()
         ]),
-        target_transform=pil_augment.Compose([
+        target_transform=transforms.Compose([
             pil_augment.ToLabel()
         ]),
         total_freedom=True
@@ -104,84 +102,84 @@ class ProstateStrongTransforms:
 
 class SpleenStrongTransforms:
     pretrain = SequentialWrapperTwice(
-        comm_transform=pil_augment.Compose([
-            pil_augment.Resize((256, 256), Image.NEAREST),
-            pil_augment.RandomRotation(10),
-            pil_augment.RandomVerticalFlip(),
-            pil_augment.RandomHorizontalFlip(),
-            pil_augment.RandomCrop(256,padding=20),
+        com_transform=transforms.Compose([
+            transforms.Resize((256, 256), ),
+            transforms.RandomRotation(10),
+            transforms.RandomVerticalFlip(),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomCrop(256, padding=20),
 
         ]),
-        img_transform=pil_augment.Compose([
+        image_transform=transforms.Compose([
             transforms.ColorJitter(brightness=[0.9, 1.1], contrast=[0.9, 1.1], saturation=[0.9, 1.1]),
             transforms.ToTensor()
         ]),
-        target_transform=pil_augment.Compose([
+        target_transform=transforms.Compose([
             pil_augment.ToLabel()
         ]),
         total_freedom=True
     )
     label = SequentialWrapperTwice(
-        comm_transform=pil_augment.Compose([
-            pil_augment.Resize((256, 256), Image.NEAREST),
-            pil_augment.RandomCrop(256,padding=20),
-            pil_augment.RandomRotation(10),
+        com_transform=transforms.Compose([
+            transforms.Resize((256, 256), ),
+            transforms.RandomCrop(256, padding=20),
+            transforms.RandomRotation(10),
         ]),
-        img_transform=pil_augment.Compose([
+        image_transform=transforms.Compose([
             transforms.ToTensor()
         ]),
-        target_transform=pil_augment.Compose([
+        target_transform=transforms.Compose([
             pil_augment.ToLabel()
         ]),
     )
     val = SequentialWrapper(
-        comm_transform=pil_augment.Resize((256, 256), Image.NEAREST),
+        com_transform=transforms.Resize((256, 256), ),
     )
 
 
 class MMWHSStrongTransforms:
     pretrain = SequentialWrapperTwice(
-        comm_transform=pil_augment.Compose([
-            pil_augment.RandomRotation(45),
-            pil_augment.RandomVerticalFlip(),
-            pil_augment.RandomHorizontalFlip(),
-            pil_augment.RandomCrop(224),
+        com_transform=transforms.Compose([
+            transforms.RandomRotation(45),
+            transforms.RandomVerticalFlip(),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomCrop(224),
 
         ]),
-        img_transform=pil_augment.Compose([
+        image_transform=transforms.Compose([
             transforms.ColorJitter(brightness=[0.5, 1.5], contrast=[0.5, 1.5], saturation=[0.5, 1.5]),
             transforms.ToTensor()
         ]),
-        target_transform=pil_augment.Compose([
+        target_transform=transforms.Compose([
             pil_augment.ToLabel()
         ]),
         total_freedom=True
     )
     label = SequentialWrapperTwice(
-        comm_transform=pil_augment.Compose([
-            pil_augment.RandomCrop(224),
-            pil_augment.RandomRotation(30),
+        com_transform=transforms.Compose([
+            transforms.RandomCrop(224),
+            transforms.RandomRotation(30),
         ]),
-        img_transform=pil_augment.Compose([
+        image_transform=transforms.Compose([
             transforms.ToTensor()
         ]),
-        target_transform=pil_augment.Compose([
+        target_transform=transforms.Compose([
             pil_augment.ToLabel()
         ]),
     )
     val = SequentialWrapper(
-        comm_transform=pil_augment.CenterCrop(224)
+        com_transform=transforms.CenterCrop(224)
     )
 
     trainval = SequentialWrapperTwice(
-        comm_transform=pil_augment.Compose([
-            pil_augment.RandomCrop(224),
+        com_transform=transforms.Compose([
+            transforms.RandomCrop(224),
 
         ]),
-        img_transform=pil_augment.Compose([
+        image_transform=transforms.Compose([
             transforms.ToTensor()
         ]),
-        target_transform=pil_augment.Compose([
+        target_transform=transforms.Compose([
             pil_augment.ToLabel()
         ]),
         total_freedom=True

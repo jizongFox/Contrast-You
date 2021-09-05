@@ -1,9 +1,23 @@
 # Created by .ignore support plugin (hsz.mobi)
 ### Example user template
+out
+semi_seg/cycle/
+semi_seg/main_infonce_val.py
+semi_seg/patient/
+semi_seg/tmp.py
+semi_seg/cycle
+semi_seg/patient
+semi_seg/plot/checkpoint
 .data
+script/.temp_config
 runs
 byol_demo/label_smoothing.py
 cotra_idea/test/
+*~*.pptx
+*.pptx
+*/*.pptx
+semi_seg/transfer.sh
+runs*
 
 demo/MNIST/
 demo/cifar-10-batches-py/
@@ -33,7 +47,7 @@ __pycache__/
 *.out
 # C extensions
 *.so
-
+zzz*
 # Distribution / packaging
 .Python
 build/
@@ -54,7 +68,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
-
+*.txt
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
@@ -64,6 +78,7 @@ MANIFEST
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
+*.npy
 
 # Unit test / coverage reports
 htmlcov/
@@ -205,3 +220,4 @@ cython_debug/
 /cotra_idea/cmt_version2/cmt/15/2/tensorboard/events.out.tfevents.1596731460.blg5209.int.ets1.calculquebec.ca
 /cotra_idea/cmt_version2/cmt/15/0.01/tensorboard/events.out.tfevents.1596731626.blg4309.int.ets1.calculquebec.ca
 /cotra_idea/cmt_version2/cmt/10/3/tensorboard/events.out.tfevents.1596731626.blg4708.int.ets1.calculquebec.ca
+/transfer.sh

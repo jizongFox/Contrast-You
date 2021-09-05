@@ -8,9 +8,9 @@ Trainer:
   two_stage_training: false
   grad_from: null
   grad_util: null
+  monitor: false
 
 Optim:
-  name: Adam
   lr: 0.0000005
   weight_decay: 0.0
 
@@ -19,6 +19,6 @@ Scheduler:
   warmup_max: 10
 
 ContrastiveLoaderParams:
-  group_sample_num: 7
+  scan_sample_num: 7
   partition_sample_num: 1
-  num_workers: 6
+  num_workers: 8

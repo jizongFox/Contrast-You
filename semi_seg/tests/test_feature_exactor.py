@@ -3,7 +3,7 @@ from unittest import TestCase
 import torch
 
 from contrastyou.arch import UNet
-from semi_seg._utils import FeatureExtractor, _LocalClusterWrapper, ClusterProjectorWrapper, IICLossWrapper, FeatureExtractorWithIndex
+from semi_seg.utils import FeatureExtractor, _LocalClusterWrapper, ClusterProjectorWrapper, IICLossWrapper, FeatureExtractorWithIndex
 
 
 class TestFeatureExtractor(TestCase):

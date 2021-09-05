@@ -4,7 +4,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from deepclustering2.utils import simplex
+from contrastyou.utils import simplex
 
 
 class PUILoss(nn.Module):
@@ -30,7 +30,7 @@ class PUILoss(nn.Module):
         # partition uncertainty index
         assert simplex(x) and simplex(y)
         pui = torch.mm(F.normalize(x.t(), p=2, dim=1), F.normalize(y, p=2, dim=0))
-        loss_ce = self.xentropy(pui, torch.arange(pui.size(0),device=x.device))
+        loss_ce = self.xentropy(pui, torch.arange(pui.size(0), device=x.device))
 
         # balance regularisation
         p = x.mean(0).view(-1)

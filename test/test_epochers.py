@@ -12,7 +12,7 @@ from contrastyou.augment import SequentialWrapperTwice
 from contrastyou.datasets._seg_datset import ContrastBatchSampler
 from contrastyou.datasets.acdc_dataset import ACDCDataset
 from contrastyou.epocher.contrast_epocher import PretrainEncoderEpoch, PretrainDecoderEpoch
-from contrastyou.losses.contrast_loss import SupConLoss
+from contrastyou.losses.contrastive import SupConLoss
 from deepclustering2.arch import get_arch
 from deepclustering2.augment import pil_augment
 

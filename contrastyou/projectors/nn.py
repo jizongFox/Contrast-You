@@ -1,3 +1,5 @@
+from typing import Tuple
+
 from torch import nn, Tensor
 from torch.nn import functional as F, Module
 from torch.nn.modules.utils import _pair
@@ -51,6 +53,16 @@ def _check_pool_name(pool_name):
     return pool_name in ("adaptive_avg", "adaptive_max", "identical", "none")
 
 
+def get_pool_component(pool_name, spatial_size: Tuple[int, int]):
+    return {
+        "adaptive_avg": nn.AdaptiveAvgPool2d(spatial_size),
+        "adaptive_max": nn.AdaptiveMaxPool2d(spatial_size),
+        None: Identical(),
+        "none": Identical(),
+        "identical": Identical(),
+    }[pool_name]
+
+
 class _ProjectorHeadBase(nn.Module):
 
     def __init__(self, *, input_dim: int, output_dim: int, head_type: str, normalize: bool, pool_name="adaptive_avg",
@@ -65,13 +77,7 @@ class _ProjectorHeadBase(nn.Module):
         self._pool_name = pool_name
         self._spatial_size = _pair(spatial_size)
 
-        self._pooling_module = {
-            "adaptive_avg": nn.AdaptiveAvgPool2d(self._spatial_size),
-            "adaptive_max": nn.AdaptiveMaxPool2d(self._spatial_size),
-            None: Identical(),
-            "none": Identical(),
-            "identical": Identical(),
-        }[self._pool_name]
+        self._pooling_module = get_pool_component(self._pool_name, self._spatial_size)
 
     def _record_message(self):
         return f"Initializing {self.__class__.__name__} with {self._head_type} dense head " \

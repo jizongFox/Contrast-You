@@ -5,11 +5,11 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 from contrastyou.arch import UNet
-from contrastyou.losses.iic_loss import IIDSegmentationSmallPathLoss
+from contrastyou.losses.discreteMI import IIDSegmentationSmallPathLoss
 from deepclustering2.dataloader.sampler import InfiniteRandomSampler
 from deepclustering2.loss import KL_div
 from deepclustering2.utils import set_benchmark
-from semi_seg._utils import ClusterProjectorWrapper, IICLossWrapper, ContrastiveProjectorWrapper
+from semi_seg.utils import ClusterProjectorWrapper, IICLossWrapper, ContrastiveProjectorWrapper
 from semi_seg.epochers import TrainEpocher, EvalEpocher, ConsistencyTrainEpocher, MITrainEpocher, ConsistencyMIEpocher
 from semi_seg.tests._helper import create_dataset
 
@@ -116,7 +116,7 @@ class TestPreTrainEpocher(TestCase):
 
     def test_infoncepretrainepocher(self):
         from semi_seg.epochers.pretrain import InfoNCEPretrainEpocher
-        from contrastyou.losses.contrast_loss import SupConLoss
+        from contrastyou.losses.contrastive import SupConLoss
         epocher = InfoNCEPretrainEpocher(model=self.net, optimizer=self.optimizer, labeled_loader=self.labeled_loader,
                                          unlabeled_loader=self.unlabeled_loader, sup_criterion=nn.MSELoss(),
                                          num_batches=self._num_batches,
