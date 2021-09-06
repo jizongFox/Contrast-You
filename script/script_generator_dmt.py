@@ -20,26 +20,26 @@ class MeanTeacherScriptGenerator(BaselineGenerator):
         super().__init__(data_name=data_name, num_batches=num_batches, max_epoch=max_epoch, save_dir=save_dir,
                          model_checkpoint=model_checkpoint)
 
-        self.hook_config = yaml_load(os.path.join(CONFIG_PATH, "hooks", "mt.yaml"))
+        self.hook_config = yaml_load(os.path.join(CONFIG_PATH, "hooks", "dmt.yaml"))
 
-
-    def get_hook_params(self, weight, two_stage, disable_bn, order_num, num_teachers):
-
+    def get_hook_params(self, weight, meta_weight, two_stage, meta_criterion, method_name, alpha):
         return {
-            "Data": {"order_num": order_num},
-            "MeanTeacherParameters":
+            "DifferentiableMeanTeacherParameters":
                 {"weight": weight,
-                 "num_teachers": num_teachers},
+                 "meta_weight": meta_weight,
+                 "meta_criterion": meta_criterion,
+                 "method_name": method_name,
+                 "alpha": alpha},
             "Trainer":
                 {"two_stage": two_stage,
-                 "disable_bn": disable_bn}
+                 "enable_scale": False}
         }
 
     def generate_single_script(self, save_dir, labeled_scan_num, seed, hook_path):
         from semi_seg import ft_lr_zooms
         ft_lr = ft_lr_zooms[self._data_name]
 
-        return f"python main.py Trainer.name=mt  Trainer.save_dir={save_dir} " \
+        return f"python main.py Trainer.name=semi  Trainer.save_dir={save_dir} " \
                f" Optim.lr={ft_lr:.7f} RandomSeed={str(seed)} Data.labeled_scan_num={int(labeled_scan_num)} " \
                f" {' '.join(self.conditions)} " \
                f" --opt-path {hook_path}"
@@ -68,9 +68,9 @@ class MeanTeacherScriptGenerator(BaselineGenerator):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser("mt method")
+    parser = argparse.ArgumentParser("adv method")
     parser.add_argument("--data-name", required=True, type=str, help="dataset_name",
-                        choices=["acdc", "prostate", "mmwhsct", "spleen"])
+                        choices=["acdc", "prostate", "mmwhsct"])
     parser.add_argument("--save_dir", required=True, type=str, help="save_dir")
     parser.add_argument("--force-show", action="store_true")
 
@@ -97,7 +97,7 @@ if __name__ == '__main__':
     submittor.configure_sbatch(mem=16)
     seed = [10, 20, 30]
     data_name = args.data_name
-    save_dir = f"{args.save_dir}/mt/hash_{git_hash}/{data_name}"
+    save_dir = f"{args.save_dir}/dmt/hash_{git_hash}/{data_name}"
     num_batches = num_batches_zoo[data_name]
     max_epoch = ft_max_epoch_zoo[data_name]
     force_show = args.force_show
@@ -106,9 +106,13 @@ if __name__ == '__main__':
                                                   num_batches=num_batches,
                                                   max_epoch=max_epoch)
 
-    jobs = script_generator.grid_search_on(seed=seed, two_stage=[True], disable_bn=False,
-                                           weight=[0.001, 0.01, 0.1, 0.2, 0.5, 1, 5, 10, 20], num_teachers=[1, 2, 3, 4], order_num=[0, 1, 2])
-
+    jobs = script_generator.grid_search_on(seed=seed, two_stage=[True],
+                                           weight=[0.1, 0.2, 0.3],
+                                           meta_weight=[0.0, 0.0000001, 0.000001, 0.00001, 0.0001, 0.001, 0.01],
+                                           alpha=[0.999, 1, 0.99],
+                                           meta_criterion=["dice", "ce"],
+                                           method_name=["mt", "method1", "method2", "method3", "method4"])
 
     for j in jobs:
-        submittor.submit(j, account=next(account), force_show=force_show, time=4)
+        submittor.submit(j, account=next(account), force_show=force_show, time=12)
+    print(len(jobs))

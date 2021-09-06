@@ -1,7 +1,7 @@
 import weakref
 from abc import abstractmethod, ABCMeta
 from contextlib import contextmanager
-from typing import Union, Dict
+from typing import Union, Dict, List
 
 import torch
 from torch import nn
@@ -40,7 +40,7 @@ class EpocherBase(AMPScaler, DDPMixin, metaclass=ABCMeta):
 
         self._trainer = None
         self.__bind_trainer_done__ = False
-        self._hooks = []
+        self._hooks: List[EpocherHook] = []
 
     @contextmanager
     def register_hook(self, *hook: EpocherHook):

@@ -3,7 +3,7 @@ import numbers
 import sys
 from collections.abc import Mapping, Iterable
 from pathlib import Path
-from typing import TypeVar, Callable
+from typing import TypeVar, Callable, Protocol
 from typing import Union, Tuple
 
 import numpy as np
@@ -148,9 +148,9 @@ def is_single_float(val):
 
     """
     return (
-        isinstance(val, numbers.Real)
-        and not is_single_integer(val)
-        and not isinstance(val, bool)
+            isinstance(val, numbers.Real)
+            and not is_single_integer(val)
+            and not isinstance(val, bool)
     )
 
 
@@ -315,9 +315,9 @@ def is_tuple_or_list(val):
 # convert
 def to_numpy(tensor):
     if (
-        is_np_array(tensor)
-        or is_np_scalar(tensor)
-        or isinstance(tensor, numbers.Number)
+            is_np_array(tensor)
+            or is_np_scalar(tensor)
+            or isinstance(tensor, numbers.Number)
     ):
         return tensor
     elif torch.is_tensor(tensor):
@@ -384,3 +384,20 @@ def to_device(obj, device, non_blocking=True):
         return [to_device(o, device, non_blocking) for o in obj]
     else:
         raise TypeError(f"{obj.__class__.__name__} cannot be converted to {device}")
+
+
+class SizedIterable(Protocol):
+    def __len__(self):
+        pass
+
+    def __next__(self):
+        pass
+
+    def __iter__(self):
+        pass
+
+
+class CriterionType(Protocol):
+
+    def __call__(self, *args: Tensor, **kwargs) -> Tensor:
+        pass

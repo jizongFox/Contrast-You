@@ -114,12 +114,6 @@ class KL_div(nn.Module):
             f"Initialized {self.__class__.__name__} with weight={self._weight} and reduction={self._reduction}.")
 
     def forward(self, prob: Tensor, target: Tensor, **kwargs) -> Tensor:
-        if not kwargs.get("disable_assert"):
-            assert prob.shape == target.shape
-            assert simplex(prob), prob
-            assert simplex(target), target
-            assert not target.requires_grad
-            assert prob.requires_grad
         b, c, *hwd = target.shape
         kl = (-target * torch.log((prob + self._eps) / (target + self._eps)))
         if self._weight is not None:

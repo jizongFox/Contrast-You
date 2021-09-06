@@ -41,12 +41,12 @@ def download(url, root, filename):
 
 
 def download_and_extract_archive(
-    url,
-    download_root,
-    extract_root=None,
-    filename=None,
-    md5=None,
-    remove_finished=False,
+        url,
+        download_root,
+        extract_root=None,
+        filename=None,
+        md5=None,
+        remove_finished=False,
 ):
     download_root = os.path.expanduser(download_root)
     if extract_root is None:

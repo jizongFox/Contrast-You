@@ -1,6 +1,7 @@
 import os
 from abc import ABCMeta, abstractmethod
-from contextlib import nullcontext
+from contextlib import nullcontext, contextmanager
+from itertools import chain
 from pathlib import Path
 from typing import Dict, Any
 
@@ -9,7 +10,6 @@ from loguru import logger
 from torch import nn
 
 from contrastyou import optim, MODEL_PATH, success
-from semi_seg.helper import SizedIterable
 from ._functional import _ToMixin
 from ._io import _IOMixin
 from ..amp import DDPMixin
@@ -18,7 +18,7 @@ from ..hooks.base import TrainerHook
 from ..losses.kl import KL_div
 from ..meters import Storage
 from ..optim import GradualWarmupScheduler
-from ..types import optimizerType as _optimizer_type
+from ..types import optimizerType as _optimizer_type, SizedIterable
 from ..writer import SummaryWriter
 
 
@@ -48,12 +48,18 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
         self._scheduler = self._init_scheduler(self._optimizer, scheduler_params=self._config.get("Scheduler", None))
         self.__initialized__ = True
 
+    @contextmanager
     def register_hook(self, *hook: TrainerHook):
         if self.__initialized__:
             raise RuntimeError("`register_hook must be called before `init()``")
         for h in hook:
             assert isinstance(h, TrainerHook), h
             self.__hooks__.append(h)
+        logger.trace("bind TrainerHooks")
+        yield
+        for h in hook:
+            h.close()
+        logger.trace("close TrainerHooks")
 
     def _init_optimizer(self) -> _optimizer_type:
         optim_params = self._config["Optim"]
@@ -62,8 +68,8 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
             **{k: v for k, v in optim_params.items() if k != "name" and k != "pre_lr" and k != "ft_lr"}
         )
         optimizer.add_param_group(
-            {"params": self.__hooks__.parameters(), **{k: v for k, v in optim_params.items()
-                                                       if k != "name" and k != "pre_lr" and k != "ft_lr"}})
+            {"params": chain(*[x.parameters() for x in self.__hooks__]),
+             **{k: v for k, v in optim_params.items() if k != "name" and k != "pre_lr" and k != "ft_lr"}})
         return optimizer
 
     def _init_scheduler(self, optimizer, scheduler_params):
@@ -97,9 +103,8 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
             with self._storage:  # save csv each epoch
                 train_metrics = self.tra_epoch()
                 if self.on_master():
-                    inference_model = self._inference_model
-                    eval_metrics, cur_score = self.eval_epoch(model=inference_model, loader=self._val_loader)
-                    test_metrics, _ = self.eval_epoch(model=inference_model, loader=self._test_loader)
+                    eval_metrics, cur_score = self.eval_epoch(model=self.inference_model, loader=self._val_loader)
+                    test_metrics, _ = self.eval_epoch(model=self.inference_model, loader=self._test_loader)
 
                     self._storage.add_from_meter_interface(tra=train_metrics, val=eval_metrics, test=test_metrics,
                                                            epoch=self._cur_epoch)
@@ -144,9 +149,20 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
         epocher.run()
         return epocher.get_metric(), epocher.get_score()
 
+    @property
+    def inference_model(self):
+        return self._inference_model
+
     def set_model4inference(self, model: nn.Module):
-        logger.debug(f"change inference model from {id(self._inference_model)} to {id(model)}")
+        logger.trace(f"change inference model from {id(self._inference_model)} to {id(model)}")
         self._inference_model = model
+
+    @contextmanager
+    def switch_inference_model(self, model: nn.Module):
+        previous_ = self.inference_model
+        self.set_model4inference(model)
+        yield
+        self.set_model4inference(previous_)
 
     @property
     def save_dir(self) -> str:

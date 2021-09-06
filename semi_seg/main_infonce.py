@@ -93,7 +93,7 @@ def main_worker(rank, ngpus_per_node, config, config_manager, port):  # noqa
             config["Trainer"]["grad_from"] or "Conv1", \
             config["Trainer"]["grad_util"] or \
             sorted(trainer._config["FeatureExtractor"]["feature_names"], key=lambda x: arch_order(x))[-1]  # noqa
-        with model.set_grad(False, start=util_, include_start=False):
+        with model.switch_grad(False, start=util_, include_start=False):
             trainer.start_training(run_monitor=is_monitor_train)
         success(save_dir=trainer._save_dir)  # noqa
         return trainer, model, (from_, util_)

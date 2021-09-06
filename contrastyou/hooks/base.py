@@ -34,6 +34,9 @@ class TrainerHook(nn.Module, metaclass=_ClassNameMeta):
     def learnable_modules(self) -> List[nn.Module]:
         return []
 
+    def close(self):
+        pass
+
 
 class CombineTrainerHook(TrainerHook):
 
@@ -47,6 +50,10 @@ class CombineTrainerHook(TrainerHook):
     @property
     def learnable_modules(self):
         return self._hooks
+
+    def close(self):
+        for h in self._hooks:
+            h.close()
 
 
 class EpocherHook:

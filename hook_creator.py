@@ -1,5 +1,5 @@
 from semi_seg.hooks import create_infonce_hooks, create_sp_infonce_hooks, create_discrete_mi_consistency_hook, \
-    create_mt_hook
+    create_mt_hook, create_differentiable_mt_hook
 
 
 def _hook_config_validator(config, is_pretrain):
@@ -29,6 +29,13 @@ def create_hook_from_config(model, config, *, is_pretrain=False, trainer):
         if is_pretrain:
             raise RuntimeError("`MeanTeacherParameters` are not supported for pretrain stage")
         mt_hook = create_mt_hook(model=model, **config["MeanTeacherParameters"])
+        hooks.append(mt_hook)
+        trainer.set_model4inference(mt_hook.teacher_model)
+
+    if "DifferentiableMeanTeacherParameters" in config:
+        if is_pretrain:
+            raise RuntimeError("`DifferentiableMeanTeacherParameters` are not supported for pretrain stage")
+        mt_hook = create_differentiable_mt_hook(model=model, **config["DifferentiableMeanTeacherParameters"])
         hooks.append(mt_hook)
         trainer.set_model4inference(mt_hook.teacher_model)
     return hooks

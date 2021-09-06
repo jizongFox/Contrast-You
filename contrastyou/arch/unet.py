@@ -242,7 +242,7 @@ class UNet(nn.Module):
             raise KeyError(name)
 
     @contextmanager
-    def set_grad(self, enable=True, *, start: str = None, end: str = None, include_start=True, include_end=True):
+    def switch_grad(self, enable=True, *, start: str = None, end: str = None, include_start=True, include_end=True):
         _check_params(start, end, include_start, include_end)
         start, end = (start or "Conv1"), (end or "Deconv_1x1")
 
@@ -254,15 +254,17 @@ class UNet(nn.Module):
             cur_module = getattr(self, "_" + c)
             prev_state[c] = get_requires_grad(cur_module)
             cur_module.requires_grad_(enable)
-        yield self
-        if len(all_component) > 0:
-            logger.opt(depth=2).trace("restore previous status to {}", ", ".join(all_component))
-        for c in all_component:
-            cur_module = getattr(self, "_" + c)
-            cur_module.requires_grad_(prev_state[c])
+        try:
+            yield self
+        finally:
+            if len(all_component) > 0:
+                logger.opt(depth=2).trace("restore previous status to {}", ", ".join(all_component))
+            for c in all_component:
+                cur_module = getattr(self, "_" + c)
+                cur_module.requires_grad_(prev_state[c])
 
     @contextmanager
-    def set_bn_track(self, enable=True, *, start: str = None, end: str = None, include_start=True, include_end=True):
+    def switch_bn_track(self, enable=True, *, start: str = None, end: str = None, include_start=True, include_end=True):
         _check_params(start, end, include_start, include_end)
         start, end = (start or "Conv1"), (end or "Deconv_1x1")
 
@@ -282,12 +284,14 @@ class UNet(nn.Module):
             except RuntimeError:
                 continue
             cur_module.apply(partial(switch_attr, enable=enable))
-        yield self
-        if len(all_component) > 0:
-            logger.opt(depth=2).trace("restore previous states to {}", ", ".join(all_component))
-        for c in prev_state.keys():
-            cur_module = getattr(self, "_" + c)
-            cur_module.apply(partial(switch_attr, enable=prev_state[c]))
+        try:
+            yield self
+        finally:
+            if len(all_component) > 0:
+                logger.opt(depth=2).trace("restore previous states to {}", ", ".join(all_component))
+            for c in prev_state.keys():
+                cur_module = getattr(self, "_" + c)
+                cur_module.apply(partial(switch_attr, enable=prev_state[c]))
 
     @property
     def num_classes(self):

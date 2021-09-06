@@ -78,8 +78,8 @@ def main_worker(rank, ngpus_per_node, config, port):  # noqa
         from_, util_ = config["Trainer"]["grad_from"] or "Conv1", \
                        config["Trainer"]["grad_util"] or config["Trainer"]["feature_names"][-1]
 
-        with model.set_grad(False):
-            with model.set_grad(True, start=from_, end=util_):
+        with model.switch_grad(False):
+            with model.switch_grad(True, start=from_, end=util_):
                 trainer.start_training()
     else:
         trainer.start_training()

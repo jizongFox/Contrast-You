@@ -67,8 +67,8 @@ def worker(config, absolute_save_dir, seed, ):
     assert arch_order(until) > arch_order("Conv5"), until
     trainer.forward_until = until
 
-    with model.set_grad(False):
-        with model.set_grad(True, start="Conv5", end=until, include_start=False):
+    with model.switch_grad(False):
+        with model.switch_grad(True, start="Conv5", end=until, include_start=False):
             trainer.init()
             trainer.start_training()
 

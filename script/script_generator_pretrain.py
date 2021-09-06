@@ -95,7 +95,8 @@ if __name__ == '__main__':
     lr = ft_lr_zooms[data_name]
     force_show = False
     on_local = not on_cc()
-    contrast_on = ["partition", "cycle", "patient", "self"] if data_name == "acdc" else ["partition", "patient", "self"]
+    # contrast_on = ["partition", "cycle", "patient", "self"] if data_name == "acdc" else ["partition", "patient", "self"]
+    contrast_on = ["partition"]
 
     submittor = JobSubmiter(work_dir="../", stop_on_error=False, on_local=on_local)
     submittor.configure_environment([
@@ -115,7 +116,7 @@ if __name__ == '__main__':
         "nvidia-smi",
         "python -c 'import torch; print(torch.randn(1,1,1,1,device=\"cuda\"))'"
     ])
-    submittor.configure_sbatch(mem=48)
+    submittor.configure_sbatch(mem=24)
 
     baseline_generator = PretrainSPInfoNCEScriptGenerator(
         data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/baseline", pre_max_epoch=0,
@@ -127,7 +128,7 @@ if __name__ == '__main__':
     )
 
     for j in jobs:
-        submittor.submit(j, account=next(account), force_show=force_show, time=8)
+        submittor.submit(j, account=next(account), force_show=force_show, time=4)
 
     infonce_generator = PretrainSPInfoNCEScriptGenerator(
         data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/infonce", pre_max_epoch=pre_max_epoch,
@@ -138,15 +139,15 @@ if __name__ == '__main__':
         mode="hard", correct_grad=False, order_num=[0, 1, 2, ]
     )
     for j in jobs:
-        submittor.submit(j, account=next(account), force_show=force_show, time=8)
+        submittor.submit(j, account=next(account), force_show=force_show, time=4)
 
     spinfonce_generator = PretrainSPInfoNCEScriptGenerator(
         data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/spinfonce", pre_max_epoch=pre_max_epoch,
         ft_max_epoch=ft_max_epoch
     )
     jobs = spinfonce_generator.grid_search_on(
-        seed=seed, weight=1, contrast_on=contrast_on,
         begin_values=[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5], end_values=[10, 20, 30, 40, 50, 60, 70],
+        mode="soft", correct_grad=False, seed=0,
         order_num=[0, 1, 2, ],
         mode="soft", correct_grad=False
     )

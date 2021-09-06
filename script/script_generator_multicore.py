@@ -14,32 +14,26 @@ from semi_seg import __accounts, num_batches_zoo, ft_max_epoch_zoo, ratio_zoo
 account = cycle(__accounts)
 
 
-class MeanTeacherScriptGenerator(BaselineGenerator):
+class MulticoreScriptGenerator(BaselineGenerator):
 
     def __init__(self, *, data_name, num_batches, max_epoch, save_dir, model_checkpoint=None) -> None:
         super().__init__(data_name=data_name, num_batches=num_batches, max_epoch=max_epoch, save_dir=save_dir,
                          model_checkpoint=model_checkpoint)
 
-        self.hook_config = yaml_load(os.path.join(CONFIG_PATH, "hooks", "mt.yaml"))
+        self.hook_config = yaml_load(os.path.join(CONFIG_PATH, "hooks", "multicore.yaml"))
 
-
-    def get_hook_params(self, weight, two_stage, disable_bn, order_num, num_teachers):
-
+    def get_hook_params(self, weight, multiplier):
         return {
-            "Data": {"order_num": order_num},
-            "MeanTeacherParameters":
-                {"weight": weight,
-                 "num_teachers": num_teachers},
-            "Trainer":
-                {"two_stage": two_stage,
-                 "disable_bn": disable_bn}
+            "MulticoreParameters":
+                {"entropy_weight": weight,
+                 "multiplier": multiplier}
         }
 
     def generate_single_script(self, save_dir, labeled_scan_num, seed, hook_path):
         from semi_seg import ft_lr_zooms
         ft_lr = ft_lr_zooms[self._data_name]
 
-        return f"python main.py Trainer.name=mt  Trainer.save_dir={save_dir} " \
+        return f"python main_multicore.py   Trainer.save_dir={save_dir} " \
                f" Optim.lr={ft_lr:.7f} RandomSeed={str(seed)} Data.labeled_scan_num={int(labeled_scan_num)} " \
                f" {' '.join(self.conditions)} " \
                f" --opt-path {hook_path}"
@@ -68,7 +62,7 @@ class MeanTeacherScriptGenerator(BaselineGenerator):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser("mt method")
+    parser = argparse.ArgumentParser("multicore method")
     parser.add_argument("--data-name", required=True, type=str, help="dataset_name",
                         choices=["acdc", "prostate", "mmwhsct", "spleen"])
     parser.add_argument("--save_dir", required=True, type=str, help="save_dir")
@@ -76,7 +70,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    submittor = JobSubmiter(work_dir="../", stop_on_error=False, on_local=not on_cc())
+    submittor = JobSubmiter(work_dir="../", stop_on_error=True, on_local=not on_cc())
     submittor.configure_environment([
         "module load python/3.8.2 ",
         f"source ~/venv/bin/activate ",
@@ -102,13 +96,13 @@ if __name__ == '__main__':
     max_epoch = ft_max_epoch_zoo[data_name]
     force_show = args.force_show
 
-    script_generator = MeanTeacherScriptGenerator(data_name=data_name, save_dir=os.path.join(save_dir, "mt"),
-                                                  num_batches=num_batches,
-                                                  max_epoch=max_epoch)
+    script_generator = MulticoreScriptGenerator(data_name=data_name, save_dir=os.path.join(save_dir, "multicore"),
+                                                num_batches=num_batches,
+                                                max_epoch=max_epoch)
 
-    jobs = script_generator.grid_search_on(seed=seed, two_stage=[True], disable_bn=False,
-                                           weight=[0.001, 0.01, 0.1, 0.2, 0.5, 1, 5, 10, 20], num_teachers=[1, 2, 3, 4], order_num=[0, 1, 2])
-
+    jobs = script_generator.grid_search_on(seed=seed,
+                                           weight=[0, 0.001, 0.01, 0.05],
+                                           multiplier=[1, 2, 3, ])
 
     for j in jobs:
         submittor.submit(j, account=next(account), force_show=force_show, time=4)

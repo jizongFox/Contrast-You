@@ -7,6 +7,7 @@ from contrastyou.hooks.base import CombineTrainerHook, TrainerHook
 from contrastyou.utils.utils import ntuple
 from .consistency import ConsistencyTrainerHook
 from .discretemi import DiscreteMITrainHook
+from .dmt import DifferentiableMeanTeacherTrainerHook
 from .infonce import SelfPacedINFONCEHook, INFONCEHook
 from .mt import MeanTeacherTrainerHook
 
@@ -135,7 +136,16 @@ def create_sp_infonce_hooks(*, model: nn.Module, feature_names: Union[str, List[
 
 
 def create_mt_hook(*, model: nn.Module, weight: float, alpha: float = 0.999, weight_decay: float = 0.000001,
-                   update_bn: bool = False):
+                   update_bn: bool = False, num_teachers: int = 1, hard_clip: bool = False):
     hook = MeanTeacherTrainerHook(name="mt", weight=weight, model=model, alpha=alpha, weight_decay=weight_decay,
-                                  update_bn=update_bn)
+                                  update_bn=update_bn, num_teachers=num_teachers, hard_clip=hard_clip)
+    return hook
+
+
+def create_differentiable_mt_hook(*, model: nn.Module, weight: float, alpha: float = 0.999,
+                                  weight_decay: float = 0.000001, meta_weight=0, meta_criterion: str,
+                                  method_name: str, ):
+    hook = DifferentiableMeanTeacherTrainerHook(name="dmt", weight=weight, model=model, alpha=alpha,
+                                                weight_decay=weight_decay, meta_weight=meta_weight,
+                                                meta_criterion=meta_criterion, method_name=method_name)
     return hook

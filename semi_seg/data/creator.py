@@ -10,15 +10,18 @@ from contrastyou import get_cc_data_path
 from contrastyou.data import DatasetBase, extract_sub_dataset_based_on_scan_names, InfiniteRandomSampler, \
     ScanBatchSampler
 from contrastyou.utils import fix_all_seed_within_context
-from semi_seg.augment import ACDCStrongTransforms, SpleenStrongTransforms, ProstateStrongTransforms
-from semi_seg.data import ACDCDataset, ProstateDataset, mmWHSCTDataset, mmWHSMRDataset, ProstateMDDataset
+from semi_seg.augment import ACDCStrongTransforms, SpleenStrongTransforms, ProstateStrongTransforms, \
+    HippocampusStrongTransforms
+from semi_seg.data import ACDCDataset, ProstateDataset, mmWHSCTDataset, mmWHSMRDataset, ProstateMDDataset, \
+    SpleenDataset, HippocampusDataset
 
 data_zoo = {"acdc": ACDCDataset, "prostate": ProstateDataset, "prostate_md": ProstateMDDataset,
-            "mmwhsct": mmWHSCTDataset, "mmwhsmr": mmWHSMRDataset}
+            "mmwhsct": mmWHSCTDataset, "mmwhsmr": mmWHSMRDataset, "spleen": SpleenDataset,
+            "hippocampus": HippocampusDataset}
 augment_zoo = {
     "acdc": ACDCStrongTransforms, "spleen": SpleenStrongTransforms,
     "prostate": ProstateStrongTransforms, "mmwhsct": ACDCStrongTransforms, "mmwhsmr": ACDCStrongTransforms,
-    "prostate_md": ProstateStrongTransforms,
+    "prostate_md": ProstateStrongTransforms, "hippocampus": HippocampusStrongTransforms,
 }
 
 __all__ = ["create_dataset", "create_val_loader", "get_data_loaders", "get_data"]
@@ -33,6 +36,7 @@ def create_dataset(name: str, total_freedom: bool = True):
     test_set = data_class(root_dir=get_cc_data_path(), mode="val", transforms=aug_transform.val)
     assert set(tra_set.get_scan_list()) & set(test_set.get_scan_list()) == set()
     return tra_set, test_set
+
 
 
 def split_dataset_with_predefined_filenames(dataset: DatasetBase, data_name: str, labeled_scan_nums: int, order_num=0):
@@ -118,7 +122,7 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
             label_set, unlabeled_set = split_dataset_with_predefined_filenames(
                 tra_set, data_name, labeled_scan_nums=labeled_scan_num, order_num=order_num)
         except FileNotFoundError as e:
-            seed = 1
+            seed = 2
             logger.critical(f"{data_name} did not find the ordering json file, "
                             f"using a random split with random seed: {seed}")
             logger.critical(e)
@@ -135,7 +139,8 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
     logger.debug(f"creating unlabeled_loader with {len(unlabeled_set.get_scan_list())} scans")
     logger.trace(f"with {','.join(sorted(set(unlabeled_set.get_scan_list())))}")
 
-    group_test = group_test if data_name not in ("spleen", "mmwhsct", "mmwhsmr", "prostate_md") else False
+    group_test = group_test if data_name not in (
+    "spleen", "mmwhsct", "mmwhsmr", "prostate_md", "hippocampus") else False
     test_loader = DataLoader(test_set, batch_size=1 if group_test else 4,
                              batch_sampler=ScanBatchSampler(test_set, shuffle=False) if group_test else None)
 
