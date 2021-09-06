@@ -89,7 +89,7 @@ if __name__ == '__main__':
         "python -c 'import torch; print(torch.randn(1,1,1,1,device=\"cuda\"))'",
         "nvidia-smi"
     ])
-    submittor.configure_sbatch(mem=48)
+    submittor.configure_sbatch(mem=16)
     seed = [10, 20, 30]
     data_name = args.data_name
     save_dir = f"{args.save_dir}/contrastive_semi/hash_{git_hash}/{data_name}"
@@ -97,7 +97,8 @@ if __name__ == '__main__':
     max_epoch = ft_max_epoch_zoo[data_name]
     force_show = args.force_show
 
-    script_generator = SemiSPInfonceScriptGenerator(data_name=data_name, save_dir=os.path.join(save_dir, "contrastive_semi"),
+    script_generator = SemiSPInfonceScriptGenerator(data_name=data_name,
+                                                    save_dir=os.path.join(save_dir, "contrastive_semi"),
                                                     num_batches=num_batches,
                                                     max_epoch=max_epoch)
     contrast_on = "partition"
@@ -113,8 +114,8 @@ if __name__ == '__main__':
 
     jobs = script_generator.grid_search_on(seed=seed, weight=[0.001, 0.01, 0.1, 0.5, 1, 2, 5, 10],
                                            contrast_on=contrast_on,
-                                           begin_values=3,
-                                           end_values=60,
+                                           begin_values=[1, 2, 3, 4, 5],
+                                           end_values=[20, 30, 40, 50],
                                            mode="soft", correct_grad=False)
     for j in jobs:
         submittor.submit(j, account=next(account), force_show=force_show, time=8)
@@ -132,8 +133,8 @@ if __name__ == '__main__':
 
     jobs = script_generator.grid_search_on(seed=seed, weight=[0.001, 0.01, 0.1, 0.5, 1, 2, 5, 10],
                                            contrast_on=contrast_on,
-                                           begin_values=1.5,
-                                           end_values=50,
+                                           begin_values=[1, 2, 3, 4, 5],
+                                           end_values=[20, 30, 40, 50],
                                            mode="soft", correct_grad=False)
     for j in jobs:
         submittor.submit(j, account=next(account), force_show=force_show, time=8)
@@ -151,8 +152,8 @@ if __name__ == '__main__':
 
     jobs = script_generator.grid_search_on(seed=seed, weight=[0.001, 0.01, 0.1, 0.5, 1, 2, 5, 10],
                                            contrast_on=contrast_on,
-                                           begin_values=1.5,
-                                           end_values=70,
+                                           begin_values=[1, 2, 3, 4, 5],
+                                           end_values=[20, 30, 40, 50],
                                            mode="soft", correct_grad=False)
     for j in jobs:
         submittor.submit(j, account=next(account), force_show=force_show, time=8)
@@ -170,8 +171,8 @@ if __name__ == '__main__':
 
     jobs = script_generator.grid_search_on(seed=seed, weight=[0.001, 0.01, 0.1, 0.5, 1, 2, 5, 10],
                                            contrast_on=contrast_on,
-                                           begin_values=5,
-                                           end_values=50,
+                                           begin_values=[1, 2, 3, 4, 5],
+                                           end_values=[20, 30, 40, 50],
                                            mode="soft", correct_grad=False)
     for j in jobs:
         submittor.submit(j, account=next(account), force_show=force_show, time=8)

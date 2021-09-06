@@ -20,6 +20,7 @@ Scheduler:
 Data:
   name: acdc
   labeled_scan_num: 1
+  order_num: 0
 
 LabeledLoader:
   shuffle: true

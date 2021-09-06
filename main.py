@@ -52,10 +52,12 @@ def worker(config, absolute_save_dir, seed):
     trainer_name = config["Trainer"]["name"]
     is_pretrain = trainer_name == "pretrain"
     total_freedom = True if is_pretrain or trainer_name == "mixup" else False
-
+    order_num = config["Data"]["order_num"]
     labeled_loader, unlabeled_loader, val_loader, test_loader = get_data(
         data_params=config["Data"], labeled_loader_params=config["LabeledLoader"],
-        unlabeled_loader_params=config["UnlabeledLoader"], pretrain=is_pretrain, total_freedom=total_freedom)
+        unlabeled_loader_params=config["UnlabeledLoader"], pretrain=is_pretrain, total_freedom=total_freedom,
+        order_num=order_num
+    )
 
     Trainer = trainer_zoo[trainer_name]
 

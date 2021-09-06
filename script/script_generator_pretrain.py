@@ -1,5 +1,4 @@
 import os
-from copy import deepcopy
 from itertools import cycle
 from typing import Union, List
 
@@ -46,8 +45,10 @@ class PretrainSPInfoNCEScriptGenerator(PretrainScriptGenerator):
 
         self.hook_config = yaml_load(os.path.join(CONFIG_PATH, "hooks", "spinfonce.yaml"))
 
-    def get_hook_params(self, weight, contrast_on, begin_values, end_values, mode, correct_grad, feature_names="Conv5"):
+    def get_hook_params(self, *, weight, contrast_on, begin_values, end_values, mode, correct_grad,
+                        feature_names="Conv5", order_num: int):
         return {
+            "Data": {"order_num": order_num},
             "SPInfonceParams":
                 {
                     "weights": weight,
@@ -85,10 +86,9 @@ class PretrainSPInfoNCEScriptGenerator(PretrainScriptGenerator):
 
 
 if __name__ == '__main__':
-
-    seed = [10, 20, 30]
+    seed = [10]
     data_name = "acdc"
-    save_dir = f"contrastive_learn/hash_{git_hash}/{data_name}"
+    save_dir = f"rebuttal/hash_{git_hash}/{data_name}"
     num_batches = num_batches_zoo[data_name]
     pre_max_epoch = pre_max_epoch_zoo[data_name]
     ft_max_epoch = ft_max_epoch_zoo[data_name]
@@ -110,7 +110,7 @@ if __name__ == '__main__':
         "export PYTHONOPTIMIZE=1",
         "export PYTHONWARNINGS=ignore ",
         "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
-        # "export LOGURU_LEVEL=TRACE",
+        "export LOGURU_LEVEL=TRACE",
         "echo $(pwd)",
         move_dataset(),
         "nvidia-smi",
@@ -123,7 +123,8 @@ if __name__ == '__main__':
         ft_max_epoch=ft_max_epoch
     )
     jobs = baseline_generator.grid_search_on(
-        seed=seed, weight=0, contrast_on="", begin_values=0, end_values=0, mode="", correct_grad=False
+        seed=seed, weight=0, contrast_on="", begin_values=0, end_values=0, mode="", correct_grad=False,
+        order_num=[0, 1, 2, ]
     )
 
     for j in jobs:
@@ -131,11 +132,11 @@ if __name__ == '__main__':
 
     infonce_generator = PretrainSPInfoNCEScriptGenerator(
         data_name=data_name, num_batches=num_batches, save_dir=f"{save_dir}/infonce", pre_max_epoch=pre_max_epoch,
-        ft_max_epoch=ft_max_epoch
+        ft_max_epoch=ft_max_epoch,
     )
     jobs = infonce_generator.grid_search_on(
         seed=seed, weight=1, contrast_on=contrast_on, begin_values=1e6, end_values=1e6,
-        mode="hard", correct_grad=False
+        mode="hard", correct_grad=False, order_num=[0, 1, 2, ]
     )
     for j in jobs:
         submittor.submit(j, account=next(account), force_show=force_show, time=4)
@@ -146,20 +147,22 @@ if __name__ == '__main__':
     )
     jobs = spinfonce_generator.grid_search_on(
         begin_values=[1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5], end_values=[10, 20, 30, 40, 50, 60, 70],
-        mode="soft", correct_grad=False, seed=0
+        mode="soft", correct_grad=False, seed=0,
+        order_num=[0, 1, 2, ],
+        mode="soft", correct_grad=False
     )
     for j in jobs:
         submittor.submit(j, account=next(account), force_show=force_show, time=8)
 
-    # combining the pretrained losses together.'
-    contrast_on_ = deepcopy(contrast_on)
-    if "self" in contrast_on_:
-        contrast_on_.remove("self")
-    jobs = spinfonce_generator.grid_search_on(
-        seed=seed, weight=[[1, 0.1, 0.1], [1, 0.2, 0.1], [1, 0.01, 0.01], [1, 0.001, 0.001]],
-        contrast_on=[contrast_on_],
-        begin_values=[[3, 1.5, 1.5]], end_values=[[60, 50, 70]],
-        mode="soft", correct_grad=False, feature_names=[["Conv5"] * 3]
-    )
-    for j in jobs:
-        submittor.submit(j, account=next(account), force_show=force_show, time=8)
+    # # combining the pretrained losses together.'
+    # contrast_on_ = deepcopy(contrast_on)
+    # if "self" in contrast_on_:
+    #     contrast_on_.remove("self")
+    # jobs = spinfonce_generator.grid_search_on(
+    #     seed=seed, weight=[[1, 0.1, 0.1], [1, 0.2, 0.1], [1, 0.01, 0.01], [1, 0.001, 0.001]],
+    #     contrast_on=[contrast_on_],
+    #     begin_values=[[3, 1.5, 1.5]], end_values=[[60, 50, 70]],
+    #     mode="soft", correct_grad=False, feature_names=[["Conv5"] * 3],
+    # )
+    # for j in jobs:
+    #     submittor.submit(j, account=next(account), force_show=force_show, time=8)

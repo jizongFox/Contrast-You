@@ -25,6 +25,7 @@ def main():
         optional_paths=os.path.join(CONFIG_PATH, "pretrain.yaml"), strict=False, verbose=False
     )
     pretrain_config, base_config = separate_pretrain_finetune_configs(config_manager=config_manager)
+    base_config["Data"]["order_num"] = pretrain_config["Data"]["order_num"]
 
     with config_manager(scope="base") as config:
         absolute_save_dir = create_save_dir(PretrainEncoderTrainer, config["Trainer"]["save_dir"])
@@ -53,9 +54,10 @@ def worker(config, absolute_save_dir, seed, ):
         logger.info(f"loading checkpoint from  {model_checkpoint}")
         model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=False)
 
+    order_num = config["Data"]["order_num"]
     labeled_loader, unlabeled_loader, val_loader, test_loader = get_data(
         data_params=config["Data"], labeled_loader_params=config["LabeledLoader"],
-        unlabeled_loader_params=config["UnlabeledLoader"], pretrain=True, total_freedom=True)
+        unlabeled_loader_params=config["UnlabeledLoader"], pretrain=True, total_freedom=True, order_num=order_num)
 
     trainer = PretrainEncoderTrainer(model=model, labeled_loader=labeled_loader,
                                      unlabeled_loader=unlabeled_loader,
