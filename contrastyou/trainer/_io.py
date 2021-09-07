@@ -1,14 +1,13 @@
 import os
 import shutil
+import torch
+import typing as t
 import warnings
 from abc import ABCMeta
+from easydict import EasyDict as edict
+from loguru import logger
 from pathlib import Path
 from random import Random as _Random
-from typing import Dict
-
-import torch
-from loguru import logger
-
 from ._buffer import _BufferMixin
 from ..configure.yaml_parser import yaml_write
 from ..types import typePath
@@ -64,6 +63,7 @@ def create_save_dir(self, save_dir: str):
     save_dir = str(save_dir)
     if not Path(save_dir).is_absolute():
         save_dir = str(Path(self.RUN_PATH) / save_dir)  # absolute path
+        logger.trace(f"relative path found, set path to {save_dir}")
     Path(save_dir).mkdir(exist_ok=True, parents=True)
     assert os.path.isabs(save_dir), f"save_dir must be an absolute path, given {save_dir}."
     return save_dir
@@ -97,6 +97,9 @@ class _IOMixin(_BufferMixin, metaclass=ABCMeta):
             path_ = path2Path(path)
             if not path_.is_absolute():
                 path_ = Path(self.RUN_PATH) / path_
+        if isinstance(config, edict):
+            from contrastyou.configure import edict2dict
+            config = edict2dict(config)
         yaml_write(config, str(path_), save_name=save_name)
 
     def state_dict(self, **kwargs) -> dict:
@@ -167,7 +170,7 @@ class _IOMixin(_BufferMixin, metaclass=ABCMeta):
         state_dict = self.state_dict()
         safe_save(state_dict, str(save_dir_ / save_name))
 
-    def resume_from_checkpoint(self, checkpoint: Dict[str, Dict], strict=True):
+    def resume_from_checkpoint(self, checkpoint: t.Dict[str, t.Dict], strict=True):
         self.load_state_dict(checkpoint, strict=strict)
 
     def resume_from_path(self, path: str, name="last.pth", strict=True, ):

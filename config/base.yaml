@@ -2,8 +2,6 @@ RandomSeed: 10
 trainer_checkpoint: null
 
 Arch:
-  input_dim: 1
-  num_classes: 4
   checkpoint: null
   max_channel: 512
   momentum: 0.01

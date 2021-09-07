@@ -1,20 +1,22 @@
-import os
-from contextlib import nullcontext
-
 import numpy  # noqa
-from loguru import logger
-
-from contrastyou import CONFIG_PATH, git_hash
+import os
+import typing as t
+from contextlib import nullcontext
+from contrastyou import CONFIG_PATH, git_hash, OPT_PATH
 from contrastyou.arch import UNet
 from contrastyou.configure import ConfigManger
+from contrastyou.configure.yaml_parser import yaml_load
 from contrastyou.losses.kl import KL_div
 from contrastyou.trainer import create_save_dir
-from contrastyou.utils import fix_all_seed_within_context, config_logger, extract_model_state_dict
+from contrastyou.utils import fix_all_seed_within_context, adding_writable_logger, extract_model_state_dict
+from easydict import EasyDict as edict
 from hook_creator import create_hook_from_config
+from loguru import logger
+from pathlib import Path
 from semi_seg.data.creator import get_data
 from semi_seg.hooks import feature_until_from_hooks
 from semi_seg.trainers.pretrain import PretrainEncoderTrainer
-from semi_seg.trainers.trainer import SemiTrainer, FineTuneTrainer, MixUpTrainer, MTTrainer, DMTTrainer
+from semi_seg.trainers.trainer import SemiTrainer, FineTuneTrainer, MixUpTrainer, MTTrainer, DMTTrainer, EpocherBase
 from utils import logging_configs, find_checkpoint
 
 trainer_zoo = {"semi": SemiTrainer,
@@ -30,7 +32,9 @@ def main():
     with manager(scope="base") as config:
         # this handles input save dir with relative and absolute paths
         absolute_save_dir = create_save_dir(SemiTrainer, config["Trainer"]["save_dir"])
-        config_logger(absolute_save_dir)
+        if os.path.exists(absolute_save_dir):
+            logger.warning(f"{absolute_save_dir} exists, may overwrite the folder")
+        adding_writable_logger(absolute_save_dir)
         logging_configs(manager, logger)
 
         config.update({"GITHASH": git_hash})
@@ -42,9 +46,15 @@ def main():
 
 
 def worker(config, absolute_save_dir, seed):
+    # load data setting
+    data_name = config.Data.name
+    data_opt = yaml_load(Path(OPT_PATH) / (data_name + ".yaml"))
+    data_opt = edict(data_opt)
+    config.OPT = data_opt
+
     model_checkpoint = config["Arch"].pop("checkpoint", None)
     with fix_all_seed_within_context(seed):
-        model = UNet(**config["Arch"])
+        model = UNet(input_dim=data_opt.input_dim, num_classes=data_opt.num_classes, **config["Arch"])
     if model_checkpoint:
         logger.info(f"loading checkpoint from  {model_checkpoint}")
         model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=True)
@@ -59,7 +69,7 @@ def worker(config, absolute_save_dir, seed):
         order_num=order_num
     )
 
-    Trainer = trainer_zoo[trainer_name]
+    Trainer: t.Type[EpocherBase] = trainer_zoo[trainer_name]
 
     trainer = Trainer(
         model=model, labeled_loader=labeled_loader, unlabeled_loader=unlabeled_loader,

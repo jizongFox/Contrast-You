@@ -1,12 +1,10 @@
-from abc import ABC
-from functools import partial
-
 import torch
-
+from abc import ABC
 from contrastyou.configure.manager import get_config
 from contrastyou.losses.multicore_loss import MultiCoreKL
 from contrastyou.meters import MeterInterface, AverageValueMeter
 from contrastyou.utils import class2one_hot
+from functools import partial
 from ..epocher import EvalEpocher, SemiSupervisedEpocher
 
 
@@ -19,8 +17,7 @@ class MultiCoreTrainEpocher(SemiSupervisedEpocher, ABC):
 
     def _batch_update(self, *, cur_batch_num: int, labeled_image, labeled_target, labeled_filename, label_group,
                       unlabeled_image, unlabeled_image_tf, seed, unl_group, unl_partition, unlabeled_filename,
-                      retain_graph=False,
-                      **kwargs):
+                      retain_graph=False, **kwargs):
         self.optimizer_zero(self._optimizer, cur_iter=cur_batch_num)
 
         with self.autocast:

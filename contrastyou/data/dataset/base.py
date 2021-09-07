@@ -1,23 +1,21 @@
 import os
 import re
+import typing as t
+from PIL import Image, ImageFile
 from collections import OrderedDict
 from copy import deepcopy as dcopy
-from pathlib import Path
-from typing import List, Tuple, Dict, Union, Any, TypeVar, OrderedDict as OrderedDictType, Iterable
-
-from PIL import Image, ImageFile
 from loguru import logger
+from pathlib import Path
 from torch import Tensor
 from torch.utils.data import Dataset
 from tqdm import tqdm
-
 from ...augment import SequentialWrapper
 from ...augment.pil_augment import ToTensor, ToLabel
 from ...utils import path2Path
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-typePath = TypeVar("typePath", str, Path)
+typePath = t.TypeVar("typePath", str, Path)
 
 __all__ = ["DatasetBase", "extract_sub_dataset_based_on_scan_names", "get_stem"]
 
@@ -27,7 +25,7 @@ def read_image(path, mode):
         return image.convert(mode)
 
 
-def allow_extension(path: str, extensions: List[str]) -> bool:
+def allow_extension(path: str, extensions: t.List[str]) -> bool:
     try:
         return Path(path).suffixes[0] in extensions
     except:  # noqa
@@ -55,7 +53,7 @@ def is_image_folder(type_: str):
     return False
 
 
-def make_memory_dictionary(root: str, mode: str, folders: List[str], extensions) -> OrderedDictType[str, List[str]]:
+def make_memory_dictionary(root: str, mode: str, folders: t.List[str], extensions) -> t.OrderedDict[str, t.List[str]]:
     for subfolder in folders:
         assert (Path(root, mode, subfolder).exists() and Path(root, mode, subfolder).is_dir()), \
             os.path.join(root, mode, subfolder)
@@ -75,8 +73,8 @@ def make_memory_dictionary(root: str, mode: str, folders: List[str], extensions)
 class DatasetBase(Dataset):
     allow_extension = [".jpg", ".png"]
 
-    def __init__(self, *, root_dir: str, mode: str, sub_folders: Union[List[str], str],
-                 sub_folder_types: Union[List[str], str], transforms: SequentialWrapper = None,
+    def __init__(self, *, root_dir: str, mode: str, sub_folders: t.Union[t.List[str], str],
+                 sub_folder_types: t.Union[t.List[str], str], transforms: SequentialWrapper = None,
                  group_re: str = None) -> None:
         """
         :param root_dir: dataset root
@@ -90,7 +88,7 @@ class DatasetBase(Dataset):
         self._root_dir: str = root_dir
         Path(self._root_dir).mkdir(parents=True, exist_ok=True)
 
-        self._sub_folders: List[str] = [sub_folders, ] if isinstance(sub_folders, str) else sub_folders
+        self._sub_folders: t.List[str] = [sub_folders, ] if isinstance(sub_folders, str) else sub_folders
         sub_folder_types = [sub_folder_types, ] if isinstance(sub_folder_types, str) else sub_folder_types
         assert len(self._sub_folders) == len(sub_folder_types)
         for type_ in sub_folder_types:
@@ -114,13 +112,17 @@ class DatasetBase(Dataset):
         if self._pattern:
             self._re_pattern = re.compile(self._pattern)
 
-    def get_memory_dictionary(self) -> Dict[str, List[str]]:
+    def get_memory_dictionary(self) -> t.Dict[str, t.List[str]]:
         return OrderedDict({k: v for k, v in self._memory.items()})
 
-    def set_memory_dictionary(self, new_dictionary: Dict[str, Any], deepcopy=True):
+    def set_memory_dictionary(self, new_dictionary: t.Dict[str, t.Any], deepcopy=True):
         assert isinstance(new_dictionary, dict)
         self._memory = dcopy(new_dictionary) if deepcopy else new_dictionary
         return self._memory
+
+    @property
+    def root_dir(self):
+        return self._root_dir
 
     @property
     def pattern(self):
@@ -133,12 +135,12 @@ class DatasetBase(Dataset):
     def __len__(self) -> int:
         return int(len(self._memory[self._sub_folders[0]]))
 
-    def __getitem__(self, index) -> Tuple[List[Tensor], str]:
+    def __getitem__(self, index) -> t.Tuple[t.List[Tensor], str]:
         image_list, filename_list = self._getitem_index(index)
         filename = Path(filename_list[0]).stem
 
-        images = [x for x, t in zip(image_list, self._sub_folder_types) if t]
-        labels = [x for x, t in zip(image_list, self._sub_folder_types) if not t]
+        images = [x for x, _t in zip(image_list, self._sub_folder_types) if _t]
+        labels = [x for x, _t in zip(image_list, self._sub_folder_types) if not _t]
 
         images_, labels_ = self._transforms(images, labels)
         return [*images_, *labels_], filename
@@ -198,7 +200,7 @@ class DatasetBase(Dataset):
         self._transforms = transforms
 
 
-def extract_sub_dataset_based_on_scan_names(dataset: DatasetBase, group_names: Iterable[str],
+def extract_sub_dataset_based_on_scan_names(dataset: DatasetBase, group_names: t.Iterable[str],
                                             transforms: SequentialWrapper = None) -> DatasetBase:
     loaded: bool = dataset.is_preloaded()
     available_group_names = sorted(set(dataset.get_scan_list()))
@@ -220,5 +222,6 @@ def extract_sub_dataset_based_on_scan_names(dataset: DatasetBase, group_names: I
     assert set(new_dataset.get_scan_list()) == set(group_names)
 
     if loaded:
+        dataset.preload()
         new_dataset.preload()
     return new_dataset

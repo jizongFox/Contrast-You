@@ -1,22 +1,21 @@
 # dictionary helper functions
+from itertools import repeat
+
 import collections
 import functools
-import os
-import random
-import warnings
-from contextlib import contextmanager
-from itertools import repeat
-from pathlib import Path
-from typing import List
-
 import matplotlib.pyplot as plt
 import numpy as np
+import os
+import random
 import torch
+import warnings
+from contextlib import contextmanager
+from pathlib import Path
+from script.utils import T_path
 from torch import nn
 from torch.optim import Optimizer
 from torch.utils.data.dataloader import DataLoader, _BaseDataLoaderIter  # noqa
-
-from script.utils import T_path
+from typing import List
 
 try:
     from torch._six import container_abcs
@@ -82,8 +81,10 @@ def pairwise_distances(x, y=None, recall_func=None):
 @contextmanager
 def plt_interactive():
     plt.ion()
-    yield
-    plt.ioff()
+    try:
+        yield
+    finally:
+        plt.ioff()
 
 
 def extract_model_state_dict(trainer_checkpoint_path: str, *, keyword="_model"):
@@ -135,10 +136,12 @@ def fix_all_seed_for_transforms(seed):
     np_state = np.random.get_state()
     torch_state = torch.random.get_rng_state()
     fix_all_seed(seed)
-    yield
-    random.setstate(random_state)
-    np.random.set_state(np_state)  # noqa
-    torch.random.set_rng_state(torch_state)  # noqa
+    try:
+        yield
+    finally:
+        random.setstate(random_state)
+        np.random.set_state(np_state)  # noqa
+        torch.random.set_rng_state(torch_state)  # noqa
 
 
 @contextmanager
@@ -151,14 +154,15 @@ def fix_all_seed_within_context(seed):
         torch_cuda_state = torch.cuda.get_rng_state()
         torch_cuda_state_all = torch.cuda.get_rng_state_all()
     fix_all_seed(seed)
-
-    yield
-    random.setstate(random_state)
-    np.random.set_state(np_state)  # noqa
-    torch.random.set_rng_state(torch_state)  # noqa
-    if cuda_support:
-        torch.cuda.set_rng_state(torch_cuda_state)  # noqa
-        torch.cuda.set_rng_state_all(torch_cuda_state_all)  # noqa
+    try:
+        yield
+    finally:
+        random.setstate(random_state)
+        np.random.set_state(np_state)  # noqa
+        torch.random.set_rng_state(torch_state)  # noqa
+        if cuda_support:
+            torch.cuda.set_rng_state(torch_cuda_state)  # noqa
+            torch.cuda.set_rng_state_all(torch_cuda_state_all)  # noqa
 
 
 def ntuple(n):
@@ -185,7 +189,7 @@ _triple = ntuple(3)
 _quadruple = ntuple(4)
 
 
-def config_logger(save_dir):
+def adding_writable_logger(save_dir):
     abs_save_dir = os.path.abspath(save_dir)
     from loguru import logger
     logger.add(os.path.join(abs_save_dir, "loguru.log"), level="TRACE", diagnose=True)

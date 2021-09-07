@@ -1,17 +1,18 @@
+import sys
+
 import os
 import subprocess
-import sys
 from functools import lru_cache
+from loguru import logger
 from pathlib import Path
 from typing import Optional
-
-from loguru import logger
 
 PROJECT_PATH = str(Path(__file__).parents[1])  # absolute path
 DATA_PATH = str(Path(PROJECT_PATH) / ".data")
 MODEL_PATH = str(Path(PROJECT_PATH) / "runs")
 CONFIG_PATH = str(Path(PROJECT_PATH, "config"))
-
+OPT_PATH = str(Path(PROJECT_PATH, "opt"))
+__accounts = ["rrg-mpederso"]
 Path(DATA_PATH).mkdir(exist_ok=True, parents=True)
 Path(MODEL_PATH).mkdir(exist_ok=True, parents=True)
 Path(CONFIG_PATH).mkdir(exist_ok=True, parents=True)
@@ -33,15 +34,15 @@ git_hash = (get_git_hash() or "none")[:6]
 
 
 @lru_cache()
-def get_cc_data_path() -> str:
+def get_true_data_path() -> str:
     """get absolute path of data in CC."""
     possible_path = os.environ.get("SLURM_TMPDIR", None)
     if possible_path:
         possible_folders = os.listdir(possible_path)
         if len(possible_folders) > 0:
-            print("cc_data_path is {}".format(possible_path))
+            logger.debug("true_data_path is {}".format(possible_path))
             return possible_path
-    logger.debug("cc_data_path is {}".format(DATA_PATH))
+    logger.debug("true_data_path is {}".format(DATA_PATH))
     return DATA_PATH
 
 

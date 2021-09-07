@@ -8,7 +8,7 @@ from contrastyou import CONFIG_PATH, success
 from contrastyou.arch import UNet
 from contrastyou.configure import ConfigManger
 from contrastyou.losses.kl import KL_div
-from contrastyou.utils import fix_all_seed_within_context, config_logger, set_deterministic, extract_model_state_dict
+from contrastyou.utils import fix_all_seed_within_context, adding_writable_logger, set_deterministic, extract_model_state_dict
 from semi_seg.data.creator import get_data
 from semi_seg.trainers.trainer import SemiTrainer, AdversarialTrainer
 
@@ -20,7 +20,7 @@ def main():
         seed = config.get("RandomSeed", 10)
         _save_dir = config["Trainer"]["save_dir"]
         absolute_save_dir = os.path.abspath(os.path.join(SemiTrainer.RUN_PATH, _save_dir))
-        config_logger(absolute_save_dir)
+        adding_writable_logger(absolute_save_dir)
         with fix_all_seed_within_context(seed):
             worker(config, absolute_save_dir, seed)
 

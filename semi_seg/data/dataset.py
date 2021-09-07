@@ -175,3 +175,8 @@ class HippocampusDataset(ContrastDataset, _Hippocampus):
         if cur_index <= 2 * cutting_point:
             return str(1)
         return str(2)
+
+
+data_zoo = {"acdc": ACDCDataset, "prostate": ProstateDataset, "prostate_md": ProstateMDDataset,
+            "mmwhsct": mmWHSCTDataset, "mmwhsmr": mmWHSMRDataset, "spleen": SpleenDataset,
+            "hippocampus": HippocampusDataset}

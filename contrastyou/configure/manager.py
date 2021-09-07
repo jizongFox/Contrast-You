@@ -1,12 +1,11 @@
 from collections import OrderedDict
 from contextlib import contextmanager
 from copy import deepcopy as dcp
+from easydict import EasyDict as edict
 from functools import reduce, partial
+from loguru import logger
 from pprint import pprint
 from typing import List, Tuple, Dict, Union, Optional
-
-from loguru import logger
-
 from ._merge_checker import merge_checker as _merge_checker
 from .dictionary_utils import dictionary_merge_by_hierachy
 from .yaml_parser import yamlArgParser, yaml_load
@@ -81,19 +80,19 @@ class ConfigManger:
 
     @property
     def base_config(self):
-        return dcp(self._base_config)
+        return edict(dcp(self._base_config))
 
     @property
     def parsed_config(self):
-        return dcp(self._parsed_args)
+        return edict(dcp(self._parsed_args))
 
     @property
     def optional_configs(self):
-        return dcp(self._optional_config_list)
+        return [edict(x) for x in dcp(self._optional_config_list)]
 
     @property
     def merged_config(self):
-        return dcp(self._merged_config)
+        return edict(dcp(self._merged_config))
 
     @property
     def config(self):

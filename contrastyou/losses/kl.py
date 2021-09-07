@@ -1,13 +1,11 @@
-from typing import Optional, OrderedDict
-from typing import TypeVar, List, Dict, Union
-
 import numpy as np
 import torch
+from contrastyou.utils.general import simplex, assert_list
 from loguru import logger
 from torch import Tensor
 from torch import nn
-
-from contrastyou.utils.general import simplex, assert_list
+from typing import Optional, OrderedDict
+from typing import TypeVar, List, Dict, Union
 
 __all__ = ["Entropy", "KL_div", "JSD_div"]
 
@@ -56,30 +54,6 @@ class Entropy(nn.Module):
             return e.sum()
         else:
             return e
-
-
-class SimplexCrossEntropyLoss(nn.Module):
-    def __init__(self, reduction="mean", eps=1e-16) -> None:
-        super().__init__()
-        _check_reduction_params(reduction)
-        self._reduction = reduction
-        self._eps = eps
-
-    def forward(self, prob: Tensor, target: Tensor, **kwargs) -> Tensor:
-        if not kwargs.get("disable_assert"):
-            assert not target.requires_grad
-            assert prob.requires_grad
-            assert prob.shape == target.shape
-            assert simplex(prob)
-            assert simplex(target)
-        b, c, *_ = target.shape
-        ce_loss = (-target * torch.log(prob)).sum(1)
-        if self._reduction == "mean":
-            return ce_loss.mean()
-        elif self._reduction == "sum":
-            return ce_loss.sum()
-        else:
-            return ce_loss
 
 
 class KL_div(nn.Module):
@@ -133,13 +107,14 @@ class KL_div(nn.Module):
 
     def state_dict(self, *args, **kwargs):
         save_dict = super().state_dict(*args, **kwargs)
-        save_dict["weight"] = self._weight
-        save_dict["reduction"] = self._reduction
+        # save_dict["weight"] = self._weight
+        # save_dict["reduction"] = self._reduction
         return save_dict
 
     def load_state_dict(self, state_dict: Union[Dict[str, Tensor], OrderedDict[str, Tensor]], *args, **kwargs):
-        self._reduction = state_dict["reduction"]
-        self._weight = state_dict["weight"]
+        super(KL_div, self).load_state_dict(state_dict, **kwargs)
+        # self._reduction = state_dict["reduction"]
+        # self._weight = state_dict["weight"]
 
 
 class JSD_div(nn.Module):
