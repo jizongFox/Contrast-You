@@ -1,11 +1,10 @@
 # this file implements the multicore loss that lets a class having multiple prototype representation
-import typing as t
-
 import torch
-from torch import nn, Tensor
-
+import typing as t
 from contrastyou.losses.kl import KL_div, Entropy
-from contrastyou.utils import simplex, one_hot, class2one_hot
+from contrastyou.utils import simplex, one_hot, class2one_hot, class_name
+from loguru import logger
+from torch import nn, Tensor
 
 
 class MultiCoreKL(nn.Module):
@@ -30,6 +29,33 @@ class MultiCoreKL(nn.Module):
     def reduced_simplex(self, predict_simplex: Tensor):
         reduced_simplex = torch.cat([predict_simplex[:, i].sum(1, keepdim=True) for i in self._groups], dim=1)
         return reduced_simplex
+
+
+class OrthogonalMultiCoreKL(MultiCoreKL):
+
+    def __init__(self, groups: t.List[t.List[int]], entropy_weight=0.0, orthogonal_weight=0.001, **kwargs):
+        super().__init__(groups, entropy_weight, **kwargs)
+        self._orth_weight = orthogonal_weight
+        logger.trace(f"Creating {class_name(self)} with ent_weight: {entropy_weight}, orth_weight: {orthogonal_weight}.")
+
+    def set_fc_layer(self, fc_layer: nn.Module):
+        self._fc = fc_layer
+
+    def forward(self, predict_simplex: Tensor, onehot_target: Tensor):
+        loss = super().forward(predict_simplex, onehot_target)
+        matrix = self.pairwise_matrix(self._fc.weight.squeeze(), self._fc.weight.squeeze())
+        self.orth_loss = matrix.mean() + 1
+        return loss + self._orth_weight * self.orth_loss
+
+    def get_orth_loss(self):
+        try:
+            return self.orth_loss
+        except AttributeError:
+            raise RuntimeError(f"get_orth_loss can only be called after forward.")
+
+    @staticmethod
+    def pairwise_matrix(vec1: Tensor, vec2: Tensor):
+        return vec1 @ vec2.t()
 
 
 if __name__ == '__main__':

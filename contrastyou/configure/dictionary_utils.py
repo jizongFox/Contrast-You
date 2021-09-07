@@ -1,13 +1,20 @@
-from collections import Iterable
+import numpy as np
+import torch
+from collections.abc import Iterable
+from contrastyou.types import mapType, is_map
+from contrastyou.utils.printable import is_iterable
 from copy import deepcopy as dcopy
 from numbers import Number
 from typing import Dict, Any
 
-import numpy as np
-import torch
 
-from contrastyou.types import mapType, is_map
-from contrastyou.utils.printable import is_iterable
+def edict2dict(item):
+    if isinstance(item, (str, Number, float, np.ndarray, torch.Tensor)):
+        return item
+    if isinstance(item, (list, tuple)):
+        return type(item)([edict2dict(x) for x in item])
+    if isinstance(item, dict):
+        return {k: edict2dict(v) for k, v in item.items()}
 
 
 def dictionary_merge_by_hierachy(dictionary1: Dict[str, Any], new_dictionary: Dict[str, Any] = None, deepcopy=True,
@@ -49,7 +56,7 @@ def extract_dictionary_from_anchor(target_dictionary: Dict, anchor_dictionary: D
     result_dict = {}
 
     if deepcopy:
-        anchor_dictionary, target_dictionary = list(map(dcopy, [anchor_dictionary, target_dictionary]))
+        anchor_dictionary, target_dictionary = map(dcopy, (anchor_dictionary, target_dictionary))
 
     for k, v in anchor_dictionary.items():
         if k in target_dictionary:

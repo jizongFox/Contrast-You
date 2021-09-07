@@ -1,16 +1,15 @@
+from itertools import product
+
+import numpy as np
 import os
 import random
 import string
-from collections import Iterable
-from itertools import product
-from pathlib import Path
-from typing import Union, TypeVar, List
-
-import numpy as np
 import torch
-
+from collections.abc import Iterable
 from contrastyou import PROJECT_PATH, on_cc
-from semi_seg import data2input_dim, data2class_numbers, ratio_zoo
+from pathlib import Path
+# from semi_seg import data2input_dim, data2class_numbers, ratio_zoo
+from typing import Union, TypeVar, List
 
 TEMP_DIR = os.path.join(PROJECT_PATH, "script", ".temp_config")
 if not os.path.exists(TEMP_DIR):
@@ -46,7 +45,7 @@ def grid_search(**kwargs):
 
 class ScriptGenerator:
 
-    def __init__(self, *, data_name, num_batches, save_dir) -> None:
+    def __init__(self, *, data_name, num_batches, save_dir, data_opt) -> None:
         super().__init__()
         self.conditions = []
         self._data_name = data_name
@@ -54,10 +53,6 @@ class ScriptGenerator:
         self._num_batches = num_batches
         self.conditions.append(f"Trainer.num_batches={num_batches}")
         self._save_dir = save_dir
-        self._input_dim = data2input_dim[data_name]
-        self.conditions.append(f"Arch.input_dim={self._input_dim}")
-        self._num_classes = data2class_numbers[data_name]
-        self.conditions.append(f"Arch.num_classes={self._num_classes}")
 
     def grid_search_on(self, *, seed: int, **kwargs):
         pass
@@ -76,8 +71,8 @@ class ScriptGenerator:
 
 class BaselineGenerator(ScriptGenerator):
 
-    def __init__(self, *, data_name, num_batches, max_epoch, save_dir, model_checkpoint=None) -> None:
-        super().__init__(data_name=data_name, num_batches=num_batches, save_dir=save_dir)
+    def __init__(self, *, data_name, num_batches, max_epoch, save_dir, model_checkpoint=None, data_opt) -> None:
+        super().__init__(data_name=data_name, num_batches=num_batches, save_dir=save_dir, data_opt=data_opt)
         self._model_checkpoint = model_checkpoint
         self.conditions.append(f"Arch.checkpoint={self._model_checkpoint or 'null'}")
         self._max_epoch = max_epoch

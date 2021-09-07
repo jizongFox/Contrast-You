@@ -1,0 +1,9 @@
+labeled_ratios: [1, 2, 9]
+pre_max_epoch: 80
+ft_max_epoch: 60
+num_batches: 200
+num_classes: 5
+input_dim: 1
+pre_lr: 0.0000005
+ft_lr: 0.000002
+

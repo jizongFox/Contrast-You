@@ -8,7 +8,7 @@ from contrastyou import CONFIG_PATH, success
 from contrastyou.arch import UNet, arch_order
 from contrastyou.configure import ConfigManger
 from contrastyou.losses.kl import KL_div
-from contrastyou.utils import fix_all_seed_within_context, config_logger, extract_model_state_dict
+from contrastyou.utils import fix_all_seed_within_context, adding_writable_logger, extract_model_state_dict
 from hook_creator import create_hook_from_config
 from semi_seg import ratio_zoo
 from semi_seg.data.creator import get_data
@@ -31,7 +31,7 @@ def main():
         data_name = config["Data"]["name"]
         absolute_save_dir = os.path.abspath(
             os.path.join(PretrainEncoderTrainer.RUN_PATH, str(config["Trainer"]["save_dir"])))
-        config_logger(absolute_save_dir)
+        adding_writable_logger(absolute_save_dir)
         with fix_all_seed_within_context(seed):
             model = worker(pretrain_config, absolute_save_dir, seed)
 

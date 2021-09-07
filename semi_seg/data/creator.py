@@ -1,53 +1,40 @@
 import json
-import os
-from typing import Tuple, List
-
 import numpy as np
-from loguru import logger
-from torch.utils.data import DataLoader
-
-from contrastyou import get_cc_data_path
+import os
+import typing as t
+from contrastyou import get_true_data_path
 from contrastyou.data import DatasetBase, extract_sub_dataset_based_on_scan_names, InfiniteRandomSampler, \
     ScanBatchSampler
 from contrastyou.utils import fix_all_seed_within_context
-from semi_seg.augment import ACDCStrongTransforms, SpleenStrongTransforms, ProstateStrongTransforms, \
-    HippocampusStrongTransforms
-from semi_seg.data import ACDCDataset, ProstateDataset, mmWHSCTDataset, mmWHSMRDataset, ProstateMDDataset, \
-    SpleenDataset, HippocampusDataset
+from loguru import logger
+from semi_seg.augment import augment_zoo
+from semi_seg.data import mmWHSCTDataset, mmWHSMRDataset, data_zoo
+from torch.utils.data import DataLoader
 
-data_zoo = {"acdc": ACDCDataset, "prostate": ProstateDataset, "prostate_md": ProstateMDDataset,
-            "mmwhsct": mmWHSCTDataset, "mmwhsmr": mmWHSMRDataset, "spleen": SpleenDataset,
-            "hippocampus": HippocampusDataset}
-augment_zoo = {
-    "acdc": ACDCStrongTransforms, "spleen": SpleenStrongTransforms,
-    "prostate": ProstateStrongTransforms, "mmwhsct": ACDCStrongTransforms, "mmwhsmr": ACDCStrongTransforms,
-    "prostate_md": ProstateStrongTransforms, "hippocampus": HippocampusStrongTransforms,
-}
-
-__all__ = ["create_dataset", "create_val_loader", "get_data_loaders", "get_data"]
+__all__ = ["create_tra_test_dataset", "create_val_loader", "get_data_loaders", "get_data"]
 
 
-def create_dataset(name: str, total_freedom: bool = True):
+def create_tra_test_dataset(name: str, total_freedom: bool = True):
     data_class = data_zoo[name]
     aug_transform = augment_zoo[name]
     tra_transform = aug_transform.pretrain
     tra_transform._total_freedom = total_freedom
-    tra_set = data_class(root_dir=get_cc_data_path(), mode="train", transforms=tra_transform)
-    test_set = data_class(root_dir=get_cc_data_path(), mode="val", transforms=aug_transform.val)
-    assert set(tra_set.get_scan_list()) & set(test_set.get_scan_list()) == set()
+    val_transform = aug_transform.val
+    tra_set = data_class(root_dir=get_true_data_path(), mode="train", transforms=tra_transform)
+    test_set = data_class(root_dir=get_true_data_path(), mode="val", transforms=val_transform)
+    assert set(tra_set.get_scan_list()) & set(test_set.get_scan_list()) == set(), "split wrong."
     return tra_set, test_set
 
 
-
 def split_dataset_with_predefined_filenames(dataset: DatasetBase, data_name: str, labeled_scan_nums: int, order_num=0):
-    order_num_file = os.path.join(dataset._root_dir, f"{data_name}_ordering_{order_num}.json")
-    data_ordering: List[str]
+    order_num_file = os.path.join(dataset.root_dir, f"{data_name}_ordering_{order_num}.json")
+    data_ordering: t.List[str]
     if os.path.exists(order_num_file):
         with open(order_num_file, "r") as f:  # noqa
             data_ordering = json.load(f)
     else:
         logger.error(f"{data_name} does not have {data_name}_ordering_{order_num}.json, loading default split")
-        order_num_file = os.path.join(dataset._root_dir, f"{data_name}_ordering.json")
+        order_num_file = os.path.join(dataset.root_dir, f"{data_name}_ordering.json")
         with open(order_num_file, "r") as f:  # noqa
             data_ordering = json.load(f)
 
@@ -62,7 +49,7 @@ def split_dataset_with_predefined_filenames(dataset: DatasetBase, data_name: str
             extract_sub_dataset_based_on_scan_names(dataset, group_names=unlabeled_scans)]
 
 
-def split_dataset(dataset: DatasetBase, *scans: float, seed: int = 1) -> List[DatasetBase]:
+def split_dataset(dataset: DatasetBase, *scans: float, seed: int = 1) -> t.List[DatasetBase]:
     """this function splits the dataset without considering the predefined ordering, controlled by a seed"""
     assert sum(scans) <= len(dataset.get_scan_list()), scans
     scan_list = sorted(set(dataset.get_scan_list()))
@@ -90,19 +77,20 @@ def split_dataset(dataset: DatasetBase, *scans: float, seed: int = 1) -> List[Da
     return sub_datasets
 
 
-def create_infinite_loader(dataset, shuffle=True, num_workers: int = 8, batch_size: int = 4):
+def create_infinite_loader(dataset, *, shuffle=True, num_workers: int = 8, batch_size: int = 4):
     sampler = InfiniteRandomSampler(dataset, shuffle=shuffle)
-
-    loader = DataLoader(
+    return DataLoader(
         dataset, sampler=sampler, batch_size=batch_size, num_workers=num_workers, pin_memory=True
     )
-    return loader
 
 
-def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params, pretrain=False, group_test=True,
+def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params, *, pretrain=False, group_test=True,
                      total_freedom=False, order_num: int = 0):
+    """
+    Interface to get semi supervised dataloader or pretrained dataloader.
+    """
     data_name = data_params["name"]
-    tra_set, test_set = create_dataset(data_name, total_freedom)
+    tra_set, test_set = create_tra_test_dataset(data_name, total_freedom)
     if len(tra_set.get_scan_list()) == 0 or len(test_set.get_scan_list()) == 0:
         raise RuntimeError("dataset loading error with empty dataset ont `tra_set` and `val_set`")
 
@@ -113,23 +101,22 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
         raise RuntimeError(f"labeled scan number {labeled_scan_num} greater than the train set size: {train_scan_num}")
 
     if pretrain:
-        logger.debug("creating pretraining dataloaders")
+        logger.trace("creating pretraining dataloaders")
         labeled_scan_num = int(train_scan_num // 2)
         label_set, unlabeled_set = split_dataset(tra_set, labeled_scan_num)
     else:
-        logger.debug("creating true split dataloaders")
+        logger.trace("creating true split dataloaders")
         try:
             label_set, unlabeled_set = split_dataset_with_predefined_filenames(
                 tra_set, data_name, labeled_scan_nums=labeled_scan_num, order_num=order_num)
         except FileNotFoundError as e:
             seed = 2
-            logger.critical(f"{data_name} did not find the ordering json file, "
-                            f"using a random split with random seed: {seed}")
-            logger.critical(e)
+            logger.opt(exception=True).warning(f"{data_name} did not find the ordering json file, "
+                                               f"using a random split with random seed: {seed}")
             label_set, unlabeled_set = split_dataset(tra_set, labeled_scan_num, seed=seed)
 
     if len(label_set.get_scan_list()) == 0:
-        raise RuntimeError("void labeled dataset, split dataset error")
+        raise RuntimeError("Empty labeled dataset, split dataset error")
 
     labeled_loader = create_infinite_loader(label_set, **labeled_loader_params)
     logger.debug(f"creating labeled_loader with {len(label_set.get_scan_list())} scans")
@@ -140,14 +127,14 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
     logger.trace(f"with {','.join(sorted(set(unlabeled_set.get_scan_list())))}")
 
     group_test = group_test if data_name not in (
-    "spleen", "mmwhsct", "mmwhsmr", "prostate_md", "hippocampus") else False
+        "spleen", "mmwhsct", "mmwhsmr", "prostate_md", "hippocampus") else False
     test_loader = DataLoader(test_set, batch_size=1 if group_test else 4,
                              batch_sampler=ScanBatchSampler(test_set, shuffle=False) if group_test else None)
 
     return labeled_loader, unlabeled_loader, test_loader
 
 
-def create_val_loader(*, test_loader) -> Tuple[DataLoader, DataLoader]:
+def create_val_loader(*, test_loader) -> t.Tuple[DataLoader, DataLoader]:
     test_dataset: DatasetBase = test_loader.dataset
     test_size = len(test_dataset.get_scan_list())
     batch_sampler = test_loader.batch_sampler

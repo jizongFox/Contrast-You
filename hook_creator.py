@@ -1,5 +1,5 @@
 from semi_seg.hooks import create_infonce_hooks, create_sp_infonce_hooks, create_discrete_mi_consistency_hook, \
-    create_mt_hook, create_differentiable_mt_hook
+    create_mt_hook, create_differentiable_mt_hook, create_ent_min_hook
 
 
 def _hook_config_validator(config, is_pretrain):
@@ -38,4 +38,7 @@ def create_hook_from_config(model, config, *, is_pretrain=False, trainer):
         mt_hook = create_differentiable_mt_hook(model=model, **config["DifferentiableMeanTeacherParameters"])
         hooks.append(mt_hook)
         trainer.set_model4inference(mt_hook.teacher_model)
+    if "EntropyMinParameters" in config:
+        ent_hook = create_ent_min_hook(weight=float(config["EntropyMinParameters"]["weight"]))
+        hooks.append(ent_hook)
     return hooks

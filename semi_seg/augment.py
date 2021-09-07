@@ -1,6 +1,7 @@
+from contrastyou.augment import pil_augment, SequentialWrapperTwice, SequentialWrapper
 from torchvision import transforms
 
-from contrastyou.augment import pil_augment, SequentialWrapperTwice, SequentialWrapper
+__all__ = ["augment_zoo"]
 
 
 class ACDCStrongTransforms:
@@ -246,3 +247,10 @@ class HippocampusStrongTransforms:
         ]),
         total_freedom=True
     )
+
+
+augment_zoo = {
+    "acdc": ACDCStrongTransforms, "spleen": SpleenStrongTransforms,
+    "prostate": ProstateStrongTransforms, "mmwhsct": ACDCStrongTransforms, "mmwhsmr": ACDCStrongTransforms,
+    "prostate_md": ProstateStrongTransforms, "hippocampus": HippocampusStrongTransforms,
+}

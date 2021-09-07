@@ -1,10 +1,9 @@
-from typing import List, Union
-
-from torch import nn
-
 from contrastyou.arch import UNet
 from contrastyou.hooks.base import CombineTrainerHook, TrainerHook
 from contrastyou.utils.utils import ntuple
+from torch import nn
+from typing import List, Union
+from .entmin import EntropyMinTrainerHook
 from .consistency import ConsistencyTrainerHook
 from .discretemi import DiscreteMITrainHook
 from .dmt import DifferentiableMeanTeacherTrainerHook
@@ -148,4 +147,9 @@ def create_differentiable_mt_hook(*, model: nn.Module, weight: float, alpha: flo
     hook = DifferentiableMeanTeacherTrainerHook(name="dmt", weight=weight, model=model, alpha=alpha,
                                                 weight_decay=weight_decay, meta_weight=meta_weight,
                                                 meta_criterion=meta_criterion, method_name=method_name)
+    return hook
+
+
+def create_ent_min_hook(*, weight: float = 0.001):
+    hook = EntropyMinTrainerHook(name="entropy", weight=weight)
     return hook

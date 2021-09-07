@@ -1,38 +1,39 @@
-import argparse
-import os
 from itertools import cycle
 
-from contrastyou import CONFIG_PATH, on_cc, git_hash
+import argparse
+import os
+from contrastyou import CONFIG_PATH, on_cc, git_hash, __accounts, OPT_PATH
 from contrastyou.configure import dictionary_merge_by_hierachy
 from contrastyou.configure.yaml_parser import yaml_load, yaml_write
 from contrastyou.submitter import SlurmSubmitter as JobSubmiter
+from easydict import EasyDict as edict
+from pathlib import Path
 from script import utils
 from script.utils import TEMP_DIR, grid_search, BaselineGenerator, \
     move_dataset
-from semi_seg import __accounts, num_batches_zoo, ft_max_epoch_zoo, ratio_zoo
 
 account = cycle(__accounts)
 
 
 class MulticoreScriptGenerator(BaselineGenerator):
 
-    def __init__(self, *, data_name, num_batches, max_epoch, save_dir, model_checkpoint=None) -> None:
+    def __init__(self, *, data_name, num_batches, max_epoch, save_dir, model_checkpoint=None, data_opt) -> None:
         super().__init__(data_name=data_name, num_batches=num_batches, max_epoch=max_epoch, save_dir=save_dir,
-                         model_checkpoint=model_checkpoint)
+                         model_checkpoint=model_checkpoint, data_opt=data_opt)
 
         self.hook_config = yaml_load(os.path.join(CONFIG_PATH, "hooks", "multicore.yaml"))
 
-    def get_hook_params(self, weight, multiplier):
+    def get_hook_params(self, ent_weight, orth_weight, multiplier):
         return {
             "MulticoreParameters":
-                {"entropy_weight": weight,
-                 "multiplier": multiplier}
+                {"entropy_weight": 0,
+                 "multiplier": multiplier,
+                 "orthogonal_weight": orth_weight
+                 },
+            "EntropyMinParameters": {"weight": ent_weight}
         }
 
     def generate_single_script(self, save_dir, labeled_scan_num, seed, hook_path):
-        from semi_seg import ft_lr_zooms
-        ft_lr = ft_lr_zooms[self._data_name]
-
         return f"python main_multicore.py   Trainer.save_dir={save_dir} " \
                f" Optim.lr={ft_lr:.7f} RandomSeed={str(seed)} Data.labeled_scan_num={int(labeled_scan_num)} " \
                f" {' '.join(self.conditions)} " \
@@ -41,8 +42,7 @@ class MulticoreScriptGenerator(BaselineGenerator):
     def grid_search_on(self, *, seed, **kwargs):
         jobs = []
 
-        labeled_scan_list = ratio_zoo[self._data_name][:-1] if len(ratio_zoo[self._data_name]) > 1 else ratio_zoo[
-            self._data_name]
+        labeled_scan_list = labeled_ratios[:-1] if len(labeled_ratios) > 1 else labeled_ratios
 
         for param in grid_search(**{**kwargs, **{"seed": seed}}):
             random_seed = param.pop("seed")
@@ -92,16 +92,22 @@ if __name__ == '__main__':
     seed = [10, 20, 30]
     data_name = args.data_name
     save_dir = f"{args.save_dir}/mt/hash_{git_hash}/{data_name}"
-    num_batches = num_batches_zoo[data_name]
-    max_epoch = ft_max_epoch_zoo[data_name]
-    force_show = args.force_show
+    data_opt = yaml_load(Path(OPT_PATH) / (data_name + ".yaml"))
+    data_opt = edict(data_opt)
 
+    num_batches = data_opt.num_batches
+    max_epoch = data_opt.ft_max_epoch
+    ft_lr = data_opt.ft_lr
+    labeled_ratios = data_opt.labeled_ratios
+
+    force_show = args.force_show
     script_generator = MulticoreScriptGenerator(data_name=data_name, save_dir=os.path.join(save_dir, "multicore"),
                                                 num_batches=num_batches,
-                                                max_epoch=max_epoch)
+                                                max_epoch=max_epoch, data_opt=data_opt)
 
     jobs = script_generator.grid_search_on(seed=seed,
-                                           weight=[0, 0.001, 0.01, 0.05],
+                                           ent_weight=[0, 0.0001, 0.001, 0.01, 0.1],
+                                           orth_weight=[0, 0.0001, 0.001, 0.01, 0.1],
                                            multiplier=[1, 2, 3, ])
 
     for j in jobs:
