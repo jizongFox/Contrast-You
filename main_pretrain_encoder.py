@@ -9,7 +9,7 @@ from contrastyou.arch import UNet
 from contrastyou.configure import ConfigManger
 from contrastyou.losses.kl import KL_div
 from contrastyou.trainer import create_save_dir
-from contrastyou.utils import fix_all_seed_within_context, adding_writable_logger, extract_model_state_dict
+from contrastyou.utils import fix_all_seed_within_context, adding_writable_sink, extract_model_state_dict
 from hook_creator import create_hook_from_config
 from semi_seg import ratio_zoo
 from semi_seg.data.creator import get_data
@@ -29,7 +29,7 @@ def main():
 
     with config_manager(scope="base") as config:
         absolute_save_dir = create_save_dir(PretrainEncoderTrainer, config["Trainer"]["save_dir"])
-        adding_writable_logger(absolute_save_dir)
+        adding_writable_sink(absolute_save_dir)
         logging_configs(config_manager, logger)
 
         pretrain_config.update({"GITHASH": git_hash})

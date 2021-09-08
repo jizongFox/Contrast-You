@@ -15,6 +15,12 @@ __all__ = ["create_tra_test_dataset", "create_val_loader", "get_data_loaders", "
 
 
 def create_tra_test_dataset(name: str, total_freedom: bool = True):
+    """
+    create train and test dataset given the name of the dataset
+    Args:
+        name: the name of the dataset, such as acdc, prostate
+        total_freedom: control the augmentation strength, where if only two images are positionally aligned or not.
+    """
     data_class = data_zoo[name]
     aug_transform = augment_zoo[name]
     tra_transform = aug_transform.pretrain
@@ -84,19 +90,14 @@ def create_infinite_loader(dataset, *, shuffle=True, num_workers: int = 8, batch
     )
 
 
-def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params, *, pretrain=False, group_test=True,
-                     total_freedom=False, order_num: int = 0):
-    """
-    Interface to get semi supervised dataloader or pretrained dataloader.
-    """
-    data_name = data_params["name"]
+def _get_labeled_unlabeled_test_datasets(data_name, *, total_freedom: bool, labeled_scan_num: int,
+                                         pretrain: bool = False, order_num: int = 0):
     tra_set, test_set = create_tra_test_dataset(data_name, total_freedom)
     if len(tra_set.get_scan_list()) == 0 or len(test_set.get_scan_list()) == 0:
         raise RuntimeError("dataset loading error with empty dataset ont `tra_set` and `val_set`")
 
     train_scan_num = len(tra_set.get_scan_list())
 
-    labeled_scan_num = int(data_params["labeled_scan_num"])
     if labeled_scan_num > train_scan_num:
         raise RuntimeError(f"labeled scan number {labeled_scan_num} greater than the train set size: {train_scan_num}")
 
@@ -117,7 +118,21 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
 
     if len(label_set.get_scan_list()) == 0:
         raise RuntimeError("Empty labeled dataset, split dataset error")
+    return label_set, unlabeled_set, test_set
 
+
+def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params, *, pretrain=False, group_test=True,
+                     total_freedom=False, order_num: int = 0):
+    """
+    Interface to get semi supervised dataloader or pretrained dataloader.
+    """
+    data_name = data_params.name
+    labeled_scan_num = data_params.labeled_scan_num
+
+    label_set, unlabeled_set, test_set = _get_labeled_unlabeled_test_datasets(
+        data_name, total_freedom=total_freedom, labeled_scan_num=labeled_scan_num, pretrain=pretrain,
+        order_num=order_num,
+    )
     labeled_loader = create_infinite_loader(label_set, **labeled_loader_params)
     logger.debug(f"creating labeled_loader with {len(label_set.get_scan_list())} scans")
     logger.trace(f"with {','.join(sorted(set(label_set.get_scan_list())))}")

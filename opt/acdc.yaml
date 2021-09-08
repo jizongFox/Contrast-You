@@ -1,7 +1,7 @@
 labeled_ratios: [ 1, 2, 4, 174 ]
 pre_max_epoch: 80
-ft_max_epoch: 2
-num_batches: 4
+ft_max_epoch: 80
+num_batches: 200
 num_classes: 4
 input_dim: 1
 pre_lr: 0.0000005

@@ -10,6 +10,7 @@ import random
 import torch
 import warnings
 from contextlib import contextmanager
+from contrastyou import logger_format
 from pathlib import Path
 from script.utils import T_path
 from torch import nn
@@ -189,10 +190,11 @@ _triple = ntuple(3)
 _quadruple = ntuple(4)
 
 
-def adding_writable_logger(save_dir):
+def adding_writable_sink(save_dir):
     abs_save_dir = os.path.abspath(save_dir)
     from loguru import logger
-    logger.add(os.path.join(abs_save_dir, "loguru.log"), level="TRACE", diagnose=True)
+    logger.add(os.path.join(abs_save_dir, "loguru.log"), level="TRACE", backtrace=False, diagnose=False,
+               format=logger_format)
 
 
 def fix_seed(func):
