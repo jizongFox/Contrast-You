@@ -160,7 +160,7 @@ class _INFONCEEpochHook(EpocherHook):
     def __init__(self, *, name: str, weight: float, extractor, projector,
                  criterion: Union[SupConLoss1, SelfPacedSupConLoss],
                  label_generator) -> None:
-        super().__init__(name)
+        super().__init__(name=name)
         self._extractor = extractor
         self._extractor.bind()
         self._weight = weight

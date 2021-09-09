@@ -1,6 +1,2 @@
 MulticoreParameters:
-  entropy_weight: 0.0
   multiplier: 1
-  orthogonal_weight: 0.001
-EntropyMinParameters:
-  weight: 0.00001
