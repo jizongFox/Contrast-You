@@ -133,7 +133,7 @@ class MeanTeacherTrainerHook(TrainerHook):
 
     @property
     def learnable_modules(self) -> List[nn.Module]:
-        return self.extra_teachers
+        return [x for x in self.extra_teachers]
 
 
 class _MeanTeacherEpocherHook(EpocherHook):

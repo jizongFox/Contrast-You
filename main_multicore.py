@@ -56,9 +56,9 @@ def worker(config, absolute_save_dir, seed):
 
     model_checkpoint = config["Arch"].pop("checkpoint", None)
     with fix_all_seed_within_context(seed):
-        true_num_classes = data_opt.num_classes
+        true_num_classes = data_opt["num_classes"]
         multiplier = config["MulticoreParameters"]["multiplier"]
-        model = UNet(**config["Arch"], input_dim=data_opt.input_dim, num_classes=multiplier * true_num_classes)
+        model = UNet(**config["Arch"], input_dim=data_opt["input_dim"], num_classes=multiplier * true_num_classes)
         config["Arch"]["true_num_classes"] = true_num_classes
 
         sup_criterion = OrthogonalMultiCoreKL(

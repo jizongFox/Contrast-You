@@ -38,7 +38,7 @@ def separate_pretrain_finetune_configs(config_manager):
     return pretrain_config, base_config
 
 
-def logging_configs(manager: ConfigManger, logger):
+def logging_configs(manager: ConfigManger, logger: logger):
     import pprint
     optional_dictionaries = manager.optional_configs
     parsed_params = manager.parsed_config

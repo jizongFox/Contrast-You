@@ -4,7 +4,7 @@ from typing import Union
 
 import numpy as np
 import torch
-from deepclustering2.decorator.decorator import _disable_tracking_bn_stats
+from deepclustering2.decorator.decorator import _disable_tracking_bn_stats # noqa
 from deepclustering2.loss import KL_div
 from deepclustering2.utils import class2one_hot
 from loguru import logger
@@ -34,7 +34,7 @@ def mixup_data(x, y, *, alpha=1.0, device: Union[str, torch.device]):
 
 class MixUpHook(TrainerHook):
     def __init__(self, *, hook_name: str, weight: float, enable_bn=True):
-        super().__init__(hook_name)
+        super().__init__(hook_name=hook_name)
         self._weight = weight
         self._enable_bn = enable_bn
         logger.debug(f"created {self.__class__.__name__} with weight: {self._weight} and enable_bn: {self._enable_bn}")
