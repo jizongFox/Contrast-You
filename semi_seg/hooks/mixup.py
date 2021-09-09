@@ -46,7 +46,7 @@ class MixUpHook(TrainerHook):
 
 class _MixUpEpocherHook(EpocherHook):
     def __init__(self, *, name: str, weight: float, alpha: float = 1.0, criterion, enable_bn=True) -> None:
-        super().__init__(name)
+        super().__init__(name=name)
         self._weight = weight
         self._alpha = alpha
         self._criterion = criterion
