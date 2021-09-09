@@ -7,7 +7,7 @@ from contrastyou.configure import ConfigManger
 from contrastyou.configure.yaml_parser import yaml_load
 from contrastyou.losses.multicore_loss import OrthogonalMultiCoreKL
 from contrastyou.trainer import create_save_dir
-from contrastyou.utils import fix_all_seed_within_context, adding_writable_logger, extract_model_state_dict
+from contrastyou.utils import fix_all_seed_within_context, adding_writable_sink, extract_model_state_dict
 from easydict import EasyDict as edict
 from hook_creator import create_hook_from_config
 from loguru import logger
@@ -36,7 +36,7 @@ def main():
         absolute_save_dir = create_save_dir(MulticoreTrainer, config["Trainer"]["save_dir"])
         if os.path.exists(absolute_save_dir):
             logger.warning(f"{absolute_save_dir} exists, may overwrite the folder")
-        adding_writable_logger(absolute_save_dir)
+        adding_writable_sink(absolute_save_dir)
         logging_configs(manager, logger)
 
         config.update({"GITHASH": git_hash})
@@ -56,9 +56,9 @@ def worker(config, absolute_save_dir, seed):
 
     model_checkpoint = config["Arch"].pop("checkpoint", None)
     with fix_all_seed_within_context(seed):
-        true_num_classes = data_opt.num_classes
+        true_num_classes = data_opt["num_classes"]
         multiplier = config["MulticoreParameters"]["multiplier"]
-        model = UNet(**config["Arch"], input_dim=data_opt.input_dim, num_classes=multiplier * true_num_classes)
+        model = UNet(**config["Arch"], input_dim=data_opt["input_dim"], num_classes=multiplier * true_num_classes)
         config["Arch"]["true_num_classes"] = true_num_classes
 
         sup_criterion = OrthogonalMultiCoreKL(

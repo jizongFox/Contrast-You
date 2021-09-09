@@ -35,8 +35,8 @@ class OrthogonalMultiCoreKL(MultiCoreKL):
 
     def __init__(self, groups: t.List[t.List[int]], entropy_weight=0.0, orthogonal_weight=0.001, **kwargs):
         super().__init__(groups, entropy_weight, **kwargs)
-        self._orth_weight = orthogonal_weight
-        logger.trace(f"Creating {class_name(self)} with ent_weight: {entropy_weight}, orth_weight: {orthogonal_weight}.")
+        self._orthogonal_weight = orthogonal_weight
+        logger.trace(f"Creating {class_name(self)} with ent_weight: {entropy_weight}, orthogonal_weight: {orthogonal_weight}.")
 
     def set_fc_layer(self, fc_layer: nn.Module):
         self._fc = fc_layer
@@ -45,7 +45,7 @@ class OrthogonalMultiCoreKL(MultiCoreKL):
         loss = super().forward(predict_simplex, onehot_target)
         matrix = self.pairwise_matrix(self._fc.weight.squeeze(), self._fc.weight.squeeze())
         self.orth_loss = matrix.mean() + 1
-        return loss + self._orth_weight * self.orth_loss
+        return loss + self._orthogonal_weight * self.orth_loss
 
     def get_orth_loss(self):
         try:

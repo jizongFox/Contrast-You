@@ -8,7 +8,7 @@ from contrastyou.configure import ConfigManger
 from contrastyou.configure.yaml_parser import yaml_load
 from contrastyou.losses.kl import KL_div
 from contrastyou.trainer import create_save_dir
-from contrastyou.utils import fix_all_seed_within_context, adding_writable_logger, extract_model_state_dict
+from contrastyou.utils import fix_all_seed_within_context, adding_writable_sink, extract_model_state_dict
 from easydict import EasyDict as edict
 from hook_creator import create_hook_from_config
 from loguru import logger
@@ -34,7 +34,7 @@ def main():
         absolute_save_dir = create_save_dir(SemiTrainer, config["Trainer"]["save_dir"])
         if os.path.exists(absolute_save_dir):
             logger.warning(f"{absolute_save_dir} exists, may overwrite the folder")
-        adding_writable_logger(absolute_save_dir)
+        adding_writable_sink(absolute_save_dir)
         logging_configs(manager, logger)
 
         config.update({"GITHASH": git_hash})
