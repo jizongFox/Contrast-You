@@ -139,7 +139,7 @@ class MeanTeacherTrainerHook(TrainerHook):
 class _MeanTeacherEpocherHook(EpocherHook):
     def __init__(self, name: str, weight: float, criterion, teacher_model, updater, extra_teachers,
                  extra_updater, hard_clip: bool = False) -> None:
-        super().__init__(name=name)
+        super().__init__(name)
         self._weight = weight
         self._criterion = L2LossChecker(criterion)
         self._teacher_model = teacher_model

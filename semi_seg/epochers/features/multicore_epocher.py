@@ -79,7 +79,7 @@ class MultiCoreEvalEpocher(EvalEpocher):
 
             reduced_simplex = self._sup_criterion.reduced_simplex(eval_logits.softmax(1))
 
-            true_eval_loss = self._sup_criterion.kl(reduced_simplex, onehot_target)
+            true_eval_loss = self._sup_criterion._kl(reduced_simplex, onehot_target)
 
         self.meters["loss"].add(eval_loss.item())
         self.meters["true_loss"].add(true_eval_loss.item())

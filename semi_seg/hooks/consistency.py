@@ -18,7 +18,7 @@ class ConsistencyTrainerHook(TrainerHook):
 
 class _ConsistencyEpocherHook(EpocherHook):
     def __init__(self, name: str, weight: float, criterion) -> None:
-        super().__init__(name=name)
+        super().__init__(name)
         self._weight = weight
         self._criterion = criterion
 

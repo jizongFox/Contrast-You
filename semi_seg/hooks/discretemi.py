@@ -76,7 +76,7 @@ class DiscreteMITrainHook(TrainerHook):
 class _DiscreteMIEpochHook(EpocherHook):
 
     def __init__(self, *, name: str, weight: float, extractor, projector, criterion) -> None:
-        super().__init__(name=name)
+        super().__init__(name)
         self._extractor = extractor
         self._extractor.bind()
         self._weight = weight

@@ -6,7 +6,6 @@ from torch import nn
 from torch.nn import Parameter
 
 from contrastyou.meters import MeterInterface
-from contrastyou.utils import class_name
 
 
 class _ClassNameMeta(type):
@@ -35,9 +34,6 @@ class TrainerHook(nn.Module, metaclass=_ClassNameMeta):
     def learnable_modules(self) -> List[nn.Module]:
         return []
 
-    def __call__(self, **kwargs):
-        raise NotImplementedError(f"subclass {class_name(self)} must implement __call__ function.")
-
     def close(self):
         pass
 
@@ -62,8 +58,9 @@ class CombineTrainerHook(TrainerHook):
 
 class EpocherHook:
 
-    def __init__(self, *, name: str) -> None:
+    def __init__(self, name: str) -> None:
         self._name = name
+        self.meters: MeterInterface
 
     def set_epocher(self, epocher):
         self._epocher = weakref.proxy(epocher)
