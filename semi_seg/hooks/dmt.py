@@ -121,7 +121,7 @@ class _BaseDMTEpocherHook(EpocherHook):
     def __init__(self, *, name: str, model: nn.Module, teacher_model: nn.Module, student_criterion: CriterionType,
                  meta_criterion: CriterionType, weight: float, meta_weight: float, updater: EMAUpdater,
                  **kwargs) -> None:
-        super().__init__(name)
+        super().__init__(name=name)
         self._model = model
         self._teacher_model = teacher_model
 
