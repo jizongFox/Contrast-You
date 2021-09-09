@@ -1,13 +1,14 @@
-from itertools import cycle
-
 import argparse
 import os
+from itertools import cycle
+from pathlib import Path
+
+from easydict import EasyDict as edict
+
 from contrastyou import CONFIG_PATH, on_cc, git_hash, __accounts, OPT_PATH
 from contrastyou.configure import dictionary_merge_by_hierachy
 from contrastyou.configure.yaml_parser import yaml_load, yaml_write
 from contrastyou.submitter import SlurmSubmitter as JobSubmiter
-from easydict import EasyDict as edict
-from pathlib import Path
 from script import utils
 from script.utils import TEMP_DIR, grid_search, BaselineGenerator, \
     move_dataset
@@ -21,16 +22,19 @@ class MulticoreScriptGenerator(BaselineGenerator):
         super().__init__(data_name=data_name, num_batches=num_batches, max_epoch=max_epoch, save_dir=save_dir,
                          model_checkpoint=model_checkpoint, data_opt=data_opt)
 
-        self.hook_config = yaml_load(os.path.join(CONFIG_PATH, "hooks", "multicore.yaml"))
+        hook_config1 = yaml_load(os.path.join(CONFIG_PATH, "hooks", "entmin.yaml"))
+        hook_config2 = yaml_load(os.path.join(CONFIG_PATH, "hooks", "multicore.yaml"))
+        hook_config3 = yaml_load(os.path.join(CONFIG_PATH, "hooks", "orthogonal.yaml"))
+        self.hook_config = {**hook_config1, **hook_config2, **hook_config3}
 
     def get_hook_params(self, ent_weight, orth_weight, multiplier):
         return {
             "MulticoreParameters":
-                {"entropy_weight": 0,
-                 "multiplier": multiplier,
-                 "orthogonal_weight": orth_weight
-                 },
-            "EntropyMinParameters": {"weight": ent_weight}
+                {"multiplier": multiplier},
+            "EntropyMinParameters":
+                {"weight": ent_weight},
+            "OrthogonalParameters":
+                {"weight": orth_weight}
         }
 
     def generate_single_script(self, save_dir, labeled_scan_num, seed, hook_path):
@@ -89,7 +93,7 @@ if __name__ == '__main__':
         "nvidia-smi"
     ])
     submittor.configure_sbatch(mem=16)
-    seed = [10, 20, 30]
+    seed = [10, ]
     data_name = args.data_name
     save_dir = f"{args.save_dir}/mt/hash_{git_hash}/{data_name}"
     data_opt = yaml_load(Path(OPT_PATH) / (data_name + ".yaml"))
@@ -106,9 +110,9 @@ if __name__ == '__main__':
                                                 max_epoch=max_epoch, data_opt=data_opt)
 
     jobs = script_generator.grid_search_on(seed=seed,
-                                           ent_weight=[0, 0.0001, 0.001, 0.01, 0.1],
-                                           orth_weight=[0, 0.0001, 0.001, 0.01, 0.1],
-                                           multiplier=[1, 2, 3, ])
+                                           ent_weight=[0, 0.0001, ],
+                                           orth_weight=[0, 0.0001, ],
+                                           multiplier=[1, ])
 
     for j in jobs:
         submittor.submit(j, account=next(account), force_show=force_show, time=4)

@@ -1,14 +1,17 @@
+from typing import List, Union
+
+from torch import nn
+
 from contrastyou.arch import UNet
 from contrastyou.hooks.base import CombineTrainerHook, TrainerHook
-from contrastyou.utils.utils import ntuple
-from torch import nn
-from typing import List, Union
-from .entmin import EntropyMinTrainerHook
+from contrastyou.utils.utils import ntuple, class_name
 from .consistency import ConsistencyTrainerHook
 from .discretemi import DiscreteMITrainHook
 from .dmt import DifferentiableMeanTeacherTrainerHook
+from .entmin import EntropyMinTrainerHook
 from .infonce import SelfPacedINFONCEHook, INFONCEHook
 from .mt import MeanTeacherTrainerHook
+from .orthogonal import OrthogonalTrainerHook
 
 decoder_names = UNet.decoder_names
 encoder_names = UNet.encoder_names
@@ -152,4 +155,13 @@ def create_differentiable_mt_hook(*, model: nn.Module, weight: float, alpha: flo
 
 def create_ent_min_hook(*, weight: float = 0.001):
     hook = EntropyMinTrainerHook(name="entropy", weight=weight)
+    return hook
+
+
+def create_orthogonal_hook(*, weight: float = 0.001, model: UNet):
+    if isinstance(model, UNet):
+        prototypes = model._Deconv_1x1.weight  # noqa
+    else:
+        raise NotImplementedError(class_name(model))
+    hook = OrthogonalTrainerHook(hook_name="orth", prototypes=prototypes, weight=weight)
     return hook
