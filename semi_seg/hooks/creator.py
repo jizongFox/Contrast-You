@@ -10,6 +10,7 @@ from .discretemi import DiscreteMITrainHook
 from .dmt import DifferentiableMeanTeacherTrainerHook
 from .entmin import EntropyMinTrainerHook
 from .infonce import SelfPacedINFONCEHook, INFONCEHook
+from .midl import IIDSegmentationTrainerHook
 from .mt import MeanTeacherTrainerHook
 from .orthogonal import OrthogonalTrainerHook
 
@@ -165,3 +166,7 @@ def create_orthogonal_hook(*, weight: float = 0.001, model: UNet):
         raise NotImplementedError(class_name(model))
     hook = OrthogonalTrainerHook(hook_name="orth", prototypes=prototypes, weight=weight)
     return hook
+
+
+def create_iid_seg_hook(*, weight: float = 0.001):
+    return IIDSegmentationTrainerHook(hook_name="iid", weight=weight)
