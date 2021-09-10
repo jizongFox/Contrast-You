@@ -107,7 +107,6 @@ if __name__ == '__main__':
     import torch
 
     with logger.catch(reraise=True):
-        torch.autograd.set_detect_anomaly(True)
         torch.set_deterministic(True)
         # torch.backends.cudnn.benchmark = True  # noqa
         main()
