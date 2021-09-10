@@ -27,19 +27,20 @@ class MulticoreScriptGenerator(BaselineGenerator):
         hook_config3 = yaml_load(os.path.join(CONFIG_PATH, "hooks", "orthogonal.yaml"))
         self.hook_config = {**hook_config1, **hook_config2, **hook_config3}
 
-    def get_hook_params(self, ent_weight, orth_weight, multiplier):
+    def get_hook_params(self, ent_weight, orth_weight, multiplier, two_stage):
         return {
             "MulticoreParameters":
                 {"multiplier": multiplier},
             "EntropyMinParameters":
                 {"weight": ent_weight},
             "OrthogonalParameters":
-                {"weight": orth_weight}
+                {"weight": orth_weight},
+            "Trainer": {"two_stage": two_stage}
         }
 
     def generate_single_script(self, save_dir, labeled_scan_num, seed, hook_path):
         return f"python main_multicore.py   Trainer.save_dir={save_dir} " \
-               f" Optim.lr={ft_lr:.7f} RandomSeed={str(seed)} Data.labeled_scan_num={int(labeled_scan_num)} " \
+               f" Optim.lr={ft_lr:.10f} RandomSeed={str(seed)} Data.labeled_scan_num={int(labeled_scan_num)} " \
                f" {' '.join(self.conditions)} " \
                f" --opt-path {hook_path}"
 
@@ -112,7 +113,8 @@ if __name__ == '__main__':
     jobs = script_generator.grid_search_on(seed=seed,
                                            ent_weight=[0, 0.0001, ],
                                            orth_weight=[0, 0.0001, ],
-                                           multiplier=[1, ])
+                                           multiplier=[1, ],
+                                           two_stage=[True])
 
     for j in jobs:
         submittor.submit(j, account=next(account), force_show=force_show, time=4)
