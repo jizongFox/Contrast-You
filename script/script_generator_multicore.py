@@ -5,7 +5,7 @@ from pathlib import Path
 
 from easydict import EasyDict as edict
 
-from contrastyou import CONFIG_PATH, on_cc, git_hash, __accounts, OPT_PATH
+from contrastyou import CONFIG_PATH, on_cc, git_hash, __accounts, OPT_PATH, git_timestamp
 from contrastyou.configure import dictionary_merge_by_hierachy
 from contrastyou.configure.yaml_parser import yaml_load, yaml_write
 from contrastyou.submitter import SlurmSubmitter as JobSubmiter
@@ -25,9 +25,11 @@ class MulticoreScriptGenerator(BaselineGenerator):
         hook_config1 = yaml_load(os.path.join(CONFIG_PATH, "hooks", "entmin.yaml"))
         hook_config2 = yaml_load(os.path.join(CONFIG_PATH, "hooks", "multicore.yaml"))
         hook_config3 = yaml_load(os.path.join(CONFIG_PATH, "hooks", "orthogonal.yaml"))
-        self.hook_config = {**hook_config1, **hook_config2, **hook_config3}
+        hook_config4 = yaml_load(os.path.join(CONFIG_PATH, "hooks", "iid.yaml"))
 
-    def get_hook_params(self, ent_weight, orth_weight, multiplier, two_stage):
+        self.hook_config = {**hook_config1, **hook_config2, **hook_config3, **hook_config4}
+
+    def get_hook_params(self, ent_weight, orth_weight, multiplier, two_stage, iic_weight):
         return {
             "MulticoreParameters":
                 {"multiplier": multiplier},
@@ -35,7 +37,8 @@ class MulticoreScriptGenerator(BaselineGenerator):
                 {"weight": ent_weight},
             "OrthogonalParameters":
                 {"weight": orth_weight},
-            "Trainer": {"two_stage": two_stage}
+            "Trainer": {"two_stage": two_stage},
+            "IIDSegParameters": {"weight": iic_weight}
         }
 
     def generate_single_script(self, save_dir, labeled_scan_num, seed, hook_path):
@@ -86,7 +89,7 @@ if __name__ == '__main__':
         "export OMP_NUM_THREADS=1",
         "export PYTHONOPTIMIZE=1",
         "export PYTHONWARNINGS=ignore ",
-        "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
+        "export CUBLAS_WORKSPACE_CONFIG=:4096:8 ",
         "export LOGURU_LEVEL=TRACE",
         "echo $(pwd)",
         move_dataset(),
@@ -96,7 +99,7 @@ if __name__ == '__main__':
     submittor.configure_sbatch(mem=16)
     seed = [10, ]
     data_name = args.data_name
-    save_dir = f"{args.save_dir}/mt/hash_{git_hash}/{data_name}"
+    save_dir = f"{args.save_dir}/mt/hash_{git_timestamp}@{git_hash}/{data_name}"
     data_opt = yaml_load(Path(OPT_PATH) / (data_name + ".yaml"))
     data_opt = edict(data_opt)
 
@@ -114,7 +117,9 @@ if __name__ == '__main__':
                                            ent_weight=[0, 0.0001, ],
                                            orth_weight=[0, 0.0001, ],
                                            multiplier=[1, ],
-                                           two_stage=[True])
+                                           two_stage=[True],
+                                           iic_weight=[0.0001, 0.001, 0.01, 0.1]
+                                           )
 
     for j in jobs:
         submittor.submit(j, account=next(account), force_show=force_show, time=4)

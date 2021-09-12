@@ -1,12 +1,12 @@
-import sys
-
 import os
 import re
 import subprocess
+import sys
 from functools import lru_cache
-from loguru import logger
 from pathlib import Path
 from typing import Optional
+
+from loguru import logger
 
 PROJECT_PATH = str(Path(__file__).parents[1])  # absolute path
 
@@ -54,13 +54,13 @@ def get_git_hash_tag() -> Optional[str]:
 def get_git_timestamp():
     p = subprocess.Popen(["git", "log", '-1', '--date=iso'], stdout=subprocess.PIPE)
     out, err = p.communicate()
-    m = re.search('\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}', out.decode("utf-8"))
+    m = re.search('\d{2}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}', out.decode("utf-8"))
     try:
         date = m.group(0)
     except Exception as e:
         logger.opt(exception=True).warning(e)
-        date = "unknown_timestamp"
-    return date
+        date = "unknown-timestamp"
+    return date.replace(":", "-").replace(" ", "-")
 
 
 git_hash = get_git_hash_tag()[:11]

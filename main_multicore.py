@@ -23,7 +23,7 @@ def grouper(array_list, group_num):
     num_samples = len(array_list) // group_num
     batch = []
     for item in array_list:
-        if batch.__len__() == num_samples:
+        if len(batch) == num_samples:
             yield batch
             batch = []
         batch.append(item)
