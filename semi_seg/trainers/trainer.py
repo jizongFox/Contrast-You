@@ -2,12 +2,12 @@ from copy import deepcopy
 from typing import Type, Dict, Any
 
 from loguru import logger
-from torch import nn
+from torch import nn, Tensor
 from torch.cuda.amp import GradScaler
 
 from contrastyou import optim
 from contrastyou.arch.discriminator import Discriminator
-from contrastyou.losses.kl import KL_div
+from contrastyou.losses import LossClass
 from contrastyou.trainer.base import Trainer
 from contrastyou.types import criterionType, SizedIterable
 from contrastyou.utils import fix_all_seed_within_context
@@ -21,7 +21,7 @@ class SemiTrainer(Trainer):
     activate_hooks = True
 
     def __init__(self, *, model: nn.Module, labeled_loader: SizedIterable, unlabeled_loader: SizedIterable,
-                 val_loader: SizedIterable, test_loader: SizedIterable, criterion: KL_div, save_dir: str,
+                 val_loader: SizedIterable, test_loader: SizedIterable, criterion: LossClass[Tensor], save_dir: str,
                  max_epoch: int = 100, num_batches: int = 100, device="cpu", disable_bn: bool, two_stage: bool,
                  config: Dict[str, Any], enable_scale=True, accumulate_iter: int = 1, **kwargs) -> None:
         super().__init__(model=model, criterion=criterion, tra_loader=None, val_loader=val_loader,  # noqa
@@ -110,7 +110,7 @@ class MTTrainer(SemiTrainer):
 class DMTTrainer(SemiTrainer):
 
     def __init__(self, *, model: nn.Module, labeled_loader: SizedIterable, unlabeled_loader: SizedIterable,
-                 val_loader: SizedIterable, test_loader: SizedIterable, criterion: KL_div, save_dir: str,
+                 val_loader: SizedIterable, test_loader: SizedIterable, criterion: LossClass[Tensor], save_dir: str,
                  max_epoch: int = 100, num_batches: int = 100, device="cpu", disable_bn: bool, two_stage: bool,
                  config: Dict[str, Any], enable_scale=True, accumulate_iter: int = 1, **kwargs) -> None:
         super().__init__(model=model, labeled_loader=labeled_loader, unlabeled_loader=unlabeled_loader,

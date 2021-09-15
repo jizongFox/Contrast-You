@@ -7,7 +7,7 @@ from typing import Dict, Any
 
 import torch
 from loguru import logger
-from torch import nn
+from torch import nn, Tensor
 
 from contrastyou import optim, MODEL_PATH, success
 from ._functional import _ToMixin
@@ -15,7 +15,7 @@ from ._io import _IOMixin
 from ..amp import DDPMixin
 from ..epochers.base import EpocherBase
 from ..hooks.base import TrainerHook
-from ..losses.kl import KL_div
+from ..losses import LossClass
 from ..meters import Storage
 from ..optim import GradualWarmupScheduler
 from ..types import optimizerType as _optimizer_type, SizedIterable
@@ -25,7 +25,7 @@ from ..writer import SummaryWriter
 class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
     RUN_PATH = MODEL_PATH  # type:str # absolute path
 
-    def __init__(self, *, model: nn.Module, criterion: KL_div(), tra_loader: SizedIterable,
+    def __init__(self, *, model: nn.Module, criterion: LossClass[Tensor], tra_loader: SizedIterable,
                  val_loader: SizedIterable, save_dir: str, max_epoch: int = 100, num_batches: int = 100, device="cpu",
                  config: Dict[str, Any], **kwargs) -> None:
         super().__init__(save_dir=save_dir, max_epoch=max_epoch, num_batches=num_batches, device=device, **kwargs)

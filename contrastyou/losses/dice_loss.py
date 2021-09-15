@@ -4,11 +4,13 @@
 import numpy as np
 import torch
 import torch.nn as nn
+from torch import Tensor
 
+from contrastyou.losses._base import LossClass
 from contrastyou.utils import simplex
 
 
-def make_one_hot(input, num_classes):
+def make_one_hot(input: Tensor, num_classes: int) -> Tensor:
     """Convert class index tensor to one hot encoding tensor.
 
     Args:
@@ -26,7 +28,7 @@ def make_one_hot(input, num_classes):
     return result
 
 
-class BinaryDiceLoss(nn.Module):
+class BinaryDiceLoss(nn.Module, LossClass[Tensor]):
     """Dice loss of binary class
     Args:
         smooth: A float number to smooth loss, and avoid NaN error, default: 1
@@ -67,7 +69,7 @@ class BinaryDiceLoss(nn.Module):
             raise Exception('Unexpected reduction {}'.format(self.reduction))
 
 
-class DiceLoss(nn.Module):
+class DiceLoss(nn.Module, LossClass[Tensor]):
     """Dice loss, need one hot encode input
     Args:
         weight: An array of shape [num_classes,]

@@ -1,10 +1,12 @@
-import torch
 from abc import ABC
+from functools import partial
+
+import torch
+
 from contrastyou.configure.manager import get_config
 from contrastyou.losses.multicore_loss import MultiCoreKL
 from contrastyou.meters import MeterInterface, AverageValueMeter
 from contrastyou.utils import class2one_hot
-from functools import partial
 from ..epocher import EvalEpocher, SemiSupervisedEpocher
 
 

@@ -1,11 +1,14 @@
+from typing import Optional, OrderedDict
+from typing import TypeVar, List, Dict, Union
+
 import numpy as np
 import torch
-from contrastyou.utils.general import simplex, assert_list
 from loguru import logger
 from torch import Tensor
 from torch import nn
-from typing import Optional, OrderedDict
-from typing import TypeVar, List, Dict, Union
+
+from contrastyou.utils.general import simplex, assert_list
+from ._base import LossClass
 
 __all__ = ["Entropy", "KL_div", "JSD_div"]
 
@@ -24,7 +27,7 @@ def _check_reduction_params(reduction):
     )
 
 
-class Entropy(nn.Module):
+class Entropy(nn.Module, LossClass[Tensor]):
     r"""General Entropy interface
 
     the definition of Entropy is - \sum p(xi) log (p(xi))
@@ -56,7 +59,7 @@ class Entropy(nn.Module):
             return e
 
 
-class KL_div(nn.Module):
+class KL_div(nn.Module, LossClass[Tensor]):
     """
     KL(p,q)= -\sum p(x) * log(q(x)/p(x))
     where p, q are distributions
@@ -117,7 +120,7 @@ class KL_div(nn.Module):
         # self._weight = state_dict["weight"]
 
 
-class JSD_div(nn.Module):
+class JSD_div(nn.Module, LossClass[Tensor]):
     """
     general JS divergence interface
     :<math>{\rm JSD}_{\pi_1, \ldots, \pi_n}(P_1, P_2, \ldots, P_n) = H\left(\sum_{i=1}^n \pi_i P_i\right) - \sum_{i=1}^n \pi_i H(P_i)</math>

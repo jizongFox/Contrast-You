@@ -1,7 +1,11 @@
-import numpy  # noqa
 import os
-import typing as t
 from contextlib import nullcontext
+from pathlib import Path
+
+import numpy  # noqa
+from easydict import EasyDict as edict
+from loguru import logger
+
 from contrastyou import CONFIG_PATH, git_hash, OPT_PATH
 from contrastyou.arch import UNet
 from contrastyou.configure import ConfigManger
@@ -9,14 +13,11 @@ from contrastyou.configure.yaml_parser import yaml_load
 from contrastyou.losses.kl import KL_div
 from contrastyou.trainer import create_save_dir
 from contrastyou.utils import fix_all_seed_within_context, adding_writable_sink, extract_model_state_dict
-from easydict import EasyDict as edict
 from hook_creator import create_hook_from_config
-from loguru import logger
-from pathlib import Path
 from semi_seg.data.creator import get_data
 from semi_seg.hooks import feature_until_from_hooks
 from semi_seg.trainers.pretrain import PretrainEncoderTrainer
-from semi_seg.trainers.trainer import SemiTrainer, FineTuneTrainer, MixUpTrainer, MTTrainer, DMTTrainer, EpocherBase
+from semi_seg.trainers.trainer import SemiTrainer, FineTuneTrainer, MixUpTrainer, MTTrainer, DMTTrainer
 from utils import logging_configs, find_checkpoint
 
 trainer_zoo = {"semi": SemiTrainer,
@@ -69,7 +70,7 @@ def worker(config, absolute_save_dir, seed):
         order_num=order_num
     )
 
-    Trainer: t.Type[EpocherBase] = trainer_zoo[trainer_name]
+    Trainer: 'Trainer' = trainer_zoo[trainer_name]
 
     trainer = Trainer(
         model=model, labeled_loader=labeled_loader, unlabeled_loader=unlabeled_loader,

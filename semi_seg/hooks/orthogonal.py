@@ -1,9 +1,12 @@
 # this hook makes the prototype weights to be orthogonal
+
+from loguru import logger
 from torch import Tensor
 from torch.nn import functional as F
 
 from contrastyou.hooks import TrainerHook, EpocherHook
 from contrastyou.meters import MeterInterface, AverageValueMeter
+from contrastyou.utils import class_name
 from semi_seg.hooks import meter_focus
 
 
@@ -23,6 +26,7 @@ class OrthogonalTrainerHook(TrainerHook):
         super().__init__(hook_name=hook_name)
         self._weight = weight
         self._prototype_weights = prototypes
+        logger.debug(f"Created {class_name(self)} with name: {self._hook_name}, weight: {self._weight}.")
 
     def __call__(self):
         return _OrthogonalEpocherHook(name=self._hook_name, prototypes=self._prototype_weights, weight=self._weight)

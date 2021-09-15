@@ -1,7 +1,10 @@
+from loguru import logger
+
 from contrastyou.arch import UNet
 from contrastyou.hooks.base import TrainerHook, EpocherHook
 from contrastyou.losses.discreteMI import IIDSegmentationLoss
 from contrastyou.meters import AverageValueMeter
+from contrastyou.utils import class_name
 from semi_seg.hooks.utils import meter_focus
 
 decoder_names = UNet.decoder_names
@@ -13,6 +16,7 @@ class IIDSegmentationTrainerHook(TrainerHook):
     def __init__(self, *, hook_name: str = "midl_hook", weight: float = 1.0) -> None:
         super().__init__(hook_name=hook_name)
         self._weight = weight
+        logger.debug(f"Created {class_name(self)} with name: {self._hook_name}, weight: {self._weight}.")
 
     def __call__(self):
         return _IIDSegmentationEpochHook(name=self._hook_name, weight=self._weight)

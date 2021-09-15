@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 
 from contrastyou.augment.tensor_augment import TensorRandomFlip
 from contrastyou.epochers.base import EpocherBase as _EpocherBase
-from contrastyou.losses.kl import KL_div
+from contrastyou.losses import LossClass
 from contrastyou.meters import MeterInterface, UniversalDice, AverageValueMeter
 from contrastyou.types import criterionType, optimizerType, dataIterType, SizedIterable, CriterionType
 from contrastyou.utils import get_dataset, class_name, fix_all_seed_for_transforms, get_lrs_from_optimizer
@@ -121,12 +121,12 @@ class EvalEpocher(EpocherBase):
         metric = self.meters["dice"].summary()
         return metric["DSC_mean"]
 
-    def __init__(self, *, model: nn.Module, loader: DataLoader, sup_criterion: KL_div, cur_epoch=0, device="cpu",
+    def __init__(self, *, model: nn.Module, loader: DataLoader, sup_criterion: LossClass, cur_epoch=0, device="cpu",
                  scaler: GradScaler, accumulate_iter: int) -> None:
         super().__init__(model=model, num_batches=len(loader), cur_epoch=cur_epoch, device=device, scaler=scaler,
                          accumulate_iter=accumulate_iter)
         self._loader = loader
-        self._sup_criterion: KL_div = sup_criterion
+        self._sup_criterion: LossClass = sup_criterion
 
     def configure_meters(self, meters: MeterInterface) -> MeterInterface:
         C = self.num_classes

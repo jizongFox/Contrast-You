@@ -1,4 +1,5 @@
 import sys
+import typing as t
 
 import numpy as np
 import torch
@@ -9,12 +10,13 @@ from torch import nn
 from torch._six import container_abcs  # noqa
 from torch.nn import functional as F
 
+from contrastyou.losses._base import LossClass
 from contrastyou.utils import average_iter
 from contrastyou.utils.general import simplex
 from contrastyou.utils.utils import _pair
 
 
-class IIDLoss(nn.Module):
+class IIDLoss(nn.Module, LossClass[t.Tuple[Tensor, Tensor, Tensor]]):
     def __init__(self, lamb: float = 1.0, eps: float = sys.float_info.epsilon):
         """
         :param lamb:
@@ -51,7 +53,7 @@ class IIDLoss(nn.Module):
         return loss, loss_no_lamb, p_i_j
 
 
-class IIDSegmentationLoss(nn.Module):
+class IIDSegmentationLoss(nn.Module, LossClass[Tensor]):
     def __init__(
         self, lamda=1.0, padding=7, eps: float = sys.float_info.epsilon
     ) -> None:

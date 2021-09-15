@@ -1,9 +1,10 @@
 import collections
 import numbers
 import sys
+import types
 from collections.abc import Mapping, Iterable
 from pathlib import Path
-from typing import TypeVar, Callable, Protocol
+from typing import TypeVar, Protocol
 from typing import Union, Tuple
 
 import numpy as np
@@ -14,6 +15,8 @@ from torch import Tensor
 from torch.optim.optimizer import Optimizer
 from torch.utils.data.dataloader import _BaseDataLoaderIter, DataLoader
 
+from contrastyou.losses import LossClass
+
 mapType = Mapping
 T = TypeVar("T")
 typePath = TypeVar("typePath", str, Path)
@@ -21,7 +24,7 @@ typeNumeric = TypeVar("typeNumeric", int, float, Tensor, ndarray)
 genericLoaderType = TypeVar("genericLoaderType", _BaseDataLoaderIter, DataLoader)
 dataIterType = TypeVar("dataIterType", _BaseDataLoaderIter, Iterable)
 optimizerType = Optimizer
-criterionType = Callable[[Tensor, Tensor], Tensor]
+criterionType = LossClass[Tensor]
 
 
 def is_map(value):
@@ -148,9 +151,9 @@ def is_single_float(val):
 
     """
     return (
-            isinstance(val, numbers.Real)
-            and not is_single_integer(val)
-            and not isinstance(val, bool)
+        isinstance(val, numbers.Real)
+        and not is_single_integer(val)
+        and not isinstance(val, bool)
     )
 
 
@@ -315,9 +318,9 @@ def is_tuple_or_list(val):
 # convert
 def to_numpy(tensor):
     if (
-            is_np_array(tensor)
-            or is_np_scalar(tensor)
-            or isinstance(tensor, numbers.Number)
+        is_np_array(tensor)
+        or is_np_scalar(tensor)
+        or isinstance(tensor, numbers.Number)
     ):
         return tensor
     elif torch.is_tensor(tensor):

@@ -58,3 +58,15 @@ def find_checkpoint(trainer_folder, name="last.pth") -> Optional[str]:
         logger.info(f"Found existing checkpoint from folder {trainer_folder}")
         return ckpt_path
     return None
+
+
+def grouper(array_list, group_num):
+    num_samples = len(array_list) // group_num
+    batch = []
+    for item in array_list:
+        if len(batch) == num_samples:
+            yield batch
+            batch = []
+        batch.append(item)
+    if len(batch) > 0:
+        yield batch

@@ -2,18 +2,19 @@ from functools import partial
 from typing import Dict, Any, Callable, Type, Union, Optional
 
 from loguru import logger
-from torch import nn
+from torch import nn, Tensor
 from torch.cuda.amp import GradScaler
 from torch.nn import ModuleList
 from torch.optim import Optimizer
 from torch.utils.data.dataloader import _BaseDataLoaderIter as BaseDataLoaderIter, DataLoader  # noqa
 
 from contrastyou.arch import UNet
+from contrastyou.losses import LossClass
 from contrastyou.meters import Storage
+from contrastyou.types import SizedIterable
 from contrastyou.writer import SummaryWriter
 from semi_seg.epochers.epocher import EpocherBase
 from semi_seg.epochers.pretrain import PretrainEncoderEpocher, PretrainDecoderEpocher
-from contrastyou.types import SizedIterable
 from semi_seg.trainers._helper import _get_contrastive_dataloader
 from semi_seg.trainers.trainer import SemiTrainer
 
@@ -41,6 +42,7 @@ class _PretrainTrainerMixin:
     _device: str
     _num_batches: int
     scaler: GradScaler
+    _criterion: LossClass[Tensor]
 
     def __init__(self, **kwargs):
         super(_PretrainTrainerMixin, self).__init__(**kwargs)

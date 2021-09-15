@@ -16,19 +16,7 @@ from contrastyou.utils import fix_all_seed_within_context, adding_writable_sink,
 from hook_creator import create_hook_from_config
 from semi_seg.data.creator import get_data
 from semi_seg.trainers.features import MulticoreTrainer
-from utils import logging_configs, find_checkpoint
-
-
-def grouper(array_list, group_num):
-    num_samples = len(array_list) // group_num
-    batch = []
-    for item in array_list:
-        if len(batch) == num_samples:
-            yield batch
-            batch = []
-        batch.append(item)
-    if len(batch) > 0:
-        yield batch
+from utils import logging_configs, grouper
 
 
 def main():
@@ -58,6 +46,7 @@ def worker(config, absolute_save_dir, seed):
 
     model_checkpoint = config["Arch"].pop("checkpoint", None)
     with fix_all_seed_within_context(seed):
+        config["Arch"].pop("true_num_classes", None)
         true_num_classes = data_opt["num_classes"]
         multiplier = config["MulticoreParameters"]["multiplier"]
         model = UNet(**config["Arch"], input_dim=data_opt["input_dim"], num_classes=multiplier * true_num_classes)
@@ -83,7 +72,7 @@ def worker(config, absolute_save_dir, seed):
         **{k: v for k, v in config["Trainer"].items() if k != "save_dir" and k != "name"}
     )
     # find the last.pth from the save folder.
-    checkpoint: t.Optional[str] = find_checkpoint(trainer.absolute_save_dir)
+    checkpoint: t.Optional[str] = config.trainer_checkpoint or None
 
     with fix_all_seed_within_context(seed):
         hooks = create_hook_from_config(model, config, is_pretrain=False, trainer=trainer)
