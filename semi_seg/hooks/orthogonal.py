@@ -1,5 +1,5 @@
 # this hook makes the prototype weights to be orthogonal
-
+import torch
 from loguru import logger
 from torch import Tensor
 from torch.nn import functional as F
@@ -48,6 +48,6 @@ class _OrthogonalEpocherHook(EpocherHook):
     def __call__(self, **kwargs):
         normalized_prototypes = normalize(self._prototypes)
         matrix = pairwise_matrix(normalized_prototypes.squeeze(), normalized_prototypes.squeeze())
-        loss = matrix.mean()
+        loss = (matrix - torch.eye(matrix.shape[0], device=matrix.device, dtype=matrix.dtype)).pow(2).mean()
         self.meters["loss"].add(loss.item())
         return loss * self._weight

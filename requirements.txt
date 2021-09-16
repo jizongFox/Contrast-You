@@ -28,3 +28,4 @@ sklearn
 packaging
 nibabel
 nilearn
+git+https://github.com/jizongFox/easydict.git
