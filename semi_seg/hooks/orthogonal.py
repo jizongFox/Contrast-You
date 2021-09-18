@@ -12,7 +12,7 @@ from semi_seg.hooks import meter_focus
 
 def pairwise_matrix(vec1: Tensor, vec2: Tensor):
     assert vec1.shape == vec2.shape
-    assert vec1.dim() == 2, vec1.shape
+    assert vec1.dim() == 2
     return vec1 @ vec2.t()
 
 

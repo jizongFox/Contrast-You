@@ -120,9 +120,7 @@ def class2one_hot(seg: Tensor, C: int, class_dim: int = 1) -> Tensor:
 
     b, *wh = seg.shape  # type:  Tuple[int, int, int]
 
-    res: Tensor = torch.stack([seg == c for c in range(C)], dim=class_dim).type(
-        torch.long
-    )
+    res: Tensor = torch.stack([seg == c for c in range(C)], dim=class_dim).long()
     assert one_hot(res, axis=class_dim)
     return res
 

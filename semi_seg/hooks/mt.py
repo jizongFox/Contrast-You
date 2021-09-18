@@ -1,10 +1,10 @@
+import typing as t
 from copy import deepcopy
-from typing import List, Tuple
 
 import torch
 from loguru import logger
 from torch import nn
-from torch.nn.modules.batchnorm import _BatchNorm
+from torch.nn.modules.batchnorm import _BatchNorm  # noqa
 
 from contrastyou.hooks.base import TrainerHook, EpocherHook
 from contrastyou.meters import AverageValueMeter, MeterInterface
@@ -12,7 +12,7 @@ from contrastyou.utils import simplex, class2one_hot
 from semi_seg.hooks import meter_focus
 
 
-def pair_iterator(model_list: List[nn.Module]) -> Tuple[nn.Module, nn.Module]:
+def pair_iterator(model_list: t.List[nn.Module]) -> t.Iterable[t.Tuple[nn.Module, nn.Module]]:
     assert len(model_list) >= 2, len(model_list)
     current_model = model_list.pop(0)
     next_model = model_list.pop(0)
@@ -23,6 +23,11 @@ def pair_iterator(model_list: List[nn.Module]) -> Tuple[nn.Module, nn.Module]:
             next_model = model_list.pop(0)
         except IndexError:
             break
+
+
+def detach_model(model: nn.Module) -> None:
+    for p in model.parameters():
+        p.detach_()
 
 
 class L2LossChecker:
@@ -42,7 +47,7 @@ class L2LossChecker:
 
 class EMAUpdater:
     def __init__(
-            self, alpha=0.999, justify_alpha=True, weight_decay=1e-5, update_bn=False
+        self, alpha=0.999, justify_alpha=True, weight_decay=1e-5, update_bn=False
     ) -> None:
         self._alpha = alpha
         self._weight_decay = weight_decay
@@ -57,7 +62,7 @@ class EMAUpdater:
             alpha = min(1 - 1 / (self.__global_step + 1), self._alpha)
 
         for ema_param, s_param in zip(
-                ema_model.parameters(), student_model.parameters()
+            ema_model.parameters(), student_model.parameters()
         ):
             ema_param.data.mul_(alpha).add_(1 - alpha, s_param.data)
             if self._weight_decay > 0:
@@ -66,7 +71,7 @@ class EMAUpdater:
         if self._update_bn:
             # running mean and vars for bn
             for (name, ema_buffer), (_, s_buffer) in zip(
-                    ema_model.named_buffers(), student_model.named_buffers(),
+                ema_model.named_buffers(), student_model.named_buffers(),
             ):
                 if "running_mean" in name or "running_var" in name:
                     ema_buffer.data.mul_(alpha).add_(1 - alpha, s_buffer.data)
@@ -102,11 +107,9 @@ class MeanTeacherTrainerHook(TrainerHook):
             logger.debug(f"Initializing {num_teachers} extra teachers")
             self._extra_teachers.extend([deepcopy(model) for _ in range(num_teachers - 1)])
 
-        for p in self._teacher_model.parameters():
-            p.detach_()
-        for model in self._extra_teachers:
-            for p in model.parameters():
-                p.detach_()
+        detach_model(self._teacher_model)
+        for _model in self._extra_teachers:
+            detach_model(_model)
 
     def __call__(self):
         return _MeanTeacherEpocherHook(name=self._hook_name, weight=self._weight, criterion=self._criterion,
@@ -132,7 +135,7 @@ class MeanTeacherTrainerHook(TrainerHook):
         return self._extra_teachers
 
     @property
-    def learnable_modules(self) -> List[nn.Module]:
+    def learnable_modules(self) -> t.List[nn.Module]:
         return [x for x in self.extra_teachers]
 
 

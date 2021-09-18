@@ -16,27 +16,25 @@ from script.utils import TEMP_DIR, grid_search, BaselineGenerator, \
 account = cycle(__accounts)
 
 
-class MeanTeacherScriptGenerator(BaselineGenerator):
+class EntMinScriptGenerator(BaselineGenerator):
 
     def __init__(self, *, data_name, num_batches, max_epoch, save_dir, model_checkpoint=None, data_opt) -> None:
         super().__init__(data_name=data_name, num_batches=num_batches, max_epoch=max_epoch, save_dir=save_dir,
                          model_checkpoint=model_checkpoint, data_opt=data_opt)
 
-        self.hook_config = yaml_load(os.path.join(CONFIG_PATH, "hooks", "mt.yaml"))
+        self.hook_config = yaml_load(os.path.join(CONFIG_PATH, "hooks", "entmin.yaml"))
 
-    def get_hook_params(self, weight, two_stage, disable_bn, num_teachers, hard_clip: bool):
+    def get_hook_params(self, weight, two_stage, disable_bn):
         return {
-            "MeanTeacherParameters":
-                {"weight": weight,
-                 "num_teachers": num_teachers,
-                 "hard_clip": hard_clip},
+            "EntropyMinParameters":
+                {"weight": weight},
             "Trainer":
                 {"two_stage": two_stage,
                  "disable_bn": disable_bn}
         }
 
     def generate_single_script(self, save_dir, labeled_scan_num, seed, hook_path):
-        return f"python main.py Trainer.name=mt  Trainer.save_dir={save_dir} " \
+        return f"python main.py Trainer.name=semi  Trainer.save_dir={save_dir} " \
                f" Optim.lr={ft_lr:.7f} RandomSeed={str(seed)} Data.labeled_scan_num={int(labeled_scan_num)} " \
                f" {' '.join(self.conditions)} " \
                f" --opt-path {hook_path}"
@@ -93,7 +91,7 @@ if __name__ == '__main__':
     submittor.configure_sbatch(mem=16)
     seed = [10, 20, 30]
     data_name = args.data_name
-    save_dir = f"{args.save_dir}/mt/hash_{git_hash}/{data_name}"
+    save_dir = f"{args.save_dir}/entmin/hash_{git_hash}/{data_name}"
     data_opt = yaml_load(Path(OPT_PATH) / (data_name + ".yaml"))
     data_opt = edict(data_opt)
 
@@ -103,13 +101,13 @@ if __name__ == '__main__':
     labeled_ratios = data_opt.labeled_ratios
     force_show = args.force_show
 
-    script_generator = MeanTeacherScriptGenerator(data_name=data_name, save_dir=os.path.join(save_dir, "mt"),
-                                                  num_batches=num_batches,
-                                                  max_epoch=max_epoch, data_opt=data_opt)
+    script_generator = EntMinScriptGenerator(data_name=data_name, save_dir=os.path.join(save_dir, "mt"),
+                                             num_batches=num_batches,
+                                             max_epoch=max_epoch, data_opt=data_opt)
 
     jobs = script_generator.grid_search_on(seed=seed, two_stage=[True], disable_bn=False,
-                                           weight=[0.001, 0.01, 0.1, 0.2, 0.5, 1, 5, 10, 20], num_teachers=1,
-                                           hard_clip=[True, False])
+                                           weight=[0, 0.00001, 0.0001, 0.001, 0.01, 0.1]
+                                           )
 
     for j in jobs:
         submittor.submit(j, account=next(account), force_show=force_show, time=4)
