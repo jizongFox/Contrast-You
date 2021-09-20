@@ -13,6 +13,7 @@ from .infonce import SelfPacedINFONCEHook, INFONCEHook
 from .midl import IIDSegmentationTrainerHook
 from .mt import MeanTeacherTrainerHook
 from .orthogonal import OrthogonalTrainerHook
+from .pseudolabel import PseudoLabelTrainerHook
 
 decoder_names = UNet.decoder_names
 encoder_names = UNet.encoder_names
@@ -170,3 +171,7 @@ def create_orthogonal_hook(*, weight: float = 0.001, model: UNet):
 
 def create_iid_seg_hook(*, weight: float = 0.001):
     return IIDSegmentationTrainerHook(hook_name="iid", weight=weight)
+
+
+def create_pseudo_label_hook(*, weight: float):
+    return PseudoLabelTrainerHook(weight=weight, name="plab")
