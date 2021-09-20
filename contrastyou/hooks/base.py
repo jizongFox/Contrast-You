@@ -9,6 +9,10 @@ from contrastyou.meters import MeterInterface
 from contrastyou.utils import class_name
 
 
+class HookNameExistError(Exception):
+    pass
+
+
 class _ClassNameMeta(type):
     names: List[str] = []
 
@@ -16,7 +20,7 @@ class _ClassNameMeta(type):
         if "hook_name" in kwargs:
             hook_name = kwargs["hook_name"]
             if hook_name in cls.names:
-                raise ValueError(hook_name)
+                raise HookNameExistError(hook_name)
             cls.names.append(hook_name)
         return super(_ClassNameMeta, cls).__call__(*args, **kwargs)
 
