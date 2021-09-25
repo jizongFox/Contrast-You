@@ -9,8 +9,7 @@ from torch.cuda.amp import GradScaler
 
 from ..amp import AMPScaler, DDPMixin
 from ..hooks.base import EpocherHook
-from ..meters import MeterInterface
-from ..meters.averagemeter import AverageValueListMeter
+from ..meters import MeterInterface, AverageValueListMeter
 from ..mytqdm import tqdm
 
 

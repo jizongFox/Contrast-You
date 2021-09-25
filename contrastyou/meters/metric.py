@@ -1,79 +1,40 @@
-import atexit
-from abc import ABCMeta, abstractmethod
-from threading import Thread
-from typing import final, Dict, Union
+import typing as t
+from abc import abstractmethod
 
-from loguru import logger
-
-from .utils import ThreadQueue
+RETURN_TYPE = t.TypeVar("RETURN_TYPE")
 
 
-class _StopToken:
-    pass
-
-
-class Metric(metaclass=ABCMeta):
+class Metric(t.Generic[RETURN_TYPE]):
     _initialized = False
 
-    def __init__(self, threaded=False, use_deque=False) -> None:
-        super().__init__()
+    def __init__(self, **kwargs) -> None:
         self._initialized = True
-        self._threaded = threaded
-
-        if self._threaded:
-            logger.trace(f"{self.__class__.__name__} spawn a thread")
-            self._queue = ThreadQueue(use_deque=use_deque)
-            self._worker = Thread(target=self._worker_func, name="threaded_worker",
-                                  args=(self._queue,), )
-            self._worker.start()
-            atexit.register(self.close)
 
     @abstractmethod
     def reset(self):
         pass
 
-    @final
+    @t.final
     def add(self, *args, **kwargs):
         assert self._initialized, f"{self.__class__.__name__} must be initialized by overriding __init__"
-        if not self._threaded:
-            return self._add(*args, **kwargs)
-        return self._add_queue(*args, **kwargs)
+        return self._add(*args, **kwargs)
 
     @abstractmethod
     def _add(self, *args, **kwargs):
         pass
 
-    def _add_queue(self, *args, **kwargs):
-        self._queue.put((args, kwargs))
-
-    @final
-    def summary(self):
+    @t.final
+    def summary(self) -> RETURN_TYPE:
         return self._summary()
 
     @abstractmethod
-    def _summary(self) -> Union[Dict[str, float], float]:
+    def _summary(self) -> RETURN_TYPE:
         pass
 
-    def _worker_func(self, input_queue: ThreadQueue):
-        while True:
-            try:
-                args, kwags = input_queue.get()
-            except IndexError:
-                continue
-            if isinstance(args[0], _StopToken):
-                break
-            self._add(*args, **kwags)
-
-    @final
+    @t.final
     def join(self):
-        if not self._threaded:
-            return
-        self.close()
-        logger.trace(f"{self.__class__.__name__} join the thread")
-        self._worker.join()
-        logger.trace(f"{self.__class__.__name__} end the thread")
+        return
 
-    @final
+    @t.final
     def close(self):
-        if self._threaded:
-            self._add_queue(_StopToken())
+        return

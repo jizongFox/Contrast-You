@@ -62,27 +62,3 @@ def rename_df_columns(dataframe: pd.DataFrame, name: str, sep="_"):
     dataframe.columns = list(map(lambda x: name + sep + x, dataframe.columns))
     return dataframe
 
-
-class ThreadQueue:
-    def __init__(self, use_deque=False) -> None:
-        super().__init__()
-        self._use_deque = use_deque
-        if use_deque:
-            self.__queue = deque()
-        else:
-            self.__queue = _Queue()
-
-    def get(self):
-        if self._use_deque:
-            self.__queue: deque
-            return self.__queue.popleft()
-        self.__queue: _Queue
-        return self.__queue.get()
-
-    def put(self, item):
-        if self._use_deque:
-            self.__queue: deque
-            self.__queue.append(item)
-        else:
-            self.__queue: _Queue
-            self.__queue.put(item)
