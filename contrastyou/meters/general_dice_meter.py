@@ -1,5 +1,6 @@
-from collections.abc import Iterable
-from typing import Union, List
+import typing as t
+from collections import defaultdict
+from pprint import pprint
 
 import numpy as np
 import torch
@@ -10,33 +11,31 @@ from contrastyou.types import to_float
 from contrastyou.utils import average_iter
 from contrastyou.utils.general import one_hot, class2one_hot, simplex, probs2one_hot
 
+metric_result = t.Dict[str, t.Union[float, np.ndarray, Tensor]]
 
-class UniversalDice(Metric):
-    def __init__(self, C=4, report_axises=None) -> None:
+
+class UniversalDice(Metric[metric_result]):
+    def __init__(self, C: int, report_axis: t.Iterable[int] = None) -> None:
         super(UniversalDice, self).__init__()
-        assert report_axises is None or isinstance(
-            report_axises, (list, tuple)
-        ), f"`report_axises` should be either None or an iterator, given {type(report_axises)}"
-        if report_axises is not None:
-            assert max(report_axises) <= C, (
+        if report_axis:
+            assert max(list(report_axis)) <= C, (
                 "Incompatible parameter of `C`={} and "
-                "`report_axises`={}".format(C, report_axises)
+                "`report_axises`={}".format(C, report_axis)
             )
         self._C = C
         self._report_axis = list(range(self._C))
-        if report_axises is not None:
-            self._report_axis = report_axises
+        if report_axis is not None:
+            self._report_axis = list(report_axis)
         self.reset()
 
     def reset(self):
-        self._intersections = []
-        self._unions = []
-        self._group_names = []
+        self._intersections: t.DefaultDict[str, Tensor] = defaultdict(lambda: 0)  # noqa
+        self._unions: t.DefaultDict[str, Tensor] = defaultdict(lambda: 0)  # noqa
         self._n = 0
 
-    def _add(
-        self, pred: Tensor, target: Tensor, group_name: Union[str, List[str]] = None
-    ):
+    @torch.no_grad()
+    # @profile
+    def _add(self, pred: Tensor, target: Tensor, *, group_name: t.Union[str, t.List[str]] = None):  # noqa
         """
         add pred and target
         :param pred: class- or onehot-coded tensor of the same shape as the target
@@ -50,91 +49,63 @@ class UniversalDice(Metric):
             f"incompatible shape of `pred` and `target`, given "
             f"{pred.shape} and {target.shape}."
         )
-
-        assert not pred.requires_grad and not target.requires_grad
-
-        if group_name is not None:
-            if not isinstance(group_name, str):
-                if isinstance(group_name, Iterable):
-                    assert (
-                        len(group_name) == pred.shape[0]
-                    )  # number of group name should be the same as the pred batch size
-                    assert isinstance(group_name[0], str)
-                else:
-                    raise TypeError(f"type of `group_name` wrong {type(group_name)}")
-
+        pred, target = pred.detach(), target.detach()
         onehot_pred, onehot_target = self._convert2onehot(pred, target)
         B, C, *hw = pred.shape
 
-        # current group name:
-        current_group_name = [
-            str(self._n) + f"_{i:03d}" for i in range(B)
-        ]  # make it like slice based dice
-        if group_name is not None:
-            current_group_name = group_name
+        if group_name is None:
+            group_name = [str(self._n) + f"_{i:03d}" for i in range(B)]  # make it like slice based dice
+        else:
             if isinstance(group_name, str):
-                # this is too make 3D dice.
-                current_group_name = [group_name] * B
-        assert isinstance(current_group_name, (list, tuple))
-        if isinstance(current_group_name, tuple):
-            current_group_name = list(current_group_name)
+                group_name = [group_name for _ in range(B)]
+            elif isinstance(group_name, (tuple, list)):
+                group_name = list(group_name)
+            else:
+                raise TypeError(f"type of `group_name` wrong {type(group_name)}")
+        assert len(group_name) == B
+
         interaction, union = (
-            self._intersaction(onehot_pred, onehot_target),
+            self._intersection(onehot_pred, onehot_target),
             self._union(onehot_pred, onehot_target),
         )
-        self._intersections.append(interaction)
-        self._unions.append(union)
-        self._group_names.extend(current_group_name)
+        for _int, _uni, g in zip(interaction, union, group_name):
+            self._intersections[g] += _int
+            self._unions[g] += _uni
         self._n += 1
 
-    @property
-    def log(self):
+    def compute_dice_by_group(self) -> t.Optional[Tensor]:
         if self._n > 0:
-            group_names = self.group_names
-            interaction_array = torch.cat(self._intersections, dim=0)
-            union_array = torch.cat(self._unions, dim=0)
-            group_name_array = np.asarray(self._group_names)
-            resulting_dice = []
-            for unique_name in group_names:
-                index = group_name_array == unique_name
-                group_dice = (2 * interaction_array[index].sum(0) + 1e-6) / (
-                    union_array[index].sum(0) + 1e-6
-                )
-                resulting_dice.append(group_dice)
-            resulting_dice = torch.stack(resulting_dice, dim=0)
-            return resulting_dice
+            dices = self._compute_dice(intersection=torch.stack(tuple(self._intersections.values()), dim=0),
+                                       union=torch.stack(tuple(self._unions.values()), dim=0))
+            return dices
 
-    def value(self, **kwargs):
-        if self._n == 0:
-            return ([np.nan] * self._C, [np.nan] * self._C)
+    @staticmethod
+    def _compute_dice(intersection: Tensor, union: Tensor) -> Tensor:
+        return (2 * intersection.float() + 1e-16) / (union.float() + 1e-16)
 
-        resulting_dice = self.log
-        return (resulting_dice.mean(0), resulting_dice.std(0))
-
-    def _summary(self) -> dict:
-        means, stds = self.value()
+    def _summary(self) -> metric_result:
+        if self._n > 0:
+            dices = self.compute_dice_by_group()
+            means, stds = dices.mean(dim=0), dices.std(dim=0)
+        else:
+            means, stds = np.nan, np.nan
         report_dict = {f"DSC{i}": to_float(means[i]) for i in self._report_axis}
         report_dict.update({"DSC_mean": average_iter(report_dict.values())})
         return report_dict
 
     @property
     def group_names(self):
-        return sorted(set(self._group_names))
+        return sorted(self._intersections.keys())
 
     @staticmethod
-    def _intersaction(pred: Tensor, target: Tensor):
+    def _intersection(pred: Tensor, target: Tensor):
         """
         return the interaction, supposing the two inputs are onehot-coded.
         :param pred: onehot pred
         :param target: onehot target
         :return: tensor of intersaction over classes
         """
-        assert pred.shape == target.shape
-        assert one_hot(pred) and one_hot(target)
-
-        B, C, *hw = pred.shape
-        intersect = (pred * target).sum(list(range(2, 2 + len(hw))))
-        assert intersect.shape == (B, C)
+        intersect = (pred * target).sum(list(range(2, pred.dim()))).long()
         return intersect
 
     @staticmethod
@@ -145,17 +116,11 @@ class UniversalDice(Metric):
         :param target: onehot target
         :return: tensor of intersaction over classes
         """
-        assert pred.shape == target.shape
-        assert one_hot(pred) and one_hot(target)
-
-        B, C, *hw = pred.shape
-        union = (pred + target).sum(list(range(2, 2 + len(hw))))
-        assert union.shape == (B, C)
+        union = (pred + target).sum(list(range(2, pred.dim()))).long()
         return union
 
-    def _convert2onehot(self, pred: Tensor, target: Tensor):
+    def _convert2onehot(self, pred: Tensor, target: Tensor) -> t.Tuple[Tensor, Tensor]:
         # only two possibility: both onehot or both class-coded.
-        assert pred.shape == target.shape
         # if they are onehot-coded:
         if simplex(pred, 1) and one_hot(target):
             return probs2one_hot(pred).long(), target.long()
@@ -168,3 +133,13 @@ class UniversalDice(Metric):
     def __repr__(self):
         string = f"C={self._C}, report_axis={self._report_axis}\n"
         return string + "\t" + str(self.summary())
+
+
+if __name__ == '__main__':
+    meter = UniversalDice(C=4, report_axis=[1, 2])
+    pred = torch.randn(10, 4, 225, 225, device="cuda").max(1)[1]
+    target = torch.randn(10, 4, 225, 225, device="cuda").max(1)[1]
+    meter.add(pred, target)
+
+    result = meter.summary()
+    pprint(result)

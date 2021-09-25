@@ -1,12 +1,15 @@
+import typing as t
 from collections import defaultdict
-from typing import List
 
 import numpy as np
 
-from .metric import Metric
+from contrastyou.meters.metric import Metric
+
+metric_result = t.Union[float, np.ndarray]
+dictionary_metric_result = Metric[t.Union[str, metric_result]]
 
 
-class AverageValueMeter(Metric):
+class AverageValueMeter(Metric[metric_result]):
     def __init__(self):
         super(AverageValueMeter, self).__init__()
         self.reset()
@@ -19,17 +22,17 @@ class AverageValueMeter(Metric):
         self.sum = 0
         self.n = 0
 
-    def _summary(self) -> float:
+    def _summary(self) -> metric_result:
         # this function returns a dict and tends to aggregate the historical results.
         if self.n == 0:
             return np.nan
         return float(self.sum / self.n)
 
 
-class AverageValueDictionaryMeter(Metric):
+class AverageValueDictionaryMeter(Metric[dictionary_metric_result]):
     def __init__(self) -> None:
         super().__init__()
-        self._meter_dicts = defaultdict(AverageValueMeter)
+        self._meter_dicts: t.Dict[str, AverageValueMeter] = defaultdict(AverageValueMeter)
 
     def reset(self):
         for k, v in self._meter_dicts.items():
@@ -44,6 +47,7 @@ class AverageValueDictionaryMeter(Metric):
 
 
 class AverageValueListMeter(AverageValueDictionaryMeter):
-    def _add(self, list_value: List[float], **kwargs):
+    def _add(self, list_value: t.Iterable[float] = None, **kwargs):
+        assert isinstance(list_value, t.Iterable)
         for i, v in enumerate(list_value):
             self._meter_dicts[str(i)].add(v)

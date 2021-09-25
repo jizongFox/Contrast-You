@@ -3,7 +3,7 @@ from functools import partial
 from functools import reduce
 from multiprocessing import Pool
 from operator import and_
-from typing import Iterable, Set, Tuple, TypeVar, Callable, List, Any
+from typing import Iterable, Set, TypeVar, Callable, List, Any
 
 import numpy as np
 import torch
@@ -110,18 +110,14 @@ def probs2class(probs: Tensor, class_dim: int = 1) -> Tensor:
     return res
 
 
+# @profile
 def class2one_hot(seg: Tensor, C: int, class_dim: int = 1) -> Tensor:
     """
     make segmentaton mask to be onehot
     """
-    if len(seg.shape) == 2:  # Only w, h, used by the dataloader
-        seg = seg.unsqueeze(dim=0)
     assert sset(seg, list(range(C)))
 
-    b, *wh = seg.shape  # type:  Tuple[int, int, int]
-
     res: Tensor = torch.stack([seg == c for c in range(C)], dim=class_dim).long()
-    assert one_hot(res, axis=class_dim)
     return res
 
 

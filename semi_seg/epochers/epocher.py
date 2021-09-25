@@ -132,7 +132,7 @@ class EvalEpocher(EpocherBase):
         C = self.num_classes
         report_axis = list(range(1, C))
         meters.register_meter("loss", AverageValueMeter())
-        meters.register_meter("dice", UniversalDice(C, report_axises=report_axis))
+        meters.register_meter("dice", UniversalDice(C, report_axis=report_axis))
         return meters
 
     def _run(self, **kwargs):
@@ -201,7 +201,7 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
         C = self.num_classes
         report_axis = list(range(1, C))
         meters.register_meter("sup_loss", AverageValueMeter())
-        meters.register_meter("sup_dice", UniversalDice(C, report_axises=report_axis))
+        meters.register_meter("sup_dice", UniversalDice(C, report_axis=report_axis))
         meters.register_meter("reg_loss", AverageValueMeter())
         return meters
 
