@@ -56,11 +56,15 @@ def get_git_timestamp():
     out, err = p.communicate()
     m = re.search('\d{2}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}', out.decode("utf-8"))
     try:
-        date = m.group(0)
+        date_time = m.group(0)
+        _date, _time = date_time.strip().split(" ")
+        # _date = _date.replace("-", "")
+        _time = _time.replace(":", "-")
+        date_time = _date + "_" + _time
     except Exception as e:
         logger.opt(exception=True).warning(e)
-        date = "unknown-timestamp"
-    return date.replace(":", "-").replace(" ", "-")
+        date_time = "unknown-timestamp"
+    return date_time
 
 
 git_hash = get_git_hash_tag()[:11]

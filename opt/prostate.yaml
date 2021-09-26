@@ -1,4 +1,4 @@
-labeled_ratios: [ 3, 5, 7, 40 ]
+labeled_ratios: [ 3, 5, 7, 40, 40 ]
 pre_max_epoch: 80
 ft_max_epoch: 60
 num_batches: 300

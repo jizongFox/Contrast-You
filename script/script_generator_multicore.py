@@ -22,19 +22,16 @@ class MulticoreScriptGenerator(BaselineGenerator):
         super().__init__(data_name=data_name, num_batches=num_batches, max_epoch=max_epoch, save_dir=save_dir,
                          model_checkpoint=model_checkpoint, data_opt=data_opt)
 
-        hook_config1 = yaml_load(os.path.join(CONFIG_PATH, "hooks", "entmin.yaml"))
         hook_config2 = yaml_load(os.path.join(CONFIG_PATH, "hooks", "multicore.yaml"))
         hook_config3 = yaml_load(os.path.join(CONFIG_PATH, "hooks", "orthogonal.yaml"))
         hook_config4 = yaml_load(os.path.join(CONFIG_PATH, "hooks", "iid.yaml"))
 
-        self.hook_config = {**hook_config1, **hook_config2, **hook_config3, **hook_config4}
+        self.hook_config = {**hook_config2, **hook_config3, **hook_config4}
 
-    def get_hook_params(self, ent_weight, orth_weight, multiplier, two_stage, iic_weight):
+    def get_hook_params(self, orth_weight, multiplier, two_stage, iic_weight):
         return {
             "MulticoreParameters":
                 {"multiplier": multiplier},
-            "EntropyMinParameters":
-                {"weight": ent_weight},
             "OrthogonalParameters":
                 {"weight": orth_weight},
             "Trainer": {"two_stage": two_stage},
@@ -78,7 +75,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    submittor = JobSubmiter(work_dir="../", stop_on_error=True, on_local=not on_cc())
+    submittor = JobSubmiter(work_dir="../", stop_on_error=False, on_local=not on_cc())
     submittor.configure_environment([
         "module load python/3.8.2 ",
         f"source ~/venv/bin/activate ",
@@ -97,9 +94,9 @@ if __name__ == '__main__':
         "nvidia-smi"
     ])
     submittor.configure_sbatch(mem=16)
-    seed = [10, ]
+    seed = [10, 20, 30, 40]
     data_name = args.data_name
-    save_dir = f"{args.save_dir}/mt/hash_{git_timestamp}@{git_hash}/{data_name}"
+    save_dir = f"{args.save_dir}/mc/{git_timestamp}@hash_{git_hash}/{data_name}"
     data_opt = yaml_load(Path(OPT_PATH) / (data_name + ".yaml"))
     data_opt = edict(data_opt)
 
@@ -114,12 +111,11 @@ if __name__ == '__main__':
                                                 max_epoch=max_epoch, data_opt=data_opt)
 
     jobs = script_generator.grid_search_on(seed=seed,
-                                           ent_weight=[0, 0.0001, ],
-                                           orth_weight=[0, 0.0001, ],
-                                           multiplier=[1, ],
+                                           orth_weight=[0, 0.001, 0.01, 0.1, 1, 5, 10],
+                                           multiplier=[1, 2, 4, 6, 8, ],
                                            two_stage=[True],
                                            iic_weight=[0.0001, 0.001, 0.01, 0.1]
                                            )
 
     for j in jobs:
-        submittor.submit(j, account=next(account), force_show=force_show, time=4)
+        submittor.submit(j, account=next(account), force_show=force_show, time=6)

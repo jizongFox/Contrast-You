@@ -8,7 +8,6 @@ import pandas as pd
 from termcolor import colored
 
 from .utils import HistoricalContainer, rename_df_columns
-
 from ..utils import path2Path
 
 __all__ = ["Storage"]
@@ -19,6 +18,7 @@ typePath = TypeVar("typePath", str, Path)
 class Storage(metaclass=ABCMeta):
     r""" A container that includes all the meter results.
     """
+
     def __init__(self, save_dir: typePath, csv_name="storage.csv") -> None:
         super().__init__()
         self.__storage = defaultdict(HistoricalContainer)
@@ -85,4 +85,4 @@ class Storage(metaclass=ABCMeta):
     def to_csv(self):
         path = path2Path(self._save_dir)
         path.mkdir(exist_ok=True, parents=True)
-        self.summary().to_csv(path / self._csv_name)
+        self.summary().to_csv(str(path / self._csv_name))

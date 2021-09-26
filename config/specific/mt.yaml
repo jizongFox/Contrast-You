@@ -1,6 +1,0 @@
-
-MeanTeacherParameters:
-  name: mse
-  weight: 10
-  alpha: 0.999
-  weight_decay: 0.000001
