@@ -7,7 +7,11 @@ from loguru import logger
 from termcolor import colored
 from torch import Tensor
 from torch import nn
-from torch._six import container_abcs  # noqa
+
+try:
+    from torch._six import container_abcs
+except ImportError:
+    import collections.abc as container_abcs
 from torch.nn import functional as F
 
 from contrastyou.losses._base import LossClass

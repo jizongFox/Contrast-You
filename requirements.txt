@@ -1,4 +1,3 @@
-deepclustering2
 setuptools
 numpy
 pillow
@@ -9,7 +8,6 @@ apex
 termcolor
 tqdm
 six
-yaml
 pyyaml
 scikit-learn
 matplotlib

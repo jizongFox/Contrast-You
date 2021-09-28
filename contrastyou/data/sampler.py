@@ -5,7 +5,11 @@ from typing import List, Optional, Sized
 import numpy as np
 import torch
 from loguru import logger
-from torch._six import int_classes as _int_classes
+
+try:
+    from torch._six import int_classes as _int_classes
+except ImportError:
+    _int_classes = int
 from torch.utils.data import Sampler
 
 
@@ -117,9 +121,9 @@ class WeightedRandomSampler(Sampler):
 
     def __init__(self, weights, num_samples, replacement=True):
         if (
-                not isinstance(num_samples, _int_classes)
-                or isinstance(num_samples, bool)
-                or num_samples <= 0
+            not isinstance(num_samples, _int_classes)
+            or isinstance(num_samples, bool)
+            or num_samples <= 0
         ):
             raise ValueError(
                 "num_samples should be a positive integer "
@@ -166,9 +170,9 @@ class BatchSampler(Sampler):
                 "torch.utils.data.Sampler, but got sampler={}".format(sampler)
             )
         if (
-                not isinstance(batch_size, _int_classes)
-                or isinstance(batch_size, bool)
-                or batch_size <= 0
+            not isinstance(batch_size, _int_classes)
+            or isinstance(batch_size, bool)
+            or batch_size <= 0
         ):
             raise ValueError(
                 "batch_size should be a positive integer value, "
