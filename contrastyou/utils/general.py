@@ -113,12 +113,11 @@ def probs2class(probs: Tensor, class_dim: int = 1) -> Tensor:
 # @profile
 def class2one_hot(seg: Tensor, C: int, class_dim: int = 1) -> Tensor:
     """
-    make segmentaton mask to be onehot
+    make segmentation mask to be onehot
     """
     assert sset(seg, list(range(C)))
 
-    res: Tensor = torch.stack([seg == c for c in range(C)], dim=class_dim).long()
-    return res
+    return F.one_hot(seg, C).moveaxis(-1, class_dim)
 
 
 def probs2one_hot(probs: Tensor, class_dim: int = 1) -> Tensor:
