@@ -25,17 +25,19 @@ class MulticoreScriptGenerator(BaselineGenerator):
         hook_config2 = yaml_load(os.path.join(CONFIG_PATH, "hooks", "multicore.yaml"))
         hook_config3 = yaml_load(os.path.join(CONFIG_PATH, "hooks", "orthogonal.yaml"))
         hook_config4 = yaml_load(os.path.join(CONFIG_PATH, "hooks", "iid.yaml"))
+        hook_config5 = yaml_load(os.path.join(CONFIG_PATH, "hooks", "imsat.yaml"))
 
-        self.hook_config = {**hook_config2, **hook_config3, **hook_config4}
+        self.hook_config = {**hook_config2, **hook_config3, **hook_config4, **hook_config5}
 
-    def get_hook_params(self, orth_weight, multiplier, two_stage, iic_weight):
+    def get_hook_params(self, orth_weight, multiplier, two_stage, iic_weight, imsat_weight):
         return {
             "MulticoreParameters":
                 {"multiplier": multiplier},
             "OrthogonalParameters":
                 {"weight": orth_weight},
             "Trainer": {"two_stage": two_stage},
-            "IIDSegParameters": {"weight": iic_weight}
+            "IIDSegParameters": {"weight": iic_weight},
+            "IMSATParameters": {"weight": imsat_weight},
         }
 
     def generate_single_script(self, save_dir, labeled_scan_num, seed, hook_path):
@@ -114,7 +116,8 @@ if __name__ == '__main__':
                                            orth_weight=[0, 0.001, 0.01, 0.1, 1, 5, 10],
                                            multiplier=[1, 2, 4, 6, 8, ],
                                            two_stage=[True],
-                                           iic_weight=[0.0001, 0.001, 0.01, 0.1]
+                                           iic_weight=[0],
+                                           imsat_weight=[0, 0.0001, 0.001, 0.01, 0.1]
                                            )
 
     for j in jobs:

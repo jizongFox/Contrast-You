@@ -11,6 +11,7 @@ from .dmt import DifferentiableMeanTeacherTrainerHook
 from .entmin import EntropyMinTrainerHook
 from .infonce import SelfPacedINFONCEHook, INFONCEHook
 from .midl import IIDSegmentationTrainerHook
+from .midl import IMSATTrainHook
 from .mt import MeanTeacherTrainerHook
 from .orthogonal import OrthogonalTrainerHook
 from .pseudolabel import PseudoLabelTrainerHook
@@ -175,3 +176,7 @@ def create_iid_seg_hook(*, weight: float = 0.001):
 
 def create_pseudo_label_hook(*, weight: float):
     return PseudoLabelTrainerHook(weight=weight, name="plab")
+
+
+def create_imsat_hook(*, weight: float = 0.1):
+    return IMSATTrainHook(weight=weight)
