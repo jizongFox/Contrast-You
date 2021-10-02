@@ -10,8 +10,7 @@ from contrastyou.configure import dictionary_merge_by_hierachy
 from contrastyou.configure.yaml_parser import yaml_load, yaml_write
 from contrastyou.submitter import SlurmSubmitter as JobSubmiter
 from script import utils
-from script.utils import TEMP_DIR, grid_search, BaselineGenerator, \
-    move_dataset
+from script.utils import TEMP_DIR, grid_search, BaselineGenerator, move_dataset
 
 account = cycle(__accounts)
 

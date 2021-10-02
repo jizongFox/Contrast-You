@@ -76,7 +76,6 @@ class _IMSATEpochHook(EpocherHook):
     def __init__(self, *, name: str, weight: float) -> None:
         super().__init__(name=name)
         self._weight = weight
-        self._criterion = IIDSegmentationLoss(padding=0)
 
     @meter_focus
     def configure_meters(self, meters):
