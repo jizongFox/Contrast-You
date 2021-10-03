@@ -1,2 +1,4 @@
 MulticoreParameters:
   multiplier: 8
+  name: naive
+  mi_weight: 0.001

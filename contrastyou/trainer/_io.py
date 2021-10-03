@@ -1,13 +1,15 @@
 import os
 import shutil
-import torch
 import typing as t
 import warnings
 from abc import ABCMeta
-from easydict import EasyDict as edict
-from loguru import logger
 from pathlib import Path
 from random import Random as _Random
+
+import torch
+from easydict import EasyDict as edict
+from loguru import logger
+
 from ._buffer import _BufferMixin
 from ..configure.yaml_parser import yaml_write
 from ..types import typePath
@@ -129,7 +131,7 @@ class _IOMixin(_BufferMixin, metaclass=ABCMeta):
                 continue
 
             if hasattr(module, "load_state_dict") and callable(
-                    getattr(module, "load_state_dict", None)
+                getattr(module, "load_state_dict", None)
             ):
                 try:
                     module.load_state_dict(state_dict[module_name])
@@ -159,6 +161,7 @@ class _IOMixin(_BufferMixin, metaclass=ABCMeta):
             raise FileNotFoundError(path_)
         state_dict = torch.load(str(path_), map_location="cpu")
         self.load_state_dict(state_dict, strict)
+        logger.success(f"Successfully loaded checkpoint from {str(path_)}.")
 
     def save_to(self, *, save_dir: str = None, save_name: str):
         assert path2Path(save_name).suffix in (".pth", ".pt"), path2Path(save_name).suffix

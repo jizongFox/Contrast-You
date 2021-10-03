@@ -28,6 +28,7 @@ trainer_zoo = {"semi": SemiTrainer,
                "mixup": MixUpTrainer}
 
 
+@logger.catch()
 def main():
     manager = ConfigManger(base_path=os.path.join(CONFIG_PATH, "base.yaml"), strict=True, verbose=False)
     with manager(scope="base") as config:
@@ -107,7 +108,6 @@ def worker(config, absolute_save_dir, seed):
 if __name__ == '__main__':
     import torch
 
-    with logger.catch(reraise=True):
-        torch.set_deterministic(True)
-        # torch.backends.cudnn.benchmark = True  # noqa
-        main()
+    torch.set_deterministic(True)
+    # torch.backends.cudnn.benchmark = True  # noqa
+    main()

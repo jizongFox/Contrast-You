@@ -1,6 +1,6 @@
 from typing import Type
 
-from contrastyou.losses.multicore_loss import OverSegmentedLoss
+from contrastyou.losses.multicore_loss import GeneralOverSegmentedLoss
 from ..trainer import SemiTrainer
 from ...epochers.features import MultiCoreEvalEpocher, MultiCoreTrainEpocher
 
@@ -8,7 +8,7 @@ __all__ = ["MulticoreTrainer"]
 
 
 class MulticoreTrainer(SemiTrainer):
-    _criterion: OverSegmentedLoss
+    _criterion: GeneralOverSegmentedLoss
 
     def _create_initialized_eval_epoch(self, *, model, loader, **kwargs) -> MultiCoreEvalEpocher:
         epocher = MultiCoreEvalEpocher(model=model, loader=loader, sup_criterion=self._criterion,
