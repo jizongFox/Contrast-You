@@ -139,6 +139,7 @@ def compute_joint(x_out: Tensor, x_tf_out: Tensor, symmetric=True) -> Tensor:
     return joint probability
     :param x_out: p1, simplex
     :param x_tf_out: p2, simplex
+    :param symmetric
     :return: joint probability
     """
     # produces variable that requires grad (since args require grad)

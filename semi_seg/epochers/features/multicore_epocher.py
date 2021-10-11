@@ -4,7 +4,7 @@ from functools import partial
 import torch
 
 from contrastyou.configure.manager import get_config
-from contrastyou.losses.multicore_loss import MultiCoreKL
+from contrastyou.losses.multicore_loss import MultiCoreKL, GeneralOverSegmentedLoss
 from contrastyou.meters import MeterInterface, AverageValueMeter
 from contrastyou.utils import class2one_hot
 from ..epocher import EvalEpocher, SemiSupervisedEpocher
@@ -73,7 +73,7 @@ class MultiCoreEvalEpocher(EvalEpocher):
         return meters
 
     def _batch_update(self, *, eval_img, eval_target, eval_group):
-        self._sup_criterion: MultiCoreKL
+        self._sup_criterion: GeneralOverSegmentedLoss
         with self.autocast:
             eval_logits = self._model(eval_img)
             onehot_target = class2one_hot(eval_target.squeeze(1), self.num_classes)

@@ -4,6 +4,7 @@ pillow
 scikit-image
 torch
 torchvision
+torch_optimizer
 apex
 termcolor
 tqdm
@@ -15,15 +16,15 @@ pandas
 tensorboardx
 scipy
 opencv-python
-easydict
 medpy
 decorator
 distributed
 requests
-multicoretsne
 randaugment
 sklearn
 packaging
 nibabel
 nilearn
 git+https://github.com/jizongFox/easydict.git
+tensorboard
+tensorboardX

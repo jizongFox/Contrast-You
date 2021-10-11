@@ -1,10 +1,20 @@
-from contrastyou.augment import pil_augment, SequentialWrapperTwice, SequentialWrapper
+import typing as t
+
 from torchvision import transforms
+
+from contrastyou.augment import pil_augment, SequentialWrapperTwice, SequentialWrapper
 
 __all__ = ["augment_zoo"]
 
 
-class ACDCStrongTransforms:
+class _Transform(t.Protocol):
+    pretrain: SequentialWrapperTwice
+    label: SequentialWrapperTwice
+    val: SequentialWrapper
+    trainval: SequentialWrapperTwice
+
+
+class ACDCStrongTransforms(_Transform):
     pretrain = SequentialWrapperTwice(
         com_transform=transforms.Compose([
             transforms.RandomRotation(45),
@@ -52,7 +62,7 @@ class ACDCStrongTransforms:
     )
 
 
-class ProstateStrongTransforms:
+class ProstateStrongTransforms(_Transform):
     pretrain = SequentialWrapperTwice(
         com_transform=transforms.Compose([
             transforms.Resize(224, ),
@@ -101,7 +111,7 @@ class ProstateStrongTransforms:
     )
 
 
-class SpleenStrongTransforms:
+class SpleenStrongTransforms(_Transform):
     pretrain = SequentialWrapperTwice(
         com_transform=transforms.Compose([
             transforms.Resize(320),
@@ -150,7 +160,7 @@ class SpleenStrongTransforms:
     )
 
 
-class MMWHSStrongTransforms:
+class MMWHSStrongTransforms(_Transform):
     pretrain = SequentialWrapperTwice(
         com_transform=transforms.Compose([
             transforms.RandomRotation(45),
@@ -199,7 +209,7 @@ class MMWHSStrongTransforms:
     )
 
 
-class HippocampusStrongTransforms:
+class HippocampusStrongTransforms(_Transform):
     pretrain = SequentialWrapperTwice(
         com_transform=transforms.Compose([
             transforms.Resize((64, 64), ),
@@ -249,8 +259,8 @@ class HippocampusStrongTransforms:
     )
 
 
-augment_zoo = {
-    "acdc": ACDCStrongTransforms, "spleen": SpleenStrongTransforms,
-    "prostate": ProstateStrongTransforms, "mmwhsct": ACDCStrongTransforms, "mmwhsmr": ACDCStrongTransforms,
-    "prostate_md": ProstateStrongTransforms, "hippocampus": HippocampusStrongTransforms,
+augment_zoo: t.Dict[str, _Transform] = {
+    "acdc": ACDCStrongTransforms, "spleen": SpleenStrongTransforms, "prostate": ProstateStrongTransforms,
+    "mmwhsct": ACDCStrongTransforms, "mmwhsmr": ACDCStrongTransforms, "prostate_md": ProstateStrongTransforms,
+    "hippocampus": HippocampusStrongTransforms
 }

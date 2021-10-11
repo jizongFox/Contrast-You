@@ -4,7 +4,6 @@ import subprocess
 import sys
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
 
 from loguru import logger
 
@@ -31,14 +30,14 @@ logger_format = "<green>{time:MM/DD HH:mm:ss.SS}</green> | <level>{level: ^7}</l
 def config_logger():
     logger.remove()
 
-    logger.add(sys.stderr, format=logger_format, backtrace=False, diagnose=False)
+    logger.add(sys.stderr, format=logger_format, backtrace=False, diagnose=False, colorize=True)
 
 
 config_logger()
 
 
 @lru_cache()
-def get_git_hash_tag() -> Optional[str]:
+def get_git_hash_tag() -> str:
     try:
         _git_hash = subprocess.check_output(
             [f"cd {PROJECT_PATH}; git rev-parse HEAD"], shell=True

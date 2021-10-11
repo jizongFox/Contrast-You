@@ -10,8 +10,7 @@ from contrastyou.configure import dictionary_merge_by_hierachy
 from contrastyou.configure.yaml_parser import yaml_load, yaml_write
 from contrastyou.submitter import SlurmSubmitter as JobSubmiter
 from script import utils
-from script.utils import TEMP_DIR, grid_search, BaselineGenerator, \
-    move_dataset
+from script.utils import TEMP_DIR, grid_search, BaselineGenerator, move_dataset
 
 account = cycle(__accounts)
 
@@ -29,10 +28,12 @@ class MulticoreScriptGenerator(BaselineGenerator):
 
         self.hook_config = {**hook_config2, **hook_config3, **hook_config4, **hook_config5}
 
-    def get_hook_params(self, orth_weight, multiplier, two_stage, iic_weight, imsat_weight):
+    def get_hook_params(self, name, mapping_mi_weight, orth_weight, multiplier, two_stage, iic_weight, imsat_weight):
         return {
             "MulticoreParameters":
-                {"multiplier": multiplier},
+                {"multiplier": multiplier,
+                 "name": name,
+                 "mi_weight": mapping_mi_weight},
             "OrthogonalParameters":
                 {"weight": orth_weight},
             "Trainer": {"two_stage": two_stage},
@@ -113,12 +114,26 @@ if __name__ == '__main__':
                                                 max_epoch=max_epoch, data_opt=data_opt)
 
     jobs = script_generator.grid_search_on(seed=seed,
-                                           orth_weight=[0, 0.001, 0.01, 0.1, 1, 5, 10],
-                                           multiplier=[1, 2, 4, 6, 8, ],
+                                           orth_weight=[0, ],
+                                           multiplier=[2, 4],
                                            two_stage=[True],
-                                           iic_weight=[0],
-                                           imsat_weight=[0, 0.0001, 0.001, 0.01, 0.1]
+                                           iic_weight=[0.01],
+                                           imsat_weight=[0],
+                                           name="naive",
+                                           mapping_mi_weight=0
                                            )
 
+    for j in jobs:
+        submittor.submit(j, account=next(account), force_show=force_show, time=6)
+
+    jobs = script_generator.grid_search_on(seed=seed,
+                                           orth_weight=[0, ],
+                                           multiplier=[2, 4],
+                                           two_stage=[True],
+                                           iic_weight=[0.01],
+                                           imsat_weight=[0],
+                                           name="advanced",
+                                           mapping_mi_weight=[0, 0.0001, 0.001, 0.01, 0.1]
+                                           )
     for j in jobs:
         submittor.submit(j, account=next(account), force_show=force_show, time=6)
