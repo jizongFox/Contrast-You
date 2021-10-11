@@ -45,12 +45,13 @@ def switch_interpolation(transforms: Callable[[T], Union[T, Tensor]], *, interp:
         if hasattr(t, "interpolation"):
             previous_inters[id_] = t.interpolation
             t.interpolation = interpolation
-    yield
-
-    transforms = get_transform(transforms)
-    for id_, t in enumerate(transforms):
-        if hasattr(t, "interpolation"):
-            t.interpolation = previous_inters[id_]
+    try:
+        yield
+    finally:
+        transforms = get_transform(transforms)
+        for id_, t in enumerate(transforms):
+            if hasattr(t, "interpolation"):
+                t.interpolation = previous_inters[id_]
 
 
 def random_int() -> int:

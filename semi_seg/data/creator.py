@@ -1,15 +1,17 @@
 import json
-import numpy as np
 import os
 import typing as t
+
+import numpy as np
+from loguru import logger
+from torch.utils.data import DataLoader
+
 from contrastyou import get_true_data_path
 from contrastyou.data import DatasetBase, extract_sub_dataset_based_on_scan_names, InfiniteRandomSampler, \
     ScanBatchSampler
 from contrastyou.utils import fix_all_seed_within_context
-from loguru import logger
 from semi_seg.augment import augment_zoo
 from semi_seg.data import mmWHSCTDataset, mmWHSMRDataset, data_zoo
-from torch.utils.data import DataLoader
 
 __all__ = ["create_tra_test_dataset", "create_val_loader", "get_data_loaders", "get_data"]
 
@@ -63,10 +65,10 @@ def split_dataset(dataset: DatasetBase, *scans: float, seed: int = 1) -> t.List[
         scan_list_permuted = np.random.permutation(scan_list).tolist()
 
     def _sum_iter(ratio_list):
-        sum = 0
+        sum_ = 0
         for i in ratio_list:
-            yield sum + i
-            sum += i
+            yield sum_ + i
+            sum_ += i
 
     def _two_element_iter(cut_list):
         previous = 0
@@ -110,7 +112,7 @@ def _get_labeled_unlabeled_test_datasets(data_name, *, total_freedom: bool, labe
         try:
             label_set, unlabeled_set = split_dataset_with_predefined_filenames(
                 tra_set, data_name, labeled_scan_nums=labeled_scan_num, order_num=order_num)
-        except FileNotFoundError as e:
+        except FileNotFoundError:
             seed = 2
             logger.opt(exception=True).warning(f"{data_name} did not find the ordering json file, "
                                                f"using a random split with random seed: {seed}")
