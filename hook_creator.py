@@ -48,7 +48,8 @@ def create_hook_from_config(model, config, *, is_pretrain=False, trainer):
         hooks.append(orth_hook)
 
     if "IIDSegParameters" in config:
-        iid_hook = create_iid_seg_hook(weight=config["IIDSegParameters"]["weight"])
+        iid_hook = create_iid_seg_hook(weight=config["IIDSegParameters"]["weight"],
+                                       mi_lambda=config["IIDSegParameters"]["mi_lambda"])
         hooks.append(iid_hook)
 
     if "PsuedoLabelParams" in config:

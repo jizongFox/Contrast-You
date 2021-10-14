@@ -1,22 +1,23 @@
 # dictionary helper functions
-from itertools import repeat
-
 import collections
 import functools
-import matplotlib.pyplot as plt
-import numpy as np
 import os
 import random
-import torch
 import warnings
 from contextlib import contextmanager
-from contrastyou import logger_format
+from itertools import repeat
 from pathlib import Path
-from script.utils import T_path
+from typing import List
+
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
 from torch import nn
 from torch.optim import Optimizer
 from torch.utils.data.dataloader import DataLoader, _BaseDataLoaderIter  # noqa
-from typing import List
+
+from contrastyou import logger_format
+from script.utils import T_path
 
 try:
     from torch._six import container_abcs
@@ -234,9 +235,11 @@ def disable_tracking_bn_stats(model):
     # let the track_running_stats to be inverse
     model.apply(switch_attr)
     # return the model
-    yield
+    try:
+        yield
     # let the track_running_stats to be inverse
-    model.apply(switch_attr)
+    finally:
+        model.apply(switch_attr)
 
 
 def get_model(model):

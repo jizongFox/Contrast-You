@@ -1,2 +1,3 @@
 IIDSegParameters:
   weight: 0.001
+  mi_lambda: 1.0

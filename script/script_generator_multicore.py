@@ -28,7 +28,8 @@ class MulticoreScriptGenerator(BaselineGenerator):
 
         self.hook_config = {**hook_config2, **hook_config3, **hook_config4, **hook_config5}
 
-    def get_hook_params(self, name, mapping_mi_weight, orth_weight, multiplier, two_stage, iic_weight, imsat_weight):
+    def get_hook_params(self, name, mapping_mi_weight, orth_weight, multiplier, two_stage, iic_weight, mi_lambda,
+                        imsat_weight):
         return {
             "MulticoreParameters":
                 {"multiplier": multiplier,
@@ -37,7 +38,8 @@ class MulticoreScriptGenerator(BaselineGenerator):
             "OrthogonalParameters":
                 {"weight": orth_weight},
             "Trainer": {"two_stage": two_stage},
-            "IIDSegParameters": {"weight": iic_weight},
+            "IIDSegParameters": {"weight": iic_weight,
+                                 "mi_lambda": mi_lambda},
             "IMSATParameters": {"weight": imsat_weight},
         }
 
@@ -114,13 +116,14 @@ if __name__ == '__main__':
                                                 max_epoch=max_epoch, data_opt=data_opt)
 
     jobs = script_generator.grid_search_on(seed=seed,
-                                           orth_weight=[0, ],
-                                           multiplier=[2, 4],
+                                           orth_weight=[0, 0.1, 1, 5, 10],
+                                           multiplier=[2, 4, 8],
                                            two_stage=[True],
-                                           iic_weight=[0.01],
+                                           iic_weight=[0.01, 0.02],
                                            imsat_weight=[0],
                                            name="naive",
-                                           mapping_mi_weight=0
+                                           mapping_mi_weight=0,
+                                           mi_lambda=[0.1, 0.5, 1.0, 1.2, 1.4]
                                            )
 
     for j in jobs:
@@ -136,4 +139,4 @@ if __name__ == '__main__':
                                            mapping_mi_weight=[0, 0.0001, 0.001, 0.01, 0.1]
                                            )
     for j in jobs:
-        submittor.submit(j, account=next(account), force_show=force_show, time=6)
+        submittor.submit(j, account=next(account), force_show=force_show, time=4)

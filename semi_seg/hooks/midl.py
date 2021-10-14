@@ -18,23 +18,23 @@ entropy_criterion = Entropy(reduction="none")
 
 class IIDSegmentationTrainerHook(TrainerHook):
 
-    def __init__(self, *, hook_name: str = "midl_hook", weight: float = 1.0) -> None:
+    def __init__(self, *, hook_name: str = "midl_hook", weight: float = 1.0, mi_lambda=1.0) -> None:
         super().__init__(hook_name=hook_name)
         self._weight = weight
-        logger.debug(f"Created {class_name(self)} with name: {self._hook_name}, weight: {self._weight}.")
+        self._mi_lambda = mi_lambda
+        logger.debug(f"Created {class_name(self)} with name: {self._hook_name}, weight: {self._weight}, "
+                     f"mi_lambda: {mi_lambda}.")
 
     def __call__(self):
-        return _IIDSegmentationEpochHook(name=self._hook_name, weight=self._weight)
-
-        # return IIDSegmentationLoss
+        return _IIDSegmentationEpochHook(name=self._hook_name, weight=self._weight, mi_lambda=self._mi_lambda)
 
 
 class _IIDSegmentationEpochHook(EpocherHook):
 
-    def __init__(self, *, name: str, weight: float) -> None:
+    def __init__(self, *, name: str, weight: float, mi_lambda=1.0) -> None:
         super().__init__(name=name)
         self._weight = weight
-        self._criterion = IIDSegmentationLoss(padding=0)
+        self._criterion = IIDSegmentationLoss(padding=0, lamda=mi_lambda)
 
     @meter_focus
     def configure_meters(self, meters):

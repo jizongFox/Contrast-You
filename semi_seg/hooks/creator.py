@@ -170,8 +170,8 @@ def create_orthogonal_hook(*, weight: float = 0.001, model: UNet):
     return hook
 
 
-def create_iid_seg_hook(*, weight: float = 0.001):
-    return IIDSegmentationTrainerHook(hook_name="iid", weight=weight)
+def create_iid_seg_hook(*, weight: float = 0.001, mi_lambda=1.0):
+    return IIDSegmentationTrainerHook(hook_name="iid", weight=weight, mi_lambda=mi_lambda)
 
 
 def create_pseudo_label_hook(*, weight: float):
