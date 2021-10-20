@@ -4,7 +4,7 @@ from torch.nn import MSELoss
 from contrastyou.hooks.base import TrainerHook, EpocherHook
 from contrastyou.meters import AverageValueMeter, MeterInterface
 from contrastyou.utils import class2one_hot
-from semi_seg.hooks import meter_focus
+from contrastyou.hooks import meter_focus
 
 
 class PseudoLabelTrainerHook(TrainerHook):
@@ -24,12 +24,10 @@ class _PLEpocherHook(EpocherHook):
         self._weight = weight
         self._criterion = criterion
 
-    @meter_focus
     def configure_meters(self, meters: MeterInterface):
         self.meters.register_meter("loss", AverageValueMeter())
 
-    @meter_focus
-    def __call__(self, *, unlabeled_tf_logits, unlabeled_logits_tf, seed, affine_transformer, **kwargs):
+    def _call_implementation(self, *, unlabeled_tf_logits, unlabeled_logits_tf, seed, affine_transformer, **kwargs):
         unlabeled_prob_tf = unlabeled_logits_tf.softmax(1)
         C = unlabeled_prob_tf.shape[1]
         with torch.no_grad():

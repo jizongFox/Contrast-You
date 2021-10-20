@@ -1,7 +1,6 @@
 from contrastyou.hooks.base import TrainerHook, EpocherHook
 from contrastyou.losses.kl import Entropy
 from contrastyou.meters import AverageValueMeter, MeterInterface
-from semi_seg.hooks import meter_focus
 
 
 class EntropyMinTrainerHook(TrainerHook):
@@ -21,12 +20,10 @@ class _EntropyEpocherHook(EpocherHook):
         self._weight = weight
         self._criterion = criterion
 
-    @meter_focus
     def configure_meters(self, meters: MeterInterface):
         self.meters.register_meter("loss", AverageValueMeter())
 
-    @meter_focus
-    def __call__(self, *, unlabeled_tf_logits, unlabeled_logits_tf, seed, affine_transformer, **kwargs):
+    def _call_implementation(self, *, unlabeled_tf_logits, unlabeled_logits_tf, seed, affine_transformer, **kwargs):
         unlabeled_prob_tf = unlabeled_logits_tf.softmax(1)
         loss = self._criterion(unlabeled_prob_tf)
         self.meters["loss"].add(loss.item())

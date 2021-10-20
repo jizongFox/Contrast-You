@@ -13,7 +13,7 @@ from contrastyou.losses.contrastive import SelfPacedSupConLoss, SupConLoss1, swi
 from contrastyou.meters import MeterInterface, AverageValueMeter
 from contrastyou.utils import fix_all_seed_for_transforms
 from contrastyou.writer import get_tb_writer
-from .utils import get_label, meter_focus
+from .utils import get_label
 
 decoder_names = UNet.decoder_names
 encoder_names = UNet.encoder_names
@@ -169,7 +169,6 @@ class _INFONCEEpochHook(EpocherHook):
         self._label_generator = label_generator
         self._n = 0
 
-    @meter_focus
     def configure_meters(self, meters: MeterInterface):
         meters = super().configure_meters(meters)
         meters.register_meter("loss", AverageValueMeter())
@@ -182,9 +181,9 @@ class _INFONCEEpochHook(EpocherHook):
     def after_forward_pass(self, **kwargs):
         self._extractor.set_enable(False)
 
-    @meter_focus
-    def __call__(self, *, affine_transformer, seed, unlabeled_tf_logits, unlabeled_logits_tf, partition_group,
-                 label_group, **kwargs):
+    def _call_implementation(self, *, affine_transformer, seed, unlabeled_tf_logits, unlabeled_logits_tf,
+                             partition_group,
+                             label_group, **kwargs):
         n_unl = len(unlabeled_logits_tf)
         feature_ = self._extractor.feature()[-n_unl * 2:]
         unlabeled_features, unlabeled_tf_features = torch.chunk(feature_, 2, dim=0)
@@ -212,9 +211,10 @@ class _INFONCEEpochHook(EpocherHook):
 
 
 class _INFONCEDenseHook(_INFONCEEpochHook):
-    @meter_focus
-    def __call__(self, *, affine_transformer, seed, unlabeled_tf_logits, unlabeled_logits_tf, partition_group,
-                 label_group, **kwargs):
+
+    def _call_implementation(self, *, affine_transformer, seed, unlabeled_tf_logits, unlabeled_logits_tf,
+                             partition_group,
+                             label_group, **kwargs):
         n_unl = len(unlabeled_logits_tf)
         feature_ = self._extractor.feature()[-n_unl * 2:]
         unlabeled_features, unlabeled_tf_features = torch.chunk(feature_, 2, dim=0)
@@ -244,16 +244,15 @@ class _INFONCEDenseHook(_INFONCEEpochHook):
 class _SPINFONCEEpochHook(_INFONCEEpochHook):
     _criterion: SelfPacedSupConLoss
 
-    @meter_focus
     def configure_meters(self, meters: MeterInterface):
         meters = super().configure_meters(meters)
         meters.register_meter("sp_weight", AverageValueMeter())
         meters.register_meter("age_param", AverageValueMeter())
         return meters
 
-    @meter_focus
-    def __call__(self, *, affine_transformer, seed, unlabeled_tf_logits, unlabeled_logits_tf, partition_group,
-                 label_group, **kwargs):
+    def _call_implementation(self, *, affine_transformer, seed, unlabeled_tf_logits, unlabeled_logits_tf,
+                             partition_group,
+                             label_group, **kwargs):
         loss = super().__call__(affine_transformer=affine_transformer, seed=seed,
                                 unlabeled_tf_logits=unlabeled_tf_logits, unlabeled_logits_tf=unlabeled_logits_tf,
                                 partition_group=partition_group, label_group=label_group, **kwargs)

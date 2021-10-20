@@ -8,7 +8,6 @@ from contrastyou.losses.discreteMI import IIDSegmentationLoss
 from contrastyou.losses.kl import Entropy
 from contrastyou.meters import AverageValueMeter
 from contrastyou.utils import class_name
-from semi_seg.hooks.utils import meter_focus
 
 decoder_names = UNet.decoder_names
 encoder_names = UNet.encoder_names
@@ -36,12 +35,10 @@ class _IIDSegmentationEpochHook(EpocherHook):
         self._weight = weight
         self._criterion = IIDSegmentationLoss(padding=0, lamda=mi_lambda)
 
-    @meter_focus
     def configure_meters(self, meters):
         meters.register_meter("mi", AverageValueMeter())
 
-    @meter_focus
-    def __call__(self, *, unlabeled_tf_logits, unlabeled_logits_tf, **kwargs):
+    def _call_implementation(self, *, unlabeled_tf_logits, unlabeled_logits_tf, **kwargs):
         if self._weight == 0:
             self.meters["mi"].add(0)
             return torch.tensor(0, device=unlabeled_logits_tf.device, dtype=unlabeled_logits_tf.dtype)
@@ -77,12 +74,10 @@ class _IMSATEpochHook(EpocherHook):
         super().__init__(name=name)
         self._weight = weight
 
-    @meter_focus
     def configure_meters(self, meters):
         meters.register_meter("mi", AverageValueMeter())
 
-    @meter_focus
-    def __call__(self, *, unlabeled_logits_tf, **kwargs):
+    def _call_implementation(self, *, unlabeled_logits_tf, **kwargs):
         unlabeled_tf_softmax = unlabeled_logits_tf.softmax(1)
 
         loss = IMSAT_loss(unlabeled_tf_softmax)

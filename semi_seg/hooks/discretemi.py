@@ -7,7 +7,7 @@ from contrastyou.arch import UNet
 from contrastyou.arch.hook import SingleFeatureExtractor
 from contrastyou.hooks.base import TrainerHook, EpocherHook
 from contrastyou.meters import AverageValueMeter
-from semi_seg.hooks.utils import meter_focus
+from contrastyou.hooks import meter_focus
 
 decoder_names = UNet.decoder_names
 encoder_names = UNet.encoder_names
@@ -83,7 +83,6 @@ class _DiscreteMIEpochHook(EpocherHook):
         self._projector = projector
         self._criterion = criterion
 
-    @meter_focus
     def configure_meters(self, meters):
         meters.register_meter("mi", AverageValueMeter())
 
@@ -94,8 +93,7 @@ class _DiscreteMIEpochHook(EpocherHook):
     def after_forward_pass(self, **kwargs):
         self._extractor.set_enable(False)
 
-    @meter_focus
-    def __call__(self, *, unlabeled_image, unlabeled_image_tf, affine_transformer, **kwargs):
+    def _call_implementation(self, *, unlabeled_image, unlabeled_image_tf, affine_transformer, **kwargs):
         n_unl = len(unlabeled_image)
         feature_ = self._extractor.feature()[-n_unl * 2:]
         proj_feature, proj_tf_feature = torch.chunk(feature_, 2, dim=0)

@@ -9,7 +9,6 @@ from torch.nn.modules.batchnorm import _BatchNorm  # noqa
 from contrastyou.hooks.base import TrainerHook, EpocherHook
 from contrastyou.meters import AverageValueMeter, MeterInterface
 from contrastyou.utils import simplex, class2one_hot
-from semi_seg.hooks import meter_focus
 
 
 def pair_iterator(model_list: t.List[nn.Module]) -> t.Iterable[t.Tuple[nn.Module, nn.Module]]:
@@ -166,12 +165,10 @@ class _MeanTeacherEpocherHook(EpocherHook):
         self._extra_teachers = extra_teachers
         self._extra_updater = extra_updater
 
-    @meter_focus
     def configure_meters(self, meters: MeterInterface):
         self.meters.register_meter("loss", AverageValueMeter())
 
-    @meter_focus
-    def __call__(self, *, unlabeled_tf_logits, unlabeled_image, seed, affine_transformer,
+    def _call_implementation(self, *, unlabeled_tf_logits, unlabeled_image, seed, affine_transformer,
                  **kwargs):
         student_unlabeled_tf_prob = unlabeled_tf_logits.softmax(1)
         with torch.no_grad():

@@ -52,8 +52,11 @@ class EpocherBase(AMPScaler, DDPMixin, metaclass=ABCMeta):
         for h in hook:
             self._hooks.append(h)
             h.set_epocher(self)
-        yield
-        self.close_hook()
+            h.set_meters()
+        try:
+            yield
+        finally:
+            self.close_hook()
 
     def close_hook(self):
         for h in self._hooks:

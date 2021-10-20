@@ -1,6 +1,9 @@
 # this hook collaborates with the Epocher to provide a scalable thing.
 import weakref
-from typing import Iterator, List
+from abc import abstractmethod
+from contextlib import nullcontext
+from functools import wraps
+from typing import Iterator, List, final
 
 from torch import nn
 from torch.nn import Parameter
@@ -14,6 +17,10 @@ class HookNameExistError(Exception):
 
 
 class _ClassNameMeta(type):
+    """
+    This meta class is to make sure that the training hook cannot have the same name in a single experiment.
+    if two hooks with the same name is given, a RuntimeError would be raise to stop the algorithm.
+    """
     names: List[str] = []
 
     def __call__(cls, *args, **kwargs):
@@ -66,17 +73,26 @@ class CombineTrainerHook(TrainerHook):
 
 class EpocherHook:
 
-    def __init__(self, *, name: str) -> None:
+    def __init__(self, *, name: str, ) -> None:
         self._name = name
+        self._epocher = None
+        self.meters = None
+        self.__epocher_set__ = False
 
     def set_epocher(self, epocher):
+        """not necessary to be called, but need to be called with training with the epocher."""
         self._epocher = weakref.proxy(epocher)
         self.meters = weakref.proxy(epocher.meters)
-        self.configure_meters(self.meters)
+        self.__epocher_set__ = True
 
     @property
     def epocher(self):
         return self._epocher
+
+    def set_meters(self):
+        assert self.__epocher_set__, f"epocher not set to {class_name(self)}."
+        with self.meters.focus_on(self.name):
+            self.configure_meters(self.meters)
 
     def configure_meters(self, meters: MeterInterface):
         return meters
@@ -99,8 +115,17 @@ class EpocherHook:
     def after_batch_update(self, **kwargs):
         pass
 
+    @final
     def __call__(self, **kwargs):
-        pass
+        context = nullcontext()
+        if self.meters:
+            context = self.meters.focus_on(self._name)
+        with context:
+            return self._call_implementation(**kwargs)
+
+    @abstractmethod
+    def _call_implementation(self, **kwargs):
+        ...
 
     def close(self):
         pass
@@ -142,9 +167,24 @@ class CombineEpochHook(EpocherHook):
         for h in self._epocher_hook:
             h.after_batch_update(**kwargs)
 
-    def __call__(self, **kwargs):
-        return sum([h(**kwargs) for h in self._epocher_hook])
+    def _call_implementation(self, **kwargs):
+        return sum([h._call_implementation(**kwargs) for h in self._epocher_hook])
 
     def close(self):
         for h in self._epocher_hook:
             h.close()
+
+
+def meter_focus(_func=None, *, attribute="_name"):
+    def decorator_focus(func):
+        @wraps(func)
+        def wrapper_focus(self, *args, **kwargs):
+            with self.meters.focus_on(getattr(self, attribute)):
+                return func(self, *args, **kwargs)
+
+        return wrapper_focus
+
+    if _func is None:
+        return decorator_focus
+    else:
+        return decorator_focus(_func)

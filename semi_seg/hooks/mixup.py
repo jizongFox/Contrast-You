@@ -4,7 +4,7 @@ from typing import Union
 
 import numpy as np
 import torch
-from deepclustering2.decorator.decorator import _disable_tracking_bn_stats # noqa
+from deepclustering2.decorator.decorator import _disable_tracking_bn_stats  # noqa
 from deepclustering2.loss import KL_div
 from deepclustering2.utils import class2one_hot
 from loguru import logger
@@ -13,7 +13,6 @@ from torch import Tensor
 from contrastyou.hooks.base import TrainerHook, EpocherHook
 from contrastyou.meters import MeterInterface, AverageValueMeter
 from contrastyou.utils import fix_all_seed_within_context
-from semi_seg.hooks import meter_focus
 
 
 def mixup_data(x, y, *, alpha=1.0, device: Union[str, torch.device]):
@@ -52,17 +51,15 @@ class _MixUpEpocherHook(EpocherHook):
         self._criterion = criterion
         self._enable_bn = enable_bn
 
-    @meter_focus
     def configure_meters(self, meters: MeterInterface):
         meters = super(_MixUpEpocherHook, self).configure_meters(meters)
         meters.register_meter("mixup_ls", AverageValueMeter())
         return meters
 
-    @meter_focus
-    def __call__(self, *, labeled_image: Tensor,
-                 labeled_image_tf: Tensor,
-                 labeled_target: Tensor,
-                 labeled_target_tf: Tensor, seed: int, **kwargs):
+    def _call_implementation(self, *, labeled_image: Tensor,
+                             labeled_image_tf: Tensor,
+                             labeled_target: Tensor,
+                             labeled_target_tf: Tensor, seed: int, **kwargs):
         labeled_target_oh = class2one_hot(labeled_target, C=self.num_classes)
         labeled_target_tf_oh = class2one_hot(labeled_target_tf, C=self.num_classes)
 

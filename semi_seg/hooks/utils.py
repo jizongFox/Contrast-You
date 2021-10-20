@@ -1,4 +1,4 @@
-from functools import lru_cache, wraps
+from functools import lru_cache
 
 from loguru import logger
 
@@ -91,10 +91,3 @@ def get_label(contrast_on, data_name, partition_group, label_group):
     return labels
 
 
-def meter_focus(func):
-    @wraps(func)
-    def func_wrapper(self, *args, **kwargs):
-        with self.meters.focus_on(self._name):
-            return func(self, *args, **kwargs)
-
-    return func_wrapper

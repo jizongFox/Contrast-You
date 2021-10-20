@@ -7,7 +7,6 @@ from torch.nn import functional as F
 from contrastyou.hooks import TrainerHook, EpocherHook
 from contrastyou.meters import MeterInterface, AverageValueMeter
 from contrastyou.utils import class_name
-from semi_seg.hooks import meter_focus
 
 
 def pairwise_matrix(vec1: Tensor, vec2: Tensor):
@@ -39,13 +38,11 @@ class _OrthogonalEpocherHook(EpocherHook):
         self._prototypes = prototypes
         self._weight = weight
 
-    @meter_focus
     def configure_meters(self, meters: MeterInterface):
         meters.register_meter("loss", AverageValueMeter())
         return meters
 
-    @meter_focus
-    def __call__(self, **kwargs):
+    def _call_implementation(self, **kwargs):
         normalized_prototypes = normalize(self._prototypes)
         matrix = pairwise_matrix(normalized_prototypes.squeeze(), normalized_prototypes.squeeze())
         loss = (matrix - torch.eye(matrix.shape[0], device=matrix.device, dtype=matrix.dtype)).pow(2).mean()

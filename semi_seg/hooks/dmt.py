@@ -15,7 +15,7 @@ from contrastyou.losses.kl import KL_div
 from contrastyou.meters import AverageValueMeter, MeterInterface
 from contrastyou.types import CriterionType
 from contrastyou.utils import class2one_hot, class_name
-from semi_seg.hooks import meter_focus
+from contrastyou.hooks import meter_focus
 from semi_seg.hooks.mt import L2LossChecker, EMAUpdater
 
 
@@ -176,13 +176,11 @@ class _BaseDMTEpocherHook(EpocherHook):
 
 class MTEpocherHook(_BaseDMTEpocherHook):
 
-    @meter_focus
     def configure_meters(self, meters: MeterInterface):
         self.meters.register_meter("loss", AverageValueMeter())
 
-    @meter_focus
-    def __call__(self, *, unlabeled_tf_logits, unlabeled_image, seed, affine_transformer,
-                 **kwargs):
+    def _call_implementation(self, *, unlabeled_tf_logits, unlabeled_image, seed, affine_transformer,
+                             **kwargs):
         loss = self.mt_update(
             teacher_model=self._teacher_model,
             criterion=self._criterion,
@@ -268,14 +266,12 @@ class DifferentiableMeanTeacherEpocherHook1(_BaseDMTEpocherHook):
                          **kwargs)
         self._teacher_optimizer = teacher_optimizer
 
-    @meter_focus
     def configure_meters(self, meters: MeterInterface):
         self.meters.register_meter("consistency_loss", AverageValueMeter())
         self.meters.register_meter("teacher_loss", AverageValueMeter())
 
-    @meter_focus
-    def __call__(self, *, unlabeled_tf_logits, unlabeled_image, seed, affine_transformer,
-                 labeled_image, labeled_target, **kwargs):
+    def _call_implementation(self, *, unlabeled_tf_logits, unlabeled_image, seed, affine_transformer,
+                             labeled_image, labeled_target, **kwargs):
         loss = self.mt_update(
             unlabeled_tf_logits=unlabeled_tf_logits,
             unlabeled_image=unlabeled_image,
@@ -309,14 +305,12 @@ class DifferentiableMeanTeacherEpocherHook1(_BaseDMTEpocherHook):
 class DifferentiableMeanTeacherEpocherHook2(_BaseDMTEpocherHook):
     """this implements the update rule 2 of christian's proposal"""
 
-    @meter_focus
     def configure_meters(self, meters: MeterInterface):
         self.meters.register_meter("consistency_loss", AverageValueMeter())
         self.meters.register_meter("teacher_loss", AverageValueMeter())
 
-    @meter_focus
-    def __call__(self, *, unlabeled_tf_logits, unlabeled_image, seed, affine_transformer,
-                 labeled_image, labeled_target, **kwargs):
+    def _call_implementation(self, *, unlabeled_tf_logits, unlabeled_image, seed, affine_transformer,
+                             labeled_image, labeled_target, **kwargs):
         teacher_model = self.teacher_model
 
         with switch_model_status(teacher_model, training=False):
@@ -353,14 +347,12 @@ class DifferentiableMeanTeacherEpocherHook3(_BaseDMTEpocherHook):
                          **kwargs)
         self._teacher_optimizer = teacher_optimizer
 
-    @meter_focus
     def configure_meters(self, meters: MeterInterface):
         self.meters.register_meter("consistency_loss", AverageValueMeter())
         self.meters.register_meter("teacher_loss", AverageValueMeter())
 
-    @meter_focus
-    def __call__(self, *, unlabeled_tf_logits, unlabeled_image, seed, affine_transformer,
-                 labeled_image, labeled_target, **kwargs):
+    def _call_implementation(self, *, unlabeled_tf_logits, unlabeled_image, seed, affine_transformer,
+                             labeled_image, labeled_target, **kwargs):
         loss = self.mt_update(
             unlabeled_tf_logits=unlabeled_tf_logits,
             unlabeled_image=unlabeled_image,
@@ -413,9 +405,8 @@ class DifferentiableMeanTeacherEpocherHook4(_BaseDMTEpocherHook):
         # teacher at t+1
         self.meters["teacher_loss"].add(teacher_loss.item())
 
-    @meter_focus
-    def __call__(self, *, unlabeled_tf_logits, unlabeled_image, seed, affine_transformer,
-                 labeled_image, labeled_target, **kwargs):
+    def _call_implementation(self, *, unlabeled_tf_logits, unlabeled_image, seed, affine_transformer,
+                             labeled_image, labeled_target, **kwargs):
         # a temporal teacher at t + 1 from before_regularization
         loss = self.mt_update(teacher_model=self._teacher_model, criterion=self._criterion,
                               unlabeled_image=unlabeled_image, unlabeled_tf_logits=unlabeled_tf_logits,
