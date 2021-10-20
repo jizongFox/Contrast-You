@@ -105,6 +105,10 @@ class EpocherHook:
     def close(self):
         pass
 
+    @property
+    def name(self):
+        return self._name
+
 
 class CombineEpochHook(EpocherHook):
     def __init__(self, *epocher_hook: EpocherHook) -> None:

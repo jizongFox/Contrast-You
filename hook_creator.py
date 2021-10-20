@@ -60,7 +60,7 @@ def create_hook_from_config(model, config, *, is_pretrain=False, trainer):
         im_hook = create_imsat_hook(weight=float(config["IMSATParameters"]["weight"]))
         hooks.append(im_hook)
 
-    if "CrossCorrelationParameters":
+    if "CrossCorrelationParameters" in config:
         hook = create_cross_correlation_hook(weight=config["CrossCorrelationParameters"]["weight"],
                                              kernel_size=config["CrossCorrelationParameters"]["kernel_size"],
                                              device=config["Trainer"]["device"])

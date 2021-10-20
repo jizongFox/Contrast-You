@@ -36,8 +36,8 @@ class _CrossCorrelationEpocherHook(EpocherHook):
     def __call__(self, unlabeled_image_tf: Tensor, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor, **kwargs):
         # assert unlabeled_image_tf.max() <= 1 and unlabeled_image_tf.min() >= 0
         diff_image = self.diff(unlabeled_image_tf)
-        diff_tf_softmax = self.diff(unlabeled_tf_logits.softmax(1))
-        diff_softmax_tf = self.diff(unlabeled_logits_tf.softmax(1))
+        diff_tf_softmax = self.diff(unlabeled_tf_logits)
+        diff_softmax_tf = self.diff(unlabeled_logits_tf)
         loss = self.criterion(diff_image, diff_tf_softmax) + self.criterion(diff_image, diff_softmax_tf)
         self.meters["loss"].add(loss.item())
         return loss
