@@ -1,0 +1,3 @@
+CrossCorrelationParameters:
+  weight: 0.01
+  kernel_size: 5

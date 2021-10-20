@@ -12,8 +12,10 @@ from torch import Tensor, nn
 def switch_plt_backend(env="agg"):
     prev = matplotlib.get_backend()
     matplotlib.use(env, force=True)
-    yield
-    matplotlib.use(prev, force=True)
+    try:
+        yield
+    finally:
+        matplotlib.use(prev, force=True)
 
 
 def is_normalized(feature: Tensor, dim=1):

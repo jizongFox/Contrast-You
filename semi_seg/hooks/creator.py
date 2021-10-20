@@ -5,6 +5,7 @@ from torch import nn
 from contrastyou.arch import UNet
 from contrastyou.hooks.base import CombineTrainerHook, TrainerHook
 from contrastyou.utils.utils import ntuple, class_name
+from .cc import CrossCorrelationHook
 from .consistency import ConsistencyTrainerHook
 from .discretemi import DiscreteMITrainHook
 from .dmt import DifferentiableMeanTeacherTrainerHook
@@ -180,3 +181,7 @@ def create_pseudo_label_hook(*, weight: float):
 
 def create_imsat_hook(*, weight: float = 0.1):
     return IMSATTrainHook(weight=weight)
+
+
+def create_cross_correlation_hook(*, weight: float, kernel_size: int, device: str):
+    return CrossCorrelationHook(weight=weight, kernel_size=kernel_size, device=device)
