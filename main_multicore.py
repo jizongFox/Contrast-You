@@ -41,8 +41,7 @@ def main():
 def worker(config, absolute_save_dir, seed):
     # load data setting
     data_name = config.Data.name
-    data_opt = yaml_load(Path(OPT_PATH) / (data_name + ".yaml"))
-    data_opt = edict(data_opt)
+    data_opt = edict(yaml_load(Path(OPT_PATH) / (data_name + ".yaml")))
     config.OPT = data_opt
 
     model_checkpoint = config["Arch"].pop("checkpoint", None)

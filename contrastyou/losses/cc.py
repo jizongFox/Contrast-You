@@ -66,6 +66,6 @@ class CCLoss(nn.Module):
         I_var = I2_sum - 2 * u_I * I_sum + u_I * u_I * win_size
         J_var = J2_sum - 2 * u_J * J_sum + u_J * u_J * win_size
 
-        cc = cross * cross / (I_var * J_var + 1e-5)
+        cc = (cross * cross + 1e-5) / (I_var * J_var + 1e-5)
 
         return -torch.mean(cc)
