@@ -62,10 +62,13 @@ class CCLoss(nn.Module):
         u_I = I_sum / win_size
         u_J = J_sum / win_size
 
-        cross = IJ_sum - u_J * I_sum - u_I * J_sum + u_I * u_J * win_size
-        I_var = I2_sum - 2 * u_I * I_sum + u_I * u_I * win_size
-        J_var = J2_sum - 2 * u_J * J_sum + u_J * u_J * win_size
+        cross = IJ_sum - u_J * I_sum - u_I * J_sum + u_I * u_J * win_size + 1e-10
+        I_var = I2_sum - 2 * u_I * I_sum + u_I * u_I * win_size + 1e-10
+        J_var = J2_sum - 2 * u_J * J_sum + u_J * u_J * win_size + 1e-10
 
-        cc = (cross * cross + 1e-5) / (I_var * J_var + 1e-5)
+        cc = (cross * cross) / (I_var * J_var + 1e-10) + 1e-10
+
+        if torch.isnan(cc).any():
+            raise RuntimeError("nan appeared in the loss.")
 
         return -torch.mean(cc)
