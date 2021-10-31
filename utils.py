@@ -1,11 +1,12 @@
 import os
+import pprint
 from functools import reduce
 from typing import Optional
 
 from loguru import logger
 
 from contrastyou.configure import dictionary_merge_by_hierachy, extract_dictionary_from_anchor, \
-    extract_params_with_key_prefix, ConfigManger
+    extract_params_with_key_prefix, ConfigManager
 
 
 def separate_pretrain_finetune_configs(config_manager):
@@ -38,12 +39,11 @@ def separate_pretrain_finetune_configs(config_manager):
     return pretrain_config, base_config
 
 
-def logging_configs(manager: ConfigManger, logger: logger):
-    import pprint
-    optional_dictionaries = manager.optional_configs
+def logging_configs(manager: ConfigManager, logger: logger):
+    unmerged_dictionaries = manager.unmerged_configs
     parsed_params = manager.parsed_config
     config_dictionary = manager.config
-    for i, od in enumerate(optional_dictionaries):
+    for i, od in enumerate(unmerged_dictionaries):
         logger.info(f"optional configs {i}")
         logger.info("\n" + pprint.pformat(od))
     logger.info(f"parsed params")
