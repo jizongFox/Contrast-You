@@ -125,7 +125,7 @@ if __name__ == '__main__':
                                            two_stage=[True],
                                            iic_weight=[0.01, 0.02, 0.03],
                                            name="naive",
-                                           cc_weight=[0, 0.001, 0.01, 0.1, 1], kernel_size=[3, 5, 7]
+                                           cc_weight=[0, 0.00001, 0.0001, 0.001], kernel_size=[3, 5, 7]
                                            )
 
     for j in jobs:

@@ -21,6 +21,7 @@ from utils import logging_configs, find_checkpoint, grouper
 @logger.catch(reraise=True)
 def main():
     manager = ConfigManger(base_path=os.path.join(CONFIG_PATH, "base.yaml"), strict=True, verbose=False)
+
     with manager(scope="base") as config:
         # this handles input save dir with relative and absolute paths
         absolute_save_dir = create_save_dir(MulticoreTrainer, config["Trainer"]["save_dir"])
@@ -44,6 +45,7 @@ def worker(config, absolute_save_dir, seed):
     config.OPT = data_opt
 
     model_checkpoint = config["Arch"].pop("checkpoint", None)
+
     with fix_all_seed_within_context(seed):
         config["Arch"].pop("true_num_classes", None)
         true_num_classes = data_opt["num_classes"]
@@ -61,6 +63,7 @@ def worker(config, absolute_save_dir, seed):
             #     device=config.Trainer.device,
             #     mi_weight=config["MulticoreParameters"]["mi_weight"]
             # )
+
     if model_checkpoint:
         logger.info(f"loading checkpoint from  {model_checkpoint}")
         model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=True)

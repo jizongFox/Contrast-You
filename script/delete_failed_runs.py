@@ -15,7 +15,7 @@ def find_experiment_list(root: _path_type) -> List[Path]:
     return experiment_paths
 
 
-def is_experiment_sucessed(path: _path_type):
+def is_experiment_succeed(path: _path_type):
     path_: Path = path2Path(path)
     return (path_ / ".success").exists()
 
@@ -33,11 +33,11 @@ def main(root: _path_type):
     exp_list = find_experiment_list(root_)
     print(f"Found {len(exp_list)} experiments.")
 
-    failed_exp_list = [x for x in exp_list if not is_experiment_sucessed(x)]
+    failed_exp_list = [x for x in exp_list if not is_experiment_succeed(x)]
     print(f"Found {len(failed_exp_list)} failed experiments.")
 
     for exp in failed_exp_list:
-        if not is_experiment_sucessed(exp):
+        if not is_experiment_succeed(exp):
             remove_csv(exp)
 
 
