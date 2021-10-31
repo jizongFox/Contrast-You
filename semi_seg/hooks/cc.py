@@ -6,6 +6,7 @@ from torch import Tensor
 
 from contrastyou.hooks import TrainerHook, EpocherHook
 from contrastyou.losses.cc import CCLoss
+from contrastyou.losses.kl import Entropy
 from contrastyou.meters import MeterInterface, AverageValueMeter
 from contrastyou.utils import class_name
 
@@ -29,6 +30,7 @@ class _CrossCorrelationEpocherHook(EpocherHook):
         super().__init__(name=name)
         self.criterion = criterion
         self.weight = weight
+        self._ent_criterion = Entropy(reduction="none")
 
     def configure_meters(self, meters: MeterInterface):
         meters.register_meter("loss", AverageValueMeter())
@@ -36,9 +38,8 @@ class _CrossCorrelationEpocherHook(EpocherHook):
 
     def _call_implementation(self, unlabeled_image_tf: Tensor, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor,
                              **kwargs):
-        # assert unlabeled_image_tf.max() <= 1 and unlabeled_image_tf.min() >= 0
         diff_image = self.diff(unlabeled_image_tf)
-        diff_tf_softmax = self.diff(unlabeled_tf_logits.softmax(1))
+        diff_tf_softmax = self._ent_criterion(unlabeled_tf_logits.softmax(1)).unsqueeze(1)
         loss = self.criterion(
             self.norm(diff_tf_softmax),
             self.norm(diff_image)
