@@ -1,4 +1,5 @@
 # this hook tries to use patch-based Cross Correlation loss on the over-segmentation softmax and the original image.
+
 import torch
 from torch import Tensor
 
@@ -34,15 +35,14 @@ class _CrossCorrelationEpocherHook(EpocherHook):
                              **kwargs):
         # assert unlabeled_image_tf.max() <= 1 and unlabeled_image_tf.min() >= 0
         diff_image = self.diff(unlabeled_image_tf)
-        diff_tf_softmax = self.diff(unlabeled_tf_logits)
-        diff_softmax_tf = self.diff(unlabeled_logits_tf)
-        loss = self.criterion(diff_image, diff_tf_softmax) + self.criterion(diff_image, diff_softmax_tf)
+        diff_tf_softmax = self.diff(unlabeled_tf_logits.softmax(1))
+        loss = self.criterion(diff_image, diff_tf_softmax)
         self.meters["loss"].add(loss.item())
-        return loss
+        return loss * self.weight
 
     @staticmethod
     def diff(image: Tensor):
-        b, c, h, w = image.shape
+        assert image.dim() == 4
         dx = image - torch.roll(image, shifts=1, dims=2)
         dy = image - torch.roll(image, shifts=1, dims=3)
         d = torch.sqrt(dx.pow(2) + dy.pow(2))

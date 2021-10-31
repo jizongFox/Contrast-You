@@ -52,12 +52,14 @@ class SemiTrainer(Trainer):
             cur_epoch=self._cur_epoch, device=self._device, two_stage=self._two_stage, disable_bn=self._disable_bn,
             scaler=self.scaler, accumulate_iter=self._accumulate_iter
         )
+        epocher.set_trainer(self)
         epocher.init()
         return epocher
 
     def _create_initialized_eval_epoch(self, *, model, loader, **kwargs) -> EpocherBase:
         epocher = EvalEpocher(model=model, loader=loader, sup_criterion=self._criterion, cur_epoch=self._cur_epoch,
                               device=self._device, scaler=self.scaler, accumulate_iter=self._accumulate_iter)
+        epocher.set_trainer(self)
         epocher.init()
         return epocher
 

@@ -136,7 +136,7 @@ class EpocherHook:
 
 
 class CombineEpochHook(EpocherHook):
-    def __init__(self, *epocher_hook: EpocherHook) -> None:
+    def __init__(self, *epocher_hook: EpocherHook) -> None:  # noqa
         self._epocher_hook = epocher_hook
 
     def set_epocher(self, epocher):
