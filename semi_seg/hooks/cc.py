@@ -1,11 +1,13 @@
 # this hook tries to use patch-based Cross Correlation loss on the over-segmentation softmax and the original image.
 
 import torch
+from loguru import logger
 from torch import Tensor
 
 from contrastyou.hooks import TrainerHook, EpocherHook
 from contrastyou.losses.cc import CCLoss
 from contrastyou.meters import MeterInterface, AverageValueMeter
+from contrastyou.utils import class_name
 
 
 class CrossCorrelationHook(TrainerHook):
@@ -14,8 +16,8 @@ class CrossCorrelationHook(TrainerHook):
         super().__init__(hook_name=hook_name)
         self._kernel_size = kernel_size
         self._cc_criterion = CCLoss(win=(self._kernel_size, self._kernel_size), device=device)
-        self._cc_criterion.type(torch.float64)
         self._weight = weight
+        logger.debug(f"Creating {class_name(self)} with weight: {self._weight} and kernel_size: {self._kernel_size}.")
 
     def __call__(self, **kwargs):
         return _CrossCorrelationEpocherHook(name=self._hook_name, criterion=self._cc_criterion, weight=self._weight)

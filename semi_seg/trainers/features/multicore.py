@@ -27,6 +27,7 @@ class MulticoreTrainer(SemiTrainer):
 
         optim_params = self._config["Optim"]
 
+        # adding parameters in potential criterion module.
         optimizer.add_param_group(
             {"params": self._criterion.parameters(),
              **{k: v for k, v in optim_params.items() if k != "name" and k != "pre_lr" and k != "ft_lr"}})

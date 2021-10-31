@@ -56,10 +56,12 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
             assert isinstance(h, TrainerHook), h
             self.__hooks__.append(h)
         logger.trace("bind TrainerHooks")
-        yield
-        for h in hook:
-            h.close()
-        logger.trace("close TrainerHooks")
+        try:
+            yield
+        finally:
+            for h in hook:
+                h.close()
+            logger.trace("close TrainerHooks")
 
     def _init_optimizer(self) -> _optimizer_type:
         optim_params = self._config["Optim"]

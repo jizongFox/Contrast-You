@@ -73,5 +73,4 @@ class CCLoss(nn.Module):
 
         if torch.isnan(cc).any():
             raise RuntimeError("nan appeared in the loss.")
-        print(torch.mean(cc))
         return -torch.mean(cc)
