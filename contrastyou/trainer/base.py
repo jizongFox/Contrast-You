@@ -41,6 +41,8 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
         self._config = config
         if config is not None:
             self.dump_config(self._config)
+        self._optimizer = None
+        self._scheduler = None
         self.__initialized__ = False
 
     def init(self):
@@ -56,6 +58,8 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
             assert isinstance(h, TrainerHook), h
             self.__hooks__.append(h)
         logger.trace("bind TrainerHooks")
+        for h in self.__hooks__:
+            h.to(self.device)  # put the hook into device.
         try:
             yield
         finally:
@@ -70,8 +74,11 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
             **{k: v for k, v in optim_params.items() if k != "name" and k != "pre_lr" and k != "ft_lr"}
         )
         optimizer.add_param_group(
-            {"params": chain(*[x.parameters() for x in self.__hooks__]),
-             **{k: v for k, v in optim_params.items() if k != "name" and k != "pre_lr" and k != "ft_lr"}})
+            {
+                "params": chain(*(x.parameters() for x in self.__hooks__)),
+                **{k: v for k, v in optim_params.items() if k != "name" and k != "pre_lr" and k != "ft_lr"}
+            }
+        )
         return optimizer
 
     def _init_scheduler(self, optimizer, scheduler_params):

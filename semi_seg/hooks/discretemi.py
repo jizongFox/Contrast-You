@@ -4,10 +4,9 @@ import torch
 from torch import nn
 
 from contrastyou.arch import UNet
-from contrastyou.arch.hook import SingleFeatureExtractor
+from contrastyou.arch.utils import SingleFeatureExtractor
 from contrastyou.hooks.base import TrainerHook, EpocherHook
 from contrastyou.meters import AverageValueMeter
-from contrastyou.hooks import meter_focus
 
 decoder_names = UNet.decoder_names
 encoder_names = UNet.encoder_names

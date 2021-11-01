@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from contextlib import contextmanager
+from enum import Enum
 from functools import lru_cache, partial
 from typing import List
 
@@ -9,7 +10,7 @@ from torch import nn
 
 from .utils import get_requires_grad, get_bn_track
 
-__all__ = ["UNet", "arch_order", "get_channel_dim", "sort_arch"]
+__all__ = ["UNet", "arch_order", "get_channel_dim", "sort_arch", "UNetFeatureMapEnum"]
 
 
 @lru_cache()
@@ -296,6 +297,19 @@ class UNet(nn.Module):
     @property
     def num_classes(self):
         return self._num_classes
+
+
+class UNetFeatureMapEnum(Enum):
+    Conv1 = "Conv1"
+    Conv2 = "Conv2"
+    Conv3 = "Conv3"
+    Conv4 = "Conv4"
+    Conv5 = "Conv5"
+    Up_conv5 = "Up_conv5"
+    Up_conv4 = "Up_conv4"
+    Up_conv3 = "Up_conv3"
+    Up_conv2 = "Up_conv2"
+    Deconv_1x1 = "Deconv_1x1"
 
 
 def get_channel_dim(layer_name: str, *, max_channel=None):

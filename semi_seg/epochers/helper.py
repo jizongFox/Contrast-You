@@ -8,7 +8,7 @@ from skimage.io import imsave
 from sklearn.preprocessing import LabelEncoder
 from torch import Tensor
 
-from contrastyou.arch.hook import FeatureExtractor
+from contrastyou.arch.utils import FeatureExtractor
 from contrastyou.types import to_device
 
 

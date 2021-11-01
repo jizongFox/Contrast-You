@@ -7,7 +7,7 @@ import torch
 from torch import nn
 
 from contrastyou.arch import UNet
-from contrastyou.arch.hook import SingleFeatureExtractor
+from contrastyou.arch.utils import SingleFeatureExtractor
 from contrastyou.hooks.base import TrainerHook, EpocherHook
 from contrastyou.losses.contrastive import SelfPacedSupConLoss, SupConLoss1, switch_plt_backend
 from contrastyou.meters import MeterInterface, AverageValueMeter
@@ -20,6 +20,9 @@ encoder_names = UNet.encoder_names
 
 
 def region_extractor(normalize_features, *, point_nums=5, seed: int):
+    """
+    extractor for dense features, used for contrastive training.
+    """
     with fix_all_seed_for_transforms(seed):
         def get_feature_selected(feature_map, n_point_coordinate):
             return torch.stack([feature_map[:, n[0], n[1]] for n in n_point_coordinate], dim=0)
@@ -46,6 +49,10 @@ def figure2board(tensor, name, criterion, writer, epocher):
 
 
 class PScheduler(object):
+    """
+    scheduler function for the gamma as the self-paced loss.
+    """
+
     def __init__(self, max_epoch, begin_value=0.0, end_value=1.0, p=0.5):
         super().__init__()
         self.max_epoch = max_epoch
@@ -68,6 +75,9 @@ class PScheduler(object):
 
 
 class INFONCEHook(TrainerHook):
+    """
+    Contrastive hook for each layer.
+    """
 
     @property
     def learnable_modules(self) -> List[nn.Module]:
@@ -125,6 +135,9 @@ class INFONCEHook(TrainerHook):
 
 
 class SelfPacedINFONCEHook(INFONCEHook):
+    """
+    self-paced contrastive loss for each layer
+    """
 
     def __init__(self, *, name, model: nn.Module, feature_name: str, weight: float = 1.0, spatial_size=(1, 1),
                  data_name: str, contrast_on: str, mode="soft", p=0.5, begin_value=1e6, end_value=1e6,
