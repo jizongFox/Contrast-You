@@ -2,7 +2,6 @@ import os
 import typing as t
 from pathlib import Path
 
-import numpy  # noqa
 from easydict import EasyDict as edict
 from loguru import logger
 
@@ -10,7 +9,7 @@ from contrastyou import CONFIG_PATH, git_hash, OPT_PATH
 from contrastyou.arch import UNet
 from contrastyou.configure import ConfigManger
 from contrastyou.configure.yaml_parser import yaml_load
-from contrastyou.losses.multicore_loss import StricterAdaptiveOverSegmentedLossWithMI, MultiCoreKL
+from contrastyou.losses.multicore_loss import MultiCoreKL
 from contrastyou.trainer import create_save_dir
 from contrastyou.utils import fix_all_seed_within_context, adding_writable_sink, extract_model_state_dict
 from hook_creator import create_hook_from_config
@@ -19,9 +18,10 @@ from semi_seg.trainers.features import MulticoreTrainer
 from utils import logging_configs, find_checkpoint, grouper
 
 
-@logger.catch()
+@logger.catch(reraise=True)
 def main():
     manager = ConfigManger(base_path=os.path.join(CONFIG_PATH, "base.yaml"), strict=True, verbose=False)
+
     with manager(scope="base") as config:
         # this handles input save dir with relative and absolute paths
         absolute_save_dir = create_save_dir(MulticoreTrainer, config["Trainer"]["save_dir"])
@@ -41,11 +41,11 @@ def main():
 def worker(config, absolute_save_dir, seed):
     # load data setting
     data_name = config.Data.name
-    data_opt = yaml_load(Path(OPT_PATH) / (data_name + ".yaml"))
-    data_opt = edict(data_opt)
+    data_opt = edict(yaml_load(Path(OPT_PATH) / (data_name + ".yaml")))
     config.OPT = data_opt
 
     model_checkpoint = config["Arch"].pop("checkpoint", None)
+
     with fix_all_seed_within_context(seed):
         config["Arch"].pop("true_num_classes", None)
         true_num_classes = data_opt["num_classes"]
@@ -56,12 +56,14 @@ def worker(config, absolute_save_dir, seed):
         if criterion_name == "naive":
             sup_criterion = MultiCoreKL(groups=list(grouper(range(true_num_classes * multiplier), true_num_classes)))
         else:
-            sup_criterion = StricterAdaptiveOverSegmentedLossWithMI(
-                input_num_classes=true_num_classes * multiplier,
-                output_num_classes=true_num_classes,
-                device=config.Trainer.device,
-                mi_weight=config["MulticoreParameters"]["mi_weight"]
-            )
+            raise RuntimeError(criterion_name)
+            # sup_criterion = StricterAdaptiveOverSegmentedLossWithMI(
+            #     input_num_classes=true_num_classes * multiplier,
+            #     output_num_classes=true_num_classes,
+            #     device=config.Trainer.device,
+            #     mi_weight=config["MulticoreParameters"]["mi_weight"]
+            # )
+
     if model_checkpoint:
         logger.info(f"loading checkpoint from  {model_checkpoint}")
         model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=True)

@@ -1,0 +1,3 @@
+ConsistencyParameters:
+  name: mse
+  weight: 0.1

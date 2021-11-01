@@ -1,10 +1,14 @@
 # this hook tries to use patch-based Cross Correlation loss on the over-segmentation softmax and the original image.
+
 import torch
+from loguru import logger
 from torch import Tensor
 
 from contrastyou.hooks import TrainerHook, EpocherHook
 from contrastyou.losses.cc import CCLoss
+from contrastyou.losses.kl import Entropy
 from contrastyou.meters import MeterInterface, AverageValueMeter
+from contrastyou.utils import class_name
 
 
 class CrossCorrelationHook(TrainerHook):
@@ -14,6 +18,7 @@ class CrossCorrelationHook(TrainerHook):
         self._kernel_size = kernel_size
         self._cc_criterion = CCLoss(win=(self._kernel_size, self._kernel_size), device=device)
         self._weight = weight
+        logger.debug(f"Creating {class_name(self)} with weight: {self._weight} and kernel_size: {self._kernel_size}.")
 
     def __call__(self, **kwargs):
         return _CrossCorrelationEpocherHook(name=self._hook_name, criterion=self._cc_criterion, weight=self._weight)
@@ -25,6 +30,7 @@ class _CrossCorrelationEpocherHook(EpocherHook):
         super().__init__(name=name)
         self.criterion = criterion
         self.weight = weight
+        self._ent_criterion = Entropy(reduction="none")
 
     def configure_meters(self, meters: MeterInterface):
         meters.register_meter("loss", AverageValueMeter())
@@ -32,17 +38,25 @@ class _CrossCorrelationEpocherHook(EpocherHook):
 
     def _call_implementation(self, unlabeled_image_tf: Tensor, unlabeled_tf_logits: Tensor, unlabeled_logits_tf: Tensor,
                              **kwargs):
-        # assert unlabeled_image_tf.max() <= 1 and unlabeled_image_tf.min() >= 0
         diff_image = self.diff(unlabeled_image_tf)
-        diff_tf_softmax = self.diff(unlabeled_tf_logits)
-        diff_softmax_tf = self.diff(unlabeled_logits_tf)
-        loss = self.criterion(diff_image, diff_tf_softmax) + self.criterion(diff_image, diff_softmax_tf)
+        diff_tf_softmax = self._ent_criterion(unlabeled_tf_logits.softmax(1)).unsqueeze(1)
+        loss = self.criterion(
+            self.norm(diff_tf_softmax),
+            self.norm(diff_image)
+        )
         self.meters["loss"].add(loss.item())
-        return loss
+        return loss * self.weight
+
+    @staticmethod
+    def norm(image: Tensor):
+        min_, max_ = image.min().detach(), image.max().detach()
+        image = image - min_
+        image = image / (max_ - min_ + 1e-6)
+        return (image - 0.5) * 2
 
     @staticmethod
     def diff(image: Tensor):
-        b, c, h, w = image.shape
+        assert image.dim() == 4
         dx = image - torch.roll(image, shifts=1, dims=2)
         dy = image - torch.roll(image, shifts=1, dims=3)
         d = torch.sqrt(dx.pow(2) + dy.pow(2))

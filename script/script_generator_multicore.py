@@ -103,7 +103,7 @@ if __name__ == '__main__':
         "nvidia-smi"
     ])
     submittor.configure_sbatch(mem=16)
-    seed = [10, 20, 30, 40]
+    seed = [10, 20, 30]
     data_name = args.data_name
     save_dir = f"{args.save_dir}/mc/{git_timestamp}@hash_{git_hash}/{data_name}"
     data_opt = yaml_load(Path(OPT_PATH) / (data_name + ".yaml"))
@@ -125,7 +125,7 @@ if __name__ == '__main__':
                                            two_stage=[True],
                                            iic_weight=[0.01, 0.02, 0.03],
                                            name="naive",
-                                           cc_weight=[0, 0.001, 0.01, 0.1, 1], kernel_size=[3, 5, 7]
+                                           cc_weight=[0, 0.00001, 0.0001, 0.001, 0.01], kernel_size=[3, 5, 7]
                                            )
 
     for j in jobs:

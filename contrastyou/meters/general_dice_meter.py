@@ -34,7 +34,6 @@ class UniversalDice(Metric[metric_result]):
         self._n = 0
 
     @torch.no_grad()
-    # @profile
     def _add(self, pred: Tensor, target: Tensor, *, group_name: t.Union[str, t.List[str]] = None):  # noqa
         """
         add pred and target
@@ -88,7 +87,7 @@ class UniversalDice(Metric[metric_result]):
             dices = self.compute_dice_by_group()
             means, stds = dices.mean(dim=0), dices.std(dim=0)
         else:
-            means, stds = np.nan, np.nan
+            means, stds = (np.nan,) * self._C, (np.nan,) * self._C
         report_dict = {f"DSC{i}": to_float(means[i]) for i in self._report_axis}
         report_dict.update({"DSC_mean": average_iter(report_dict.values())})
         return report_dict

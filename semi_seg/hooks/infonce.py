@@ -253,9 +253,11 @@ class _SPINFONCEEpochHook(_INFONCEEpochHook):
     def _call_implementation(self, *, affine_transformer, seed, unlabeled_tf_logits, unlabeled_logits_tf,
                              partition_group,
                              label_group, **kwargs):
-        loss = super().__call__(affine_transformer=affine_transformer, seed=seed,
-                                unlabeled_tf_logits=unlabeled_tf_logits, unlabeled_logits_tf=unlabeled_logits_tf,
-                                partition_group=partition_group, label_group=label_group, **kwargs)
+        loss = super()._call_implementation(
+            affine_transformer=affine_transformer, seed=seed,
+            unlabeled_tf_logits=unlabeled_tf_logits,
+            unlabeled_logits_tf=unlabeled_logits_tf,
+            partition_group=partition_group, label_group=label_group, **kwargs)
         self.meters["sp_weight"].add(self._criterion.downgrade_ratio)
         self.meters["age_param"].add(self._criterion.age_param)
 
