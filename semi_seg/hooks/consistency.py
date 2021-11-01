@@ -1,7 +1,9 @@
+from loguru import logger
 from torch import nn
 
 from contrastyou.hooks.base import TrainerHook, EpocherHook
 from contrastyou.meters import AverageValueMeter, MeterInterface
+from contrastyou.utils import class_name
 
 
 class ConsistencyTrainerHook(TrainerHook):
@@ -10,6 +12,7 @@ class ConsistencyTrainerHook(TrainerHook):
         super().__init__(hook_name=name)
         self._weight = weight
         self._criterion = nn.MSELoss()
+        logger.debug(f"Creating {class_name(self)} with weight: {self._weight}")
 
     def __call__(self):
         return _ConsistencyEpocherHook(name=self._hook_name, weight=self._weight, criterion=self._criterion)

@@ -22,29 +22,26 @@ class MulticoreScriptGenerator(BaselineGenerator):
                          model_checkpoint=model_checkpoint, data_opt=data_opt)
 
         hook_config2 = yaml_load(os.path.join(CONFIG_PATH, "hooks", "multicore.yaml"))
-        hook_config3 = yaml_load(os.path.join(CONFIG_PATH, "hooks", "orthogonal.yaml"))
         hook_config4 = yaml_load(os.path.join(CONFIG_PATH, "hooks", "iid.yaml"))
         hook_config5 = yaml_load(os.path.join(CONFIG_PATH, "hooks", "cc.yaml"))
 
-        self.hook_config = {**hook_config2, **hook_config3, **hook_config4, **hook_config5}
+        self.hook_config = {**hook_config2, **hook_config4, **hook_config5}
 
-    def get_hook_params(self, name, orth_weight, multiplier, two_stage, iic_weight,
+    def get_hook_params(self, name, multiplier, iic_weight, consistency_weight,
                         cc_weight, kernel_size):
         return {
             "MulticoreParameters":
                 {"multiplier": multiplier,
                  "name": name,
                  },
-            "OrthogonalParameters":
-                {"weight": orth_weight},
-            "Trainer": {"two_stage": two_stage},
+            "Trainer": {"two_stage": True},
             "IIDSegParameters": {"weight": iic_weight,
                                  },
             "CrossCorrelationParameters": {
                 "weight": cc_weight,
                 "kernel_size": kernel_size
-            }
-
+            },
+            "ConsistencyParameters": {"weight": consistency_weight}
         }
 
     def generate_single_script(self, save_dir, labeled_scan_num, seed, hook_path):
@@ -103,7 +100,7 @@ if __name__ == '__main__':
         "nvidia-smi"
     ])
     submittor.configure_sbatch(mem=16)
-    seed = [10, 20, 30]
+    seed = [10, 20]
     data_name = args.data_name
     save_dir = f"{args.save_dir}/mc/{git_timestamp}@hash_{git_hash}/{data_name}"
     data_opt = yaml_load(Path(OPT_PATH) / (data_name + ".yaml"))
@@ -120,12 +117,11 @@ if __name__ == '__main__':
                                                 max_epoch=max_epoch, data_opt=data_opt)
 
     jobs = script_generator.grid_search_on(seed=seed,
-                                           orth_weight=[0, ],
-                                           multiplier=[2, 4, 8, 10],
-                                           two_stage=[True],
-                                           iic_weight=[0.01, 0.02, 0.03],
+                                           multiplier=[1, 2, 4],
+                                           iic_weight=[0.01, 0.02, 0.1],
                                            name="naive",
-                                           cc_weight=[0, 0.00001, 0.0001, 0.001, 0.01], kernel_size=[3, 5, 7]
+                                           cc_weight=[0, 0.0000001, 0.00001, 0.0001], kernel_size=[3, 5, 7],
+                                           consistency_weight=[0, 0.01, 0.1, 0.5]
                                            )
 
     for j in jobs:
