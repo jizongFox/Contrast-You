@@ -54,13 +54,6 @@ class MultiCoreTrainEpocher(SemiSupervisedEpocher, ABC):
         total_loss = sup_loss + reg_loss
         # gradient backpropagation
         self.scale_loss(total_loss).backward(retain_graph=retain_graph)
-        # total_loss.backward()
-        # check gradient
-        for param in self._model.parameters():
-            if torch.isnan(param.grad).any():
-                raise RuntimeError("nan detected before updating optimizer.")
-        # self.scaler.unscale_(self._optimizer)
-        # torch.nn.utils.clip_grad_norm_(self._model.parameters(), 0)
         self.optimizer_step(self._optimizer, cur_iter=cur_batch_num)
 
         # recording can be here or in the regularization method

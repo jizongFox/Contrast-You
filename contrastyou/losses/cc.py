@@ -71,6 +71,4 @@ class CCLoss(nn.Module):
         J_var = torch.maximum(J_var, torch.zeros_like(J_var).fill_(self.eps))
         cc = (cross * cross) / (I_var * J_var)
 
-        if torch.isnan(cc).any():
-            raise RuntimeError("nan appeared in the loss.")
         return -torch.mean(cc)
