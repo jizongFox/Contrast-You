@@ -38,7 +38,7 @@ class _OrthogonalEpocherHook(EpocherHook):
         self._prototypes = prototypes
         self._weight = weight
 
-    def configure_meters(self, meters: MeterInterface):
+    def configure_meters_given_epocher(self, meters: MeterInterface):
         meters.register_meter("loss", AverageValueMeter())
         return meters
 

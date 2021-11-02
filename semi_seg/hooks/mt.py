@@ -165,7 +165,7 @@ class _MeanTeacherEpocherHook(EpocherHook):
         self._extra_teachers = extra_teachers
         self._extra_updater = extra_updater
 
-    def configure_meters(self, meters: MeterInterface):
+    def configure_meters_given_epocher(self, meters: MeterInterface):
         self.meters.register_meter("loss", AverageValueMeter())
 
     def _call_implementation(self, *, unlabeled_tf_logits, unlabeled_image, seed, affine_transformer,

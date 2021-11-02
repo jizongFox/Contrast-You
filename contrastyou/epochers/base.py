@@ -52,7 +52,7 @@ class EpocherBase(AMPScaler, DDPMixin, metaclass=ABCMeta):
         for h in hook:
             self._hooks.append(h)
             h.set_epocher(self)
-            h.set_meters()
+            h.set_meters_given_epocher()
         try:
             yield
         finally:

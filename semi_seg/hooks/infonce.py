@@ -99,7 +99,6 @@ class INFONCEHook(TrainerHook):
         self._projector = self.init_projector(input_dim=input_dim, spatial_size=spatial_size)
         self._criterion = self.init_criterion()
         self._label_generator = partial(get_label, contrast_on=contrast_on, data_name=data_name)
-        self._learnable_models = (self._projector,)
 
     def __call__(self):
         if self.is_encoder:
@@ -182,8 +181,8 @@ class _INFONCEEpochHook(EpocherHook):
         self._label_generator = label_generator
         self._n = 0
 
-    def configure_meters(self, meters: MeterInterface):
-        meters = super().configure_meters(meters)
+    def configure_meters_given_epocher(self, meters: MeterInterface):
+        meters = super().configure_meters_given_epocher(meters)
         meters.register_meter("loss", AverageValueMeter())
         return meters
 
@@ -257,8 +256,8 @@ class _INFONCEDenseHook(_INFONCEEpochHook):
 class _SPINFONCEEpochHook(_INFONCEEpochHook):
     _criterion: SelfPacedSupConLoss
 
-    def configure_meters(self, meters: MeterInterface):
-        meters = super().configure_meters(meters)
+    def configure_meters_given_epocher(self, meters: MeterInterface):
+        meters = super().configure_meters_given_epocher(meters)
         meters.register_meter("sp_weight", AverageValueMeter())
         meters.register_meter("age_param", AverageValueMeter())
         return meters

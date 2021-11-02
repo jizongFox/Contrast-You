@@ -12,10 +12,10 @@ class CCLoss(nn.Module):
     Local (over window) normalized cross correlation loss.
     """
 
-    def __init__(self, win: t.Tuple[int, int], *, device: str, eps: float = 1e-5):
+    def __init__(self, win: t.Tuple[int, int], *, eps: float = 1e-5):
         super(CCLoss, self).__init__()
         self.win = win
-        self._sum_filt = torch.ones([1, 1, *win], device=device)
+        self.register_buffer("_sum_filt", torch.ones([1, 1, *win]))
         self.win_size = np.prod(win)
         self.eps = eps
 

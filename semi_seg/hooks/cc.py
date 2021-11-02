@@ -32,7 +32,7 @@ class _CrossCorrelationEpocherHook(EpocherHook):
         self.weight = weight
         self._ent_criterion = Entropy(reduction="none")
 
-    def configure_meters(self, meters: MeterInterface):
+    def configure_meters_given_epocher(self, meters: MeterInterface):
         meters.register_meter("loss", AverageValueMeter())
         return meters
 

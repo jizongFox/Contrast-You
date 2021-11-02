@@ -1,6 +1,6 @@
 from semi_seg.hooks import create_infonce_hooks, create_sp_infonce_hooks, create_discrete_mi_consistency_hook, \
     create_mt_hook, create_differentiable_mt_hook, create_ent_min_hook, create_orthogonal_hook, create_iid_seg_hook, \
-    create_pseudo_label_hook, create_imsat_hook, create_cross_correlation_hook, create_consistency_hook
+    create_pseudo_label_hook, create_imsat_hook, create_consistency_hook, create_cross_correlation_hooks
 
 
 def _hook_config_validator(config, is_pretrain):
@@ -61,9 +61,13 @@ def create_hook_from_config(model, config, *, is_pretrain=False, trainer):
         hooks.append(im_hook)
 
     if "CrossCorrelationParameters" in config:
-        hook = create_cross_correlation_hook(weight=config["CrossCorrelationParameters"]["weight"],
-                                             kernel_size=config["CrossCorrelationParameters"]["kernel_size"],
-                                             device=config["Trainer"]["device"])
+        cur_config = config["CrossCorrelationParameters"]
+        hook = create_cross_correlation_hooks(
+            model=model, feature_names=cur_config["feature_names"], weights=cur_config["weights"],
+            num_clusters=cur_config["num_clusters"], kernel_size=cur_config["kernel_size"],
+            head_type=cur_config["head_type"], num_subheads=cur_config["num_subheads"],
+            mi_weights=cur_config["mi_weights"]
+        )
         hooks.append(hook)
 
     if "ConsistencyParameters" in config:

@@ -1,8 +1,26 @@
 from typing import Tuple
 
 from torch import nn, Tensor
-from torch.nn import functional as F, Module
-from torch.nn.modules.utils import _pair
+from torch.nn import functional as F
+from torch.nn.modules.utils import _pair  # noqa
+
+
+def _check_head_type(head_type):
+    return head_type in ("mlp", "linear")
+
+
+def _check_pool_name(pool_name):
+    return pool_name in ("adaptive_avg", "adaptive_max", "identical", "none")
+
+
+def get_pool_component(pool_name, spatial_size: Tuple[int, int]):
+    return {
+        "adaptive_avg": nn.AdaptiveAvgPool2d(spatial_size),
+        "adaptive_max": nn.AdaptiveMaxPool2d(spatial_size),
+        None: Identical(),
+        "none": Identical(),
+        "identical": Identical(),
+    }[pool_name]
 
 
 class Flatten(nn.Module):
@@ -45,24 +63,6 @@ class Identical(nn.Module):
         return input
 
 
-def _check_head_type(head_type):
-    return head_type in ("mlp", "linear")
-
-
-def _check_pool_name(pool_name):
-    return pool_name in ("adaptive_avg", "adaptive_max", "identical", "none")
-
-
-def get_pool_component(pool_name, spatial_size: Tuple[int, int]):
-    return {
-        "adaptive_avg": nn.AdaptiveAvgPool2d(spatial_size),
-        "adaptive_max": nn.AdaptiveMaxPool2d(spatial_size),
-        None: Identical(),
-        "none": Identical(),
-        "identical": Identical(),
-    }[pool_name]
-
-
 class _ProjectorHeadBase(nn.Module):
 
     def __init__(self, *, input_dim: int, output_dim: int, head_type: str, normalize: bool, pool_name="adaptive_avg",
@@ -70,10 +70,10 @@ class _ProjectorHeadBase(nn.Module):
         super().__init__()
         self._input_dim = input_dim
         self._output_dim = output_dim
-        assert _check_head_type(head_type=head_type)
+        assert _check_head_type(head_type=head_type), head_type
         self._head_type = head_type
         self._normalize = normalize
-        assert _check_pool_name(pool_name=pool_name)
+        assert _check_pool_name(pool_name=pool_name), pool_name
         self._pool_name = pool_name
         self._spatial_size = _pair(spatial_size)
 
@@ -84,15 +84,3 @@ class _ProjectorHeadBase(nn.Module):
                f"({self._input_dim}:{self._output_dim}), " \
                f"{' normalization ' if self._normalize else ''}" \
                f"{f'{self._pool_name} with {self._spatial_size}' if 'adaptive' in self._pool_name else ''} "
-
-
-class ModuleDict(nn.ModuleDict):
-    """
-    A module dict from pytorch that prevents override parameters
-    """
-
-    def __setitem__(self, key: str, module: Module) -> None:
-        if key in self.keys():
-            import warnings
-            warnings.warn(RuntimeWarning(f"force overriding {key}"))
-        super().__setitem__(key, module)

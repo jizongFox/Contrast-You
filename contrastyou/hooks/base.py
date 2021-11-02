@@ -1,4 +1,5 @@
 # this hook collaborates with the Epocher to provide a scalable thing.
+import contextlib
 import weakref
 from abc import abstractmethod
 from contextlib import nullcontext
@@ -89,14 +90,46 @@ class EpocherHook:
     def epocher(self):
         return self._epocher
 
-    def set_meters(self):
+    def set_meters_given_epocher(self):
         assert self.__epocher_set__, f"epocher not set to {class_name(self)}."
         with self.meters.focus_on(self.name):
-            self.configure_meters(self.meters)
+            self.configure_meters_given_epocher(self.meters)
 
-    def configure_meters(self, meters: MeterInterface):
+    def configure_meters_given_epocher(self, meters: MeterInterface):
         return meters
 
+    # calling interface for epocher.
+    @final
+    def call_before_batch_update(self, **kwargs):
+        with self.context:
+            return self.before_batch_update(**kwargs)
+
+    @final
+    def call_before_forward_pass(self, **kwargs):
+        with self.context:
+            return self.before_forward_pass(**kwargs)
+
+    @final
+    def call_after_forward_pass(self, **kwargs):
+        with self.context:
+            return self.after_forward_pass(**kwargs)
+
+    @final
+    def call_before_regularization(self, **kwargs):
+        with self.context:
+            return self.before_regularization(**kwargs)
+
+    @final
+    def call_after_regularization(self, **kwargs):
+        with self.context:
+            return self.after_regularization(**kwargs)
+
+    @final
+    def call_after_batch_update(self, **kwargs):
+        with self.context:
+            return self.after_batch_update(**kwargs)
+
+    # real implementations
     def before_batch_update(self, **kwargs):
         pass
 
@@ -117,10 +150,7 @@ class EpocherHook:
 
     @final
     def __call__(self, **kwargs):
-        context = nullcontext()
-        if self.meters:
-            context = self.meters.focus_on(self._name)
-        with context:
+        with self.context:
             return self._call_implementation(**kwargs)
 
     @abstractmethod
@@ -134,41 +164,62 @@ class EpocherHook:
     def name(self):
         return self._name
 
+    @property
+    def context(self) -> contextlib.AbstractContextManager:
+        context = nullcontext()
+        if self.meters:
+            context = self.meters.focus_on(self._name)
+        return context
+
 
 class CombineEpochHook(EpocherHook):
     def __init__(self, *epocher_hook: EpocherHook) -> None:  # noqa
         self._epocher_hook = epocher_hook
 
+    def set_meters_given_epocher(self):
+        for h in self._epocher_hook:
+            h.set_meters_given_epocher()
+
     def set_epocher(self, epocher):
         for h in self._epocher_hook:
             h.set_epocher(epocher)
 
-    def before_forward_pass(self, **kwargs):
+    @final
+    def call_before_forward_pass(self, **kwargs):  # noqa
         for h in self._epocher_hook:
-            h.before_forward_pass(**kwargs)
+            h.call_before_forward_pass(**kwargs)
 
-    def after_forward_pass(self, **kwargs):
+    @final
+    def call_after_forward_pass(self, **kwargs):  # noqa
         for h in self._epocher_hook:
-            h.after_forward_pass(**kwargs)
+            h.call_after_forward_pass(**kwargs)
 
-    def before_regularization(self, **kwargs):
+    @final
+    def call_before_regularization(self, **kwargs):  # noqa
         for h in self._epocher_hook:
-            h.before_regularization(**kwargs)
+            h.call_before_regularization(**kwargs)
 
-    def after_regularization(self, **kwargs):
+    @final
+    def call_after_regularization(self, **kwargs):  # noqa
         for h in self._epocher_hook:
-            h.after_regularization(**kwargs)
+            h.call_after_regularization(**kwargs)
 
-    def before_batch_update(self, **kwargs):
+    @final
+    def call_before_batch_update(self, **kwargs):  # noqa
         for h in self._epocher_hook:
-            h.before_batch_update(**kwargs)
+            h.call_before_batch_update(**kwargs)
 
-    def after_batch_update(self, **kwargs):
+    @final
+    def call_after_batch_update(self, **kwargs):  # noqa
         for h in self._epocher_hook:
-            h.after_batch_update(**kwargs)
+            h.call_after_batch_update(**kwargs)
+
+    @final
+    def __call__(self, **kwargs):  # noqa just to modify it once.
+        return sum([h(**kwargs) for h in self._epocher_hook])
 
     def _call_implementation(self, **kwargs):
-        return sum([h._call_implementation(**kwargs) for h in self._epocher_hook])
+        raise NotImplementedError()
 
     def close(self):
         for h in self._epocher_hook:

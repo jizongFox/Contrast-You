@@ -82,7 +82,7 @@ class _DiscreteMIEpochHook(EpocherHook):
         self._projector = projector
         self._criterion = criterion
 
-    def configure_meters(self, meters):
+    def configure_meters_given_epocher(self, meters):
         meters.register_meter("mi", AverageValueMeter())
 
     def before_forward_pass(self, **kwargs):

@@ -82,10 +82,10 @@ class EpocherBase(_EpocherBase, ABC):
         """batch updater given labeled and unlabeled images, including model update, zero grad and optimizer steps.
         Gan style update should be included in this function as well."""
         for h in self._hooks:
-            h.before_batch_update(**kwargs)
+            h.call_before_batch_update(**kwargs)
         predicted_result_dict = self._batch_update(**kwargs)
         for h in self._hooks:
-            h.after_batch_update(**kwargs, result_dict=predicted_result_dict)
+            h.call_after_batch_update(**kwargs, result_dict=predicted_result_dict)
         return predicted_result_dict
 
     def _assertion(self):
@@ -93,10 +93,10 @@ class EpocherBase(_EpocherBase, ABC):
 
     def forward_pass(self, **kwargs):
         for h in self._hooks:
-            h.before_forward_pass(**kwargs)
+            h.call_before_forward_pass(**kwargs)
         result = self._forward_pass(**kwargs)
         for h in self._hooks:
-            h.after_forward_pass(**kwargs, result_dict=result)
+            h.call_after_forward_pass(**kwargs, result_dict=result)
         return result
 
     def _forward_pass(self, **kwargs) -> Any:
@@ -104,10 +104,10 @@ class EpocherBase(_EpocherBase, ABC):
 
     def regularization(self, **kwargs):
         for h in self._hooks:
-            h.before_regularization(**kwargs)
+            h.call_before_regularization(**kwargs)
         result = self._regularization(**kwargs)
         for h in self._hooks:
-            h.after_regularization(**kwargs, result_dict=result)
+            h.call_after_regularization(**kwargs, result_dict=result)
         return result
 
     def _regularization(self, **kwargs):

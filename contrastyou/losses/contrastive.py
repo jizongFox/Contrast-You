@@ -37,7 +37,8 @@ class SupConLoss1(nn.Module):
         super().__init__()
         self._t = temperature
         self._exclude_pos = exclude_other_pos
-        logger.info(f"initializing {self.__class__.__name__} with t: {self._t}, exclude_pos: {self._exclude_pos}")
+        logger.opt(depth=1).info(
+            f"initializing {self.__class__.__name__} with t: {self._t}, exclude_pos: {self._exclude_pos}")
 
     def forward(self, proj_feat1, proj_feat2, target=None, mask: Tensor = None, **kwargs):
         batch_size = proj_feat1.size(0)

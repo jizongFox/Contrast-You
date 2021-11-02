@@ -16,19 +16,20 @@ from contrastyou.utils import fix_all_seed_within_context, adding_writable_sink,
 from hook_creator import create_hook_from_config
 from semi_seg.data.creator import get_data
 from semi_seg.hooks import feature_until_from_hooks
-from semi_seg.trainers.pretrain import PretrainEncoderTrainer
+from semi_seg.trainers.pretrain import PretrainEncoderTrainer, PretrainDecoderTrainer
 from semi_seg.trainers.trainer import SemiTrainer, FineTuneTrainer, MixUpTrainer, MTTrainer, DMTTrainer
 from utils import logging_configs, find_checkpoint
 
 trainer_zoo = {"semi": SemiTrainer,
                "ft": FineTuneTrainer,
                "pretrain": PretrainEncoderTrainer,
+               "pretrain_decoder": PretrainDecoderTrainer,
                "mt": MTTrainer,
                "dmt": DMTTrainer,
                "mixup": MixUpTrainer}
 
 
-@logger.catch()
+@logger.catch(reraise=True)
 def main():
     manager = ConfigManger(base_path=os.path.join(CONFIG_PATH, "base.yaml"), strict=True, verbose=False)
     with manager(scope="base") as config:
@@ -62,8 +63,10 @@ def worker(config, absolute_save_dir, seed):
         model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=True)
 
     trainer_name = config["Trainer"]["name"]
-    is_pretrain = trainer_name == "pretrain"
+    is_pretrain = ("pretrain" in trainer_name)
     total_freedom = True if is_pretrain or trainer_name == "mixup" else False
+    if "CrossCorrelationParameters" in config:
+        total_freedom = False
     order_num = config["Data"]["order_num"]
     labeled_loader, unlabeled_loader, val_loader, test_loader = get_data(
         data_params=config["Data"], labeled_loader_params=config["LabeledLoader"],
@@ -108,6 +111,6 @@ def worker(config, absolute_save_dir, seed):
 if __name__ == '__main__':
     import torch
 
-    torch.set_deterministic(True)
-    # torch.backends.cudnn.benchmark = True  # noqa
+    # torch.use_deterministic_algorithms(True)
+    torch.backends.cudnn.benchmark = True  # noqa
     main()

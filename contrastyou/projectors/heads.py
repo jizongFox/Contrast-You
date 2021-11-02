@@ -1,9 +1,12 @@
+import typing as t
 from functools import lru_cache
 
 from loguru import logger
-from torch import nn
+from torch import nn, Tensor
 
 from .nn import _ProjectorHeadBase, Flatten, Normalize, Identical, SoftmaxWithT
+
+__all__ = ["ProjectionHead", "DenseProjectionHead", "ClusterHead", "DenseClusterHead", "CrossCorrelationProjector"]
 
 
 def get_contrastive_projector(*, head_type: str, pool_module, input_dim, hidden_dim, output_dim, normalize: bool):
@@ -166,4 +169,32 @@ class DenseClusterHead(_ProjectorHeadBase):
         logger.debug(message)
 
     def forward(self, features):
+        return [x(features) for x in self._headers]
+
+
+# head for Cross Correlation
+class CrossCorrelationProjector(_ProjectorHeadBase):
+    """
+    this projector is going to project a dense projector to over-segmented distribution and match the edges.
+    """
+
+    def __init__(self, *, input_dim: int, num_clusters: int, head_type: str, normalize: bool, T: float = 1.0,
+                 num_subheads: int = 1, hidden_dim: int = 128):
+        super().__init__(input_dim=input_dim, output_dim=num_clusters, head_type=head_type, normalize=normalize,
+                         pool_name="none", spatial_size=None)
+
+        self._T = T
+        headers = [
+            init_dense_sub_header(head_type=head_type, input_dim=self._input_dim, hidden_dim=hidden_dim,
+                                  num_clusters=num_clusters, normalize=self._normalize, T=self._T)
+            for _ in range(num_subheads)
+        ]
+        self._headers = nn.ModuleList(headers)
+
+        logger.trace(
+            f"Creating {self} with input_dim: {input_dim}, cluster_num:{num_clusters}, "
+            f"head_type: {head_type}, normalize: {normalize}, T: {self._T} and num_subheads: {num_subheads}."
+        )
+
+    def forward(self, features) -> t.List[Tensor]:
         return [x(features) for x in self._headers]

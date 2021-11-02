@@ -54,7 +54,7 @@ class IIDLoss(nn.Module, LossClass[t.Tuple[Tensor, Tensor, Tensor]]):
 
 class IIDSegmentationLoss(nn.Module, LossClass[Tensor]):
     def __init__(
-        self, lamda=1.0, padding=7, eps: float = sys.float_info.epsilon
+        self, lamda=1.0, padding=0, eps: float = sys.float_info.epsilon
     ) -> None:
         super(IIDSegmentationLoss, self).__init__()
         logger.trace(f"Initialize {self.__class__.__name__} with padding = {padding}.")

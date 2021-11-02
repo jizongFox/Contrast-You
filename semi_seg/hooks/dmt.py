@@ -176,7 +176,7 @@ class _BaseDMTEpocherHook(EpocherHook):
 
 class MTEpocherHook(_BaseDMTEpocherHook):
 
-    def configure_meters(self, meters: MeterInterface):
+    def configure_meters_given_epocher(self, meters: MeterInterface):
         self.meters.register_meter("loss", AverageValueMeter())
 
     def _call_implementation(self, *, unlabeled_tf_logits, unlabeled_image, seed, affine_transformer,
@@ -266,7 +266,7 @@ class DifferentiableMeanTeacherEpocherHook1(_BaseDMTEpocherHook):
                          **kwargs)
         self._teacher_optimizer = teacher_optimizer
 
-    def configure_meters(self, meters: MeterInterface):
+    def configure_meters_given_epocher(self, meters: MeterInterface):
         self.meters.register_meter("consistency_loss", AverageValueMeter())
         self.meters.register_meter("teacher_loss", AverageValueMeter())
 
@@ -305,7 +305,7 @@ class DifferentiableMeanTeacherEpocherHook1(_BaseDMTEpocherHook):
 class DifferentiableMeanTeacherEpocherHook2(_BaseDMTEpocherHook):
     """this implements the update rule 2 of christian's proposal"""
 
-    def configure_meters(self, meters: MeterInterface):
+    def configure_meters_given_epocher(self, meters: MeterInterface):
         self.meters.register_meter("consistency_loss", AverageValueMeter())
         self.meters.register_meter("teacher_loss", AverageValueMeter())
 
@@ -347,7 +347,7 @@ class DifferentiableMeanTeacherEpocherHook3(_BaseDMTEpocherHook):
                          **kwargs)
         self._teacher_optimizer = teacher_optimizer
 
-    def configure_meters(self, meters: MeterInterface):
+    def configure_meters_given_epocher(self, meters: MeterInterface):
         self.meters.register_meter("consistency_loss", AverageValueMeter())
         self.meters.register_meter("teacher_loss", AverageValueMeter())
 
@@ -384,7 +384,7 @@ class DifferentiableMeanTeacherEpocherHook4(_BaseDMTEpocherHook):
         self._teacher_optimizer = teacher_optimizer
 
     @meter_focus
-    def configure_meters(self, meters: MeterInterface):
+    def configure_meters_given_epocher(self, meters: MeterInterface):
         self.meters.register_meter("consistency_loss", AverageValueMeter())
         self.meters.register_meter("teacher_loss", AverageValueMeter())
 

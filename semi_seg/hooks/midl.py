@@ -35,7 +35,7 @@ class _IIDSegmentationEpochHook(EpocherHook):
         self._weight = weight
         self._criterion = IIDSegmentationLoss(padding=0, lamda=mi_lambda)
 
-    def configure_meters(self, meters):
+    def configure_meters_given_epocher(self, meters):
         meters.register_meter("mi", AverageValueMeter())
 
     def _call_implementation(self, *, unlabeled_tf_logits, unlabeled_logits_tf, **kwargs):
@@ -74,7 +74,7 @@ class _IMSATEpochHook(EpocherHook):
         super().__init__(name=name)
         self._weight = weight
 
-    def configure_meters(self, meters):
+    def configure_meters_given_epocher(self, meters):
         meters.register_meter("mi", AverageValueMeter())
 
     def _call_implementation(self, *, unlabeled_logits_tf, **kwargs):

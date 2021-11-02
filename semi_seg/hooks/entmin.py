@@ -20,7 +20,7 @@ class _EntropyEpocherHook(EpocherHook):
         self._weight = weight
         self._criterion = criterion
 
-    def configure_meters(self, meters: MeterInterface):
+    def configure_meters_given_epocher(self, meters: MeterInterface):
         self.meters.register_meter("loss", AverageValueMeter())
 
     def _call_implementation(self, *, unlabeled_tf_logits, unlabeled_logits_tf, seed, affine_transformer, **kwargs):

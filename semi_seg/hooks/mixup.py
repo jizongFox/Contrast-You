@@ -51,8 +51,8 @@ class _MixUpEpocherHook(EpocherHook):
         self._criterion = criterion
         self._enable_bn = enable_bn
 
-    def configure_meters(self, meters: MeterInterface):
-        meters = super(_MixUpEpocherHook, self).configure_meters(meters)
+    def configure_meters_given_epocher(self, meters: MeterInterface):
+        meters = super(_MixUpEpocherHook, self).configure_meters_given_epocher(meters)
         meters.register_meter("mixup_ls", AverageValueMeter())
         return meters
 
