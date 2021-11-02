@@ -1,23 +1,26 @@
 import os
 from copy import deepcopy as dcopy
+from pathlib import Path
 
 import numpy  # noqa
+from easydict import EasyDict as edict
 from loguru import logger
 
-from contrastyou import CONFIG_PATH, success
+from contrastyou import CONFIG_PATH, success, OPT_PATH
 from contrastyou.arch import UNet, arch_order
 from contrastyou.configure import ConfigManger
+from contrastyou.configure.yaml_parser import yaml_load
 from contrastyou.losses.kl import KL_div
 from contrastyou.utils import fix_all_seed_within_context, adding_writable_sink, extract_model_state_dict
 from hook_creator import create_hook_from_config
-from semi_seg import ratio_zoo
 from semi_seg.data.creator import get_data
 from semi_seg.hooks import feature_until_from_hooks
 from semi_seg.trainers.pretrain import PretrainEncoderTrainer, PretrainDecoderTrainer
-from utils import separate_pretrain_finetune_configs
+from utils import separate_pretrain_finetune_configs, logging_configs
 from val import val
 
 
+@logger.catch(reraise=True)
 def main():
     config_manager = ConfigManger(
         base_path=os.path.join(CONFIG_PATH, "base.yaml"),
@@ -32,6 +35,7 @@ def main():
         absolute_save_dir = os.path.abspath(
             os.path.join(PretrainEncoderTrainer.RUN_PATH, str(config["Trainer"]["save_dir"])))
         adding_writable_sink(absolute_save_dir)
+        logging_configs(config_manager, logger)
         with fix_all_seed_within_context(seed):
             model = worker(pretrain_config, absolute_save_dir, seed)
 
@@ -40,6 +44,12 @@ def main():
 
 
 def worker(config, absolute_save_dir, seed, ):
+    # load data setting
+    data_name = config.Data.name
+    data_opt = yaml_load(Path(OPT_PATH) / (data_name + ".yaml"))
+    data_opt = edict(data_opt)
+    config.OPT = data_opt
+
     config = dcopy(config)
     model_checkpoint = config["Arch"].pop("checkpoint", None)
     with fix_all_seed_within_context(seed):

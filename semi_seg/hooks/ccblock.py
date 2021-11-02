@@ -1,5 +1,6 @@
 # this hook tries to use patch-based Cross Correlation loss on the over-segmentation softmax and the original image.
 import typing as t
+import warnings
 from itertools import chain
 
 import torch
@@ -91,7 +92,9 @@ class _CrossCorrelationEpocherHook(EpocherHook):
             # resize_image
             if image.shape != predict_simplex.shape:
                 h, w = predict_simplex.shape[-2:]
-                image = F.interpolate(image, size=(h, w), mode="bilinear")
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore")
+                    image = F.interpolate(image, size=(h, w), mode="bilinear")
 
             diff_image = self.diff(image)
             diff_tf_softmax = self._ent_func(predict_simplex).unsqueeze(1)

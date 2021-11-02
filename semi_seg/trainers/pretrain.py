@@ -105,6 +105,7 @@ class _PretrainTrainerMixin:
             chain_dataloader=self._contrastive_loader, inference_until=self._inference_until, scaler=self.scaler,
             accumulate_iter=1
         )
+        epocher.set_trainer(self)
         epocher.init()
         return epocher
 

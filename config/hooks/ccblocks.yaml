@@ -1,0 +1,8 @@
+CrossCorrelationParameters:
+  feature_names: [ Up_conv2, Deconv_1x1 ]
+  weights: 0.01
+  mi_weights: 1
+  kernel_size: [ 5, ]
+  num_clusters: [ 20 ]
+  head_type: linear
+  num_subheads: 5

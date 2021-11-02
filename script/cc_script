@@ -1,0 +1,14 @@
+#!/bin/bash
+set -e
+NUM_BATCHES=200
+SAVE_DIR=123
+MAX_EPOCH=100
+LABEL_SCAN_NUM=5
+
+cd ..
+python main.py Trainer.name=pretrain_decoder Trainer.save_dir=$SAVE_DIR/pretrain Trainer.max_epoch=$MAX_EPOCH Trainer.num_batches=$NUM_BATCHES \
+  --opt-path config/pretrain.yaml config/hooks/ccblocks.yaml
+python main.py Trainer.name=ft Trainer.save_dir=$SAVE_DIR/tra Trainer.max_epoch=5 Trainer.num_batches=$NUM_BATCHES Data.name=acdc Data.labeled_scan_num=$LABEL_SCAN_NUM \
+  Arch.checkpoint=runs/$SAVE_DIR/pretrain/last.pth
+
+python main.py Trainer.name=ft Trainer.save_dir=$SAVE_DIR/baseline Trainer.max_epoch=$MAX_EPOCH Trainer.num_batches=$NUM_BATCHES Data.name=acdc Data.labeled_scan_num=$LABEL_SCAN_NUM
