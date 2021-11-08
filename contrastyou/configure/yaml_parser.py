@@ -34,27 +34,28 @@ class yamlArgParser:
         self.__type_sep = type_sep
         self.__hierachy = hierarchy
 
-    def parse(self, test_message=None) -> Tuple[dType, Optional[str], Optional[List[str]], List[str]]:
-        parsed_args, base_filepath, optional_filepath_list, extra_variable_list = self._setup(test_message)
+    def parse(self, test_message=None) -> Tuple[dType, Optional[str], Optional[List[str]]]:
+        parsed_args, base_filepath, extra_variable_list = self._setup(test_message)
         yaml_args: List[Dict[str, Any]] = [self.parse_string2flatten_dict(f) for f in parsed_args]
         hierarchical_dict_list = [self.create_dictionary_hierachy(d) for d in yaml_args]
         merged_args = self.merge_dict(hierarchical_dict_list)
-        return merged_args, base_filepath, optional_filepath_list, extra_variable_list
+        return merged_args, base_filepath, extra_variable_list
 
     @classmethod
-    def _setup(cls, test_message: str = None) -> Tuple[List[str], Optional[str], List[str], List[str]]:
+    def _setup(cls, test_message: str = None) -> Tuple[List[str], Optional[str], List[str]]:
         parser = argparse.ArgumentParser(
             "Augment parser for yaml config", formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
         path_parser = parser.add_argument_group("config path parser")
         path_parser.add_argument(
-            "--base-path", type=str, required=False, default=None, help="base config path location",
+            "--path", type=str, required=False, default=None, nargs=argparse.ZERO_OR_MORE,
+            help="base config path location",
         )
-        parser.add_argument("--opt-path", type=str, default=None, required=False, nargs=argparse.ZERO_OR_MORE,
-                            help="optional config path locations", )
+        # parser.add_argument("--opt-path", type=str, default=None, required=False, nargs=argparse.ZERO_OR_MORE,
+        #                     help="optional config path locations", )
         parser.add_argument("optional_variables", nargs="*", type=str, default=[""], help="optional variables")
         args, extra_variables = parser.parse_known_args(test_message)
-        return args.optional_variables, args.base_path, args.opt_path, extra_variables
+        return args.optional_variables, args.path, extra_variables
 
     def parse_string2flatten_dict(self, string) -> Dict[str, Any]:
         """
