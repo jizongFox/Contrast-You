@@ -8,8 +8,8 @@ from torch import Tensor
 
 from contrastyou.meters import Metric
 from contrastyou.types import to_float
-from contrastyou.utils import average_iter
 from contrastyou.utils.general import one_hot, class2one_hot, simplex, probs2one_hot
+from contrastyou.utils.utils import average_iter
 
 metric_result = t.Dict[str, t.Union[float, np.ndarray, Tensor]]
 

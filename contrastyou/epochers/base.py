@@ -32,14 +32,14 @@ class EpocherBase(AMPScaler, DDPMixin, metaclass=ABCMeta):
         self._num_batches = num_batches
         self._cur_epoch = cur_epoch
 
-        self.meters = MeterInterface(default_focus=self.meter_focus)
-        self.configure_meters(self.meters)
-
-        self.indicator = tqdm(range(self._num_batches), disable=not self.on_master(), leave=True, ncols=2)
-
         self._trainer = None
         self.__bind_trainer_done__ = False
         self._hooks: List[EpocherHook] = []
+
+    def init(self):
+        self.meters = MeterInterface(default_focus=self.meter_focus)
+        self.configure_meters(self.meters)
+        self.indicator = tqdm(range(self._num_batches), disable=not self.on_master(), leave=True, ncols=2)
 
     @contextmanager
     def register_hook(self, *hook: EpocherHook):

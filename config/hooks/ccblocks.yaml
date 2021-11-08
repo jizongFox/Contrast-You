@@ -4,5 +4,5 @@ CrossCorrelationParameters:
   mi_weights: 1
   kernel_size: [ 5, 7 ]
   num_clusters: [ 20 ]
-  head_type: linear
-  num_subheads: 5
+  head_type: mlp
+  num_subheads: 1

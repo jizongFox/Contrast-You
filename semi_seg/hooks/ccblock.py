@@ -17,7 +17,7 @@ from contrastyou.losses.discreteMI import IIDSegmentationLoss
 from contrastyou.losses.kl import Entropy
 from contrastyou.meters import AverageValueMeter
 from contrastyou.projectors import CrossCorrelationProjector
-from contrastyou.utils import class_name, average_iter
+from contrastyou.utils import class_name, average_iter, item2str
 
 if typing.TYPE_CHECKING:
     from contrastyou.projectors.nn import _ProjectorHeadBase  # noqa
@@ -33,15 +33,20 @@ class CrossCorrelationHook(TrainerHook):
         super().__init__(hook_name=name)
         self._weight = weight
         self._mi_weight = mi_weight
-        logger.debug(f"Creating {class_name(self)} with weight: {self._weight} and kernel_size: {kernel_size}.")
+        feature_name = UNetFeatureMapEnum(feature_name)
+        logger.info(
+            f"Creating {class_name(self)} @{feature_name.name}.")
         self._extractor = SingleFeatureExtractor(
             model=model, feature_name=UNetFeatureMapEnum(feature_name).name  # noqa
         )
-        input_dim = model.get_channel_dim(feature_name)  # model: type: UNet
+        input_dim = model.get_channel_dim(feature_name.value)  # model: type: UNet
+        logger.trace(f"Creating projector with {item2str(projector_params)}")
         self._projector = CrossCorrelationProjector(input_dim=input_dim, **projector_params)
 
+        logger.trace(f"Creating CCLoss with kernel_size = {kernel_size} with weight = {self._weight}.")
         self._criterion = CCLoss(win=(kernel_size, kernel_size))
 
+        logger.trace(f"Creating IIDSegmentationLoss with kernel_size = {kernel_size} with weight = {self._mi_weight}.")
         self._mi_criterion = IIDSegmentationLoss(padding=0) if self._mi_weight > 0 else None
 
     def __call__(self, **kwargs):

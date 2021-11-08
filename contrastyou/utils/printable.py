@@ -17,7 +17,7 @@ def is_iterable(v):
     return isinstance(v, (list, tuple, dict, set))
 
 
-def _float2str(v):
+def _num2str(v):
     """convert a scalar to float, in order to display"""
     v = float(v)
     if abs(float(v)) < 0.01 or abs(float(v)) >= 99:
@@ -27,7 +27,7 @@ def _float2str(v):
 
 def _leafitem2str(v):
     if is_float(v):
-        return _float2str(v)
+        return _num2str(v)
     return f"{v}"
 
 
@@ -49,9 +49,7 @@ def _dict2str(dictionary: dict):
 
 def _iter2str(item: Iterable):
     """A list or a tuple"""
-    return ", ".join(
-        [_leafitem2str(x) if not is_iterable(x) else item2str(x) for x in item]
-    )
+    return ", ".join([_leafitem2str(x) if not is_iterable(x) else item2str(x) for x in item])
 
 
 def item2str(item):

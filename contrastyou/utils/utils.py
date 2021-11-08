@@ -1,5 +1,5 @@
 # dictionary helper functions
-import collections
+import collections.abc as container_abcs
 import functools
 import os
 import random
@@ -16,20 +16,14 @@ from torch import nn
 from torch.optim import Optimizer
 from torch.utils.data.dataloader import DataLoader, _BaseDataLoaderIter  # noqa
 
-from contrastyou import logger_format
 from script.utils import T_path
-
-try:
-    from torch._six import container_abcs
-except ImportError:
-    import collections.abc as container_abcs
 
 
 def flatten_dict(d, parent_key="", sep="_"):
     items = []
     for k, v in d.items():
         new_key = parent_key + sep + k if parent_key else k
-        if isinstance(v, collections.MutableMapping):
+        if isinstance(v, container_abcs.MutableMapping):
             items.extend(flatten_dict(v, new_key, sep=sep).items())
         else:
             items.append((new_key, v))
@@ -192,6 +186,7 @@ _quadruple = ntuple(4)
 
 
 def adding_writable_sink(save_dir):
+    from contrastyou import logger_format
     abs_save_dir = os.path.abspath(save_dir)
     from loguru import logger
     logger.add(os.path.join(abs_save_dir, "loguru.log"), level="TRACE", backtrace=False, diagnose=False,

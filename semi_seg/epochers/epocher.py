@@ -52,6 +52,12 @@ class EpocherBase(_EpocherBase, ABC):
         self._initialized = False
         self._retain_graph = False
 
+    def init(self):
+        """we added an assertion to control the hyper-parameters."""
+        super(EpocherBase, self).init()
+        self._assertion()
+        self._initialized = True
+
     @property
     def retain_graph(self):
         return self._retain_graph
@@ -66,11 +72,6 @@ class EpocherBase(_EpocherBase, ABC):
         if not self._initialized:
             raise RuntimeError(f"Call {class_name(self)}.init() before {class_name(self)}.run()")
         return super(EpocherBase, self).run()
-
-    def init(self):
-        """we added an assertion to control the hyper-parameters."""
-        self._assertion()
-        self._initialized = True
 
     def _batch_update(self, **kwargs) -> Optional[Dict[str, Any]]:
         """
@@ -185,7 +186,7 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
         self._sup_criterion = sup_criterion
         self._affine_transformer = TensorRandomFlip(axis=[1, 2], threshold=0.8)
         self._two_stage = two_stage
-        logger.opt(depth=1).trace("{} set to be using {} stage training", self.__class__.__name__,
+        logger.opt(depth=1).debug("{} set to be using {} stage training", self.__class__.__name__,
                                   "two" if self._two_stage else "single")
         self._disable_bn = disable_bn
         if self._disable_bn:

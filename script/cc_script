@@ -1,13 +1,44 @@
 #!/bin/bash
 set -e
-NUM_BATCHES=20
-SAVE_DIR=zzz_test
-MAX_EPOCH=2
+NUM_BATCHES=300
+MAX_EPOCH=100
 LABEL_SCAN_NUM=1
 
+export PYTHONOPTIMIZE=1
+export LOGURU_LEVEL=TRACE
+
 cd ..
-python main.py Trainer.name=pretrain_decoder Trainer.save_dir=$SAVE_DIR/pretrain Trainer.max_epoch=$MAX_EPOCH Trainer.num_batches=$NUM_BATCHES \
-  --path config/base.yaml config/pretrain.yaml config/hooks/ccblocks.yaml
+
+SAVE_DIR=projector_1/labeled_${LABEL_SCAN_NUM}/mi_series
+MI_WEIGHT=1
+CC_WEIGHT=0
+
+python main.py Trainer.name=pretrain_decoder Trainer.save_dir=$SAVE_DIR/pretrain Trainer.max_epoch=$MAX_EPOCH Trainer.num_batches=$NUM_BATCHES CrossCorrelationParameters.mi_weights=$MI_WEIGHT \
+  CrossCorrelationParameters.weights=$CC_WEIGHT --path config/base.yaml config/pretrain.yaml config/hooks/ccblocks.yaml
+
+python main.py Trainer.name=ft Trainer.save_dir=$SAVE_DIR/tra Trainer.max_epoch=$MAX_EPOCH Trainer.num_batches=$NUM_BATCHES Data.name=acdc Data.labeled_scan_num=$LABEL_SCAN_NUM \
+  Arch.checkpoint=runs/$SAVE_DIR/pretrain/last.pth
+
+python main.py Trainer.name=ft Trainer.save_dir=$SAVE_DIR/baseline Trainer.max_epoch=$MAX_EPOCH Trainer.num_batches=$NUM_BATCHES Data.name=acdc Data.labeled_scan_num=$LABEL_SCAN_NUM
+
+SAVE_DIR=projector_1/labeled_${LABEL_SCAN_NUM}/cc_series
+MI_WEIGHT=0
+CC_WEIGHT=1
+
+python main.py Trainer.name=pretrain_decoder Trainer.save_dir=$SAVE_DIR/pretrain Trainer.max_epoch=$MAX_EPOCH Trainer.num_batches=$NUM_BATCHES CrossCorrelationParameters.mi_weights=$MI_WEIGHT \
+  CrossCorrelationParameters.weights=$CC_WEIGHT --path config/base.yaml config/pretrain.yaml config/hooks/ccblocks.yaml
+
+python main.py Trainer.name=ft Trainer.save_dir=$SAVE_DIR/tra Trainer.max_epoch=$MAX_EPOCH Trainer.num_batches=$NUM_BATCHES Data.name=acdc Data.labeled_scan_num=$LABEL_SCAN_NUM \
+  Arch.checkpoint=runs/$SAVE_DIR/pretrain/last.pth
+
+python main.py Trainer.name=ft Trainer.save_dir=$SAVE_DIR/baseline Trainer.max_epoch=$MAX_EPOCH Trainer.num_batches=$NUM_BATCHES Data.name=acdc Data.labeled_scan_num=$LABEL_SCAN_NUM
+
+SAVE_DIR=projector_1/labeled_${LABEL_SCAN_NUM}/mixed_series
+MI_WEIGHT=0.5
+CC_WEIGHT=0.5
+
+python main.py Trainer.name=pretrain_decoder Trainer.save_dir=$SAVE_DIR/pretrain Trainer.max_epoch=$MAX_EPOCH Trainer.num_batches=$NUM_BATCHES CrossCorrelationParameters.mi_weights=$MI_WEIGHT \
+  CrossCorrelationParameters.weights=$CC_WEIGHT --path config/base.yaml config/pretrain.yaml config/hooks/ccblocks.yaml
 
 python main.py Trainer.name=ft Trainer.save_dir=$SAVE_DIR/tra Trainer.max_epoch=$MAX_EPOCH Trainer.num_batches=$NUM_BATCHES Data.name=acdc Data.labeled_scan_num=$LABEL_SCAN_NUM \
   Arch.checkpoint=runs/$SAVE_DIR/pretrain/last.pth

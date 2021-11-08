@@ -8,7 +8,7 @@ import pandas as pd
 from termcolor import colored
 
 from .utils import HistoricalContainer, rename_df_columns
-from ..utils import path2Path
+from ..utils.utils import path2Path
 
 __all__ = ["Storage"]
 
