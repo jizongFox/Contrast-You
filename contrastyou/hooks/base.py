@@ -1,10 +1,10 @@
 # this hook collaborates with the Epocher to provide a scalable thing.
 import contextlib
+import typing as t
 import weakref
 from abc import abstractmethod
 from contextlib import nullcontext
 from functools import wraps
-from typing import Iterator, List, final
 
 from torch import nn
 from torch.nn import Parameter
@@ -22,7 +22,7 @@ class _ClassNameMeta(type):
     This meta class is to make sure that the training hook cannot have the same name in a single experiment.
     if two hooks with the same name is given, a RuntimeError would be raise to stop the algorithm.
     """
-    names: List[str] = []
+    names: t.List[str] = []
 
     def __call__(cls, *args, **kwargs):
         if "hook_name" in kwargs:
@@ -39,12 +39,12 @@ class TrainerHook(nn.Module, metaclass=_ClassNameMeta):
         super().__init__()
         self._hook_name = hook_name
 
-    def parameters(self, recurse: bool = True) -> Iterator[Parameter]:
+    def parameters(self, recurse: bool = True) -> t.Iterator[Parameter]:
         for m in self.learnable_modules:
             yield from m.parameters(recurse=recurse)
 
     @property
-    def learnable_modules(self) -> List[nn.Module]:
+    def learnable_modules(self) -> t.List[nn.Module]:
         return []
 
     def __call__(self, **kwargs):
@@ -99,32 +99,32 @@ class EpocherHook:
         return meters
 
     # calling interface for epocher.
-    @final
+    @t.final
     def call_before_batch_update(self, **kwargs):
         with self.context:
             return self.before_batch_update(**kwargs)
 
-    @final
+    @t.final
     def call_before_forward_pass(self, **kwargs):
         with self.context:
             return self.before_forward_pass(**kwargs)
 
-    @final
+    @t.final
     def call_after_forward_pass(self, **kwargs):
         with self.context:
             return self.after_forward_pass(**kwargs)
 
-    @final
+    @t.final
     def call_before_regularization(self, **kwargs):
         with self.context:
             return self.before_regularization(**kwargs)
 
-    @final
+    @t.final
     def call_after_regularization(self, **kwargs):
         with self.context:
             return self.after_regularization(**kwargs)
 
-    @final
+    @t.final
     def call_after_batch_update(self, **kwargs):
         with self.context:
             return self.after_batch_update(**kwargs)
@@ -148,7 +148,7 @@ class EpocherHook:
     def after_batch_update(self, **kwargs):
         pass
 
-    @final
+    @t.final
     def __call__(self, **kwargs):
         with self.context:
             return self._call_implementation(**kwargs)
@@ -184,37 +184,37 @@ class CombineEpochHook(EpocherHook):
         for h in self._epocher_hook:
             h.set_epocher(epocher)
 
-    @final
+    @t.final
     def call_before_forward_pass(self, **kwargs):  # noqa
         for h in self._epocher_hook:
             h.call_before_forward_pass(**kwargs)
 
-    @final
+    @t.final
     def call_after_forward_pass(self, **kwargs):  # noqa
         for h in self._epocher_hook:
             h.call_after_forward_pass(**kwargs)
 
-    @final
+    @t.final
     def call_before_regularization(self, **kwargs):  # noqa
         for h in self._epocher_hook:
             h.call_before_regularization(**kwargs)
 
-    @final
+    @t.final
     def call_after_regularization(self, **kwargs):  # noqa
         for h in self._epocher_hook:
             h.call_after_regularization(**kwargs)
 
-    @final
+    @t.final
     def call_before_batch_update(self, **kwargs):  # noqa
         for h in self._epocher_hook:
             h.call_before_batch_update(**kwargs)
 
-    @final
+    @t.final
     def call_after_batch_update(self, **kwargs):  # noqa
         for h in self._epocher_hook:
             h.call_after_batch_update(**kwargs)
 
-    @final
+    @t.final
     def __call__(self, **kwargs):  # noqa just to modify it once.
         return sum([h(**kwargs) for h in self._epocher_hook])
 

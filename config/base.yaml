@@ -38,5 +38,5 @@ Trainer:
   two_stage: false
   disable_bn: false
   name: null
-  enable_scale: true
+  enable_scale: false
   accumulate_iter: 1

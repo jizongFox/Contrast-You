@@ -1,4 +1,5 @@
 # this hook tries to use patch-based Cross Correlation loss on the over-segmentation softmax and the original image.
+import typing
 import typing as t
 import warnings
 from itertools import chain
@@ -14,10 +15,13 @@ from contrastyou.hooks import TrainerHook, EpocherHook
 from contrastyou.losses.cc import CCLoss
 from contrastyou.losses.discreteMI import IIDSegmentationLoss
 from contrastyou.losses.kl import Entropy
-from contrastyou.meters import MeterInterface, AverageValueMeter
+from contrastyou.meters import AverageValueMeter
 from contrastyou.projectors import CrossCorrelationProjector
-from contrastyou.projectors.nn import _ProjectorHeadBase  # noqa
 from contrastyou.utils import class_name, average_iter
+
+if typing.TYPE_CHECKING:
+    from contrastyou.projectors.nn import _ProjectorHeadBase  # noqa
+    from contrastyou.meters import MeterInterface
 
 __all__ = ["CrossCorrelationHook"]
 
@@ -41,16 +45,22 @@ class CrossCorrelationHook(TrainerHook):
         self._mi_criterion = IIDSegmentationLoss(padding=0) if self._mi_weight > 0 else None
 
     def __call__(self, **kwargs):
-        return _CrossCorrelationEpocherHook(name=self._hook_name, extractor=self._extractor,
-                                            projector=self._projector, criterion=self._criterion,
-                                            weight=self._weight, mi_weight=self._mi_weight,
-                                            mi_criterion=self._mi_criterion)
+        return _CrossCorrelationEpocherHook(
+            name=self._hook_name, extractor=self._extractor,
+            projector=self._projector, criterion=self._criterion,
+            weight=self._weight, mi_weight=self._mi_weight,
+            mi_criterion=self._mi_criterion
+        )
+
+    @property
+    def learnable_modules(self) -> t.List[nn.Module]:
+        return [self._projector, ]
 
 
 class _CrossCorrelationEpocherHook(EpocherHook):
 
-    def __init__(self, *, name: str = "cc", extractor: SingleFeatureExtractor, projector: _ProjectorHeadBase,
-                 criterion: CCLoss, mi_criterion: t.Optional[IIDSegmentationLoss],
+    def __init__(self, *, name: str = "cc", extractor: 'SingleFeatureExtractor', projector: '_ProjectorHeadBase',
+                 criterion: CCLoss, mi_criterion: t.Optional['IIDSegmentationLoss'],
                  weight: float, mi_weight: float) -> None:
         super().__init__(name=name)
         self.weight = weight
@@ -65,7 +75,7 @@ class _CrossCorrelationEpocherHook(EpocherHook):
     def close(self):
         self.extractor.remove()
 
-    def configure_meters_given_epocher(self, meters: MeterInterface):
+    def configure_meters_given_epocher(self, meters: 'MeterInterface'):
         meters.register_meter("cc_ls", AverageValueMeter())
         meters.register_meter("mi_ls", AverageValueMeter())
         return meters

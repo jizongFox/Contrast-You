@@ -2,14 +2,12 @@ import os
 from contextlib import nullcontext
 from pathlib import Path
 
-import numpy  # noqa
 from easydict import EasyDict as edict
 from loguru import logger
 
 from contrastyou import CONFIG_PATH, git_hash, OPT_PATH
 from contrastyou.arch import UNet
-from contrastyou.configure import ConfigManger
-from contrastyou.configure.yaml_parser import yaml_load
+from contrastyou.configure import yaml_load, ConfigManager
 from contrastyou.losses.kl import KL_div
 from contrastyou.trainer import create_save_dir
 from contrastyou.utils import fix_all_seed_within_context, adding_writable_sink, extract_model_state_dict
@@ -31,7 +29,7 @@ trainer_zoo = {"semi": SemiTrainer,
 
 @logger.catch(reraise=True)
 def main():
-    manager = ConfigManger(base_path=os.path.join(CONFIG_PATH, "base.yaml"), strict=True, verbose=False)
+    manager = ConfigManager(os.path.join(CONFIG_PATH, "base.yaml"), strict=True, verbose=False)
     with manager(scope="base") as config:
         # this handles input save dir with relative and absolute paths
         absolute_save_dir = create_save_dir(SemiTrainer, config["Trainer"]["save_dir"])
