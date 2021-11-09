@@ -26,3 +26,4 @@ nilearn
 git+https://github.com/jizongFox/easydict.git
 tensorboard
 loguru
+gdown
