@@ -43,7 +43,7 @@ def run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
     CrossCorrelationParameters.mi_weights={mi_weight}  \
     CrossCorrelationParameters.cc_weights={cc_weight}  \
-    --path config/base.yaml config/pretrain.yaml config/hooks/ccblocks.yaml 
+    --path config/base.yaml config/pretrain.yaml config/hooks/ccblocks.yaml \
     """
 
 
@@ -125,7 +125,7 @@ def run_pretrain_ft_with_grid_search(
     if include_baseline:
         rand_seed_gen = grid_search(random_seed=random_seeds)
         for random_seed in rand_seed_gen:
-            yield run_baseline(save_dir=os.path.join(save_dir, f"seed_{random_seed['random_seed']}", "baseline"),
+            yield run_baseline(save_dir=os.path.join(save_dir, f"seed_{random_seed['random_seed']}"),
                                **random_seed, max_epoch=max_epoch, num_batches=num_batches,
                                data_name=data_name)
 
@@ -152,8 +152,9 @@ def run_semi_regularize_with_grid_search(
 
 
 if __name__ == '__main__':
-    submitter = SlurmSubmitter(work_dir="../", stop_on_error=False, on_local=on_local)
+    submitter = SlurmSubmitter(work_dir="../", stop_on_error=True, on_local=on_local)
     submitter.configure_environment([
+        # "set -e "
         "module load python/3.8.2 ",
         f"source ~/venv/bin/activate ",
         'if [ $(which python) == "/usr/bin/python" ]',
