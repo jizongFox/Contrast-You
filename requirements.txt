@@ -5,10 +5,8 @@ scikit-image
 torch
 torchvision
 torch_optimizer
-apex
 termcolor
 tqdm
-six
 pyyaml
 scikit-learn
 matplotlib
@@ -27,4 +25,4 @@ nibabel
 nilearn
 git+https://github.com/jizongFox/easydict.git
 tensorboard
-tensorboardX
+loguru

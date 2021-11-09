@@ -46,7 +46,7 @@ def feature_until_from_hooks(*hooks) -> Union[str, None]:
     if len(feature_name_list) > 0:
         from contrastyou.arch import sort_arch
         return sort_arch(feature_name_list)[-1]
-    return sorted(UNet.arch_elements)[-1]
+    return UNet.arch_elements[-1]
 
 
 def create_consistency_hook(weight: float):

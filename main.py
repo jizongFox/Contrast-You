@@ -91,7 +91,7 @@ def worker(config, absolute_save_dir, seed):
     hook_registration = trainer.register_hook if trainer_name not in ("ft", "dmt") else nullcontext
 
     with hook_registration(*hooks):
-        if trainer_name == "pretrain":
+        if is_pretrain:
             until = feature_until_from_hooks(*hooks)
             trainer.forward_until = until
             with model.switch_grad(False, start=until, include_start=False):

@@ -36,7 +36,7 @@ def create_meter_display(group_dict, ignore_start_with="_"):
 
 class tqdm(_tqdm):
 
-    def __init__(self, iterable=None, desc=None, total=None, leave=True, file=None, ncols=None, mininterval=0.1,
+    def __init__(self, iterable=None, desc=None, total=None, leave=False, file=None, ncols=None, mininterval=0.1,
                  maxinterval=10.0, miniters=None, ascii=None, disable=False, unit='it', unit_scale=False,
                  dynamic_ncols=True, smoothing=0.3,
                  bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [" "{rate_fmt}{postfix}]", initial=0, position=None,

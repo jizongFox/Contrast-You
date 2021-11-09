@@ -34,6 +34,7 @@ class CrossCorrelationHook(TrainerHook):
         self._weight = weight
         self._mi_weight = mi_weight
         feature_name = UNetFeatureMapEnum(feature_name)
+        self._feature_name = feature_name.value
         logger.info(
             f"Creating {class_name(self)} @{feature_name.name}.")
         self._extractor = SingleFeatureExtractor(
