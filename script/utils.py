@@ -1,15 +1,16 @@
-from itertools import product
-
-import numpy as np
 import os
 import random
 import string
-import torch
 from collections.abc import Iterable
-from contrastyou import PROJECT_PATH, on_cc
+from itertools import product
 from pathlib import Path
 # from semi_seg import data2input_dim, data2class_numbers, ratio_zoo
 from typing import Union, TypeVar, List
+
+import numpy as np
+import torch
+
+from contrastyou import PROJECT_PATH, on_cc, OPT_PATH
 
 TEMP_DIR = os.path.join(PROJECT_PATH, "script", ".temp_config")
 if not os.path.exists(TEMP_DIR):
@@ -45,7 +46,7 @@ def grid_search(**kwargs):
 
 class ScriptGenerator:
 
-    def __init__(self, *, data_name, num_batches, save_dir, data_opt) -> None:
+    def __init__(self, *, data_name, num_batches, save_dir) -> None:
         super().__init__()
         self.conditions = []
         self._data_name = data_name
@@ -53,6 +54,9 @@ class ScriptGenerator:
         self._num_batches = num_batches
         self.conditions.append(f"Trainer.num_batches={num_batches}")
         self._save_dir = save_dir
+        from contrastyou.configure import yaml_load
+
+        self.data_opt = yaml_load(os.path.join(OPT_PATH, data_name))
 
     def grid_search_on(self, *, seed: int, **kwargs):
         pass
@@ -72,7 +76,7 @@ class ScriptGenerator:
 class BaselineGenerator(ScriptGenerator):
 
     def __init__(self, *, data_name, num_batches, max_epoch, save_dir, model_checkpoint=None, data_opt) -> None:
-        super().__init__(data_name=data_name, num_batches=num_batches, save_dir=save_dir, data_opt=data_opt)
+        super().__init__(data_name=data_name, num_batches=num_batches, save_dir=save_dir)
         self._model_checkpoint = model_checkpoint
         self.conditions.append(f"Arch.checkpoint={self._model_checkpoint or 'null'}")
         self._max_epoch = max_epoch
@@ -120,13 +124,12 @@ class PretrainScriptGenerator(ScriptGenerator):
         ...
 
     def generate_single_script(self, save_dir, seed, hook_path):
-        from semi_seg import pre_lr_zooms, ft_lr_zooms
-        pre_lr = pre_lr_zooms[self._data_name]
-        ft_lr = ft_lr_zooms[self._data_name]
-        return f"python pretrain_main.py Trainer.save_dir={save_dir} " \
+        pre_lr = float(self.data_opt["pre_lr"])
+        ft_lr = float(self.data_opt["ft_lr"])
+        return f"python main.py Trainer.name=pretrain_decoder Trainer.save_dir={save_dir} " \
                f" Optim.pre_lr={pre_lr:.7f} Optim.ft_lr={ft_lr:.7f} RandomSeed={str(seed)} " \
                f" {' '.join(self.conditions)}  " \
-               f" --opt-path config/pretrain.yaml {hook_path}"
+               f" --path config/base.yaml config/pretrain.yaml {hook_path}"
 
 
 def move_dataset():

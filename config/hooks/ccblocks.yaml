@@ -1,6 +1,6 @@
 CrossCorrelationParameters:
   feature_names: [ Up_conv2, ]
-  weights: 0.01
+  cc_weights: 0.01
   mi_weights: 1
   kernel_size: [ 5 ]
   num_clusters: [ 20 ]

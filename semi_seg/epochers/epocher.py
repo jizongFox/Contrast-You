@@ -49,14 +49,12 @@ class EpocherBase(_EpocherBase, ABC):
                  **kwargs) -> None:
         super().__init__(model=model, num_batches=num_batches, cur_epoch=cur_epoch, device=device, scaler=scaler,
                          **kwargs)
-        self._initialized = False
         self._retain_graph = False
 
     def init(self):
         """we added an assertion to control the hyper-parameters."""
         super(EpocherBase, self).init()
         self._assertion()
-        self._initialized = True
 
     @property
     def retain_graph(self):
@@ -186,11 +184,13 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
         self._sup_criterion = sup_criterion
         self._affine_transformer = TensorRandomFlip(axis=[1, 2], threshold=0.8)
         self._two_stage = two_stage
-        logger.opt(depth=1).debug("{} set to be using {} stage training", self.__class__.__name__,
+        logger.opt(depth=1).trace("{} set to be using {} stage training", self.__class__.__name__,
                                   "two" if self._two_stage else "single")
         self._disable_bn = disable_bn
         if self._disable_bn:
             logger.debug("{} set to disable bn tracking", self.__class__.__name__)
+
+        self.cur_batch_num = 0
 
     def transform_with_seed(self, features, seed):
         with fix_all_seed_for_transforms(seed):

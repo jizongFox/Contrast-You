@@ -104,11 +104,11 @@ def _get_labeled_unlabeled_test_datasets(data_name, *, total_freedom: bool, labe
         raise RuntimeError(f"labeled scan number {labeled_scan_num} greater than the train set size: {train_scan_num}")
 
     if pretrain:
-        logger.trace("creating pretraining dataloaders")
+        logger.trace("Creating pretraining dataloaders")
         labeled_scan_num = int(train_scan_num // 2)
         label_set, unlabeled_set = split_dataset(tra_set, labeled_scan_num)
     else:
-        logger.trace("creating true split dataloaders")
+        logger.trace("Creating true split dataloaders")
         try:
             label_set, unlabeled_set = split_dataset_with_predefined_filenames(
                 tra_set, data_name, labeled_scan_nums=labeled_scan_num, order_num=order_num)
@@ -136,11 +136,11 @@ def get_data_loaders(data_params, labeled_loader_params, unlabeled_loader_params
         order_num=order_num,
     )
     labeled_loader = create_infinite_loader(label_set, **labeled_loader_params)
-    logger.debug(f"creating labeled_loader with {len(label_set.get_scan_list())} scans")
+    logger.debug(f"Creating labeled_loader with {len(label_set.get_scan_list())} scans")
     logger.trace(f"with {','.join(sorted(set(label_set.get_scan_list())))}")
 
     unlabeled_loader = create_infinite_loader(unlabeled_set, **unlabeled_loader_params)
-    logger.debug(f"creating unlabeled_loader with {len(unlabeled_set.get_scan_list())} scans")
+    logger.debug(f"Creating unlabeled_loader with {len(unlabeled_set.get_scan_list())} scans")
     logger.trace(f"with {','.join(sorted(set(unlabeled_set.get_scan_list())))}")
 
     group_test = group_test if data_name not in (

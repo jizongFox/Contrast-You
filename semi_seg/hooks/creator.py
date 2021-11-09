@@ -191,9 +191,8 @@ def create_imsat_hook(*, weight: float = 0.1):
 
 
 def create_cross_correlation_hooks(
-    *, model: nn.Module, feature_names: item_or_seq[str], weights: item_or_seq[float], mi_weights: item_or_seq[float],
-    num_clusters: item_or_seq[int],
-    kernel_size: item_or_seq[int],
+    *, model: nn.Module, feature_names: item_or_seq[str], cc_weights: item_or_seq[float],
+    mi_weights: item_or_seq[float], num_clusters: item_or_seq[int], kernel_size: item_or_seq[int],
     head_type=item_or_seq[str], num_subheads: item_or_seq[int],
 ):
     if isinstance(feature_names, str):
@@ -203,14 +202,14 @@ def create_cross_correlation_hooks(
     pair_generator = ntuple(num_features)
 
     feature_names = pair_generator(feature_names)
-    weights = pair_generator(weights)
+    cc_weights = pair_generator(cc_weights)
     mi_weights = pair_generator(mi_weights)
     num_clusters = pair_generator(num_clusters)
     kernel_size = pair_generator(kernel_size)
     head_type = pair_generator(head_type)
     num_subheads = pair_generator(num_subheads)
     hooks = []
-    for w, mw, f_name, ksize, h_type, n_subheads, n_cluster in zip(weights, mi_weights, feature_names, kernel_size,
+    for cw, mw, f_name, ksize, h_type, n_subheads, n_cluster in zip(cc_weights, mi_weights, feature_names, kernel_size,
                                                                    head_type,
                                                                    num_subheads, num_clusters):
         project_params = {"num_clusters": n_cluster,
@@ -218,7 +217,7 @@ def create_cross_correlation_hooks(
                           "normalize": False,
                           "num_subheads": n_subheads,
                           "hidden_dim": 64}
-        _hook = CrossCorrelationHook(name=f"{f_name}", weight=w, feature_name=f_name, kernel_size=ksize,
+        _hook = CrossCorrelationHook(name=f"{f_name}", cc_weight=cw, feature_name=f_name, kernel_size=ksize,
                                      projector_params=project_params, model=model, mi_weight=mw)
         hooks.append(_hook)
 

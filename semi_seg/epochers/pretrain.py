@@ -39,6 +39,7 @@ class _PretrainEpocherMixin:
     scale_loss: Callable[[Tensor], Tensor]
     optimizer_step: Callable
     optimizer_zero: Callable
+    cur_batch_num: int
 
     def __init__(self, *, chain_dataloader, inference_until: str, **kwargs) -> None:
         super().__init__(**kwargs)

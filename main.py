@@ -109,6 +109,6 @@ def worker(config, absolute_save_dir, seed):
 if __name__ == '__main__':
     import torch
 
-    # torch.use_deterministic_algorithms(True)
-    torch.backends.cudnn.benchmark = True  # noqa
+    torch.use_deterministic_algorithms(True)
+    # torch.backends.cudnn.benchmark = True  # noqa
     main()

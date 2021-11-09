@@ -28,10 +28,10 @@ __all__ = ["CrossCorrelationHook"]
 
 class CrossCorrelationHook(TrainerHook):
 
-    def __init__(self, *, name: str, model: nn.Module, feature_name: UNetFeatureMapEnum, weight: float,
+    def __init__(self, *, name: str, model: nn.Module, feature_name: UNetFeatureMapEnum, cc_weight: float,
                  mi_weight: float = 0.0, kernel_size: int, projector_params: t.Dict[str, t.Any]):
         super().__init__(hook_name=name)
-        self._weight = weight
+        self._cc_weight = cc_weight
         self._mi_weight = mi_weight
         feature_name = UNetFeatureMapEnum(feature_name)
         self._feature_name = feature_name.value
@@ -44,17 +44,17 @@ class CrossCorrelationHook(TrainerHook):
         logger.trace(f"Creating projector with {item2str(projector_params)}")
         self._projector = CrossCorrelationProjector(input_dim=input_dim, **projector_params)
 
-        logger.trace(f"Creating CCLoss with kernel_size = {kernel_size} with weight = {self._weight}.")
-        self._criterion = CCLoss(win=(kernel_size, kernel_size))
+        logger.trace(f"Creating CCLoss with kernel_size = {kernel_size} with weight = {self._cc_weight}.")
+        self._cc_criterion = CCLoss(win=(kernel_size, kernel_size))
 
         logger.trace(f"Creating IIDSegmentationLoss with kernel_size = {kernel_size} with weight = {self._mi_weight}.")
-        self._mi_criterion = IIDSegmentationLoss(padding=0) if self._mi_weight > 0 else None
+        self._mi_criterion = IIDSegmentationLoss(padding=0)
 
     def __call__(self, **kwargs):
         return _CrossCorrelationEpocherHook(
             name=self._hook_name, extractor=self._extractor,
-            projector=self._projector, criterion=self._criterion,
-            weight=self._weight, mi_weight=self._mi_weight,
+            projector=self._projector, cc_criterion=self._cc_criterion,
+            cc_weight=self._cc_weight, mi_weight=self._mi_weight,
             mi_criterion=self._mi_criterion
         )
 
@@ -66,15 +66,15 @@ class CrossCorrelationHook(TrainerHook):
 class _CrossCorrelationEpocherHook(EpocherHook):
 
     def __init__(self, *, name: str = "cc", extractor: 'SingleFeatureExtractor', projector: '_ProjectorHeadBase',
-                 criterion: CCLoss, mi_criterion: t.Optional['IIDSegmentationLoss'],
-                 weight: float, mi_weight: float) -> None:
+                 cc_criterion: CCLoss, mi_criterion: 'IIDSegmentationLoss',
+                 cc_weight: float, mi_weight: float) -> None:
         super().__init__(name=name)
-        self.weight = weight
+        self.cc_weight = cc_weight
         self.mi_weight = mi_weight
         self.extractor = extractor
         self.extractor.bind()
         self.projector = projector
-        self.criterion = criterion
+        self.cc_criterion = cc_criterion
         self.mi_criterion = mi_criterion
         self._ent_func = Entropy(reduction="none")
 
@@ -106,7 +106,7 @@ class _CrossCorrelationEpocherHook(EpocherHook):
 
         def cc_loss_per_head(image: Tensor, predict_simplex: Tensor):
             # resize_image
-            if image.shape != predict_simplex.shape:
+            if tuple(image.shape) != tuple(predict_simplex.shape):
                 h, w = predict_simplex.shape[-2:]
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore")
@@ -115,7 +115,7 @@ class _CrossCorrelationEpocherHook(EpocherHook):
             diff_image = self.diff(image)
             diff_tf_softmax = self._ent_func(predict_simplex).unsqueeze(1)
 
-            loss = self.criterion(
+            loss = self.cc_criterion(
                 self.norm(diff_tf_softmax),
                 self.norm(diff_image)
             )
@@ -130,15 +130,11 @@ class _CrossCorrelationEpocherHook(EpocherHook):
             chain(projected_dist_tf, projected_tf_dist)
         ]
         cc_loss = average_iter(losses)
-        if self.mi_criterion:
-            mi_loss = mi_loss_per_head(projected_dist_tf, projected_tf_dist)
+        mi_loss = mi_loss_per_head(projected_dist_tf, projected_tf_dist)
         if self.meters:
             self.meters["cc_ls"].add(cc_loss.item())
-            if self.mi_criterion:
-                self.meters["mi_ls"].add(mi_loss.item())
-        if self.mi_criterion:
-            return cc_loss * self.weight + mi_loss * self.mi_weight
-        return cc_loss * self.weight
+            self.meters["mi_ls"].add(mi_loss.item())
+        return cc_loss * self.cc_weight + mi_loss * self.mi_weight
 
     @staticmethod
     def norm(image: Tensor):
