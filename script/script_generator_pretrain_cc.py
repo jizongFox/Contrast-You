@@ -41,8 +41,8 @@ def run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max
     return f""" python main_nd.py RandomSeed={random_seed} Trainer.name=semi \
      Trainer.save_dir={save_dir} Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name} \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
-    CrossCorrelationParameters.mi_weights={mi_weight}  \
-    CrossCorrelationParameters.cc_weights={cc_weight}  \
+    CrossCorrelationParameters.mi_weights={mi_weight:.10f}  \
+    CrossCorrelationParameters.cc_weights={cc_weight:.10f}  \
     --path config/base.yaml config/pretrain.yaml config/hooks/ccblocks.yaml \
     """
 
@@ -50,8 +50,8 @@ def run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max
 def run_pretrain_cc(*, save_dir: str, random_seed: int = 10, max_epoch: int, num_batches: int, cc_weight: float,
                     mi_weight: float, lr: float, data_name: str = "acdc"):
     return f"""  python main_nd.py RandomSeed={random_seed} Trainer.name=pretrain_decoder Trainer.save_dir={save_dir} \
-    Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} CrossCorrelationParameters.mi_weights={mi_weight}  \
-    CrossCorrelationParameters.cc_weights={cc_weight}  Optim.lr={lr:.10f} Data.name={data_name} \
+    Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} CrossCorrelationParameters.mi_weights={mi_weight:.10f}  \
+    CrossCorrelationParameters.cc_weights={cc_weight:.10f}  Optim.lr={lr:.10f} Data.name={data_name} \
     --path config/base.yaml config/pretrain.yaml config/hooks/ccblocks.yaml \
     """
 

@@ -189,7 +189,7 @@ def adding_writable_sink(save_dir):
     from contrastyou import logger_format
     abs_save_dir = os.path.abspath(save_dir)
     from loguru import logger
-    logger.add(os.path.join(abs_save_dir, "loguru.log"), level="TRACE", backtrace=False, diagnose=False,
+    logger.add(os.path.join(abs_save_dir, "loguru.log"), level="TRACE", backtrace=False, diagnose=True,
                format=logger_format)
 
 
