@@ -1,21 +1,9 @@
 import random
-from contextlib import contextmanager
 from typing import Tuple
 
-import matplotlib
 import torch
 from loguru import logger
 from torch import Tensor, nn
-
-
-@contextmanager
-def switch_plt_backend(env="agg"):
-    prev = matplotlib.get_backend()
-    matplotlib.use(env, force=True)
-    try:
-        yield
-    finally:
-        matplotlib.use(prev, force=True)
 
 
 def is_normalized(feature: Tensor, dim=1):

@@ -9,9 +9,9 @@ from torch import nn
 from contrastyou.arch import UNet
 from contrastyou.arch.utils import SingleFeatureExtractor
 from contrastyou.hooks.base import TrainerHook, EpocherHook
-from contrastyou.losses.contrastive import SelfPacedSupConLoss, SupConLoss1, switch_plt_backend
+from contrastyou.losses.contrastive import SelfPacedSupConLoss, SupConLoss1
 from contrastyou.meters import MeterInterface, AverageValueMeter
-from contrastyou.utils import fix_all_seed_for_transforms
+from contrastyou.utils import fix_all_seed_for_transforms, switch_plt_backend
 from contrastyou.writer import get_tb_writer
 from .utils import get_label
 
@@ -39,16 +39,16 @@ def get_n_point_coordinate(h, w, n):
                                    np.random.choice(range(w), n, replace=False))]
 
 
+@switch_plt_backend("agg")
 def figure2board(tensor, name, criterion, writer, epocher):
-    with switch_plt_backend("agg"):
-        fig1 = plt.figure()
-        plt.imshow(tensor.detach().float().cpu().numpy(), cmap="gray")
-        plt.colorbar()
-        dest = "/".join([criterion.__class__.__name__, name])
-        writer.add_figure(tag=dest, figure=fig1, global_step=epocher._cur_epoch)  # noqa
+    fig1 = plt.figure()
+    plt.imshow(tensor.detach().float().cpu().numpy(), cmap="gray")
+    plt.colorbar()
+    dest = "/".join([criterion.__class__.__name__, name])
+    writer.add_figure(tag=dest, figure=fig1, global_step=epocher._cur_epoch)  # noqa
 
 
-class PScheduler(object):
+class PScheduler:
     """
     scheduler function for the gamma as the self-paced loss.
     """

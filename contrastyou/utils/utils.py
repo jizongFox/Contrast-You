@@ -9,6 +9,7 @@ from itertools import repeat
 from pathlib import Path
 from typing import List
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -243,3 +244,26 @@ def get_model(model):
     elif isinstance(model, nn.Module):
         return model
     raise TypeError(type(model))
+
+
+class switch_plt_backend:
+
+    def __init__(self, env="agg") -> None:
+        super().__init__()
+        self.env = env
+
+    def __enter__(self):
+        self.prev = matplotlib.get_backend()
+        matplotlib.use(self.env, force=True)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        matplotlib.use(self.prev, force=True)
+
+    def __call__(self, func):
+        functools.wraps(func)
+
+        def wrapper(*args, **kwargs):
+            with self:
+                return func(*args, **kwargs)
+
+        return wrapper

@@ -66,7 +66,7 @@ def create_hook_from_config(model, config, *, is_pretrain=False, trainer):
             model=model, feature_names=cur_config["feature_names"], cc_weights=cur_config["cc_weights"],
             num_clusters=cur_config["num_clusters"], kernel_size=cur_config["kernel_size"],
             head_type=cur_config["head_type"], num_subheads=cur_config["num_subheads"],
-            mi_weights=cur_config["mi_weights"]
+            mi_weights=cur_config["mi_weights"], save=cur_config["save"]
         )
         hooks.append(hook)
 

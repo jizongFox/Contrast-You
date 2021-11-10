@@ -1,4 +1,3 @@
-# this hook collaborates with the Epocher to provide a scalable thing.
 import contextlib
 import typing as t
 import weakref
@@ -11,6 +10,9 @@ from torch.nn import Parameter
 
 from contrastyou.meters import MeterInterface
 from contrastyou.utils import class_name
+
+if t.TYPE_CHECKING:
+    from contrastyou.trainer.base import Trainer
 
 
 class HookNameExistError(Exception):
@@ -38,7 +40,10 @@ class TrainerHook(nn.Module, metaclass=_ClassNameMeta):
     def __init__(self, *, hook_name: str):
         super().__init__()
         self._hook_name = hook_name
+        self._trainer = None
+        self._initialized = False
 
+    @t.final
     def parameters(self, recurse: bool = True) -> t.Iterator[Parameter]:
         for m in self.learnable_modules:
             yield from m.parameters(recurse=recurse)
@@ -52,6 +57,24 @@ class TrainerHook(nn.Module, metaclass=_ClassNameMeta):
 
     def close(self):
         pass
+
+    def after_initialize(self):
+        pass
+
+    def set_trainer(self, trainer: 'Trainer'):
+        self._trainer = weakref.proxy(trainer)
+        self._initialized = True
+
+    @property
+    def trainer(self):
+        if self._initialized:
+            return self._trainer
+        raise RuntimeError(f"{class_name(self)} not initialized yet.")
+
+    @trainer.setter
+    def trainer(self, value: 'Trainer'):
+        self._initialized = True
+        self._trainer = value
 
 
 class CombineTrainerHook(TrainerHook):
@@ -71,6 +94,26 @@ class CombineTrainerHook(TrainerHook):
         for h in self._hooks:
             h.close()
 
+    def set_trainer(self, trainer: 'Trainer'):
+        for h in self._hooks:
+            h.set_trainer(trainer)
+
+    @property
+    def trainer(self):
+        for h in self._hooks:
+            if h._initialized:  # noqa
+                return h.trainer
+        raise RuntimeError(f"{class_name(self)} not initialized yet.")
+
+    @trainer.setter
+    def trainer(self, value: 'Trainer'):
+        for h in self._hooks:
+            h.trainer = value
+
+    def after_initialize(self):
+        for h in self._hooks:
+            h.after_initialize()
+
 
 class EpocherHook:
 
@@ -78,20 +121,20 @@ class EpocherHook:
         self._name = name
         self._epocher = None
         self.meters = None
-        self.__epocher_set__ = False
+        self._epocher_init = False
 
     def set_epocher(self, epocher):
         """not necessary to be called, but need to be called with training with the epocher."""
         self._epocher = weakref.proxy(epocher)
         self.meters = weakref.proxy(epocher.meters)
-        self.__epocher_set__ = True
+        self._epocher_init = True
 
     @property
     def epocher(self):
         return self._epocher
 
     def set_meters_given_epocher(self):
-        assert self.__epocher_set__, f"epocher not set to {class_name(self)}."
+        assert self._epocher_init, f"epocher not set to {class_name(self)}."
         with self.meters.focus_on(self.name):
             self.configure_meters_given_epocher(self.meters)
 
@@ -224,6 +267,11 @@ class CombineEpochHook(EpocherHook):
     def close(self):
         for h in self._epocher_hook:
             h.close()
+
+    @property
+    def epocher(self):
+        for h in self._epocher_hook:
+            return h._epocher
 
 
 def meter_focus(_func=None, *, attribute="_name"):

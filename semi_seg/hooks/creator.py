@@ -1,3 +1,4 @@
+import typing
 from typing import List, Union, TypeVar, Sequence
 
 from torch import nn
@@ -5,7 +6,7 @@ from torch import nn
 from contrastyou.arch import UNet
 from contrastyou.hooks.base import CombineTrainerHook, TrainerHook
 from contrastyou.utils.utils import ntuple, class_name
-from .ccblock import CrossCorrelationHook
+from .ccblock import CrossCorrelationHookWithSaver
 from .consistency import ConsistencyTrainerHook
 from .discretemi import DiscreteMITrainHook
 from .dmt import DifferentiableMeanTeacherTrainerHook
@@ -19,6 +20,9 @@ from .pseudolabel import PseudoLabelTrainerHook
 
 decoder_names = UNet.decoder_names
 encoder_names = UNet.encoder_names
+
+if typing.TYPE_CHECKING:
+    from contrastyou.trainer import Trainer
 
 T = TypeVar("T")
 item_or_seq = Union[T, Sequence[T]]
@@ -193,7 +197,7 @@ def create_imsat_hook(*, weight: float = 0.1):
 def create_cross_correlation_hooks(
     *, model: nn.Module, feature_names: item_or_seq[str], cc_weights: item_or_seq[float],
     mi_weights: item_or_seq[float], num_clusters: item_or_seq[int], kernel_size: item_or_seq[int],
-    head_type=item_or_seq[str], num_subheads: item_or_seq[int],
+    head_type=item_or_seq[str], num_subheads: item_or_seq[int], save: bool = True,
 ):
     if isinstance(feature_names, str):
         num_features = 1
@@ -210,15 +214,15 @@ def create_cross_correlation_hooks(
     num_subheads = pair_generator(num_subheads)
     hooks = []
     for cw, mw, f_name, ksize, h_type, n_subheads, n_cluster in zip(cc_weights, mi_weights, feature_names, kernel_size,
-                                                                   head_type,
-                                                                   num_subheads, num_clusters):
+                                                                    head_type,
+                                                                    num_subheads, num_clusters):
         project_params = {"num_clusters": n_cluster,
                           "head_type": h_type,
                           "normalize": False,
                           "num_subheads": n_subheads,
                           "hidden_dim": 64}
-        _hook = CrossCorrelationHook(name=f"{f_name}", cc_weight=cw, feature_name=f_name, kernel_size=ksize,
-                                     projector_params=project_params, model=model, mi_weight=mw)
+        _hook = CrossCorrelationHookWithSaver(name=f"{f_name}", cc_weight=cw, feature_name=f_name, kernel_size=ksize,
+                                              projector_params=project_params, model=model, mi_weight=mw, save=save)
         hooks.append(_hook)
 
     return CombineTrainerHook(*hooks)

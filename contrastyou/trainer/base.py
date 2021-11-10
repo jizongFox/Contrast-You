@@ -33,7 +33,7 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
         self._criterion = criterion
         self._tra_loader = tra_loader
         self._val_loader = val_loader
-        self.__hooks__ = nn.ModuleList()
+        self._hooks = nn.ModuleList()
         self._storage = Storage(save_dir=self._save_dir)
         self._writer = None
         if self.on_master():
@@ -43,24 +43,28 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
             self.dump_config(self._config)
         self._optimizer = None
         self._scheduler = None
-        self.__initialized__ = False
+        self._initialized = False
 
     def init(self):
         self._optimizer = self._init_optimizer()
         self._scheduler = self._init_scheduler(self._optimizer, scheduler_params=self._config.get("Scheduler", None))
-        self.__initialized__ = True
+        self._initialized = True
 
     @contextmanager
     def register_hook(self, *hook: TrainerHook):
-        if self.__initialized__:
+        if self._initialized:
             raise RuntimeError("`register_hook must be called before `init()``")
         for h in hook:
             assert isinstance(h, TrainerHook), h
-            self.__hooks__.append(h)
+            self._hooks.append(h)
+            h.set_trainer(self)
         logger.trace("bind TrainerHooks")
-        for h in self.__hooks__:
+        for h in self._hooks:
             h.to(self.device)  # put the hook into device.
         try:
+            # calling after_init of hooks
+            for h in self._hooks:
+                h.after_initialize()
             yield
         finally:
             for h in hook:
@@ -75,7 +79,7 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
         )
         optimizer.add_param_group(
             {
-                "params": chain(*(x.parameters() for x in self.__hooks__)),
+                "params": chain(*(x.parameters() for x in self._hooks)),
                 **{k: v for k, v in optim_params.items() if k != "name" and k != "pre_lr" and k != "ft_lr"}
             }
         )
@@ -96,7 +100,7 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
         return scheduler
 
     def start_training(self, **kwargs):
-        if not self.__initialized__:
+        if not self._initialized:
             raise RuntimeError(f"{self.__class__.__name__} should call `init()` first")
         self.to(self.device)
         with self._writer if self.on_master() else nullcontext():
@@ -137,8 +141,8 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
         return self._run_tra_epoch(epocher)
 
     def _run_tra_epoch(self, epocher: EpocherBase):
-        use_hook = self.activate_hooks and len(self.__hooks__) > 0
-        with epocher.register_hook(*[h() for h in self.__hooks__]) if use_hook else nullcontext():
+        use_hook = self.activate_hooks and len(self._hooks) > 0
+        with epocher.register_hook(*[h() for h in self._hooks]) if use_hook else nullcontext():
             epocher.run()
         return epocher.get_metric()
 

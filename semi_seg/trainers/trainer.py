@@ -69,7 +69,7 @@ class MTTrainer(SemiTrainer):
         start_epoch = max(self._cur_epoch + 1, self._start_epoch)
         self._cur_score: float
 
-        mt_hook = [h for h in self.__hooks__ if isinstance(h, MeanTeacherTrainerHook)]
+        mt_hook = [h for h in self._hooks if isinstance(h, MeanTeacherTrainerHook)]
         assert len(mt_hook) == 1, mt_hook
         mt_hook = mt_hook[0]
 

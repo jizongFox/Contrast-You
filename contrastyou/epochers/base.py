@@ -140,3 +140,7 @@ class EpocherBase(AMPScaler, DDPMixin, metaclass=ABCMeta):
     @property
     def device(self):
         return self._device
+
+    @property
+    def cur_epoch(self):
+        return self._cur_epoch
