@@ -1,4 +1,5 @@
 import os
+import typing as t
 from contextlib import nullcontext
 from pathlib import Path
 
@@ -80,7 +81,8 @@ def worker(config, absolute_save_dir, seed):
         **{k: v for k, v in config["Trainer"].items() if k != "save_dir" and k != "name"}
     )
     # find the last.pth from the save folder.
-    checkpoint = find_checkpoint(trainer.absolute_save_dir)
+    checkpoint: t.Optional[str] = find_checkpoint(trainer.absolute_save_dir)
+    # checkpoint: t.Optional[str] = config.trainer_checkpoint
 
     if trainer_name not in ("ft", "dmt"):
         with fix_all_seed_within_context(seed):

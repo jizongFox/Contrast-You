@@ -1,5 +1,5 @@
 import os
-from collections import Iterable
+from collections.abc import Iterable
 from itertools import cycle
 from typing import Sequence, List, Iterator
 
@@ -28,27 +28,27 @@ def get_hyper_param_string(**kwargs):
     return prefix
 
 
-def run_ft(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int, num_batches: int,
-           arch_checkpoint: str = "null", lr: float, data_name: str = "acdc"):
+def _run_ft(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int, num_batches: int,
+            arch_checkpoint: str = "null", lr: float, data_name: str = "acdc"):
     return f""" python main.py RandomSeed={random_seed} Trainer.name=ft \
      Trainer.save_dir={save_dir} Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name} \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
     """
 
 
-def run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int, num_batches: int,
-             arch_checkpoint: str, lr: float, data_name: str = "acdc", cc_weight: float, mi_weight: float):
+def _run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int, num_batches: int,
+              arch_checkpoint: str, lr: float, data_name: str = "acdc", cc_weight: float, mi_weight: float):
     return f""" python main_nd.py RandomSeed={random_seed} Trainer.name=semi \
      Trainer.save_dir={save_dir} Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name} \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
     CrossCorrelationParameters.mi_weights={mi_weight:.10f}  \
     CrossCorrelationParameters.cc_weights={cc_weight:.10f}  \
-    --path config/base.yaml config/pretrain.yaml config/hooks/ccblocks.yaml \
+    --path   config/base.yaml  config/hooks/ccblocks.yaml \
     """
 
 
-def run_pretrain_cc(*, save_dir: str, random_seed: int = 10, max_epoch: int, num_batches: int, cc_weight: float,
-                    mi_weight: float, lr: float, data_name: str = "acdc"):
+def _run_pretrain_cc(*, save_dir: str, random_seed: int = 10, max_epoch: int, num_batches: int, cc_weight: float,
+                     mi_weight: float, lr: float, data_name: str = "acdc"):
     return f"""  python main_nd.py RandomSeed={random_seed} Trainer.name=pretrain_decoder Trainer.save_dir={save_dir} \
     Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} CrossCorrelationParameters.mi_weights={mi_weight:.10f}  \
     CrossCorrelationParameters.cc_weights={cc_weight:.10f}  Optim.lr={lr:.10f} Data.name={data_name} \
@@ -61,13 +61,13 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch: int, num_batc
     data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
     pretrain_save_dir = os.path.join(save_dir, "pretrain")
-    pretrain_script = run_pretrain_cc(
+    pretrain_script = _run_pretrain_cc(
         save_dir=pretrain_save_dir, random_seed=random_seed, max_epoch=max_epoch, num_batches=num_batches,
         mi_weight=mi_weight, cc_weight=cc_weight, lr=data_opt["pre_lr"], data_name=data_name
     )
     ft_save_dir = os.path.join(save_dir, "tra")
     ft_script = [
-        run_ft(
+        _run_ft(
             save_dir=os.path.join(ft_save_dir, f"labeled_num_{l:03d}"), random_seed=random_seed,
             num_labeled_scan=l, max_epoch=max_epoch, num_batches=num_batches,
             arch_checkpoint=f"{os.path.join(MODEL_PATH, pretrain_save_dir, 'last.pth')}",
@@ -83,7 +83,7 @@ def run_semi_regularize(*, save_dir, random_seed: int = 10, max_epoch: int, num_
     data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
     semi_script = [
-        run_semi(
+        _run_semi(
             save_dir=os.path.join(save_dir, "semi", f"labeled_num_{l:03d}"), random_seed=random_seed,
             num_labeled_scan=l, max_epoch=max_epoch, num_batches=num_batches, arch_checkpoint="null",
             lr=data_opt["ft_lr"], data_name=data_name, mi_weight=mi_weight,
@@ -99,7 +99,7 @@ def run_baseline(
     data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
     ft_script = [
-        run_ft(
+        _run_ft(
             save_dir=os.path.join(save_dir, "baseline", f"labeled_num_{l:03d}"), random_seed=random_seed,
             num_labeled_scan=l, max_epoch=max_epoch, num_batches=num_batches,
             arch_checkpoint="null",
