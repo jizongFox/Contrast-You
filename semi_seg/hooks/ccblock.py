@@ -71,7 +71,7 @@ class FeatureMapSaver:
             plt.imshow(img)
             plt.imshow(f_map2, alpha=0.7)
             plt.axis('off')
-            plt.savefig(str(save_path), dpi=100, bbox_inches='tight')
+            plt.savefig(str(save_path), dpi=300, bbox_inches='tight')
             plt.close(fig)
 
     def zip(self) -> None:
