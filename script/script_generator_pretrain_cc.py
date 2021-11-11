@@ -15,8 +15,12 @@ args = parser.parse_args()
 
 account = cycle(__accounts)
 on_local = not on_cc()
-force_show = True
+force_show = False
 data_name = "acdc"
+random_seeds = [10, ]
+max_epoch = 50
+num_batches = 300
+
 save_dir = args.save_dir
 
 save_dir = os.path.join(save_dir, f"hash_{git_hash}/{data_name}")
@@ -43,12 +47,14 @@ def _run_ft(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_
 
 def _run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int, num_batches: int,
               arch_checkpoint: str, lr: float, data_name: str = "acdc", cc_weight: float, mi_weight: float,
-              consistency_weight: float, padding: int, lamda: float, power: float):
+              consistency_weight: float, padding: int, lamda: float, power: float, head_type: str, num_subheads: int):
     return f""" python main_nd.py RandomSeed={random_seed} Trainer.name=semi \
      Trainer.save_dir={save_dir} Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name} \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
     CrossCorrelationParameters.mi_weights={mi_weight:.10f}  \
     CrossCorrelationParameters.cc_weights={cc_weight:.10f}  \
+    CrossCorrelationParameters.head_type={head_type}  \
+    CrossCorrelationParameters.num_subheads={num_subheads}  \
     ConsistencyParameters.weight={consistency_weight:.10f}  \
     CrossCorrelationParameters.IID.padding={padding}  \
     CrossCorrelationParameters.IID.lamda={lamda:.10f} \
@@ -59,11 +65,13 @@ def _run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, ma
 
 def _run_pretrain_cc(*, save_dir: str, random_seed: int = 10, max_epoch: int, num_batches: int, cc_weight: float,
                      mi_weight: float, consistency_weight: float, lr: float, data_name: str = "acdc", padding: int,
-                     lamda: float, power: float):
+                     lamda: float, power: float, head_type: str, num_subheads: int):
     return f"""  python main_nd.py RandomSeed={random_seed} Trainer.name=pretrain_decoder Trainer.save_dir={save_dir} \
     Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} CrossCorrelationParameters.mi_weights={mi_weight:.10f}  \
     CrossCorrelationParameters.cc_weights={cc_weight:.10f}  Optim.lr={lr:.10f} Data.name={data_name} \
     ConsistencyParameters.weight={consistency_weight:.10f}  \
+    CrossCorrelationParameters.head_type={head_type}  \
+    CrossCorrelationParameters.num_subheads={num_subheads}  \
     CrossCorrelationParameters.IID.padding={padding}  \
     CrossCorrelationParameters.IID.lamda={lamda:.10f} \
     CrossCorrelationParameters.norm.power={power:.10f}  \
@@ -73,14 +81,15 @@ def _run_pretrain_cc(*, save_dir: str, random_seed: int = 10, max_epoch: int, nu
 
 def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch: int, num_batches: int, data_name: str = "acdc",
                     mi_weight, cc_weight, consistency_weight, padding: int,
-                    lamda: float, power: float):
+                    lamda: float, power: float, head_type: str, num_subheads: int):
     data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
     pretrain_save_dir = os.path.join(save_dir, "pretrain")
     pretrain_script = _run_pretrain_cc(
         save_dir=pretrain_save_dir, random_seed=random_seed, max_epoch=max_epoch, num_batches=num_batches,
         mi_weight=mi_weight, cc_weight=cc_weight, lr=data_opt["pre_lr"], data_name=data_name,
-        consistency_weight=consistency_weight, padding=padding, lamda=lamda, power=power
+        consistency_weight=consistency_weight, padding=padding, lamda=lamda, power=power, head_type=head_type,
+        num_subheads=num_subheads
     )
     ft_save_dir = os.path.join(save_dir, "tra")
     ft_script = [
@@ -97,7 +106,7 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch: int, num_batc
 
 def run_semi_regularize(*, save_dir, random_seed: int = 10, max_epoch: int, num_batches: int, data_name: str = "acdc",
                         mi_weight: float, cc_weight: float, consistency_weight: float, padding: int,
-                        lamda: float, power: float) -> List[str]:
+                        lamda: float, power: float, head_type: str, num_subheads: int) -> List[str]:
     data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
     semi_script = [
@@ -105,7 +114,9 @@ def run_semi_regularize(*, save_dir, random_seed: int = 10, max_epoch: int, num_
             save_dir=os.path.join(save_dir, "semi", f"labeled_num_{l:03d}"), random_seed=random_seed,
             num_labeled_scan=l, max_epoch=max_epoch, num_batches=num_batches, arch_checkpoint="null",
             lr=data_opt["ft_lr"], data_name=data_name, mi_weight=mi_weight,
-            cc_weight=cc_weight, consistency_weight=consistency_weight, padding=padding, lamda=lamda, power=power)
+            cc_weight=cc_weight, consistency_weight=consistency_weight, padding=padding, lamda=lamda, power=power,
+            head_type=head_type, num_subheads=num_subheads
+        )
         for l in labeled_scans
     ]
     return semi_script
@@ -132,11 +143,13 @@ def run_pretrain_ft_with_grid_search(
     *, save_dir, random_seeds: Sequence[int] = 10, max_epoch: int, num_batches: int,
     data_name: str,
     mi_weights: Sequence[float], cc_weights: Sequence[float], consistency_weights: Sequence[float],
-    paddings: Sequence[int], lamdas: Sequence[float], powers: Sequence[float], include_baseline=True
+    paddings: Sequence[int], lamdas: Sequence[float], powers: Sequence[float], head_types=Sequence[str],
+    num_subheads: Sequence[int],
+    include_baseline=True
 ) -> Iterator[List[str]]:
     param_generator = grid_search(mi_weight=mi_weights, cc_weight=cc_weights, random_seed=random_seeds,
                                   consistency_weight=consistency_weights, padding=paddings, lamda=lamdas,
-                                  power=powers)
+                                  power=powers, head_type=head_types, num_subheads=num_subheads)
     for param in param_generator:
         random_seed = param.pop("random_seed")
         sp_str = get_hyper_param_string(**param)
@@ -155,12 +168,13 @@ def run_semi_regularize_with_grid_search(
     *, save_dir, random_seeds: Sequence[int] = 10, max_epoch: int, num_batches: int,
     data_name: str,
     mi_weights: Sequence[float], cc_weights: Sequence[float], consistency_weights: Sequence[float],
-    paddings: Sequence[int], lamdas: Sequence[float], powers: Sequence[float],
+    paddings: Sequence[int], lamdas: Sequence[float], powers: Sequence[float], head_types: Sequence[str],
+    num_subheads: Sequence[int],
     include_baseline=True
 ) -> Iterator[List[str]]:
     param_generator = grid_search(mi_weight=mi_weights, cc_weight=cc_weights, random_seed=random_seeds,
                                   consistency_weight=consistency_weights, padding=paddings, lamda=lamdas,
-                                  power=powers)
+                                  power=powers, head_types=head_types, num_subheads=num_subheads)
     for param in param_generator:
         random_seed = param.pop("random_seed")
         sp_str = get_hyper_param_string(**param)
@@ -197,17 +211,16 @@ if __name__ == '__main__':
         "python -c 'import torch; print(torch.randn(1,1,1,1,device=\"cuda\"))'"
     ])
     submitter.configure_sbatch(mem=24)
-    random_seeds = [10, ]
-    max_epoch = 50
-    num_batches = 300
 
     for job in run_pretrain_ft_with_grid_search(save_dir=save_dir, random_seeds=random_seeds, max_epoch=max_epoch,
                                                 num_batches=num_batches,
-                                                data_name=data_name, mi_weights=[1], cc_weights=[0, 0.1, 0.2, 0.5, 1],
+                                                data_name=data_name, mi_weights=[1], cc_weights=[0, 0.1, 0.2, 0.5],
                                                 consistency_weights=[0, 0.1, 0.5],
                                                 include_baseline=True,
                                                 paddings=[0, 1, 2], lamdas=[1, 1.5, 2],
-                                                powers=[1, 0.75, 0.5]
+                                                powers=[1, 0.75, 0.5],
+                                                head_types=["linear", "mlp"],
+                                                num_subheads=[1, 2]
                                                 ):
         submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
 
@@ -217,18 +230,22 @@ if __name__ == '__main__':
                                                 consistency_weights=[0, 0.1, 0.5],
                                                 include_baseline=False,
                                                 paddings=[0, 1, 2], lamdas=[1, 1.5, 2],
-                                                powers=[1, 0.75, 0.5]
+                                                powers=[1, 0.75, 0.5],
+                                                head_types=["linear", "mlp"],
+                                                num_subheads=[1, 2]
                                                 ):
         submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
 
     for job in run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"), random_seeds=random_seeds,
                                                     max_epoch=max_epoch, num_batches=num_batches,
                                                     data_name=data_name,
-                                                    mi_weights=[0, 0.001, 0.01, 0.002, 0.1, 0.5, 1],
-                                                    cc_weights=[0, 0.00001, 0.0001, 0.001, 0.01, 0.1, 0.5, ],
+                                                    mi_weights=[0, 0.001, 0.002, 0.01, ],
+                                                    cc_weights=[0, 0.00001, 0.0001, 0.001, 0.01, ],
                                                     consistency_weights=[0, 0.1, 0.5],
                                                     include_baseline=True,
                                                     paddings=[0, 1, 2], lamdas=[1, 1.5, 2],
-                                                    powers=[1, 0.75, 0.5]
+                                                    powers=[1, 0.75, 0.5],
+                                                    head_types=["linear", "mlp"],
+                                                    num_subheads=[1, 2]
                                                     ):
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=6, account=next(account))
+        submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
