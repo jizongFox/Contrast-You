@@ -78,9 +78,12 @@ class FeatureMapSaver:
         """
         Put all image folders as a zip file, in order to avoid IO things when downloading.
         """
-        shutil.make_archive(str(self.save_dir / self.folder_name.replace("/", "_")), 'zip',
-                            str(self.save_dir / self.folder_name))
-        shutil.rmtree(str(self.save_dir / self.folder_name))
+        try:
+            shutil.make_archive(str(self.save_dir / self.folder_name.replace("/", "_")), 'zip',
+                                str(self.save_dir / self.folder_name))
+            shutil.rmtree(str(self.save_dir / self.folder_name))
+        except FileNotFoundError as e:
+            logger.opt(exception=True, depth=1).warning(e)
 
 
 class CrossCorrelationHook(TrainerHook):
