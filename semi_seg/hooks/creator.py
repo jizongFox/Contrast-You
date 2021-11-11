@@ -22,7 +22,7 @@ decoder_names = UNet.decoder_names
 encoder_names = UNet.encoder_names
 
 if typing.TYPE_CHECKING:
-    from contrastyou.trainer import Trainer
+    pass
 
 T = TypeVar("T")
 item_or_seq = Union[T, Sequence[T]]
@@ -197,7 +197,8 @@ def create_imsat_hook(*, weight: float = 0.1):
 def create_cross_correlation_hooks(
     *, model: nn.Module, feature_names: item_or_seq[str], cc_weights: item_or_seq[float],
     mi_weights: item_or_seq[float], num_clusters: item_or_seq[int], kernel_size: item_or_seq[int],
-    head_type=item_or_seq[str], num_subheads: item_or_seq[int], save: bool = True,
+    head_type=item_or_seq[str], num_subheads: item_or_seq[int], save: bool = True, padding: item_or_seq[int],
+    lamda: item_or_seq[float], power: item_or_seq[float]
 ):
     if isinstance(feature_names, str):
         num_features = 1
@@ -212,17 +213,26 @@ def create_cross_correlation_hooks(
     kernel_size = pair_generator(kernel_size)
     head_type = pair_generator(head_type)
     num_subheads = pair_generator(num_subheads)
+    padding = pair_generator(padding)
+    lamda = pair_generator(lamda)
+    power = pair_generator(power)
+
     hooks = []
-    for cw, mw, f_name, ksize, h_type, n_subheads, n_cluster in zip(cc_weights, mi_weights, feature_names, kernel_size,
-                                                                    head_type,
-                                                                    num_subheads, num_clusters):
+    for cw, mw, f_name, ksize, h_type, n_subheads, n_cluster, _padding, _lamda, _power in \
+        zip(cc_weights, mi_weights, feature_names, kernel_size, head_type, num_subheads, num_clusters, padding, lamda,
+            power):
         project_params = {"num_clusters": n_cluster,
                           "head_type": h_type,
                           "normalize": False,
                           "num_subheads": n_subheads,
                           "hidden_dim": 64}
-        _hook = CrossCorrelationHookWithSaver(name=f"{f_name}", cc_weight=cw, feature_name=f_name, kernel_size=ksize,
-                                              projector_params=project_params, model=model, mi_weight=mw, save=save)
+        mi_params = {"padding": _padding, "lamda": _lamda}
+        norm_params = {"power": _power}
+        _hook = CrossCorrelationHookWithSaver(
+            name=f"{f_name}", cc_weight=cw, feature_name=f_name, kernel_size=ksize,
+            projector_params=project_params, model=model, mi_weight=mw, save=save,
+            mi_criterion_params=mi_params, norm_params=norm_params
+        )
         hooks.append(_hook)
 
     return CombineTrainerHook(*hooks)

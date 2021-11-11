@@ -7,3 +7,10 @@ CrossCorrelationParameters:
   head_type: linear
   num_subheads: 1
   save: true
+
+  IID:
+    padding: 1
+    lamda: 1.4
+
+  norm:
+    power: 0.75

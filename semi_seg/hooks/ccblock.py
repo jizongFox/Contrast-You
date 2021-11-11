@@ -89,10 +89,11 @@ class FeatureMapSaver:
 class CrossCorrelationHook(TrainerHook):
 
     def __init__(self, *, name: str, model: nn.Module, feature_name: UNetFeatureMapEnum, cc_weight: float,
-                 mi_weight: float = 0.0, kernel_size: int, projector_params: t.Dict[str, t.Any]):
+                 mi_weight: float = 0.0, kernel_size: int, projector_params: t.Dict[str, t.Any],
+                 mi_criterion_params: t.Dict[str, t.Any], norm_params: t.Dict[str, t.Any]):
         super().__init__(hook_name=name)
-        self._cc_weight = cc_weight
-        self._mi_weight = mi_weight
+        self._cc_weight = float(cc_weight)
+        self._mi_weight = float(mi_weight)
         feature_name = UNetFeatureMapEnum(feature_name)
         self._feature_name = feature_name.value
         logger.info(
@@ -108,14 +109,16 @@ class CrossCorrelationHook(TrainerHook):
         self._cc_criterion = CCLoss(win=(kernel_size, kernel_size))
 
         logger.trace(f"Creating IIDSegmentationLoss with kernel_size = {kernel_size} with weight = {self._mi_weight}.")
-        self._mi_criterion = IIDSegmentationLoss(padding=0)
+        self._mi_criterion = IIDSegmentationLoss(**mi_criterion_params)
+
+        self._diff_power = float(norm_params["power"])
 
     def __call__(self, **kwargs):
         return _CrossCorrelationEpocherHook(
             name=self._hook_name, extractor=self._extractor,
             projector=self._projector, cc_criterion=self._cc_criterion,
             cc_weight=self._cc_weight, mi_weight=self._mi_weight,
-            mi_criterion=self._mi_criterion
+            mi_criterion=self._mi_criterion, diff_power=self.diff_power
         )
 
     @property
@@ -127,7 +130,7 @@ class _CrossCorrelationEpocherHook(EpocherHook):
 
     def __init__(self, *, name: str = "cc", extractor: 'SingleFeatureExtractor', projector: '_ProjectorHeadBase',
                  cc_criterion: CCLoss, mi_criterion: 'IIDSegmentationLoss',
-                 cc_weight: float, mi_weight: float) -> None:
+                 cc_weight: float, mi_weight: float, diff_power: float = 1.0) -> None:
         super().__init__(name=name)
         self.cc_weight = cc_weight
         self.mi_weight = mi_weight
@@ -137,6 +140,7 @@ class _CrossCorrelationEpocherHook(EpocherHook):
         self.cc_criterion = cc_criterion
         self.mi_criterion = mi_criterion
         self._ent_func = Entropy(reduction="none")
+        self._diff_power = diff_power
 
     def close(self):
         self.extractor.remove()
@@ -176,12 +180,16 @@ class _CrossCorrelationEpocherHook(EpocherHook):
             self.meters["mi_ls"].add(mi_loss.item())
         return cc_loss * self.cc_weight + mi_loss * self.mi_weight
 
-    @staticmethod
-    def norm(image: Tensor):
+    def norm(self, image: Tensor, min=0.0, max=1.0, slicewise=True):
+        if not slicewise:
+            return self._norm(image, min, max)
+        return torch.stack([self._norm(x) for x in image], dim=0)
+
+    def _norm(self, image: Tensor, min=0.0, max=1.0):
         min_, max_ = image.min().detach(), image.max().detach()
         image = image - min_
         image = image / (max_ - min_ + 1e-6)
-        return (image - 0.5) * 2
+        return image * (max - min) + min
 
     @staticmethod
     def diff(image: Tensor):
@@ -189,21 +197,21 @@ class _CrossCorrelationEpocherHook(EpocherHook):
         dx = image - torch.roll(image, shifts=1, dims=2)
         dy = image - torch.roll(image, shifts=1, dims=3)
         d = torch.sqrt(dx.pow(2) + dy.pow(2))
-        return torch.mean(d, dim=[1], keepdims=True)  # noqa
+        return torch.mean(d, dim=1, keepdims=True)  # noqa
 
     def cc_loss_per_head(self, image: Tensor, predict_simplex: Tensor):
-        if tuple(image.shape) != tuple(predict_simplex.shape):
+        if tuple(image.shape[-2:]) != tuple(predict_simplex.shape[-2:]):
             h, w = predict_simplex.shape[-2:]
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore")
                 image = F.interpolate(image, size=(h, w), mode="bilinear")
 
-        diff_image = self.diff(image)
-        diff_tf_softmax = self._ent_func(predict_simplex).unsqueeze(1)
+        diff_image = self.norm(self.diff(image), min=0, max=1).pow(self._diff_power)
+        diff_tf_softmax = self.norm(self._ent_func(predict_simplex), min=0, max=1).unsqueeze(1)
 
         loss = self.cc_criterion(
-            self.norm(diff_tf_softmax),
-            self.norm(diff_image)
+            diff_tf_softmax,
+            diff_image
         )
         return loss, diff_image, diff_tf_softmax
 
@@ -216,9 +224,13 @@ class CrossCorrelationHookWithSaver(CrossCorrelationHook):
     # with an image saver
 
     def __init__(self, *, name: str, model: nn.Module, feature_name: UNetFeatureMapEnum, cc_weight: float,
-                 mi_weight: float = 0.0, kernel_size: int, projector_params: t.Dict[str, t.Any], save: bool = False):
-        super().__init__(name=name, model=model, feature_name=feature_name, cc_weight=cc_weight, mi_weight=mi_weight,
-                         kernel_size=kernel_size, projector_params=projector_params)
+                 mi_weight: float = 0.0, kernel_size: int, projector_params: t.Dict[str, t.Any],
+                 mi_criterion_params: t.Dict[str, t.Any], norm_params: t.Dict[str, t.Any], save: bool = False):
+        super().__init__(
+            name=name, model=model, feature_name=feature_name, cc_weight=cc_weight, mi_weight=mi_weight,
+            kernel_size=kernel_size, projector_params=projector_params, mi_criterion_params=mi_criterion_params,
+            norm_params=norm_params,
+        )
         self.save = save
         self.saver = None
 
@@ -233,7 +245,8 @@ class CrossCorrelationHookWithSaver(CrossCorrelationHook):
             name=self._hook_name, extractor=self._extractor,
             projector=self._projector, cc_criterion=self._cc_criterion,
             cc_weight=self._cc_weight, mi_weight=self._mi_weight,
-            mi_criterion=self._mi_criterion, saver=self.saver
+            mi_criterion=self._mi_criterion, saver=self.saver,
+            diff_power=self._diff_power
         )
 
     def close(self):
@@ -246,9 +259,9 @@ class _CrossCorrelationEpocherHookWithSaver(_CrossCorrelationEpocherHook):
 
     def __init__(self, *, name: str = "cc", extractor: 'SingleFeatureExtractor', projector: '_ProjectorHeadBase',
                  cc_criterion: 'CCLoss', mi_criterion: 'IIDSegmentationLoss', cc_weight: float,
-                 mi_weight: float, saver: 'FeatureMapSaver') -> None:
+                 mi_weight: float, diff_power: float, saver: 'FeatureMapSaver') -> None:
         super().__init__(name=name, extractor=extractor, projector=projector, cc_criterion=cc_criterion,
-                         mi_criterion=mi_criterion, cc_weight=cc_weight, mi_weight=mi_weight)
+                         mi_criterion=mi_criterion, cc_weight=cc_weight, mi_weight=mi_weight, diff_power=diff_power)
         self.saver = saver
 
     def _call_implementation(
