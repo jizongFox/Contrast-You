@@ -174,7 +174,7 @@ def run_semi_regularize_with_grid_search(
 ) -> Iterator[List[str]]:
     param_generator = grid_search(mi_weight=mi_weights, cc_weight=cc_weights, random_seed=random_seeds,
                                   consistency_weight=consistency_weights, padding=paddings, lamda=lamdas,
-                                  power=powers, head_types=head_types, num_subheads=num_subheads)
+                                  power=powers, head_type=head_types, num_subheads=num_subheads)
     for param in param_generator:
         random_seed = param.pop("random_seed")
         sp_str = get_hyper_param_string(**param)
