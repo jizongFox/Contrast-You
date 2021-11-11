@@ -15,7 +15,7 @@ args = parser.parse_args()
 
 account = cycle(__accounts)
 on_local = not on_cc()
-force_show = False
+force_show = True
 data_name = "acdc"
 random_seeds = [10, ]
 max_epoch = 50
@@ -149,7 +149,7 @@ def run_pretrain_ft_with_grid_search(
 ) -> Iterator[List[str]]:
     param_generator = grid_search(mi_weight=mi_weights, cc_weight=cc_weights, random_seed=random_seeds,
                                   consistency_weight=consistency_weights, padding=paddings, lamda=lamdas,
-                                  power=powers, head_type=head_types, num_subheads=num_subheads)
+                                  power=powers, head_type=head_types, num_subheads=num_subheads, max_num=200)
     for param in param_generator:
         random_seed = param.pop("random_seed")
         sp_str = get_hyper_param_string(**param)
@@ -174,7 +174,7 @@ def run_semi_regularize_with_grid_search(
 ) -> Iterator[List[str]]:
     param_generator = grid_search(mi_weight=mi_weights, cc_weight=cc_weights, random_seed=random_seeds,
                                   consistency_weight=consistency_weights, padding=paddings, lamda=lamdas,
-                                  power=powers, head_type=head_types, num_subheads=num_subheads)
+                                  power=powers, head_type=head_types, num_subheads=num_subheads, max_num=200)
     for param in param_generator:
         random_seed = param.pop("random_seed")
         sp_str = get_hyper_param_string(**param)

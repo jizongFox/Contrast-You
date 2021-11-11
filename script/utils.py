@@ -30,7 +30,7 @@ def is_true_iterator(value):
     return False
 
 
-def grid_search(**kwargs):
+def grid_search(max_num: int = None, **kwargs, ):
     max_N = 1
     for k, v in kwargs.copy().items():
         if is_true_iterator(v):
@@ -40,8 +40,21 @@ def grid_search(**kwargs):
             kwargs[k] = iter(v)
         else:
             kwargs[k] = [v]
+    result = []
     for value in product(*kwargs.values()):
-        yield dict(zip(kwargs.keys(), value))
+        result.append(dict(zip(kwargs.keys(), value)))
+    if max_num is None:
+        for case in result:
+            yield case
+    else:
+        if len(result) <= max_num:
+            for case in result:
+                yield case
+        else:
+            index = np.random.permutation(range(len(result)))[:max_num].tolist()
+            index.sort()
+            for i in index:
+                yield result[i]
 
 
 class ScriptGenerator:
