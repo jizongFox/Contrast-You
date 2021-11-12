@@ -1,4 +1,3 @@
-import torch
 from loguru import logger
 from torch import Tensor
 
@@ -39,9 +38,6 @@ class _IIDSegmentationEpochHook(EpocherHook):
         meters.register_meter("mi", AverageValueMeter())
 
     def _call_implementation(self, *, unlabeled_tf_logits, unlabeled_logits_tf, **kwargs):
-        if self._weight == 0:
-            self.meters["mi"].add(0)
-            return torch.tensor(0, device=unlabeled_logits_tf.device, dtype=unlabeled_logits_tf.dtype)
         unlabeled_tf_softmax, unlabeled_softmax_tf = unlabeled_tf_logits.softmax(1), unlabeled_logits_tf.softmax(1)
 
         loss = self._criterion(unlabeled_tf_softmax, unlabeled_softmax_tf)

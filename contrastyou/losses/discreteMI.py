@@ -88,13 +88,11 @@ class IIDSegmentationLoss(nn.Module, LossClass[Tensor]):
 
         # T x T x k x k
         p_i_mat = p_i_j.sum(dim=2, keepdim=True)
-        p_j_mat = p_i_j.sum(dim=3, keepdim=True)
 
         # maximise information
         loss = -p_i_j * (
             torch.log(p_i_j + self._eps)
-            - self.lamda * torch.log(p_i_mat + self._eps)
-            - self.lamda * torch.log(p_j_mat + self._eps)
+            - self.lamda * torch.log(p_i_mat + self._eps) * 2
         )
 
         return loss.sum() / (T_side_dense * T_side_dense)
