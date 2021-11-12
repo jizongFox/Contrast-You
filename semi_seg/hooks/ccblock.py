@@ -37,24 +37,33 @@ class FeatureMapSaver:
         (self.save_dir / self.folder_name).mkdir(exist_ok=True, parents=True)
 
     @switch_plt_backend(env="agg")
-    def save_map(self, *, image: Tensor, feature_map1: Tensor, feature_map2: Tensor, cur_epoch: int,
+    def save_map(self, *, image: Tensor, feature_map1: Tensor, feature_map2: Tensor, feature_type="feature",
+                 cur_epoch: int,
                  cur_batch_num: int, save_name: str) -> None:
         """
         Args:
             image: image tensor with bchw dimension, where c should be 1.
             feature_map1: tensor with bchw dimension. It would transform to bhw with argmax on c dimension.
             feature_map2: tensor with bchw dimension. It would transform to bhw with argmax on c dimension.
+            feature_type: image or feature. image is going to treat as image, feature would take the argmax on c.
             cur_epoch: current epoch
             cur_batch_num: cur_batch_num
             save_name: the png that would be saved under "save_name_cur_epoch_cur_batch_num.png" in to self.folder_name
                     folder.
         """
+        assert feature_type in ("image", "feature")
         assert image.dim() == 4, f"image should have bchw dimensions, given {image.shape}."
         image = image.detach()[:, 0].float().cpu()
         assert feature_map1.dim() == 4, f"feature_map should have bchw dimensions, given {feature_map1.shape}."
-        feature_map1 = feature_map1.max(1)[1].cpu().float()
+        if feature_type == "image":
+            feature_map1 = feature_map1.detach()[:, 0].float().cpu()
+        else:
+            feature_map1 = feature_map1.max(1)[1].cpu().float()
         assert feature_map2.dim() == 4, f"feature_map should have bchw dimensions, given {feature_map2.shape}."
-        feature_map2 = feature_map2.max(1)[1].cpu().float()
+        if feature_type == "image":
+            feature_map2 = feature_map2.detach()[:, 0].float().cpu()
+        else:
+            feature_map2 = feature_map2.max(1)[1].cpu().float()
 
         for i, (img, f_map1, f_map2) in enumerate(zip(image, feature_map1, feature_map2)):
             save_path = self.save_dir / self.folder_name / f"{save_name}_{cur_epoch:03d}_{cur_batch_num:02d}_{i:03d}.png"
@@ -64,12 +73,10 @@ class FeatureMapSaver:
             plt.imshow(img, cmap="gray")
             plt.axis('off')
             plt.subplot(312)
-            # plt.imshow(img, cmap="gray")
-            plt.imshow(f_map1, )
+            plt.imshow(f_map1, cmap="gray" if feature_type == "image" else None)
             plt.axis('off')
             plt.subplot(313)
-            # plt.imshow(img, cmap="gray")
-            plt.imshow(f_map2, )
+            plt.imshow(f_map2, cmap="gray" if feature_type == "image" else None)
             plt.axis('off')
             plt.savefig(str(save_path), dpi=300, bbox_inches='tight')
             plt.close(fig)
@@ -273,7 +280,8 @@ class _CrossCorrelationEpocherHookWithSaver(_CrossCorrelationEpocherHook):
         feature_ = self.extractor.feature()[-n_unl * 2:]
         _unlabeled_features, unlabeled_tf_features = torch.chunk(feature_, 2, dim=0)
         unlabeled_features_tf = affine_transformer(_unlabeled_features)
-        if self.epocher.cur_batch_num == 0:
+        save_image_condition = self.epocher.cur_batch_num == 0 and self.epocher.cur_epoch % 5 == 0
+        if save_image_condition:
             self.saver.save_map(
                 image=unlabeled_image_tf, feature_map1=unlabeled_tf_features, feature_map2=unlabeled_features_tf,
                 cur_epoch=self.epocher.cur_epoch, cur_batch_num=self.epocher.cur_batch_num, save_name="feature"
@@ -285,7 +293,7 @@ class _CrossCorrelationEpocherHookWithSaver(_CrossCorrelationEpocherHook):
                 self.projector(torch.cat([unlabeled_features_tf, unlabeled_tf_features], dim=0))
             ]
         )
-        if self.epocher.cur_batch_num == 0:
+        if save_image_condition:
             self.saver.save_map(
                 image=unlabeled_image_tf, feature_map1=projected_dist_tf[0], feature_map2=projected_tf_dist[0],
                 cur_epoch=self.epocher.cur_epoch, cur_batch_num=self.epocher.cur_batch_num, save_name="probability"
@@ -295,11 +303,11 @@ class _CrossCorrelationEpocherHookWithSaver(_CrossCorrelationEpocherHook):
             self.cc_loss_per_head(image=unlabeled_image_tf, predict_simplex=x) for x in
             chain(projected_dist_tf, projected_tf_dist)
         ])
-        if self.epocher.cur_batch_num == 0:
+        if save_image_condition:
             self.saver.save_map(
                 image=diff_image[0], feature_map1=diff_prediction[0], feature_map2=diff_prediction[0],
                 cur_epoch=self.epocher.cur_epoch, cur_batch_num=self.epocher.cur_batch_num,
-                save_name="cross_correlation"
+                save_name="cross_correlation", feature_type="image"
             )
 
         cc_loss = average_iter(losses)
