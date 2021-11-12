@@ -207,7 +207,7 @@ class _CrossCorrelationEpocherHook(EpocherHook):
                 image = F.interpolate(image, size=(h, w), mode="bilinear")
 
         diff_image = self.norm(self.diff(image), min=0, max=1).pow(self._diff_power)
-        diff_tf_softmax = self.norm(self._ent_func(predict_simplex), min=0, max=1).unsqueeze(1)
+        diff_tf_softmax = self.norm(self._ent_func(predict_simplex), min=0, max=1, slicewise=False).unsqueeze(1)
 
         loss = self.cc_criterion(
             diff_tf_softmax,
