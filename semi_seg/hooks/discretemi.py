@@ -13,6 +13,9 @@ encoder_names = UNet.encoder_names
 
 
 class DiscreteMITrainHook(TrainerHook):
+    """
+    You have a feature exacter, a projector and discrete Mutual information loss in side the loss.
+    """
 
     @property
     def learnable_modules(self) -> List[nn.Module]:

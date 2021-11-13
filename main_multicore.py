@@ -7,7 +7,7 @@ from loguru import logger
 
 from contrastyou import CONFIG_PATH, git_hash, OPT_PATH
 from contrastyou.arch import UNet
-from contrastyou.configure import ConfigManger
+from contrastyou.configure import ConfigManager
 from contrastyou.configure.yaml_parser import yaml_load
 from contrastyou.losses.multicore_loss import MultiCoreKL
 from contrastyou.trainer import create_save_dir
@@ -20,7 +20,7 @@ from utils import logging_configs, find_checkpoint, grouper
 
 @logger.catch(reraise=True)
 def main():
-    manager = ConfigManger(base_path=os.path.join(CONFIG_PATH, "base.yaml"), strict=True, verbose=False)
+    manager = ConfigManager(os.path.join(CONFIG_PATH, "base.yaml"), strict=True, verbose=False)
 
     with manager(scope="base") as config:
         # this handles input save dir with relative and absolute paths
