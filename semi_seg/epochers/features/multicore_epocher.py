@@ -7,15 +7,17 @@ from contrastyou.configure.manager import get_config
 from contrastyou.losses.multicore_loss import MultiCoreKL, GeneralOverSegmentedLoss
 from contrastyou.meters import MeterInterface, AverageValueMeter
 from contrastyou.utils import class2one_hot
-from ..epocher import EvalEpocher, SemiSupervisedEpocher
+from semi_seg.epochers.epocher import EvalEpocher, SemiSupervisedEpocher
 
 
-class MultiCoreTrainEpocher(SemiSupervisedEpocher, ABC):
-
+class _MultiCoreMixin:
     @property
     def num_classes(self):
         config = get_config(scope="base")
         return config["Arch"]["true_num_classes"]
+
+
+class MultiCoreTrainEpocher(_MultiCoreMixin, SemiSupervisedEpocher, ABC):
 
     def _batch_update(self, *, cur_batch_num: int, labeled_image, labeled_target, labeled_filename, label_group,
                       unlabeled_image, unlabeled_image_tf, seed, unl_group, unl_partition, unlabeled_filename,
@@ -57,7 +59,7 @@ class MultiCoreTrainEpocher(SemiSupervisedEpocher, ABC):
         self.optimizer_step(self._optimizer, cur_iter=cur_batch_num)
 
         # recording can be here or in the regularization method
-        if self.on_master():
+        if self.meters and self.on_master():
             with torch.no_grad():
                 reduced_simplex = self._sup_criterion.reduced_simplex(label_logits.softmax(1))
                 self.meters["sup_loss"].add(sup_loss.item())
@@ -66,7 +68,7 @@ class MultiCoreTrainEpocher(SemiSupervisedEpocher, ABC):
                 self.meters["reg_loss"].add(reg_loss.item())
 
 
-class MultiCoreEvalEpocher(EvalEpocher):
+class MultiCoreEvalEpocher(_MultiCoreMixin, EvalEpocher):
     def configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super(MultiCoreEvalEpocher, self).configure_meters(meters)
         meters.register_meter("true_loss", AverageValueMeter())
@@ -83,11 +85,7 @@ class MultiCoreEvalEpocher(EvalEpocher):
 
             true_eval_loss = self._sup_criterion.kl(reduced_simplex, onehot_target)
 
-        self.meters["loss"].add(eval_loss.item())
-        self.meters["true_loss"].add(true_eval_loss.item())
-        self.meters["dice"].add(reduced_simplex.max(1)[1], eval_target.squeeze(1), group_name=eval_group)
-
-    @property
-    def num_classes(self):
-        config = get_config(scope="base")
-        return config["Arch"]["true_num_classes"]
+        if self.meters and self.on_master():
+            self.meters["loss"].add(eval_loss.item())
+            self.meters["true_loss"].add(true_eval_loss.item())
+            self.meters["dice"].add(reduced_simplex.max(1)[1], eval_target.squeeze(1), group_name=eval_group)

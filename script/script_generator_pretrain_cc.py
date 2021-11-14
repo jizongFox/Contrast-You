@@ -2,7 +2,7 @@ import argparse
 import os
 from collections.abc import Iterable
 from itertools import cycle
-from typing import Sequence, List, Iterator
+from typing import Sequence, List, Iterator, Optional
 
 from contrastyou import __accounts, on_cc, MODEL_PATH, OPT_PATH, git_hash
 from contrastyou.configure import yaml_load
@@ -145,11 +145,11 @@ def run_pretrain_ft_with_grid_search(
     mi_weights: Sequence[float], cc_weights: Sequence[float], consistency_weights: Sequence[float],
     paddings: Sequence[int], lamdas: Sequence[float], powers: Sequence[float], head_types=Sequence[str],
     num_subheads: Sequence[int],
-    include_baseline=True
+    include_baseline=True, max_num: Optional[int] = 200,
 ) -> Iterator[List[str]]:
     param_generator = grid_search(mi_weight=mi_weights, cc_weight=cc_weights, random_seed=random_seeds,
                                   consistency_weight=consistency_weights, padding=paddings, lamda=lamdas,
-                                  power=powers, head_type=head_types, num_subheads=num_subheads, max_num=200)
+                                  power=powers, head_type=head_types, num_subheads=num_subheads, max_num=max_num)
     for param in param_generator:
         random_seed = param.pop("random_seed")
         sp_str = get_hyper_param_string(**param)
@@ -170,11 +170,11 @@ def run_semi_regularize_with_grid_search(
     mi_weights: Sequence[float], cc_weights: Sequence[float], consistency_weights: Sequence[float],
     paddings: Sequence[int], lamdas: Sequence[float], powers: Sequence[float], head_types: Sequence[str],
     num_subheads: Sequence[int],
-    include_baseline=True
+    include_baseline=True, max_num: Optional[int] = 200,
 ) -> Iterator[List[str]]:
     param_generator = grid_search(mi_weight=mi_weights, cc_weight=cc_weights, random_seed=random_seeds,
                                   consistency_weight=consistency_weights, padding=paddings, lamda=lamdas,
-                                  power=powers, head_type=head_types, num_subheads=num_subheads, max_num=200)
+                                  power=powers, head_type=head_types, num_subheads=num_subheads, max_num=max_num)
     for param in param_generator:
         random_seed = param.pop("random_seed")
         sp_str = get_hyper_param_string(**param)
@@ -239,13 +239,14 @@ if __name__ == '__main__':
     for job in run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"), random_seeds=random_seeds,
                                                     max_epoch=max_epoch, num_batches=num_batches,
                                                     data_name=data_name,
-                                                    mi_weights=[0, 0.001, 0.002, 0.01, ],
-                                                    cc_weights=[0, 0.00001, 0.0001, 0.001, 0.01, ],
-                                                    consistency_weights=[0, 0.1, 0.5],
+                                                    mi_weights=[0, 0.005, 0.01, 0.015, 0.02],
+                                                    cc_weights=[0, 0.00001, 0.0001, 0.001, ],
+                                                    consistency_weights=[0, 0.5, 0.4, 0.8],
                                                     include_baseline=True,
-                                                    paddings=[0, 1, 2], lamdas=[1, 1.5, 2],
-                                                    powers=[1, 0.75, 0.5],
-                                                    head_types=["linear", "mlp"],
-                                                    num_subheads=[1, 2]
+                                                    paddings=[0], lamdas=[1, 1.5, 2],
+                                                    powers=[0.75, 1],
+                                                    head_types=["linear", ],
+                                                    num_subheads=[3],
+                                                    max_num=None,
                                                     ):
         submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
