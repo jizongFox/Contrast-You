@@ -1,6 +1,7 @@
 import os
 import random
 import string
+import time
 from collections.abc import Iterable
 from itertools import product
 from pathlib import Path
@@ -9,6 +10,7 @@ from typing import Union, TypeVar, List
 
 import numpy as np
 import torch
+from loguru import logger
 
 from contrastyou import PROJECT_PATH, on_cc, OPT_PATH
 
@@ -43,7 +45,11 @@ def grid_search(max_num: int = None, **kwargs, ):
     result = []
     for value in product(*kwargs.values()):
         result.append(dict(zip(kwargs.keys(), value)))
+
+    logger.info(f"Found {len(result)} combination of parameters.")
+
     if max_num is None:
+        time.sleep(2)
         for case in result:
             yield case
     else:
@@ -51,6 +57,8 @@ def grid_search(max_num: int = None, **kwargs, ):
             for case in result:
                 yield case
         else:
+            logger.info(f"Randomly choosing {max_num} combination of parameters.")
+            time.sleep(2)
             index = np.random.permutation(range(len(result)))[:max_num].tolist()
             index.sort()
             for i in index:
