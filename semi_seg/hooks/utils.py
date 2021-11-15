@@ -1,7 +1,13 @@
+import shutil
+import typing as t
 from functools import lru_cache
+from pathlib import Path
 
 from loguru import logger
+from matplotlib import pyplot as plt
+from torch import Tensor
 
+from contrastyou.utils import switch_plt_backend
 from semi_seg.epochers.helper import PartitionLabelGenerator, PatientLabelGenerator, ACDCCycleGenerator, \
     SIMCLRGenerator
 
@@ -91,3 +97,67 @@ def get_label(contrast_on, data_name, partition_group, label_group):
     return labels
 
 
+class FeatureMapSaver:
+
+    def __init__(self, save_dir: t.Union[str, Path], folder_name="vis") -> None:
+        super().__init__()
+        assert Path(save_dir).exists() and Path(save_dir).is_dir(), save_dir
+        self.save_dir: Path = Path(save_dir)
+        self.folder_name = folder_name
+        (self.save_dir / self.folder_name).mkdir(exist_ok=True, parents=True)
+
+    @switch_plt_backend(env="agg")
+    def save_map(self, *, image: Tensor, feature_map1: Tensor, feature_map2: Tensor, feature_type="feature",
+                 cur_epoch: int,
+                 cur_batch_num: int, save_name: str) -> None:
+        """
+        Args:
+            image: image tensor with bchw dimension, where c should be 1.
+            feature_map1: tensor with bchw dimension. It would transform to bhw with argmax on c dimension.
+            feature_map2: tensor with bchw dimension. It would transform to bhw with argmax on c dimension.
+            feature_type: image or feature. image is going to treat as image, feature would take the argmax on c.
+            cur_epoch: current epoch
+            cur_batch_num: cur_batch_num
+            save_name: the png that would be saved under "save_name_cur_epoch_cur_batch_num.png" in to self.folder_name
+                    folder.
+        """
+        assert feature_type in ("image", "feature")
+        assert image.dim() == 4, f"image should have bchw dimensions, given {image.shape}."
+        image = image.detach()[:, 0].float().cpu()
+        assert feature_map1.dim() == 4, f"feature_map should have bchw dimensions, given {feature_map1.shape}."
+        if feature_type == "image":
+            feature_map1 = feature_map1.detach()[:, 0].float().cpu()
+        else:
+            feature_map1 = feature_map1.max(1)[1].cpu().float()
+        assert feature_map2.dim() == 4, f"feature_map should have bchw dimensions, given {feature_map2.shape}."
+        if feature_type == "image":
+            feature_map2 = feature_map2.detach()[:, 0].float().cpu()
+        else:
+            feature_map2 = feature_map2.max(1)[1].cpu().float()
+
+        for i, (img, f_map1, f_map2) in enumerate(zip(image, feature_map1, feature_map2)):
+            save_path = self.save_dir / self.folder_name / f"{save_name}_{cur_epoch:03d}_{cur_batch_num:02d}_{i:03d}.png"
+            assert img.dim() == 2 and f_map1.dim() == 2 and f_map2.dim() == 2
+            fig = plt.figure(figsize=(1, 3))
+            plt.subplot(311)
+            plt.imshow(img, cmap="gray")
+            plt.axis('off')
+            plt.subplot(312)
+            plt.imshow(f_map1, cmap="gray" if feature_type == "image" else None)
+            plt.axis('off')
+            plt.subplot(313)
+            plt.imshow(f_map2, cmap="gray" if feature_type == "image" else None)
+            plt.axis('off')
+            plt.savefig(str(save_path), dpi=300, bbox_inches='tight')
+            plt.close(fig)
+
+    def zip(self) -> None:
+        """
+        Put all image folders as a zip file, in order to avoid IO things when downloading.
+        """
+        try:
+            shutil.make_archive(str(self.save_dir / self.folder_name.replace("/", "_")), 'zip',
+                                str(self.save_dir / self.folder_name))
+            shutil.rmtree(str(self.save_dir / self.folder_name))
+        except FileNotFoundError as e:
+            logger.opt(exception=True, depth=1).warning(e)

@@ -96,6 +96,5 @@ def worker(config, absolute_save_dir, seed):
 if __name__ == '__main__':
     import torch
 
-    # torch.set_deterministic(True)
     torch.backends.cudnn.benchmark = True
     main()

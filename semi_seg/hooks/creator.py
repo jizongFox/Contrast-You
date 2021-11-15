@@ -6,6 +6,7 @@ from torch import nn
 from contrastyou.arch import UNet
 from contrastyou.hooks.base import CombineTrainerHook, TrainerHook
 from contrastyou.utils.utils import ntuple, class_name
+from .cc import CrossCorrelationOnLogitsHook
 from .ccblock import CrossCorrelationHookWithSaver
 from .consistency import ConsistencyTrainerHook
 from .discretemi import DiscreteMITrainHook
@@ -228,11 +229,18 @@ def create_cross_correlation_hooks(
                           "hidden_dim": 64}
         mi_params = {"padding": _padding, "lamda": _lamda}
         norm_params = {"power": _power}
-        _hook = CrossCorrelationHookWithSaver(
-            name=f"{f_name}", cc_weight=cw, feature_name=f_name, kernel_size=ksize,
-            projector_params=project_params, model=model, mi_weight=mw, save=save,
-            mi_criterion_params=mi_params, norm_params=norm_params
-        )
+        if "Deconv_1x1" != f_name:
+            _hook = CrossCorrelationHookWithSaver(
+                name=f"cc_{f_name}", cc_weight=cw, feature_name=f_name, kernel_size=ksize,
+                projector_params=project_params, model=model, mi_weight=mw, save=save,
+                mi_criterion_params=mi_params, norm_params=norm_params
+            )
+        else:
+            _hook = CrossCorrelationOnLogitsHook(
+                name=f"cc_{f_name}", cc_weight=cw, feature_name=f_name,
+                kernel_size=ksize, projector_params=project_params, model=model, mi_weight=mw, save=save,
+                mi_criterion_params=mi_params, norm_params=norm_params
+            )
         hooks.append(_hook)
 
     return CombineTrainerHook(*hooks)
