@@ -309,7 +309,7 @@ if __name__ == '__main__':
                                                     ):
         submitter.submit(" && \n ".join(job), force_show=force_show, time=7, account=next(account))
 
-    for job in run_multicore_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),
+    for job in run_multicore_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi_multicore"),
                                                               random_seeds=random_seeds,
                                                               max_epoch=max_epoch, num_batches=num_batches,
                                                               data_name=data_name,
