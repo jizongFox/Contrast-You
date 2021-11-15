@@ -47,13 +47,15 @@ def _run_ft(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_
 
 def _run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int, num_batches: int,
               arch_checkpoint: str, lr: float, data_name: str = "acdc", cc_weight: float, mi_weight: float,
-              consistency_weight: float, padding: int, lamda: float, power: float, head_type: str, num_subheads: int):
+              consistency_weight: float, padding: int, lamda: float, power: float, head_type: str, num_subheads: int,
+              num_clusters: int):
     return f""" python main_nd.py RandomSeed={random_seed} Trainer.name=semi \
      Trainer.save_dir={save_dir} Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name} \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
     CrossCorrelationParameters.mi_weights={mi_weight:.10f}  \
     CrossCorrelationParameters.cc_weights={cc_weight:.10f}  \
     CrossCorrelationParameters.head_type={head_type}  \
+    CrossCorrelationParameters.num_clusters={num_clusters}  \
     CrossCorrelationParameters.num_subheads={num_subheads}  \
     ConsistencyParameters.weight={consistency_weight:.10f}  \
     CrossCorrelationParameters.IID.padding={padding}  \
@@ -87,12 +89,13 @@ def _run_multicore_semi(*, save_dir: str, random_seed: int = 10, num_labeled_sca
 
 def _run_pretrain_cc(*, save_dir: str, random_seed: int = 10, max_epoch: int, num_batches: int, cc_weight: float,
                      mi_weight: float, consistency_weight: float, lr: float, data_name: str = "acdc", padding: int,
-                     lamda: float, power: float, head_type: str, num_subheads: int):
+                     lamda: float, power: float, head_type: str, num_subheads: int, num_clusters: int):
     return f"""  python main_nd.py RandomSeed={random_seed} Trainer.name=pretrain_decoder Trainer.save_dir={save_dir} \
     Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} CrossCorrelationParameters.mi_weights={mi_weight:.10f}  \
     CrossCorrelationParameters.cc_weights={cc_weight:.10f}  Optim.lr={lr:.10f} Data.name={data_name} \
     ConsistencyParameters.weight={consistency_weight:.10f}  \
     CrossCorrelationParameters.head_type={head_type}  \
+    CrossCorrelationParameters.num_clusters={num_clusters}  \
     CrossCorrelationParameters.num_subheads={num_subheads}  \
     CrossCorrelationParameters.IID.padding={padding}  \
     CrossCorrelationParameters.IID.lamda={lamda:.10f} \
@@ -103,7 +106,7 @@ def _run_pretrain_cc(*, save_dir: str, random_seed: int = 10, max_epoch: int, nu
 
 def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch: int, num_batches: int, data_name: str = "acdc",
                     mi_weight, cc_weight, consistency_weight, padding: int,
-                    lamda: float, power: float, head_type: str, num_subheads: int):
+                    lamda: float, power: float, head_type: str, num_subheads: int, num_clusters: int):
     data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
     pretrain_save_dir = os.path.join(save_dir, "pretrain")
@@ -111,7 +114,7 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch: int, num_batc
         save_dir=pretrain_save_dir, random_seed=random_seed, max_epoch=max_epoch, num_batches=num_batches,
         mi_weight=mi_weight, cc_weight=cc_weight, lr=data_opt["pre_lr"], data_name=data_name,
         consistency_weight=consistency_weight, padding=padding, lamda=lamda, power=power, head_type=head_type,
-        num_subheads=num_subheads
+        num_subheads=num_subheads, num_clusters=num_clusters
     )
     ft_save_dir = os.path.join(save_dir, "tra")
     ft_script = [
@@ -126,9 +129,11 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch: int, num_batc
     return [pretrain_script] + ft_script
 
 
-def run_semi_regularize(*, save_dir, random_seed: int = 10, max_epoch: int, num_batches: int, data_name: str = "acdc",
-                        mi_weight: float, cc_weight: float, consistency_weight: float, padding: int,
-                        lamda: float, power: float, head_type: str, num_subheads: int) -> List[str]:
+def run_semi_regularize(
+    *, save_dir, random_seed: int = 10, max_epoch: int, num_batches: int, data_name: str = "acdc", mi_weight: float,
+    cc_weight: float, consistency_weight: float, padding: int, lamda: float, power: float, head_type: str,
+    num_subheads: int, num_clusters: int
+) -> List[str]:
     data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
     semi_script = [
@@ -137,7 +142,7 @@ def run_semi_regularize(*, save_dir, random_seed: int = 10, max_epoch: int, num_
             num_labeled_scan=l, max_epoch=max_epoch, num_batches=num_batches, arch_checkpoint="null",
             lr=data_opt["ft_lr"], data_name=data_name, mi_weight=mi_weight,
             cc_weight=cc_weight, consistency_weight=consistency_weight, padding=padding, lamda=lamda, power=power,
-            head_type=head_type, num_subheads=num_subheads
+            head_type=head_type, num_subheads=num_subheads, num_clusters=num_clusters
         )
         for l in labeled_scans
     ]
@@ -185,12 +190,13 @@ def run_pretrain_ft_with_grid_search(
     data_name: str,
     mi_weights: Sequence[float], cc_weights: Sequence[float], consistency_weights: Sequence[float],
     paddings: Sequence[int], lamdas: Sequence[float], powers: Sequence[float], head_types=Sequence[str],
-    num_subheads: Sequence[int],
+    num_subheads: Sequence[int], num_clusters: Sequence[int],
     include_baseline=True, max_num: Optional[int] = 200,
 ) -> Iterator[List[str]]:
-    param_generator = grid_search(mi_weight=mi_weights, cc_weight=cc_weights, random_seed=random_seeds,
+    param_generator = grid_search(max_num=max_num, mi_weight=mi_weights, cc_weight=cc_weights, random_seed=random_seeds,
                                   consistency_weight=consistency_weights, padding=paddings, lamda=lamdas,
-                                  power=powers, head_type=head_types, num_subheads=num_subheads, max_num=max_num)
+                                  power=powers, head_type=head_types, num_subheads=num_subheads,
+                                  num_clusters=num_clusters)
     for param in param_generator:
         random_seed = param.pop("random_seed")
         sp_str = get_hyper_param_string(**param)
@@ -210,12 +216,13 @@ def run_semi_regularize_with_grid_search(
     data_name: str,
     mi_weights: Sequence[float], cc_weights: Sequence[float], consistency_weights: Sequence[float],
     paddings: Sequence[int], lamdas: Sequence[float], powers: Sequence[float], head_types: Sequence[str],
-    num_subheads: Sequence[int],
+    num_subheads: Sequence[int], num_clusters: Sequence[int],
     include_baseline=True, max_num: Optional[int] = 200,
 ) -> Iterator[List[str]]:
     param_generator = grid_search(mi_weight=mi_weights, cc_weight=cc_weights, random_seed=random_seeds,
                                   consistency_weight=consistency_weights, padding=paddings, lamda=lamdas,
-                                  power=powers, head_type=head_types, num_subheads=num_subheads, max_num=max_num)
+                                  power=powers, head_type=head_types, num_subheads=num_subheads,
+                                  num_clusters=num_clusters, max_num=max_num)
     for param in param_generator:
         random_seed = param.pop("random_seed")
         sp_str = get_hyper_param_string(**param)
@@ -290,7 +297,8 @@ if __name__ == '__main__':
                                                 paddings=[2], lamdas=[2, 2.5],
                                                 powers=[0.75, ],
                                                 head_types=["linear", ],
-                                                num_subheads=[3]
+                                                num_subheads=[3],
+                                                num_clusters=[10, 20, 30]
                                                 ):
         submitter.submit(" && \n ".join(job), force_show=force_show, time=6, account=next(account))
 
@@ -306,6 +314,7 @@ if __name__ == '__main__':
                                                     head_types=["linear", ],
                                                     num_subheads=[3],
                                                     max_num=None,
+                                                    num_clusters=[10, 20, 30]
                                                     ):
         submitter.submit(" && \n ".join(job), force_show=force_show, time=7, account=next(account))
 
