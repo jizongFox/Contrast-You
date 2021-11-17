@@ -199,7 +199,7 @@ def create_cross_correlation_hooks(
     *, model: nn.Module, feature_names: item_or_seq[str], cc_weights: item_or_seq[float],
     mi_weights: item_or_seq[float], num_clusters: item_or_seq[int], kernel_size: item_or_seq[int],
     head_type=item_or_seq[str], num_subheads: item_or_seq[int], save: bool = True, padding: item_or_seq[int],
-    lamda: item_or_seq[float], power: item_or_seq[float]
+    lamda: item_or_seq[float], power: item_or_seq[float], adding_coordinates: bool,
 ):
     if isinstance(feature_names, str):
         num_features = 1
@@ -233,7 +233,7 @@ def create_cross_correlation_hooks(
             _hook = CrossCorrelationHookWithSaver(
                 name=f"cc_{f_name}", cc_weight=cw, feature_name=f_name, kernel_size=ksize,
                 projector_params=project_params, model=model, mi_weight=mw, save=save,
-                mi_criterion_params=mi_params, norm_params=norm_params
+                mi_criterion_params=mi_params, norm_params=norm_params, adding_coordinates=adding_coordinates
             )
         else:
             _hook = CrossCorrelationOnLogitsHook(

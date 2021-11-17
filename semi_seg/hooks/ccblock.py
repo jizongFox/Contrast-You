@@ -29,7 +29,8 @@ class CrossCorrelationHook(TrainerHook):
 
     def __init__(self, *, name: str, model: nn.Module, feature_name: UNetFeatureMapEnum, cc_weight: float,
                  mi_weight: float = 0.0, kernel_size: int, projector_params: t.Dict[str, t.Any],
-                 mi_criterion_params: t.Dict[str, t.Any], norm_params: t.Dict[str, t.Any]):
+                 adding_coordinates: bool, mi_criterion_params: t.Dict[str, t.Any],
+                 norm_params: t.Dict[str, t.Any]):
         super().__init__(hook_name=name)
         self._cc_weight = float(cc_weight)
         self._mi_weight = float(mi_weight)
@@ -40,7 +41,10 @@ class CrossCorrelationHook(TrainerHook):
         self._extractor = SingleFeatureExtractor(
             model=model, feature_name=UNetFeatureMapEnum(feature_name).name  # noqa
         )
+        self.adding_coordinates = adding_coordinates
         input_dim = model.get_channel_dim(feature_name.value)  # model: type: UNet
+        if self.adding_coordinates:
+            input_dim += 2
         logger.trace(f"Creating projector with {item2str(projector_params)}")
         self._projector = CrossCorrelationProjector(input_dim=input_dim, **projector_params)
 
@@ -57,7 +61,7 @@ class CrossCorrelationHook(TrainerHook):
             name=self._hook_name, extractor=self._extractor,
             projector=self._projector, cc_criterion=self._cc_criterion,
             cc_weight=self._cc_weight, mi_weight=self._mi_weight,
-            mi_criterion=self._mi_criterion, diff_power=self.diff_power
+            mi_criterion=self._mi_criterion, diff_power=self.diff_power, add_coordinates=self.adding_coordinates
         )
 
     @property
@@ -68,7 +72,7 @@ class CrossCorrelationHook(TrainerHook):
 class _CrossCorrelationEpocherHook(EpocherHook):
 
     def __init__(self, *, name: str = "cc", extractor: 'SingleFeatureExtractor', projector: '_ProjectorHeadBase',
-                 cc_criterion: CCLoss, mi_criterion: 'IIDSegmentationLoss',
+                 cc_criterion: CCLoss, mi_criterion: 'IIDSegmentationLoss', add_coordinates: bool,
                  cc_weight: float, mi_weight: float, diff_power: float = 1.0) -> None:
         super().__init__(name=name)
         self.cc_weight = cc_weight
@@ -80,6 +84,7 @@ class _CrossCorrelationEpocherHook(EpocherHook):
         self.mi_criterion = mi_criterion
         self._ent_func = Entropy(reduction="none")
         self._diff_power = diff_power
+        self.add_coordinates = add_coordinates
 
     def close(self):
         self.extractor.remove()
@@ -104,6 +109,12 @@ class _CrossCorrelationEpocherHook(EpocherHook):
         feature_ = self.extractor.feature()[-n_unl * 2:]
         _unlabeled_features, unlabeled_tf_features = torch.chunk(feature_, 2, dim=0)
         unlabeled_features_tf = affine_transformer(_unlabeled_features)
+
+        if self.add_coordinates:
+            unlabeled_tf_features, unlabeled_features_tf = self.merge_coordinate(
+                unlabeled_tf_features=unlabeled_tf_features,
+                unlabeled_features_tf=unlabeled_features_tf
+            )
 
         projected_dist_tf, projected_tf_dist = zip(*[torch.chunk(x, 2) for x in self.projector(
             torch.cat([unlabeled_features_tf, unlabeled_tf_features], dim=0))])
@@ -158,16 +169,31 @@ class _CrossCorrelationEpocherHook(EpocherHook):
         loss = sum([self.mi_criterion(x1, x2) for x1, x2 in zip(prob1, prob2)]) / len(prob1)
         return loss
 
+    @staticmethod
+    def merge_coordinate(*, unlabeled_tf_features: Tensor, unlabeled_features_tf: Tensor):
+        (width, height), bn = unlabeled_features_tf.shape[-2:], unlabeled_features_tf.shape[0]
+        grid_x, grid_y = torch.meshgrid(
+            torch.linspace(start=-1, end=1, steps=width, device=unlabeled_features_tf.device,
+                           dtype=unlabeled_features_tf.dtype),
+            torch.linspace(start=-1, end=1, steps=height, device=unlabeled_features_tf.device,
+                           dtype=unlabeled_features_tf.dtype), indexing='ij')
+        coordinate = torch.stack([grid_x, grid_y], dim=0)[None, ...].repeat(bn, 1, 1, 1)
+        unlabeled_features_tf = torch.cat([unlabeled_features_tf, coordinate], dim=1)
+        unlabeled_tf_features = torch.cat([unlabeled_tf_features, coordinate], dim=1)
+        return unlabeled_tf_features, unlabeled_features_tf
+
 
 class CrossCorrelationHookWithSaver(CrossCorrelationHook):
     # with an image saver
 
     def __init__(self, *, name: str, model: nn.Module, feature_name: UNetFeatureMapEnum, cc_weight: float,
                  mi_weight: float = 0.0, kernel_size: int, projector_params: t.Dict[str, t.Any],
-                 mi_criterion_params: t.Dict[str, t.Any], norm_params: t.Dict[str, t.Any], save: bool = False):
+                 adding_coordinates: bool, mi_criterion_params: t.Dict[str, t.Any], norm_params: t.Dict[str, t.Any],
+                 save: bool = False):
         super().__init__(
             name=name, model=model, feature_name=feature_name, cc_weight=cc_weight, mi_weight=mi_weight,
-            kernel_size=kernel_size, projector_params=projector_params, mi_criterion_params=mi_criterion_params,
+            kernel_size=kernel_size, projector_params=projector_params, adding_coordinates=adding_coordinates,
+            mi_criterion_params=mi_criterion_params,
             norm_params=norm_params,
         )
         self.save = save
@@ -185,7 +211,7 @@ class CrossCorrelationHookWithSaver(CrossCorrelationHook):
             projector=self._projector, cc_criterion=self._cc_criterion,
             cc_weight=self._cc_weight, mi_weight=self._mi_weight,
             mi_criterion=self._mi_criterion, saver=self.saver,
-            diff_power=self._diff_power
+            diff_power=self._diff_power, adding_coordinates=self.adding_coordinates
         )
 
     def close(self):
@@ -197,9 +223,10 @@ class _CrossCorrelationEpocherHookWithSaver(_CrossCorrelationEpocherHook):
     # with an image saver
 
     def __init__(self, *, name: str = "cc", extractor: 'SingleFeatureExtractor', projector: '_ProjectorHeadBase',
-                 cc_criterion: 'CCLoss', mi_criterion: 'IIDSegmentationLoss', cc_weight: float,
-                 mi_weight: float, diff_power: float, saver: 'FeatureMapSaver') -> None:
+                 cc_criterion: 'CCLoss', mi_criterion: 'IIDSegmentationLoss', adding_coordinates: bool,
+                 cc_weight: float, mi_weight: float, diff_power: float, saver: 'FeatureMapSaver', ) -> None:
         super().__init__(name=name, extractor=extractor, projector=projector, cc_criterion=cc_criterion,
+                         add_coordinates=adding_coordinates,
                          mi_criterion=mi_criterion, cc_weight=cc_weight, mi_weight=mi_weight, diff_power=diff_power)
         self.saver = saver
 
@@ -219,6 +246,11 @@ class _CrossCorrelationEpocherHookWithSaver(_CrossCorrelationEpocherHook):
                 cur_epoch=self.epocher.cur_epoch, cur_batch_num=self.epocher.cur_batch_num, save_name="feature"
             )
 
+        if self.add_coordinates:
+            unlabeled_tf_features, unlabeled_features_tf = self.merge_coordinate(
+                unlabeled_tf_features=unlabeled_tf_features,
+                unlabeled_features_tf=unlabeled_features_tf
+            )
         projected_dist_tf, projected_tf_dist = zip(
             *[
                 torch.chunk(x, 2) for x in

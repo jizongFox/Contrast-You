@@ -7,6 +7,7 @@ CrossCorrelationParameters:
   head_type: linear
   num_subheads: 1
   save: true
+  adding_coordinates: true
 
   IID:
     padding: 1

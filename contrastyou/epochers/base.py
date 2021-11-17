@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from typing import Union, Dict, List, final
 
 import torch
+from loguru import logger
 from torch import nn
 from torch.cuda.amp import GradScaler
 
@@ -74,6 +75,8 @@ class EpocherBase(AMPScaler, DDPMixin, metaclass=ABCMeta):
             h.set_meters_given_epocher()
         try:
             yield
+        except Exception as e:
+            logger.exception(e)
         finally:
             self.close_hook()
 
@@ -91,6 +94,8 @@ class EpocherBase(AMPScaler, DDPMixin, metaclass=ABCMeta):
         self.indicator.set_desc_from_epocher(self)
         try:
             yield
+        except Exception as e:
+            logger.exception(e)
         finally:
             self.indicator.close()
             self.indicator.log_result()

@@ -66,6 +66,8 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
             for h in self._hooks:
                 h.after_initialize()
             yield
+        except Exception as e:
+            logger.exception(e)
         finally:
             for h in hook:
                 h.close()
