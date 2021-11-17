@@ -294,7 +294,7 @@ if __name__ == '__main__':
                                                 data_name=data_name, mi_weights=[1], cc_weights=[0.2, 0.4],
                                                 consistency_weights=[0.2, 0.5],
                                                 include_baseline=True,
-                                                paddings=[2], lamdas=[2, 2.5],
+                                                paddings=[0], lamdas=[1, 2, 2.5],
                                                 powers=[0.75, ],
                                                 head_types=["linear", ],
                                                 num_subheads=[3],
