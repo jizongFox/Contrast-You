@@ -137,9 +137,9 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch: int, num_batc
 
 
 def run_semi_regularize(
-    *, save_dir, random_seed: int = 10, max_epoch: int, num_batches: int, data_name: str = "acdc", mi_weight: float,
-    cc_weight: float, consistency_weight: float, padding: int, lamda: float, power: float, head_type: str,
-    num_subheads: int, num_clusters: int, adding_coordinates: str
+        *, save_dir, random_seed: int = 10, max_epoch: int, num_batches: int, data_name: str = "acdc", mi_weight: float,
+        cc_weight: float, consistency_weight: float, padding: int, lamda: float, power: float, head_type: str,
+        num_subheads: int, num_clusters: int, adding_coordinates: str
 ) -> List[str]:
     data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
@@ -177,7 +177,7 @@ def run_multicore_semi(*, save_dir, random_seed: int = 10, max_epoch: int, num_b
 
 
 def run_baseline(
-    *, save_dir, random_seed: int = 10, max_epoch: int, num_batches: int, data_name: str = "acdc"
+        *, save_dir, random_seed: int = 10, max_epoch: int, num_batches: int, data_name: str = "acdc"
 ) -> List[str]:
     data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
@@ -194,12 +194,12 @@ def run_baseline(
 
 
 def run_pretrain_ft_with_grid_search(
-    *, save_dir, random_seeds: Sequence[int] = 10, max_epoch: int, num_batches: int,
-    data_name: str,
-    mi_weights: Sequence[float], cc_weights: Sequence[float], consistency_weights: Sequence[float],
-    paddings: Sequence[int], lamdas: Sequence[float], powers: Sequence[float], head_types=Sequence[str],
-    num_subheads: Sequence[int], num_clusters: Sequence[int], adding_coordinates: Sequence[str],
-    include_baseline=True, max_num: Optional[int] = 200,
+        *, save_dir, random_seeds: Sequence[int] = 10, max_epoch: int, num_batches: int,
+        data_name: str,
+        mi_weights: Sequence[float], cc_weights: Sequence[float], consistency_weights: Sequence[float],
+        paddings: Sequence[int], lamdas: Sequence[float], powers: Sequence[float], head_types=Sequence[str],
+        num_subheads: Sequence[int], num_clusters: Sequence[int], adding_coordinates: Sequence[str],
+        include_baseline=True, max_num: Optional[int] = 200,
 ) -> Iterator[List[str]]:
     param_generator = grid_search(max_num=max_num, mi_weight=mi_weights, cc_weight=cc_weights, random_seed=random_seeds,
                                   consistency_weight=consistency_weights, padding=paddings, lamda=lamdas,
@@ -220,12 +220,12 @@ def run_pretrain_ft_with_grid_search(
 
 
 def run_semi_regularize_with_grid_search(
-    *, save_dir, random_seeds: Sequence[int] = 10, max_epoch: int, num_batches: int,
-    data_name: str,
-    mi_weights: Sequence[float], cc_weights: Sequence[float], consistency_weights: Sequence[float],
-    paddings: Sequence[int], lamdas: Sequence[float], powers: Sequence[float], head_types: Sequence[str],
-    num_subheads: Sequence[int], num_clusters: Sequence[int], adding_coordinates: Sequence[str],
-    include_baseline=True, max_num: Optional[int] = 200,
+        *, save_dir, random_seeds: Sequence[int] = 10, max_epoch: int, num_batches: int,
+        data_name: str,
+        mi_weights: Sequence[float], cc_weights: Sequence[float], consistency_weights: Sequence[float],
+        paddings: Sequence[int], lamdas: Sequence[float], powers: Sequence[float], head_types: Sequence[str],
+        num_subheads: Sequence[int], num_clusters: Sequence[int], adding_coordinates: Sequence[str],
+        include_baseline=True, max_num: Optional[int] = 200,
 ) -> Iterator[List[str]]:
     param_generator = grid_search(mi_weight=mi_weights, cc_weight=cc_weights, random_seed=random_seeds,
                                   consistency_weight=consistency_weights, padding=paddings, lamda=lamdas,
@@ -247,14 +247,14 @@ def run_semi_regularize_with_grid_search(
 
 
 def run_multicore_semi_regularize_with_grid_search(
-    *, save_dir, random_seeds: Sequence[int] = 10, max_epoch: int, num_batches: int,
-    data_name: str,
-    mi_weights: Sequence[float], cc_weights: Sequence[float], consistency_weights: Sequence[float],
-    paddings: Sequence[int], lamdas: Sequence[float], powers: Sequence[float], head_types: Sequence[str],
-    num_subheads: Sequence[int],
-    include_baseline=True,
-    multicore_multipliers: Sequence[int],
-    max_num: Optional[int] = 200,
+        *, save_dir, random_seeds: Sequence[int] = 10, max_epoch: int, num_batches: int,
+        data_name: str,
+        mi_weights: Sequence[float], cc_weights: Sequence[float], consistency_weights: Sequence[float],
+        paddings: Sequence[int], lamdas: Sequence[float], powers: Sequence[float], head_types: Sequence[str],
+        num_subheads: Sequence[int],
+        include_baseline=True,
+        multicore_multipliers: Sequence[int],
+        max_num: Optional[int] = 200,
 ) -> Iterator[List[str]]:
     param_generator = grid_search(mi_weight=mi_weights, cc_weight=cc_weights, random_seed=random_seeds,
                                   consistency_weight=consistency_weights, padding=paddings, lamda=lamdas,
@@ -297,7 +297,8 @@ if __name__ == '__main__':
     ])
     submitter.configure_sbatch(mem=24)
 
-    job_generator = run_pretrain_ft_with_grid_search(save_dir=save_dir, random_seeds=random_seeds, max_epoch=max_epoch,
+    job_generator = run_pretrain_ft_with_grid_search(save_dir=os.path.join(save_dir, "pretrain"),
+                                                     random_seeds=random_seeds, max_epoch=max_epoch,
                                                      num_batches=num_batches,
                                                      data_name=data_name, mi_weights=[1], cc_weights=[0.2, 0.4],
                                                      consistency_weights=[0.2, 0.5],
