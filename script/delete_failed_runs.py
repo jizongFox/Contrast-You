@@ -41,9 +41,12 @@ def main(root: _path_type):
             remove_csv(exp)
 
 
-if __name__ == '__main__':
+def _main():
     parser = argparse.ArgumentParser()
     parser.add_argument("root", type=str, help="root path")
     args = parser.parse_args()
-
     main(args.root)
+
+
+if __name__ == '__main__':
+    _main()
