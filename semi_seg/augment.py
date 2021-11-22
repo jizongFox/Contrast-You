@@ -92,7 +92,13 @@ class ACDCLVStrongTransforms(_Transform):
         ]),
     )
     val = SequentialWrapper(
-        com_transform=transforms.CenterCrop(224)
+        com_transform=transforms.CenterCrop(224),
+        image_transform=transforms.Compose([
+            transforms.ToTensor()
+        ]),
+        target_transform=transforms.Compose([
+            pil_augment.ToLabel({0: 0, 1: 0, 2: 0, 3: 1})
+        ]),
     )
 
     trainval = SequentialWrapperTwice(
