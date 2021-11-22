@@ -13,13 +13,14 @@ from script.utils import grid_search, move_dataset
 
 parser = argparse.ArgumentParser()
 parser.add_argument("save_dir", type=str, help="save dir")
+parser.add_argument("--data-name", type=str, choices=("acdc", "acdc_lv"), help="dataset_choice")
 parser.add_argument("--force-show", action="store_true", help="showing script")
 args = parser.parse_args()
 
 account = cycle(__accounts)
 on_local = not on_cc()
 force_show = args.force_show
-data_name = "acdc"
+data_name = args.data_name
 random_seeds = [10]
 max_epoch = 50
 num_batches = 300

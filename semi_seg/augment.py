@@ -62,6 +62,54 @@ class ACDCStrongTransforms(_Transform):
     )
 
 
+class ACDCLVStrongTransforms(_Transform):
+    pretrain = SequentialWrapperTwice(
+        com_transform=transforms.Compose([
+            transforms.RandomRotation(45),
+            transforms.RandomVerticalFlip(),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomCrop(224),
+        ]),
+        image_transform=transforms.Compose([
+            transforms.ColorJitter(brightness=[0.5, 1.5], contrast=[0.5, 1.5], saturation=[0.5, 1.5]),
+            transforms.ToTensor()
+        ]),
+        target_transform=transforms.Compose([
+            pil_augment.ToLabel({0: 0, 1: 0, 2: 0, 3: 1})
+        ]),
+        total_freedom=True
+    )
+    label = SequentialWrapperTwice(
+        com_transform=transforms.Compose([
+            transforms.RandomCrop(224),
+            transforms.RandomRotation(30),
+        ]),
+        image_transform=transforms.Compose([
+            transforms.ToTensor()
+        ]),
+        target_transform=transforms.Compose([
+            pil_augment.ToLabel({0: 0, 1: 0, 2: 0, 3: 1})
+        ]),
+    )
+    val = SequentialWrapper(
+        com_transform=transforms.CenterCrop(224)
+    )
+
+    trainval = SequentialWrapperTwice(
+        com_transform=transforms.Compose([
+            transforms.RandomCrop(224),
+
+        ]),
+        image_transform=transforms.Compose([
+            transforms.ToTensor()
+        ]),
+        target_transform=transforms.Compose([
+            pil_augment.ToLabel({0: 0, 1: 0, 2: 0, 3: 1})
+        ]),
+        total_freedom=True
+    )
+
+
 class ProstateStrongTransforms(_Transform):
     pretrain = SequentialWrapperTwice(
         com_transform=transforms.Compose([
@@ -260,7 +308,7 @@ class HippocampusStrongTransforms(_Transform):
 
 
 augment_zoo: t.Dict[str, _Transform] = {
-    "acdc": ACDCStrongTransforms, "spleen": SpleenStrongTransforms, "prostate": ProstateStrongTransforms,
-    "mmwhsct": ACDCStrongTransforms, "mmwhsmr": ACDCStrongTransforms, "prostate_md": ProstateStrongTransforms,
-    "hippocampus": HippocampusStrongTransforms
+    "acdc": ACDCStrongTransforms, "acdc_lv": ACDCLVStrongTransforms, "spleen": SpleenStrongTransforms,
+    "prostate": ProstateStrongTransforms, "mmwhsct": ACDCStrongTransforms, "mmwhsmr": ACDCStrongTransforms,
+    "prostate_md": ProstateStrongTransforms, "hippocampus": HippocampusStrongTransforms
 }

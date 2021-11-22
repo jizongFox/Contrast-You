@@ -15,6 +15,7 @@ from semi_seg.data.rearr import ContrastBatchSampler
 
 def get_partition_num(name: str):
     partition_num_zoo = {"acdc": ACDCDataset.partition_num,
+                         "acdc_lv": ACDCDataset.partition_num,
                          "prostate": ProstateDataset.partition_num,
                          "mmwhsct": mmWHSCTDataset.partition_num,
                          "mmwhsmr": mmWHSCTDataset.partition_num,

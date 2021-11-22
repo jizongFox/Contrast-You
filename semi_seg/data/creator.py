@@ -102,6 +102,10 @@ def _get_labeled_unlabeled_test_datasets(data_name, *, total_freedom: bool, labe
 
     if labeled_scan_num > train_scan_num:
         raise RuntimeError(f"labeled scan number {labeled_scan_num} greater than the train set size: {train_scan_num}")
+    # to improve
+
+    if "acdc_" in data_name:
+        data_name = "acdc"
 
     if pretrain:
         logger.trace("Creating pretraining dataloaders")
