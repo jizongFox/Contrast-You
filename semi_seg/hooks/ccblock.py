@@ -54,14 +54,17 @@ class CrossCorrelationHook(TrainerHook):
         logger.trace(f"Creating IIDSegmentationLoss with kernel_size = {kernel_size} with weight = {self._mi_weight}.")
         self._mi_criterion = IIDSegmentationLoss(**mi_criterion_params)
 
-        self._diff_power = float(norm_params["power"])
+        self._diff_power: float = float(norm_params["power"])
+        assert 0 <= self._diff_power <= 1, self._diff_power
+        self._use_image_diff: bool = norm_params["image_diff"]
 
     def __call__(self, **kwargs):
         return _CrossCorrelationEpocherHook(
             name=self._hook_name, extractor=self._extractor,
             projector=self._projector, cc_criterion=self._cc_criterion,
             cc_weight=self._cc_weight, mi_weight=self._mi_weight,
-            mi_criterion=self._mi_criterion, diff_power=self.diff_power, add_coordinates=self.adding_coordinates
+            mi_criterion=self._mi_criterion, diff_power=self.diff_power, add_coordinates=self.adding_coordinates,
+            image_diff=self._use_image_diff
         )
 
     @property
@@ -73,7 +76,7 @@ class _CrossCorrelationEpocherHook(EpocherHook):
 
     def __init__(self, *, name: str = "cc", extractor: 'SingleFeatureExtractor', projector: '_ProjectorHeadBase',
                  cc_criterion: CCLoss, mi_criterion: 'IIDSegmentationLoss', add_coordinates: bool,
-                 cc_weight: float, mi_weight: float, diff_power: float = 1.0) -> None:
+                 cc_weight: float, mi_weight: float, diff_power: float = 1.0, image_diff: bool) -> None:
         super().__init__(name=name)
         self.cc_weight = cc_weight
         self.mi_weight = mi_weight
@@ -84,6 +87,7 @@ class _CrossCorrelationEpocherHook(EpocherHook):
         self.mi_criterion = mi_criterion
         self._ent_func = Entropy(reduction="none")
         self._diff_power = diff_power
+        self._image_diff = image_diff  # this is to check whether use edge detection.
         self.add_coordinates = add_coordinates
 
     def close(self):
@@ -102,8 +106,9 @@ class _CrossCorrelationEpocherHook(EpocherHook):
         self.extractor.set_enable(False)
 
     def _call_implementation(
-        self, unlabeled_image_tf: Tensor, unlabeled_logits_tf: Tensor, affine_transformer: t.Callable[[Tensor], Tensor],
-        unlabeled_image: Tensor, **kwargs
+            self, unlabeled_image_tf: Tensor, unlabeled_logits_tf: Tensor,
+            affine_transformer: t.Callable[[Tensor], Tensor],
+            unlabeled_image: Tensor, **kwargs
     ):
         n_unl = len(unlabeled_logits_tf)
         feature_ = self.extractor.feature()[-n_unl * 2:]
@@ -155,8 +160,13 @@ class _CrossCorrelationEpocherHook(EpocherHook):
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore")
                 image = F.interpolate(image, size=(h, w), mode="bilinear")
+        # check if image_diff works in some sense.
+        if self._image_diff:
+            diff_image = self.norm(self.diff(image), min=0, max=1).pow(
+                self._diff_power)  # the diff power applies only on edges.
+        else:
+            diff_image = image
 
-        diff_image = self.norm(self.diff(image), min=0, max=1).pow(self._diff_power)
         diff_tf_softmax = self.norm(self._ent_func(predict_simplex), min=0, max=1, slicewise=False).unsqueeze(1)
 
         loss = self.cc_criterion(
@@ -211,7 +221,8 @@ class CrossCorrelationHookWithSaver(CrossCorrelationHook):
             projector=self._projector, cc_criterion=self._cc_criterion,
             cc_weight=self._cc_weight, mi_weight=self._mi_weight,
             mi_criterion=self._mi_criterion, saver=self.saver,
-            diff_power=self._diff_power, adding_coordinates=self.adding_coordinates
+            diff_power=self._diff_power, adding_coordinates=self.adding_coordinates,
+            image_diff=self._use_image_diff
         )
 
     def close(self):
@@ -224,16 +235,18 @@ class _CrossCorrelationEpocherHookWithSaver(_CrossCorrelationEpocherHook):
 
     def __init__(self, *, name: str = "cc", extractor: 'SingleFeatureExtractor', projector: '_ProjectorHeadBase',
                  cc_criterion: 'CCLoss', mi_criterion: 'IIDSegmentationLoss', adding_coordinates: bool,
-                 cc_weight: float, mi_weight: float, diff_power: float, saver: 'FeatureMapSaver', ) -> None:
+                 cc_weight: float, mi_weight: float, diff_power: float, image_diff: bool,
+                 saver: 'FeatureMapSaver') -> None:
         super().__init__(name=name, extractor=extractor, projector=projector, cc_criterion=cc_criterion,
                          add_coordinates=adding_coordinates,
-                         mi_criterion=mi_criterion, cc_weight=cc_weight, mi_weight=mi_weight, diff_power=diff_power)
+                         mi_criterion=mi_criterion, cc_weight=cc_weight, mi_weight=mi_weight, diff_power=diff_power,
+                         image_diff=image_diff)
         self.saver = saver
 
     def _call_implementation(
-        self, unlabeled_image_tf: Tensor, unlabeled_logits_tf: Tensor,
-        affine_transformer: t.Callable[[Tensor], Tensor],
-        unlabeled_image: Tensor, **kwargs
+            self, unlabeled_image_tf: Tensor, unlabeled_logits_tf: Tensor,
+            affine_transformer: t.Callable[[Tensor], Tensor],
+            unlabeled_image: Tensor, **kwargs
     ):
         n_unl = len(unlabeled_logits_tf)
         feature_ = self.extractor.feature()[-n_unl * 2:]

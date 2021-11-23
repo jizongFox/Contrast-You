@@ -39,6 +39,11 @@ class CrossCorrelationOnLogitsHook(TrainerHook):
         self._mi_criterion = IIDSegmentationLoss(**mi_criterion_params)
 
         self._diff_power = float(norm_params["power"])
+        self._diff_power: float = float(norm_params["power"])
+        assert 0 <= self._diff_power <= 1, self._diff_power
+
+        self._use_image_diff: bool = norm_params["image_diff"]
+
         self.save = save
         self.saver = None
 
@@ -49,7 +54,8 @@ class CrossCorrelationOnLogitsHook(TrainerHook):
     def __call__(self, **kwargs):
         return _CrossCorrelationLogitEpocherHook(
             name=self._hook_name, cc_criterion=self._cc_criterion, mi_criterion=self._mi_criterion,
-            cc_weight=self._cc_weight, mi_weight=self._mi_weight, diff_power=self._diff_power, saver=self.saver
+            cc_weight=self._cc_weight, mi_weight=self._mi_weight, diff_power=self._diff_power, saver=self.saver,
+            image_diff=self._use_image_diff
         )
 
     def close(self):
@@ -61,7 +67,7 @@ class _CrossCorrelationLogitEpocherHook(EpocherHook):
 
     def __init__(self, *, name: str = "cc", cc_criterion: 'CCLoss', mi_criterion: 'IIDSegmentationLoss',
                  cc_weight: float,
-                 mi_weight: float, diff_power: float, saver: 'FeatureMapSaver') -> None:
+                 mi_weight: float, diff_power: float, image_diff: bool, saver: 'FeatureMapSaver') -> None:
         super().__init__(name=name)
         self.cc_weight = cc_weight
         self.mi_weight = mi_weight
@@ -69,6 +75,7 @@ class _CrossCorrelationLogitEpocherHook(EpocherHook):
         self.mi_criterion = mi_criterion
         self._ent_func = Entropy(reduction="none")
         self._diff_power = diff_power
+        self._image_diff = image_diff
         self.saver = saver
 
     def configure_meters_given_epocher(self, meters: 'MeterInterface'):
@@ -128,8 +135,11 @@ class _CrossCorrelationLogitEpocherHook(EpocherHook):
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore")
                 image = F.interpolate(image, size=(h, w), mode="bilinear")
-
-        diff_image = self.norm(self.diff(image), min=0, max=1).pow(self._diff_power)
+        if self._image_diff:
+            diff_image = self.norm(self.diff(image), min=0, max=1).pow(
+                self._diff_power)  # the diff power applies only on edges.
+        else:
+            diff_image = image
         diff_tf_softmax = self.norm(self._ent_func(predict_simplex), min=0, max=1, slicewise=False).unsqueeze(1)
 
         loss = self.cc_criterion(
