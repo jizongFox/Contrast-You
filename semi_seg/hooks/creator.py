@@ -196,10 +196,10 @@ def create_imsat_hook(*, weight: float = 0.1):
 
 
 def create_cross_correlation_hooks(
-    *, model: nn.Module, feature_names: item_or_seq[str], cc_weights: item_or_seq[float],
-    mi_weights: item_or_seq[float], num_clusters: item_or_seq[int], kernel_size: item_or_seq[int],
-    head_type=item_or_seq[str], num_subheads: item_or_seq[int], save: bool = True, padding: item_or_seq[int],
-    lamda: item_or_seq[float], power: item_or_seq[float], adding_coordinates: bool,
+        *, model: nn.Module, feature_names: item_or_seq[str], cc_weights: item_or_seq[float],
+        mi_weights: item_or_seq[float], num_clusters: item_or_seq[int], kernel_size: item_or_seq[int],
+        head_type=item_or_seq[str], num_subheads: item_or_seq[int], save: bool = True, padding: item_or_seq[int],
+        lamda: item_or_seq[float], power: item_or_seq[float], adding_coordinates: bool, image_diff: bool,
 ):
     if isinstance(feature_names, str):
         num_features = 1
@@ -220,15 +220,15 @@ def create_cross_correlation_hooks(
 
     hooks = []
     for cw, mw, f_name, ksize, h_type, n_subheads, n_cluster, _padding, _lamda, _power in \
-        zip(cc_weights, mi_weights, feature_names, kernel_size, head_type, num_subheads, num_clusters, padding, lamda,
-            power):
+            zip(cc_weights, mi_weights, feature_names, kernel_size, head_type, num_subheads, num_clusters, padding,
+                lamda, power):
         project_params = {"num_clusters": n_cluster,
                           "head_type": h_type,
                           "normalize": False,
                           "num_subheads": n_subheads,
                           "hidden_dim": 64}
         mi_params = {"padding": _padding, "lamda": _lamda}
-        norm_params = {"power": _power}
+        norm_params = {"power": _power, "image_diff": image_diff}
         if "Deconv_1x1" != f_name:
             _hook = CrossCorrelationHookWithSaver(
                 name=f"cc_{f_name}", cc_weight=cw, feature_name=f_name, kernel_size=ksize,
