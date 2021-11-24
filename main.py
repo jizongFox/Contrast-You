@@ -7,7 +7,7 @@ from easydict import EasyDict as edict
 from loguru import logger
 
 from contrastyou import CONFIG_PATH, git_hash, OPT_PATH
-from contrastyou.arch import UNet
+from contrastyou.arch import UNet, UNetFeatureMapEnum
 from contrastyou.configure import yaml_load, ConfigManager
 from contrastyou.losses.kl import KL_div
 from contrastyou.trainer import create_save_dir
@@ -17,7 +17,7 @@ from semi_seg.data.creator import get_data
 from semi_seg.hooks import feature_until_from_hooks
 from semi_seg.trainers.pretrain import PretrainEncoderTrainer, PretrainDecoderTrainer
 from semi_seg.trainers.trainer import SemiTrainer, FineTuneTrainer, MixUpTrainer, MTTrainer, DMTTrainer
-from utils import logging_configs, find_checkpoint
+from utils import logging_configs, randomnize_model
 
 trainer_zoo = {"semi": SemiTrainer,
                "ft": FineTuneTrainer,
@@ -55,11 +55,18 @@ def worker(config, absolute_save_dir, seed):
     config.OPT = data_opt
 
     model_checkpoint = config["Arch"].pop("checkpoint", None)
+
+    # this flag is made to randomnize some layers of the decoder, in order to check if it is the optimization that
+    # hinders the performance.
+    randomnize_checkpoint: bool = config["Arch"].pop("randomnize_checkpoint", False)
     with fix_all_seed_within_context(seed):
         model = UNet(input_dim=data_opt.input_dim, num_classes=data_opt.num_classes, **config["Arch"])
     if model_checkpoint:
         logger.info(f"loading checkpoint from  {model_checkpoint}")
         model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=True)
+        if randomnize_checkpoint:
+            # randomnize some layers if pretrain is used.
+            model = randomnize_model(model, start=UNetFeatureMapEnum.Up_conv3, end=UNetFeatureMapEnum.Deconv_1x1)
 
     trainer_name = config["Trainer"]["name"]
     is_pretrain = ("pretrain" in trainer_name)

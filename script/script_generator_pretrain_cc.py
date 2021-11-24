@@ -13,7 +13,7 @@ from script.utils import grid_search, move_dataset
 
 parser = argparse.ArgumentParser()
 parser.add_argument("save_dir", type=str, help="save dir")
-parser.add_argument("--data-name", type=str, choices=("acdc", "acdc_lv"), help="dataset_choice")
+parser.add_argument("--data-name", type=str, choices=("acdc", "acdc_lv"), help="dataset_choice", required=True)
 parser.add_argument("--force-show", action="store_true", help="showing script")
 args = parser.parse_args()
 
@@ -42,10 +42,11 @@ def get_hyper_param_string(**kwargs):
 
 
 def _run_ft(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int, num_batches: int,
-            arch_checkpoint: str = "null", lr: float, data_name: str = "acdc"):
+            arch_checkpoint: str = "null", lr: float, data_name: str = "acdc", randomnize_checkpoint: str):
     return f""" python main.py RandomSeed={random_seed} Trainer.name=ft \
      Trainer.save_dir={save_dir} Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name} \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
+    Arch.randomnize_checkpoint={randomnize_checkpoint} \
     """
 
 
@@ -117,7 +118,7 @@ def _run_pretrain_cc(*, save_dir: str, random_seed: int = 10, max_epoch: int, nu
 def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch: int, num_batches: int, data_name: str = "acdc",
                     mi_weight, cc_weight, consistency_weight, padding: int,
                     lamda: float, power: float, head_type: str, num_subheads: int, num_clusters: int,
-                    adding_coordinates: str, image_diff: str):
+                    adding_coordinates: str, image_diff: str, randomnize_checkpoint: str):
     data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
     pretrain_save_dir = os.path.join(save_dir, "pretrain")
@@ -134,7 +135,7 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch: int, num_batc
             save_dir=os.path.join(ft_save_dir, f"labeled_num_{l:03d}"), random_seed=random_seed,
             num_labeled_scan=l, max_epoch=max_epoch, num_batches=num_batches,
             arch_checkpoint=f"{os.path.join(MODEL_PATH, pretrain_save_dir, 'last.pth')}",
-            lr=data_opt["ft_lr"], data_name=data_name
+            lr=data_opt["ft_lr"], data_name=data_name, randomnize_checkpoint=randomnize_checkpoint
         )
         for l in labeled_scans
     ]
@@ -192,7 +193,7 @@ def run_baseline(
             save_dir=os.path.join(save_dir, "baseline", f"labeled_num_{l:03d}"), random_seed=random_seed,
             num_labeled_scan=l, max_epoch=max_epoch, num_batches=num_batches,
             arch_checkpoint="null",
-            lr=data_opt["ft_lr"], data_name=data_name
+            lr=data_opt["ft_lr"], data_name=data_name, randomnize_checkpoint="false"
         )
         for l in labeled_scans
     ]
@@ -205,14 +206,14 @@ def run_pretrain_ft_with_grid_search(
         mi_weights: Sequence[float], cc_weights: Sequence[float], consistency_weights: Sequence[float],
         paddings: Sequence[int], lamdas: Sequence[float], powers: Sequence[float], head_types=Sequence[str],
         num_subheads: Sequence[int], num_clusters: Sequence[int], adding_coordinates: Sequence[str],
-        image_diff: Sequence[str],
+        image_diff: Sequence[str], randomnize_checkpoint: Sequence[str],
         include_baseline=True, max_num: Optional[int] = 200,
 ) -> Iterator[List[str]]:
     param_generator = grid_search(max_num=max_num, mi_weight=mi_weights, cc_weight=cc_weights, random_seed=random_seeds,
                                   consistency_weight=consistency_weights, padding=paddings, lamda=lamdas,
                                   power=powers, head_type=head_types, num_subheads=num_subheads,
                                   num_clusters=num_clusters, adding_coordinates=adding_coordinates,
-                                  image_diff=image_diff)
+                                  image_diff=image_diff, randomnize_checkpoint=randomnize_checkpoint)
     for param in param_generator:
         random_seed = param.pop("random_seed")
         sp_str = get_hyper_param_string(**param)
@@ -310,7 +311,7 @@ if __name__ == '__main__':
     job_generator = run_pretrain_ft_with_grid_search(save_dir=os.path.join(save_dir, "pretrain"),
                                                      random_seeds=random_seeds, max_epoch=max_epoch,
                                                      num_batches=num_batches,
-                                                     data_name=data_name, mi_weights=[1], cc_weights=[0.4],
+                                                     data_name=data_name, mi_weights=[1], cc_weights=[0, 0.4],
                                                      consistency_weights=[0.2, 0],
                                                      include_baseline=True,
                                                      paddings=[0], lamdas=[2.5],
@@ -320,7 +321,8 @@ if __name__ == '__main__':
                                                      num_clusters=[30],
                                                      adding_coordinates="false",
                                                      max_num=500,
-                                                     image_diff=["true", "false"]
+                                                     image_diff=["true"],
+                                                     randomnize_checkpoint=["true"]
                                                      )
     jobs = list(job_generator)
     logger.info(f"logging {len(jobs)} jobs")
@@ -342,7 +344,7 @@ if __name__ == '__main__':
                                                          num_clusters=[30],
                                                          adding_coordinates=["false"],
                                                          max_num=500,
-                                                         image_diff=["true", "false"]
+                                                         image_diff=["true"]
                                                          )
     jobs = list(job_generator)
     logger.info(f"logging {len(jobs)} jobs")
@@ -363,7 +365,7 @@ if __name__ == '__main__':
                                                                    num_subheads=[3],
                                                                    multicore_multipliers=[1, 4],
                                                                    max_num=1000,
-                                                                   image_diff=["true", "false"]
+                                                                   image_diff=["true"]
                                                                    )
     jobs = list(job_generator)
     logger.info(f"logging {len(jobs)} jobs")

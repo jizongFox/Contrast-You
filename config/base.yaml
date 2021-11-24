@@ -3,6 +3,7 @@ trainer_checkpoint: null
 
 Arch:
   checkpoint: null
+  randomnize_checkpoint: false
   max_channel: 512
   momentum: 0.01
 

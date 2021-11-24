@@ -4,7 +4,10 @@ from functools import reduce
 from typing import Optional
 
 from loguru import logger
+from torch import nn
 
+from contrastyou.arch import UNet, UNetFeatureMapEnum
+from contrastyou.arch.unet import _complete_arch_start2end
 from contrastyou.configure import dictionary_merge_by_hierachy, extract_dictionary_from_anchor, \
     extract_params_with_key_prefix, ConfigManager
 
@@ -70,3 +73,22 @@ def grouper(array_list, group_num):
         batch.append(item)
     if len(batch) > 0:
         yield batch
+
+
+def randomnize_model(model: UNet, *, start: UNetFeatureMapEnum, end: UNetFeatureMapEnum, include_start: bool = True,
+                     include_end: bool = True):
+    all_component = _complete_arch_start2end(start.value, end.value, include_start=include_start,
+                                             include_end=include_end)
+
+    def initialize_weights(model):
+        # Initializes weights according to the DCGAN paper
+        for m in model.modules():
+            if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d)):
+                nn.init.normal_(m.weight.data, 0.0, 0.02)
+
+    if len(all_component) > 0:
+        logger.opt(depth=2).trace("set random initialization from {} to {}", all_component[0], all_component[-1])
+    for c in all_component:
+        cur_module = getattr(model, "_" + c)
+        cur_module.apply(initialize_weights)
+    return model

@@ -102,3 +102,7 @@ def on_cc() -> bool:
 def success(save_dir: str):
     filename = ".success"
     Path(str(save_dir), filename).touch()
+
+
+# import numpy to avoid some errors
+import numpy as np  # noqa
