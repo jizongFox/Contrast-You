@@ -13,7 +13,8 @@ from script.utils import grid_search, move_dataset
 
 parser = argparse.ArgumentParser()
 parser.add_argument("save_dir", type=str, help="save dir")
-parser.add_argument("--data-name", type=str, choices=("acdc", "acdc_lv"), help="dataset_choice")
+parser.add_argument("--data-name", type=str, choices=("acdc", "acdc_lv", "acdc_rv"), default="acdc",
+                    help="dataset_choice")
 parser.add_argument("--force-show", action="store_true", help="showing script")
 args = parser.parse_args()
 
@@ -320,12 +321,12 @@ if __name__ == '__main__':
                                                      num_clusters=[30],
                                                      adding_coordinates="false",
                                                      max_num=500,
-                                                     image_diff=["true", "false"]
+                                                     image_diff="true"
                                                      )
     jobs = list(job_generator)
     logger.info(f"logging {len(jobs)} jobs")
     for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=6, account=next(account))
+        submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
 
     job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),
                                                          random_seeds=random_seeds,
@@ -342,12 +343,12 @@ if __name__ == '__main__':
                                                          num_clusters=[30],
                                                          adding_coordinates=["false"],
                                                          max_num=500,
-                                                         image_diff=["true", "false"]
+                                                         image_diff="true"
                                                          )
     jobs = list(job_generator)
     logger.info(f"logging {len(jobs)} jobs")
     for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=7, account=next(account))
+        submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
 
     job_generator = run_multicore_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi_multicore"),
                                                                    random_seeds=random_seeds,
@@ -358,14 +359,14 @@ if __name__ == '__main__':
                                                                    consistency_weights=[0, 0.8],
                                                                    include_baseline=True,
                                                                    paddings=[0], lamdas=[1.5, ],
-                                                                   powers=[0.75, 1],
+                                                                   powers=[0.75],
                                                                    head_types=["linear", ],
                                                                    num_subheads=[3],
                                                                    multicore_multipliers=[1, 4],
                                                                    max_num=1000,
-                                                                   image_diff=["true", "false"]
+                                                                   image_diff="true"
                                                                    )
     jobs = list(job_generator)
     logger.info(f"logging {len(jobs)} jobs")
     for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=7, account=next(account))
+        submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
