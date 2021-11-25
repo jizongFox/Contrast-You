@@ -61,17 +61,13 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
         logger.trace("bind TrainerHooks")
         for h in self._hooks:
             h.to(self.device)  # put the hook into device.
-        try:
             # calling after_init of hooks
-            for h in self._hooks:
-                h.after_initialize()
-            yield
-        except Exception as e:
-            logger.exception(e)
-        finally:
-            for h in hook:
-                h.close()
-            logger.trace("close TrainerHooks")
+        for h in self._hooks:
+            h.after_initialize()
+        yield
+        for h in hook:
+            h.close()
+        logger.trace("close TrainerHooks")
 
     def _init_optimizer(self) -> _optimizer_type:
         optim_params = self._config["Optim"]

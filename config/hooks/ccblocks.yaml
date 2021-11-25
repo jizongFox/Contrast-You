@@ -7,7 +7,6 @@ CrossCorrelationParameters:
   head_type: linear
   num_subheads: 1
   save: true
-  adding_coordinates: true
   image_diff: true
 
   IID:

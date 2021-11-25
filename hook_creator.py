@@ -68,7 +68,7 @@ def create_hook_from_config(model, config, *, is_pretrain=False, trainer):
             head_type=cur_config["head_type"], num_subheads=cur_config["num_subheads"],
             mi_weights=cur_config["mi_weights"], save=cur_config["save"],
             padding=cur_config["IID"]["padding"], lamda=cur_config["IID"]["lamda"],
-            power=cur_config["norm"]["power"], adding_coordinates=cur_config["adding_coordinates"],
+            power=cur_config["norm"]["power"],
             image_diff=cur_config["image_diff"]
         )
         hooks.append(hook)

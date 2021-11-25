@@ -1,5 +1,6 @@
 import typing as t
 import warnings
+import weakref
 from itertools import chain
 
 import torch
@@ -22,7 +23,8 @@ if t.TYPE_CHECKING:
     from contrastyou.projectors.nn import _ProjectorHeadBase  # noqa
     from contrastyou.meters import MeterInterface
 
-__all__ = ["CrossCorrelationHook", "CrossCorrelationHookWithSaver"]
+__all__ = ["CrossCorrelationHook", "CrossCorrelationHookWithSaver", "ProjectorGeneralHook", "_CrossCorrelationHook",
+           "_MIHook"]
 
 
 class CrossCorrelationHook(TrainerHook):
@@ -193,6 +195,7 @@ class _CrossCorrelationEpocherHook(EpocherHook):
         return unlabeled_tf_features, unlabeled_features_tf
 
 
+# interface
 class CrossCorrelationHookWithSaver(CrossCorrelationHook):
     # with an image saver
 
@@ -293,3 +296,200 @@ class _CrossCorrelationEpocherHookWithSaver(_CrossCorrelationEpocherHook):
             self.meters["cc_ls"].add(cc_loss.item())
             self.meters["mi_ls"].add(mi_loss.item())
         return cc_loss * self.cc_weight + mi_loss * self.mi_weight
+
+
+class _TinyHook:
+
+    def __init__(self, *, name: str, criterion: t.Callable, weight: float) -> None:
+        self.name = name
+        self.criterion = criterion
+        self.weight = weight
+        self.meters = None
+        self.hook = None
+
+    def configure_meters(self, meters: 'MeterInterface'):
+        meters.register_meter(self.name, AverageValueMeter())
+        return meters
+
+    def __call__(self, **kwargs) -> Tensor:
+        loss = self.criterion(**kwargs)
+        if self.meters:
+            self.meters[self.name].add(loss.item())
+        return loss * self.weight
+
+    def close(self):
+        pass
+
+
+class _CrossCorrelationHook(_TinyHook):
+
+    def __init__(self, *, name: str = "cc", weight: float, kernel_size: int, device: str) -> None:
+        criterion = CCLoss(win=(kernel_size, kernel_size)).to(device)
+        super().__init__(name=name, criterion=criterion, weight=weight)
+        self._ent_func = Entropy(reduction="none")
+
+    def __call__(self, *, image: Tensor, input1: Tensor, input2: Tensor, **kwargs):
+        losses, diff_image, diff_prediction = zip(*[
+            self.cc_loss_per_head(image=image, predict_simplex=x) for x in
+            chain([input1, input2])
+        ])
+        loss = sum(losses) / len(losses)
+        if self.meters:
+            self.meters[self.name].add(loss.item())
+        return loss
+
+    def norm(self, image: Tensor, min=0.0, max=1.0, slicewise=True):
+        if not slicewise:
+            return self._norm(image, min, max)
+        return torch.stack([self._norm(x) for x in image], dim=0)
+
+    def _norm(self, image: Tensor, min=0.0, max=1.0):
+        min_, max_ = image.min().detach(), image.max().detach()
+        image = image - min_
+        image = image / (max_ - min_ + 1e-6)
+        return image * (max - min) + min
+
+    @staticmethod
+    def diff(image: Tensor):
+        assert image.dim() == 4
+        dx = image - torch.roll(image, shifts=1, dims=2)
+        dy = image - torch.roll(image, shifts=1, dims=3)
+        d = torch.sqrt(dx.pow(2) + dy.pow(2))
+        return torch.mean(d, dim=1, keepdims=True)  # noqa
+
+    def cc_loss_per_head(self, image: Tensor, predict_simplex: Tensor):
+        if tuple(image.shape[-2:]) != tuple(predict_simplex.shape[-2:]):
+            h, w = predict_simplex.shape[-2:]
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore")
+                image = F.interpolate(image, size=(h, w), mode="bilinear")
+        # check if image_diff works in some sense.
+        diff_image = self.norm(self.diff(image), min=0, max=1).pow(0.75)  # the diff power applies only on edges.
+        diff_tf_softmax = self.norm(self._ent_func(predict_simplex), min=0, max=1, slicewise=False).unsqueeze(1)
+
+        loss = self.criterion(
+            diff_tf_softmax,
+            diff_image
+        )
+        return loss, diff_image, diff_tf_softmax
+
+
+class _MIHook(_TinyHook):
+
+    def __init__(self, *, name: str = "mi", weight: float, lamda: float, padding: int = 0) -> None:
+        criterion = IIDSegmentationLoss(lamda=lamda, padding=padding)
+        super().__init__(name=name, criterion=criterion, weight=weight)
+
+    def __call__(self, input1: Tensor, input2: Tensor, **kwargs):
+        loss = self.criterion(input1, input2)
+        if self.meters:
+            self.meters[self.name].add(loss.item())
+        return loss * self.weight
+
+
+class ProjectorGeneralHook(TrainerHook):
+
+    def __init__(self, *, name: str, model: nn.Module, feature_name: UNetFeatureMapEnum,
+                 projector_params: t.Dict[str, t.Any]):
+        super().__init__(hook_name=name)
+        self._feature_hooks = []
+        self._dist_hooks = []
+        self._feature_criterion_initialized = False
+        self._distribution_criterion_initialized = False
+
+        feature_name = UNetFeatureMapEnum(feature_name)
+        self._feature_name = feature_name.value
+        logger.info(
+            f"Creating {class_name(self)} @{feature_name.name}.")
+        self._extractor = SingleFeatureExtractor(
+            model=model, feature_name=UNetFeatureMapEnum(feature_name).name  # noqa
+        )
+        input_dim = model.get_channel_dim(feature_name.value)  # model: type: UNet
+        logger.trace(f"Creating projector with {item2str(projector_params)}")
+        self._projector = CrossCorrelationProjector(input_dim=input_dim, **projector_params)
+
+    def register_feat_hook(self, *hook: _TinyHook):
+        self._feature_hooks.extend(list(hook))
+        self._feature_criterion_initialized = True
+
+    def register_dist_hook(self, *hook: _TinyHook):
+        self._dist_hooks.extend(list(hook))
+        self._distribution_criterion_initialized = True
+
+    def __call__(self, **kwargs):
+        if not (self._feature_criterion_initialized or self._distribution_criterion_initialized):
+            raise RuntimeError(f"{class_name(self)} not registered criterion.")
+
+        epoch_hook = _ProjectorEpocherGeneral(name=self._hook_name, extractor=self._extractor,
+                                              projector=self._projector, dist_hooks=self._dist_hooks,
+                                              feat_hooks=self._feature_hooks)
+        return epoch_hook
+
+    @property
+    def learnable_modules(self) -> t.List[nn.Module]:
+        return [self._projector, ]
+
+
+# try to convert this to hook
+class _ProjectorEpocherGeneral(EpocherHook):
+
+    def __init__(self, *, name: str, extractor: 'SingleFeatureExtractor', projector: '_ProjectorHeadBase',
+                 projector_params: t.Dict[str, t.Any] = None, dist_hooks: t.Sequence[_TinyHook] = (),
+                 feat_hooks: t.Sequence[_TinyHook] = ()) -> None:
+        super().__init__(name=name)
+        self.extractor = extractor
+        self.extractor.bind()
+        self.projector = projector
+        self.projector_params = projector_params
+        self._feature_hooks = feat_hooks
+        self._dist_hooks = dist_hooks
+
+    def configure_meters_given_epocher(self, meters: 'MeterInterface'):
+        for h in chain(self._dist_hooks, self._feature_hooks):
+            h.meters = meters
+            h.hook = weakref.proxy(self)
+            h.configure_meters(meters)
+        return meters
+
+    def before_forward_pass(self, **kwargs):
+        self.extractor.clear()
+        self.extractor.set_enable(True)
+
+    def after_forward_pass(self, **kwargs):
+        self.extractor.set_enable(False)
+
+    def _call_implementation(self, unlabeled_image_tf: Tensor, unlabeled_logits_tf: Tensor,
+                             affine_transformer: t.Callable[[Tensor], Tensor],
+                             unlabeled_image: Tensor, **kwargs):
+        n_unl = len(unlabeled_logits_tf)
+        feature_ = self.extractor.feature()[-n_unl * 2:]
+        _unlabeled_features, unlabeled_tf_features = torch.chunk(feature_, 2, dim=0)
+        unlabeled_features_tf = affine_transformer(_unlabeled_features)
+
+        feature_loss = self._run_feature_hooks(
+            input1=unlabeled_features_tf,
+            input2=unlabeled_tf_features,
+            image=unlabeled_image_tf
+        )
+
+        projected_dist_tf, projected_tf_dist = zip(*[torch.chunk(x, 2) for x in self.projector(
+            torch.cat([unlabeled_features_tf, unlabeled_tf_features], dim=0))])
+
+        dist_losses = tuple(
+            self._run_dist_hooks(input1=prob1, input2=prob2, image=unlabeled_image_tf) for prob1, prob2 in
+            zip(projected_tf_dist, projected_dist_tf)
+        )
+        dist_loss = sum(dist_losses) / len(dist_losses)
+
+        return feature_loss + dist_loss
+
+    def _run_feature_hooks(self, **kwargs):
+        return sum([h(**kwargs) for h in self._feature_hooks])
+
+    def _run_dist_hooks(self, **kwargs):
+        return sum([h(**kwargs) for h in self._dist_hooks])
+
+    def close(self):
+        self.extractor.remove()
+        for h in chain(self._feature_hooks, self._dist_hooks):
+            h.close()
