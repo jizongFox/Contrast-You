@@ -359,7 +359,7 @@ class ProjectorGeneralHook(TrainerHook):
 
         return _ProjectorEpocherGeneralHook(
             name=self._hook_name, extractor=self._extractor, projector=self._projector, dist_hooks=self._dist_hooks,
-            feat_hooks=self._feature_hooks
+            feat_hooks=self._feature_hooks, saver=self.saver
         )
 
     @property
@@ -428,7 +428,9 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
         dist_losses = tuple(
             self._run_dist_hooks(
                 input1=prob1, input2=prob2, image=unlabeled_image_tf,
-                feature_map1=unlabeled_tf_features, feature_map2=unlabeled_features_tf
+                feature_map1=unlabeled_tf_features, feature_map2=unlabeled_features_tf, saver=self.saver,
+                save_image_condition=save_image_condition, cur_epoch=self.epocher.cur_epoch,
+                cur_batch_num=self.epocher.cur_batch_num
             )
             for prob1, prob2 in zip(projected_tf_dist, projected_dist_tf)
         )
@@ -456,7 +458,8 @@ class _CrossCorrelationHook(_TinyHook):
         self._ent_func = Entropy(reduction="none")
         self._diff_power = diff_power
 
-    def __call__(self, *, image: Tensor, input1: Tensor, input2: Tensor, **kwargs):
+    def __call__(self, *, image: Tensor, input1: Tensor, input2: Tensor, saver: "FeatureMapSaver",
+                 save_image_condition: bool, cur_epoch: int, cur_batch_num: int, **kwargs):
         device = image.device
         self.criterion.to(device)  # noqa
 
@@ -467,6 +470,14 @@ class _CrossCorrelationHook(_TinyHook):
         loss = sum(losses) / len(losses)
         if self.meters:
             self.meters[self.name].add(loss.item())
+
+        if save_image_condition:
+            saver.save_map(
+                image=self.diff_image[0], feature_map1=self.diff_prediction[0], feature_map2=self.diff_prediction[0],
+                cur_epoch=cur_epoch, cur_batch_num=cur_batch_num,
+                save_name="cross_correlation", feature_type="image"
+            )
+
         return loss * self.weight
 
     def norm(self, image: Tensor, min=0.0, max=1.0, slicewise=True):
