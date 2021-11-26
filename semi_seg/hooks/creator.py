@@ -199,7 +199,7 @@ def create_cross_correlation_hooks(
         *, model: nn.Module, feature_names: item_or_seq[str], cc_weights: item_or_seq[float],
         mi_weights: item_or_seq[float], num_clusters: item_or_seq[int], kernel_size: item_or_seq[int],
         head_type=item_or_seq[str], num_subheads: item_or_seq[int], save: bool = True, padding: item_or_seq[int],
-        lamda: item_or_seq[float], power: item_or_seq[float], image_diff: bool,
+        lamda: item_or_seq[float], power: item_or_seq[float],
 ):
     if isinstance(feature_names, str):
         num_features = 1
@@ -228,24 +228,19 @@ def create_cross_correlation_hooks(
                           "num_subheads": n_subheads,
                           "hidden_dim": 64}
         mi_params = {"padding": _padding, "lamda": _lamda}
-        norm_params = {"power": _power, "image_diff": image_diff}
+        norm_params = {"power": _power, }
         if "Deconv_1x1" != f_name:
-            _hook = ProjectorGeneralHook(name=f"cc_{f_name}", model=model, feature_name=f_name,
-                                         projector_params=project_params)
+            hook = ProjectorGeneralHook(name=f"cc_{f_name}", model=model, feature_name=f_name,
+                                        projector_params=project_params, save=save)
+            hook.register_dist_hook(_MIHook(weight=mw, lamda=_lamda, padding=_padding))
+            hook.register_dist_hook(_CrossCorrelationHook(weight=cw, kernel_size=ksize))
 
-            _hook.register_dist_hook(_MIHook(weight=mw, lamda=_lamda, padding=_padding))
-            _hook.register_dist_hook(_CrossCorrelationHook(weight=cw, kernel_size=ksize, device="cuda"))
-            # _hook = CrossCorrelationHookWithSaver(
-            #     name=f"cc_{f_name}", cc_weight=cw, feature_name=f_name, kernel_size=ksize,
-            #     projector_params=project_params, model=model, mi_weight=mw, save=save,
-            #     mi_criterion_params=mi_params, norm_params=norm_params, adding_coordinates=adding_coordinates
-            # )
         else:
-            _hook = CrossCorrelationOnLogitsHook(
+            hook = CrossCorrelationOnLogitsHook(
                 name=f"cc_{f_name}", cc_weight=cw, feature_name=f_name,
                 kernel_size=ksize, projector_params=project_params, model=model, mi_weight=mw, save=save,
                 mi_criterion_params=mi_params, norm_params=norm_params
             )
-        hooks.append(_hook)
+        hooks.append(hook)
 
     return CombineTrainerHook(*hooks)
