@@ -7,7 +7,7 @@ from contrastyou.arch import UNet
 from contrastyou.hooks.base import CombineTrainerHook, TrainerHook
 from contrastyou.utils.utils import ntuple, class_name
 from .cc import CrossCorrelationOnLogitsHook
-from .ccblock import ProjectorGeneralHook, _CrossCorrelationHook, _MIHook
+from .ccblock import ProjectorGeneralHook, _CrossCorrelationHook, _MIHook, _CenterCompactnessHook
 from .consistency import ConsistencyTrainerHook
 from .discretemi import DiscreteMITrainHook
 from .dmt import DifferentiableMeanTeacherTrainerHook
@@ -260,6 +260,8 @@ def create_cross_correlation_hooks2(
             hook.register_dist_hook(_MIHook(**hook_params["mi"]))
         if "cc" in hook_params:
             hook.register_dist_hook(_CrossCorrelationHook(**hook_params["cc"]))
+        if "compact" in hook_params:
+            hook.register_dist_hook(_CenterCompactnessHook(**hook_params["compact"]))
 
     else:
         mi_params = {"lamda": hook_params["mi"]["lamda"],

@@ -1,3 +1,4 @@
+import torch
 from loguru import logger
 from torch import nn
 
@@ -28,6 +29,8 @@ class _ConsistencyEpocherHook(EpocherHook):
         self.meters.register_meter("loss", AverageValueMeter())
 
     def _call_implementation(self, *, unlabeled_tf_logits, unlabeled_logits_tf, seed, affine_transformer, **kwargs):
+        if self._weight == 0:
+            return torch.tensor(0, dtype=unlabeled_tf_logits.dtype, device=unlabeled_tf_logits.device)
         unlabeled_tf_prob = unlabeled_tf_logits.softmax(1)
         unlabeled_prob_tf = unlabeled_logits_tf.softmax(1)
         loss = self._criterion(unlabeled_prob_tf.detach(), unlabeled_tf_prob)

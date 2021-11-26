@@ -1,3 +1,4 @@
+import random
 import typing as t
 import warnings
 import weakref
@@ -463,6 +464,8 @@ class _CrossCorrelationHook(_TinyHook):
 
     def __call__(self, *, image: Tensor, input1: Tensor, input2: Tensor, saver: "FeatureMapSaver",
                  save_image_condition: bool, cur_epoch: int, cur_batch_num: int, **kwargs):
+        if self.weight == 0:
+            return torch.tensor(0.0, dtype=image.dtype, device=image.device)
         device = image.device
         self.criterion.to(device)  # noqa
 
@@ -526,6 +529,8 @@ class _MIHook(_TinyHook):
         super().__init__(name=name, criterion=criterion, weight=weight)
 
     def __call__(self, input1: Tensor, input2: Tensor, **kwargs):
+        if self.weight == 0:
+            return torch.tensor(0, device=input1.device, dtype=input1.dtype)
         loss = self.criterion(input1, input2)
         if self.meters:
             self.meters[self.name].add(loss.item())
@@ -539,30 +544,47 @@ class _CenterCompactnessHook(_TinyHook):
         del self.criterion
 
     def __call__(self, input1, input2, feature_map1, feature_map2, image, **kwargs):
-        loss = 0.5 * self.forward(probability_simplex=input1, feature_map=feature_map1) + \
-               0.5 * self.forward(probability_simplex=input2, feature_map=feature_map2)
+        if self.weight == 0:
+            return torch.tensor(0, dtype=input1.dtype, device=input1.device)
+        if torch.rand((1,)).item() > 0.5:
+            return torch.tensor(0, dtype=input1.dtype, device=input1.device)
+
+        if torch.rand((1,)).item() > 0.5:
+            loss = self.forward(probability_simplex=input1, feature_map=feature_map1)
+        else:
+            loss = self.forward(probability_simplex=input2, feature_map=feature_map2)
         if self.meters:
             self.meters[self.name].add(loss.item())
         return loss * self.weight
 
     def forward(self, probability_simplex: Tensor, feature_map: Tensor):
         dims = probability_simplex.shape[1]
-        one_hot_mask = probs2one_hot(probability_simplex, class_dim=dims)
+        one_hot_mask = probs2one_hot(probability_simplex, class_dim=1)
         losses = []
-        for dim in range(dims):
-            cur_mask = one_hot_mask[:, dim].unsqueeze(1)
-            prototype = self.masked_average_pooling(feature_map, cur_mask)
+        # randomly choose some dimension
+        for dim in random.sample(range(dims), max(5, dims // 5)):
+            cur_mask = one_hot_mask[:, dim].bool().unsqueeze(1)
+            if cur_mask.sum() == 0:
+                continue
+            prototype = self.masked_average_pooling2(feature_map, cur_mask)
             loss = self.center_loss(feature=feature_map, mask=cur_mask, prototype=prototype)
             losses.append(loss)
+        if len(losses) == 0:
+            return torch.tensor(0, dtype=probability_simplex.dtype, device=probability_simplex.device)
 
         return sum(losses) / len(losses)
 
     def masked_average_pooling(self, feature: Tensor, mask: Tensor):
-        b, c, h, w = feature.shape
+        assert feature.dim() == 4
         data = feature.masked_fill(mask == 0, 0)
-        nominator = torch.sum(data, dim=(2, 3))
-        denominator = torch.sum(mask.type(nominator.dtype), dim=(2, 3))
+        nominator = torch.sum(data, dim=(0, 2, 3), keepdim=True)
+        denominator = torch.sum(mask.type(nominator.dtype), dim=(0, 2, 3), keepdim=True)
         return nominator / (denominator + 1e-16)
 
+    def masked_average_pooling2(self, feature: Tensor, mask: Tensor):
+        b, c, *_ = feature.shape
+        used_feature = feature.swapaxes(1, 0).masked_select(mask.swapaxes(1, 0)).reshape(c, -1)
+        return used_feature.mean(dim=1).reshape(1, c, 1, 1)
+
     def center_loss(self, feature: Tensor, mask: Tensor, prototype: Tensor):
-        return torch.mean((feature - prototype).power(2), dim=1).masked_select(mask).mean()
+        return torch.mean((feature - prototype).pow(2), dim=1, keepdim=True).masked_select(mask).mean()
