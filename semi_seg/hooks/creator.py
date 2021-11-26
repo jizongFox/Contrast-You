@@ -1,5 +1,5 @@
 import typing
-from typing import List, Union, TypeVar, Sequence
+from typing import List, Union, TypeVar, Sequence, Any, Dict
 
 from torch import nn
 
@@ -191,10 +191,6 @@ def create_imsat_hook(*, weight: float = 0.1):
     return IMSATTrainHook(weight=weight)
 
 
-# def create_cross_correlation_hook(*, weight: float, kernel_size: int, device: str):
-#     return CrossCorrelationHook(weight=weight, kernel_size=kernel_size, device=device)
-
-
 def create_cross_correlation_hooks(
         *, model: nn.Module, feature_names: item_or_seq[str], cc_weights: item_or_seq[float],
         mi_weights: item_or_seq[float], num_clusters: item_or_seq[int], kernel_size: item_or_seq[int],
@@ -243,4 +239,39 @@ def create_cross_correlation_hooks(
             )
         hooks.append(hook)
 
+    return CombineTrainerHook(*hooks)
+
+
+def create_cross_correlation_hooks2(
+        *, model: nn.Module, feature_name: str, num_clusters: int, head_type: str, num_subheads: int, save: bool = True,
+        hook_params: Dict[str, Any]
+):
+    project_params = {"num_clusters": num_clusters,
+                      "head_type": head_type,
+                      "normalize": False,
+                      "num_subheads": num_subheads,
+                      "hidden_dim": 64}
+    hooks = []
+
+    if "Deconv_1x1" != feature_name:
+        hook = ProjectorGeneralHook(name=f"cc_{feature_name}", model=model, feature_name=feature_name,
+                                    projector_params=project_params, save=save)
+        if "mi" in hook_params:
+            hook.register_dist_hook(_MIHook(**hook_params["mi"]))
+        if "cc" in hook_params:
+            hook.register_dist_hook(_CrossCorrelationHook(**hook_params["cc"]))
+
+    else:
+        mi_params = {"lamda": hook_params["mi"]["lamda"],
+                     "padding": hook_params["mi"]["padding"]}
+        norm_params = {"power": hook_params["cc"]["diff_power"]}
+
+        hook = CrossCorrelationOnLogitsHook(
+            name=f"cc_{feature_name}", cc_weight=hook_params["cc"]["weight"], feature_name=feature_name,
+            kernel_size=hook_params["cc"]["kernel_size"], projector_params=project_params, model=model,
+            mi_weight=hook_params["mi"]["weight"],
+            save=save,
+            mi_criterion_params=mi_params, norm_params=norm_params
+        )
+    hooks.append(hook)
     return CombineTrainerHook(*hooks)

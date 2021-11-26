@@ -1,0 +1,35 @@
+CrossCorrelationParameters:
+  feature_name: Deconv_1x1
+  num_clusters: 20
+  head_type: mlp
+  num_subheads: 1
+  save: true
+  hooks:
+    mi:
+      weight: 0.5
+      padding: 1
+      lamda: 1.5
+    cc:
+      weight: 0.1
+      kernel_size: 5
+      diff_power: 0.75
+    compact:
+      weight: 1
+
+#CrossCorrelationParameters2:
+#  feature_name: Up_conv3
+#  num_clusters: 20
+#  head_type: linear
+#  num_subheads: 1
+#  save: true
+#  hooks:
+#    mi:
+#      weight: 0.5
+#      padding: 1
+#      lamda: 1.5
+#    cc:
+#      weight: 0.1
+#      kernel_size: 5
+#      diff_power: 0.75
+#    compact:
+#      weight: 1

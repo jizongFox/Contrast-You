@@ -306,6 +306,7 @@ class _TinyHook:
         self.weight = weight
         self.meters = None
         self.hook = None
+        logger.trace(f"Created {self.__class__.__name__}:{self.name} with weight={self.weight}.")
 
     def configure_meters(self, meters: 'MeterInterface'):
         meters.register_meter(self.name, AverageValueMeter())
@@ -348,9 +349,11 @@ class ProjectorGeneralHook(TrainerHook):
                                          folder_name=f"vis/{self._hook_name}")
 
     def register_feat_hook(self, *hook: '_TinyHook'):
+        logger.debug(f"register {hook}")
         self._feature_hooks.extend(hook)
 
     def register_dist_hook(self, *hook: '_TinyHook'):
+        logger.debug(f"register {hook}")
         self._dist_hooks.extend(hook)
 
     def __call__(self, **kwargs):

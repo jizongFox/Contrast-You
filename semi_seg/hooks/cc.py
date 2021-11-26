@@ -38,7 +38,6 @@ class CrossCorrelationOnLogitsHook(TrainerHook):
         logger.trace(f"Creating IIDSegmentationLoss with kernel_size = {kernel_size} with weight = {self._mi_weight}.")
         self._mi_criterion = IIDSegmentationLoss(**mi_criterion_params)
 
-        self._diff_power = float(norm_params["power"])
         self._diff_power: float = float(norm_params["power"])
         assert 0 <= self._diff_power <= 1, self._diff_power
 
