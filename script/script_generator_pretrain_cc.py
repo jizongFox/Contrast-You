@@ -318,7 +318,7 @@ if __name__ == '__main__':
                                                      powers=[0.75, ],
                                                      head_types=["linear", ],
                                                      num_subheads=[3],
-                                                     num_clusters=[30],
+                                                     num_clusters=[10, 30],
                                                      adding_coordinates="false",
                                                      max_num=500,
                                                      image_diff="true"
@@ -326,7 +326,7 @@ if __name__ == '__main__':
     jobs = list(job_generator)
     logger.info(f"logging {len(jobs)} jobs")
     for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
+        submitter.submit(" && \n ".join(job), force_show=force_show, time=5, account=next(account))
 
     job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),
                                                          random_seeds=random_seeds,
@@ -348,7 +348,7 @@ if __name__ == '__main__':
     jobs = list(job_generator)
     logger.info(f"logging {len(jobs)} jobs")
     for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
+        submitter.submit(" && \n ".join(job), force_show=force_show, time=5, account=next(account))
 
     job_generator = run_multicore_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi_multicore"),
                                                                    random_seeds=random_seeds,
@@ -369,4 +369,4 @@ if __name__ == '__main__':
     jobs = list(job_generator)
     logger.info(f"logging {len(jobs)} jobs")
     for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
+        submitter.submit(" && \n ".join(job), force_show=force_show, time=5, account=next(account))
