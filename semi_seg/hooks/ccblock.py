@@ -16,7 +16,7 @@ from contrastyou.losses.discreteMI import IIDSegmentationLoss
 from contrastyou.losses.kl import Entropy
 from contrastyou.meters import AverageValueMeter
 from contrastyou.projectors import CrossCorrelationProjector
-from contrastyou.utils import class_name, average_iter, item2str
+from contrastyou.utils import class_name, average_iter, item2str, probs2one_hot
 from semi_seg.hooks.utils import FeatureMapSaver
 
 if t.TYPE_CHECKING:
@@ -195,7 +195,6 @@ class _CrossCorrelationEpocherHook(EpocherHook):
         return unlabeled_tf_features, unlabeled_features_tf
 
 
-# interface
 class CrossCorrelationHookWithSaver(CrossCorrelationHook):
     # with an image saver
 
@@ -298,6 +297,7 @@ class _CrossCorrelationEpocherHookWithSaver(_CrossCorrelationEpocherHook):
         return cc_loss * self.cc_weight + mi_loss * self.mi_weight
 
 
+# new interface
 class _TinyHook:
 
     def __init__(self, *, name: str, criterion: t.Callable, weight: float) -> None:
@@ -321,22 +321,153 @@ class _TinyHook:
         pass
 
 
+class ProjectorGeneralHook(TrainerHook):
+
+    def __init__(self, *, name: str, model: nn.Module, feature_name: UNetFeatureMapEnum,
+                 projector_params: t.Dict[str, t.Any], save: bool = False):
+        super().__init__(hook_name=name)
+        feature_name = UNetFeatureMapEnum(feature_name)
+        self._feature_name = feature_name.value
+        logger.info(
+            f"Creating {class_name(self)} @{feature_name.name}.")
+        self._extractor = SingleFeatureExtractor(
+            model=model, feature_name=UNetFeatureMapEnum(feature_name).name  # noqa
+        )
+        input_dim = model.get_channel_dim(feature_name.value)  # model: type: UNet
+        logger.trace(f"Creating projector with {item2str(projector_params)}")
+        self._projector = CrossCorrelationProjector(input_dim=input_dim, **projector_params)
+
+        self._feature_hooks = []
+        self._dist_hooks = []
+        self.save = save
+        self.saver = None
+
+    def after_initialize(self):
+        if self.save:
+            self.saver = FeatureMapSaver(save_dir=self.trainer.absolute_save_dir,
+                                         folder_name=f"vis/{self._hook_name}")
+
+    def register_feat_hook(self, *hook: '_TinyHook'):
+        self._feature_hooks.extend(hook)
+
+    def register_dist_hook(self, *hook: '_TinyHook'):
+        self._dist_hooks.extend(hook)
+
+    def __call__(self, **kwargs):
+        if (len(self._feature_hooks) + len(self._dist_hooks)) == 0:
+            raise RuntimeError(f"hooks not registered for {class_name(self)}.")
+
+        return _ProjectorEpocherGeneralHook(
+            name=self._hook_name, extractor=self._extractor, projector=self._projector, dist_hooks=self._dist_hooks,
+            feat_hooks=self._feature_hooks
+        )
+
+    @property
+    def learnable_modules(self) -> t.List[nn.Module]:
+        return [self._projector, ]
+
+
+# try to convert this to hook
+class _ProjectorEpocherGeneralHook(EpocherHook):
+
+    def __init__(self, *, name: str, extractor: 'SingleFeatureExtractor', projector: '_ProjectorHeadBase',
+                 dist_hooks: t.Sequence[_TinyHook] = (), feat_hooks: t.Sequence[_TinyHook] = (), saver=None, ) -> None:
+        super().__init__(name=name)
+        self.extractor = extractor
+        self.extractor.bind()
+        self.projector = projector
+        self._feature_hooks = feat_hooks
+        self._dist_hooks = dist_hooks
+        self.saver = saver
+
+    def configure_meters_given_epocher(self, meters: 'MeterInterface'):
+        meters = super(_ProjectorEpocherGeneralHook, self).configure_meters_given_epocher(meters)
+        for h in chain(self._dist_hooks, self._feature_hooks):
+            h.meters = meters
+            h.hook = weakref.proxy(self)
+            h.configure_meters(meters)
+        return meters
+
+    def before_forward_pass(self, **kwargs):
+        self.extractor.clear()
+        self.extractor.set_enable(True)
+
+    def after_forward_pass(self, **kwargs):
+        self.extractor.set_enable(False)
+
+    def _call_implementation(self, unlabeled_image_tf: Tensor, unlabeled_logits_tf: Tensor,
+                             affine_transformer: t.Callable[[Tensor], Tensor],
+                             unlabeled_image: Tensor, **kwargs):
+        save_image_condition = self.epocher.cur_batch_num == 0 and self.epocher.cur_epoch % 5 == 0 and self.saver is not None
+
+        n_unl = len(unlabeled_logits_tf)
+        feature_ = self.extractor.feature()[-n_unl * 2:]
+        _unlabeled_features, unlabeled_tf_features = torch.chunk(feature_, 2, dim=0)
+        unlabeled_features_tf = affine_transformer(_unlabeled_features)
+
+        feature_loss = self._run_feature_hooks(
+            input1=unlabeled_features_tf,
+            input2=unlabeled_tf_features,
+            image=unlabeled_image_tf
+        )
+        if save_image_condition:
+            self.saver.save_map(
+                image=unlabeled_image_tf, feature_map1=unlabeled_tf_features, feature_map2=unlabeled_features_tf,
+                cur_epoch=self.epocher.cur_epoch, cur_batch_num=self.epocher.cur_batch_num, save_name="feature"
+            )
+
+        projected_dist_tf, projected_tf_dist = zip(*[torch.chunk(x, 2) for x in self.projector(
+            torch.cat([unlabeled_features_tf, unlabeled_tf_features], dim=0))])
+
+        if save_image_condition:
+            self.saver.save_map(
+                image=unlabeled_image_tf, feature_map1=projected_dist_tf[0], feature_map2=projected_tf_dist[0],
+                cur_epoch=self.epocher.cur_epoch, cur_batch_num=self.epocher.cur_batch_num, save_name="probability"
+            )
+
+        dist_losses = tuple(
+            self._run_dist_hooks(
+                input1=prob1, input2=prob2, image=unlabeled_image_tf,
+                feature_map1=unlabeled_tf_features, feature_map2=unlabeled_features_tf
+            )
+            for prob1, prob2 in zip(projected_tf_dist, projected_dist_tf)
+        )
+        dist_loss = sum(dist_losses) / len(dist_losses)
+
+        return feature_loss + dist_loss
+
+    def _run_feature_hooks(self, **kwargs):
+        return sum([h(**kwargs) for h in self._feature_hooks])
+
+    def _run_dist_hooks(self, **kwargs):
+        return sum([h(**kwargs) for h in self._dist_hooks])
+
+    def close(self):
+        self.extractor.remove()
+        for h in chain(self._feature_hooks, self._dist_hooks):
+            h.close()
+
+
 class _CrossCorrelationHook(_TinyHook):
 
-    def __init__(self, *, name: str = "cc", weight: float, kernel_size: int, device: str) -> None:
-        criterion = CCLoss(win=(kernel_size, kernel_size)).to(device)
+    def __init__(self, *, name: str = "cc", weight: float, kernel_size: int, diff_power: float = 0.75) -> None:
+        criterion = CCLoss(win=(kernel_size, kernel_size))
         super().__init__(name=name, criterion=criterion, weight=weight)
         self._ent_func = Entropy(reduction="none")
+        self._diff_power = diff_power
 
     def __call__(self, *, image: Tensor, input1: Tensor, input2: Tensor, **kwargs):
-        losses, diff_image, diff_prediction = zip(*[
+        device = image.device
+        self.criterion.to(device)  # noqa
+
+        losses, self.diff_image, self.diff_prediction = zip(*[
             self.cc_loss_per_head(image=image, predict_simplex=x) for x in
             chain([input1, input2])
         ])
         loss = sum(losses) / len(losses)
         if self.meters:
             self.meters[self.name].add(loss.item())
-        return loss
+        return loss * self.weight
 
     def norm(self, image: Tensor, min=0.0, max=1.0, slicewise=True):
         if not slicewise:
@@ -363,8 +494,8 @@ class _CrossCorrelationHook(_TinyHook):
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore")
                 image = F.interpolate(image, size=(h, w), mode="bilinear")
-        # check if image_diff works in some sense.
-        diff_image = self.norm(self.diff(image), min=0, max=1).pow(0.75)  # the diff power applies only on edges.
+        # the diff power applies only on edges.
+        diff_image = self.norm(self.diff(image), min=0, max=1).pow(self._diff_power)
         diff_tf_softmax = self.norm(self._ent_func(predict_simplex), min=0, max=1, slicewise=False).unsqueeze(1)
 
         loss = self.criterion(
@@ -387,109 +518,37 @@ class _MIHook(_TinyHook):
         return loss * self.weight
 
 
-class ProjectorGeneralHook(TrainerHook):
+class _CenterCompactnessHook(_TinyHook):
 
-    def __init__(self, *, name: str, model: nn.Module, feature_name: UNetFeatureMapEnum,
-                 projector_params: t.Dict[str, t.Any]):
-        super().__init__(hook_name=name)
-        self._feature_hooks = []
-        self._dist_hooks = []
-        self._feature_criterion_initialized = False
-        self._distribution_criterion_initialized = False
+    def __init__(self, *, name: str = "center", weight: float) -> None:
+        super().__init__(name=name, criterion=None, weight=weight)  # noqa
+        del self.criterion
 
-        feature_name = UNetFeatureMapEnum(feature_name)
-        self._feature_name = feature_name.value
-        logger.info(
-            f"Creating {class_name(self)} @{feature_name.name}.")
-        self._extractor = SingleFeatureExtractor(
-            model=model, feature_name=UNetFeatureMapEnum(feature_name).name  # noqa
-        )
-        input_dim = model.get_channel_dim(feature_name.value)  # model: type: UNet
-        logger.trace(f"Creating projector with {item2str(projector_params)}")
-        self._projector = CrossCorrelationProjector(input_dim=input_dim, **projector_params)
+    def __call__(self, input1, input2, feature_map1, feature_map2, image, **kwargs):
+        loss = 0.5 * self.forward(probability_simplex=input1, feature_map=feature_map1) + \
+               0.5 * self.forward(probability_simplex=input2, feature_map=feature_map2)
+        if self.meters:
+            self.meters[self.name].add(loss.item())
+        return loss * self.weight
 
-    def register_feat_hook(self, *hook: _TinyHook):
-        self._feature_hooks.extend(list(hook))
-        self._feature_criterion_initialized = True
+    def forward(self, probability_simplex: Tensor, feature_map: Tensor):
+        dims = probability_simplex.shape[1]
+        one_hot_mask = probs2one_hot(probability_simplex, class_dim=dims)
+        losses = []
+        for dim in range(dims):
+            cur_mask = one_hot_mask[:, dim].unsqueeze(1)
+            prototype = self.masked_average_pooling(feature_map, cur_mask)
+            loss = self.center_loss(feature=feature_map, mask=cur_mask, prototype=prototype)
+            losses.append(loss)
 
-    def register_dist_hook(self, *hook: _TinyHook):
-        self._dist_hooks.extend(list(hook))
-        self._distribution_criterion_initialized = True
+        return sum(losses) / len(losses)
 
-    def __call__(self, **kwargs):
-        if not (self._feature_criterion_initialized or self._distribution_criterion_initialized):
-            raise RuntimeError(f"{class_name(self)} not registered criterion.")
+    def masked_average_pooling(self, feature: Tensor, mask: Tensor):
+        b, c, h, w = feature.shape
+        data = feature.masked_fill(mask == 0, 0)
+        nominator = torch.sum(data, dim=(2, 3))
+        denominator = torch.sum(mask.type(nominator.dtype), dim=(2, 3))
+        return nominator / (denominator + 1e-16)
 
-        epoch_hook = _ProjectorEpocherGeneral(name=self._hook_name, extractor=self._extractor,
-                                              projector=self._projector, dist_hooks=self._dist_hooks,
-                                              feat_hooks=self._feature_hooks)
-        return epoch_hook
-
-    @property
-    def learnable_modules(self) -> t.List[nn.Module]:
-        return [self._projector, ]
-
-
-# try to convert this to hook
-class _ProjectorEpocherGeneral(EpocherHook):
-
-    def __init__(self, *, name: str, extractor: 'SingleFeatureExtractor', projector: '_ProjectorHeadBase',
-                 projector_params: t.Dict[str, t.Any] = None, dist_hooks: t.Sequence[_TinyHook] = (),
-                 feat_hooks: t.Sequence[_TinyHook] = ()) -> None:
-        super().__init__(name=name)
-        self.extractor = extractor
-        self.extractor.bind()
-        self.projector = projector
-        self.projector_params = projector_params
-        self._feature_hooks = feat_hooks
-        self._dist_hooks = dist_hooks
-
-    def configure_meters_given_epocher(self, meters: 'MeterInterface'):
-        for h in chain(self._dist_hooks, self._feature_hooks):
-            h.meters = meters
-            h.hook = weakref.proxy(self)
-            h.configure_meters(meters)
-        return meters
-
-    def before_forward_pass(self, **kwargs):
-        self.extractor.clear()
-        self.extractor.set_enable(True)
-
-    def after_forward_pass(self, **kwargs):
-        self.extractor.set_enable(False)
-
-    def _call_implementation(self, unlabeled_image_tf: Tensor, unlabeled_logits_tf: Tensor,
-                             affine_transformer: t.Callable[[Tensor], Tensor],
-                             unlabeled_image: Tensor, **kwargs):
-        n_unl = len(unlabeled_logits_tf)
-        feature_ = self.extractor.feature()[-n_unl * 2:]
-        _unlabeled_features, unlabeled_tf_features = torch.chunk(feature_, 2, dim=0)
-        unlabeled_features_tf = affine_transformer(_unlabeled_features)
-
-        feature_loss = self._run_feature_hooks(
-            input1=unlabeled_features_tf,
-            input2=unlabeled_tf_features,
-            image=unlabeled_image_tf
-        )
-
-        projected_dist_tf, projected_tf_dist = zip(*[torch.chunk(x, 2) for x in self.projector(
-            torch.cat([unlabeled_features_tf, unlabeled_tf_features], dim=0))])
-
-        dist_losses = tuple(
-            self._run_dist_hooks(input1=prob1, input2=prob2, image=unlabeled_image_tf) for prob1, prob2 in
-            zip(projected_tf_dist, projected_dist_tf)
-        )
-        dist_loss = sum(dist_losses) / len(dist_losses)
-
-        return feature_loss + dist_loss
-
-    def _run_feature_hooks(self, **kwargs):
-        return sum([h(**kwargs) for h in self._feature_hooks])
-
-    def _run_dist_hooks(self, **kwargs):
-        return sum([h(**kwargs) for h in self._dist_hooks])
-
-    def close(self):
-        self.extractor.remove()
-        for h in chain(self._feature_hooks, self._dist_hooks):
-            h.close()
+    def center_loss(self, feature: Tensor, mask: Tensor, prototype: Tensor):
+        return torch.mean((feature - prototype).power(2), dim=1).masked_select(mask).mean()
