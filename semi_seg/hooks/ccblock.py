@@ -402,7 +402,7 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
     def _call_implementation(self, unlabeled_image_tf: Tensor, unlabeled_logits_tf: Tensor,
                              affine_transformer: t.Callable[[Tensor], Tensor],
                              unlabeled_image: Tensor, **kwargs):
-        save_image_condition = self.epocher.cur_batch_num == 0 and self.epocher.cur_epoch % 5 == 0 and self.saver is not None
+        save_image_condition = self.epocher.cur_batch_num == 0 and self.epocher.cur_epoch % 3 == 0 and self.saver is not None
 
         n_unl = len(unlabeled_logits_tf)
         feature_ = self.extractor.feature()[-n_unl * 2:]
@@ -425,7 +425,7 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
 
         if save_image_condition:
             self.saver.save_map(
-                image=unlabeled_image_tf, feature_map1=projected_dist_tf[0], feature_map2=projected_tf_dist[0],
+                image=unlabeled_image_tf, feature_map1=projected_dist_tf[0], feature_map2=projected_tf_dist[1],
                 cur_epoch=self.epocher.cur_epoch, cur_batch_num=self.epocher.cur_batch_num, save_name="probability"
             )
 
