@@ -452,6 +452,8 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
         self.extractor.remove()
         for h in chain(self._feature_hooks, self._dist_hooks):
             h.close()
+        if self.saver:
+            self.saver.zip()
 
 
 class _CrossCorrelationHook(_TinyHook):
@@ -479,7 +481,7 @@ class _CrossCorrelationHook(_TinyHook):
 
         if save_image_condition:
             saver.save_map(
-                image=self.diff_image[0], feature_map1=self.diff_prediction[0], feature_map2=self.diff_prediction[0],
+                image=self.diff_image[0], feature_map1=self.diff_prediction[0], feature_map2=self.diff_prediction[1],
                 cur_epoch=cur_epoch, cur_batch_num=cur_batch_num,
                 save_name="cross_correlation", feature_type="image"
             )
