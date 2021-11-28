@@ -17,7 +17,7 @@ from contrastyou.losses.discreteMI import IIDSegmentationLoss
 from contrastyou.losses.kl import Entropy
 from contrastyou.meters import AverageValueMeter
 from contrastyou.projectors import CrossCorrelationProjector
-from contrastyou.utils import class_name, average_iter, item2str, probs2one_hot
+from contrastyou.utils import class_name, average_iter, item2str, probs2one_hot, deprecated
 from semi_seg.hooks.utils import FeatureMapSaver
 
 if t.TYPE_CHECKING:
@@ -29,7 +29,7 @@ __all__ = ["CrossCorrelationHook", "CrossCorrelationHookWithSaver", "ProjectorGe
 
 
 class CrossCorrelationHook(TrainerHook):
-
+    @deprecated
     def __init__(self, *, name: str, model: nn.Module, feature_name: UNetFeatureMapEnum, cc_weight: float,
                  mi_weight: float = 0.0, kernel_size: int, projector_params: t.Dict[str, t.Any],
                  adding_coordinates: bool, mi_criterion_params: t.Dict[str, t.Any],
@@ -76,7 +76,7 @@ class CrossCorrelationHook(TrainerHook):
 
 
 class _CrossCorrelationEpocherHook(EpocherHook):
-
+    @deprecated
     def __init__(self, *, name: str = "cc", extractor: 'SingleFeatureExtractor', projector: '_ProjectorHeadBase',
                  cc_criterion: CCLoss, mi_criterion: 'IIDSegmentationLoss', add_coordinates: bool,
                  cc_weight: float, mi_weight: float, diff_power: float = 1.0, image_diff: bool) -> None:
@@ -198,7 +198,7 @@ class _CrossCorrelationEpocherHook(EpocherHook):
 
 class CrossCorrelationHookWithSaver(CrossCorrelationHook):
     # with an image saver
-
+    @deprecated
     def __init__(self, *, name: str, model: nn.Module, feature_name: UNetFeatureMapEnum, cc_weight: float,
                  mi_weight: float = 0.0, kernel_size: int, projector_params: t.Dict[str, t.Any],
                  adding_coordinates: bool, mi_criterion_params: t.Dict[str, t.Any], norm_params: t.Dict[str, t.Any],
@@ -235,7 +235,7 @@ class CrossCorrelationHookWithSaver(CrossCorrelationHook):
 
 class _CrossCorrelationEpocherHookWithSaver(_CrossCorrelationEpocherHook):
     # with an image saver
-
+    @deprecated
     def __init__(self, *, name: str = "cc", extractor: 'SingleFeatureExtractor', projector: '_ProjectorHeadBase',
                  cc_criterion: 'CCLoss', mi_criterion: 'IIDSegmentationLoss', adding_coordinates: bool,
                  cc_weight: float, mi_weight: float, diff_power: float, image_diff: bool,
@@ -570,7 +570,7 @@ class _CenterCompactnessHook(_TinyHook):
             cur_mask = one_hot_mask[:, dim].bool().unsqueeze(1)
             if cur_mask.sum() == 0:
                 continue
-            prototype = self.masked_average_pooling2(feature_map, cur_mask)
+            prototype = self.masked_average_pooling(feature_map, cur_mask)
             loss = self.center_loss(feature=feature_map, mask=cur_mask, prototype=prototype)
             losses.append(loss)
         if len(losses) == 0:
@@ -578,14 +578,8 @@ class _CenterCompactnessHook(_TinyHook):
 
         return sum(losses) / len(losses)
 
-    def masked_average_pooling(self, feature: Tensor, mask: Tensor):
-        assert feature.dim() == 4
-        data = feature.masked_fill(mask == 0, 0)
-        nominator = torch.sum(data, dim=(0, 2, 3), keepdim=True)
-        denominator = torch.sum(mask.type(nominator.dtype), dim=(0, 2, 3), keepdim=True)
-        return nominator / (denominator + 1e-16)
-
-    def masked_average_pooling2(self, feature: Tensor, mask: Tensor):
+    @staticmethod
+    def masked_average_pooling(feature: Tensor, mask: Tensor):
         b, c, *_ = feature.shape
         used_feature = feature.swapaxes(1, 0).masked_select(mask.swapaxes(1, 0)).reshape(c, -1)
         return used_feature.mean(dim=1).reshape(1, c, 1, 1)
