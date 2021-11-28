@@ -13,7 +13,7 @@ from script.utils import grid_search, move_dataset
 
 parser = argparse.ArgumentParser()
 parser.add_argument("save_dir", type=str, help="save dir")
-parser.add_argument("--data-name", type=str, choices=("acdc", "acdc_lv", "acdc_rv"), default="acdc",
+parser.add_argument("--data-name", type=str, choices=("acdc", "acdc_lv", "acdc_rv", "prostate"), default="acdc",
                     help="dataset_choice")
 parser.add_argument("--max-epoch", default=50, type=int, help="max epoch")
 parser.add_argument("--num-batches", default=300, type=int, help="number of batches")
