@@ -213,11 +213,12 @@ def run_pretrain_ft_with_grid_search(
         compact_weight: Sequence[float],
         include_baseline=True, max_num: Optional[int] = 200,
 ) -> Iterator[List[str]]:
-    param_generator = grid_search(max_num=max_num, mi_weight=mi_weights, cc_weight=cc_weights, random_seed=random_seeds,
+    param_generator = grid_search(max_num=max_num, mi_weight=mi_weights, cc_weight=cc_weights,
+                                  compact_weight=compact_weight, random_seed=random_seeds,
                                   consistency_weight=consistency_weights, padding=paddings, lamda=lamdas,
                                   power=powers, head_type=head_types, num_subheads=num_subheads,
                                   kernel_size=kernel_size,
-                                  num_clusters=num_clusters, compact_weight=compact_weight)
+                                  num_clusters=num_clusters, )
     for param in param_generator:
         random_seed = param.pop("random_seed")
         sp_str = get_hyper_param_string(**param)
@@ -241,11 +242,11 @@ def run_semi_regularize_with_grid_search(
         compact_weight: Sequence[float],
         include_baseline=True, max_num: Optional[int] = 200,
 ) -> Iterator[List[str]]:
-    param_generator = grid_search(mi_weight=mi_weights, cc_weight=cc_weights, random_seed=random_seeds,
-                                  consistency_weight=consistency_weights, padding=paddings, lamda=lamdas,
-                                  power=powers, head_type=head_types, num_subheads=num_subheads,
+    param_generator = grid_search(mi_weight=mi_weights, cc_weight=cc_weights, compact_weight=compact_weight,
+                                  random_seed=random_seeds, consistency_weight=consistency_weights, padding=paddings,
+                                  lamda=lamdas, power=powers, head_type=head_types, num_subheads=num_subheads,
                                   num_clusters=num_clusters, max_num=max_num, kernel_size=kernel_size,
-                                  compact_weight=compact_weight)
+                                  )
     for param in param_generator:
         random_seed = param.pop("random_seed")
         sp_str = get_hyper_param_string(**param)
@@ -325,7 +326,7 @@ if __name__ == '__main__':
                                                      num_subheads=2,
                                                      num_clusters=15,
                                                      max_num=500,
-                                                     kernel_size=3,
+                                                     kernel_size=5,
                                                      compact_weight=[0.0, 0.0001, 0.001, 0.01]
                                                      )
     jobs = list(job_generator)
@@ -347,7 +348,7 @@ if __name__ == '__main__':
                                                          num_subheads=[3],
                                                          num_clusters=[30],
                                                          max_num=500,
-                                                         kernel_size=3,
+                                                         kernel_size=5,
                                                          compact_weight=[0.0, 0.0001, 0.001, 0.01]
                                                          )
     jobs = list(job_generator)
@@ -369,7 +370,7 @@ if __name__ == '__main__':
                                                                    num_subheads=[3],
                                                                    multicore_multipliers=[1, 4],
                                                                    max_num=1000,
-                                                                   kernel_size=3,
+                                                                   kernel_size=5,
                                                                    )
     jobs = list(job_generator)
     logger.info(f"logging {len(jobs)} jobs")

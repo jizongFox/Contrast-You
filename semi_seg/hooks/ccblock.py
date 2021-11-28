@@ -370,6 +370,10 @@ class ProjectorGeneralHook(TrainerHook):
     def learnable_modules(self) -> t.List[nn.Module]:
         return [self._projector, ]
 
+    def close(self):
+        if self.save:
+            self.saver.zip()
+
 
 # try to convert this to hook
 class _ProjectorEpocherGeneralHook(EpocherHook):
@@ -452,8 +456,6 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
         self.extractor.remove()
         for h in chain(self._feature_hooks, self._dist_hooks):
             h.close()
-        if self.saver:
-            self.saver.zip()
 
 
 class _CrossCorrelationHook(_TinyHook):

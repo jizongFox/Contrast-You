@@ -150,7 +150,7 @@ class FeatureMapSaver:
             plt.subplot(313)
             plt.imshow(f_map2, cmap="gray" if feature_type == "image" else None)
             plt.axis('off')
-            plt.savefig(str(save_path), dpi=300, bbox_inches='tight')
+            plt.savefig(str(save_path), dpi=200, bbox_inches='tight')
             if self.use_tensorboard and self.tb_writer is not None:
                 self.tb_writer.add_figure(
                     tag=f"{self.folder_name}/{save_name}_{cur_epoch:03d}_{cur_batch_num:02d}_{i:03d}",
