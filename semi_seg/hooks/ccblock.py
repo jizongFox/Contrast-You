@@ -2,6 +2,7 @@ import random
 import typing as t
 import warnings
 import weakref
+from abc import ABCMeta
 from itertools import chain
 
 import torch
@@ -17,7 +18,7 @@ from contrastyou.losses.discreteMI import IIDSegmentationLoss
 from contrastyou.losses.kl import Entropy
 from contrastyou.meters import AverageValueMeter
 from contrastyou.projectors import CrossCorrelationProjector
-from contrastyou.utils import class_name, average_iter, item2str, probs2one_hot, deprecated
+from contrastyou.utils import class_name, average_iter, item2str, probs2one_hot, deprecated, fix_all_seed_within_context
 from semi_seg.hooks.utils import FeatureMapSaver
 
 if t.TYPE_CHECKING:
@@ -299,7 +300,7 @@ class _CrossCorrelationEpocherHookWithSaver(_CrossCorrelationEpocherHook):
 
 
 # new interface
-class _TinyHook:
+class _TinyHook(metaclass=ABCMeta):
 
     def __init__(self, *, name: str, criterion: t.Callable, weight: float) -> None:
         self.name = name
@@ -405,19 +406,19 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
 
     def _call_implementation(self, unlabeled_image_tf: Tensor, unlabeled_logits_tf: Tensor,
                              affine_transformer: t.Callable[[Tensor], Tensor],
-                             unlabeled_image: Tensor, **kwargs):
+                             unlabeled_image: Tensor, seed: int, **kwargs):
         save_image_condition = self.epocher.cur_batch_num == 0 and self.epocher.cur_epoch % 3 == 0 and self.saver is not None
 
         n_unl = len(unlabeled_logits_tf)
         feature_ = self.extractor.feature()[-n_unl * 2:]
         _unlabeled_features, unlabeled_tf_features = torch.chunk(feature_, 2, dim=0)
         unlabeled_features_tf = affine_transformer(_unlabeled_features)
-
-        feature_loss = self._run_feature_hooks(
-            input1=unlabeled_features_tf,
-            input2=unlabeled_tf_features,
-            image=unlabeled_image_tf
-        )
+        with fix_all_seed_within_context(seed):
+            feature_loss = self._run_feature_hooks(
+                input1=unlabeled_features_tf,
+                input2=unlabeled_tf_features,
+                image=unlabeled_image_tf
+            )
         if save_image_condition:
             self.saver.save_map(
                 image=unlabeled_image_tf, feature_map1=unlabeled_tf_features, feature_map2=unlabeled_features_tf,
@@ -432,16 +433,16 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
                 image=unlabeled_image_tf, feature_map1=projected_dist_tf[0], feature_map2=projected_tf_dist[1],
                 cur_epoch=self.epocher.cur_epoch, cur_batch_num=self.epocher.cur_batch_num, save_name="probability"
             )
-
-        dist_losses = tuple(
-            self._run_dist_hooks(
-                input1=prob1, input2=prob2, image=unlabeled_image_tf,
-                feature_map1=unlabeled_tf_features, feature_map2=unlabeled_features_tf, saver=self.saver,
-                save_image_condition=save_image_condition, cur_epoch=self.epocher.cur_epoch,
-                cur_batch_num=self.epocher.cur_batch_num
+        with fix_all_seed_within_context(seed):
+            dist_losses = tuple(
+                self._run_dist_hooks(
+                    input1=prob1, input2=prob2, image=unlabeled_image_tf,
+                    feature_map1=unlabeled_tf_features, feature_map2=unlabeled_features_tf, saver=self.saver,
+                    save_image_condition=save_image_condition, cur_epoch=self.epocher.cur_epoch,
+                    cur_batch_num=self.epocher.cur_batch_num
+                )
+                for prob1, prob2 in zip(projected_tf_dist, projected_dist_tf)
             )
-            for prob1, prob2 in zip(projected_tf_dist, projected_dist_tf)
-        )
         dist_loss = sum(dist_losses) / len(dist_losses)
 
         return feature_loss + dist_loss
@@ -517,7 +518,7 @@ class _CrossCorrelationHook(_TinyHook):
                 image = F.interpolate(image, size=(h, w), mode="bilinear")
         # the diff power applies only on edges.
         diff_image = self.norm(self.diff(image), min=0, max=1).pow(self._diff_power)
-        diff_tf_softmax = self.norm(self._ent_func(predict_simplex), min=0, max=1, slicewise=False).unsqueeze(1)
+        diff_tf_softmax = self.norm(self._ent_func(predict_simplex), min=0, max=1).unsqueeze(1)
 
         loss = self.criterion(
             diff_tf_softmax,
