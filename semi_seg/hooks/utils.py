@@ -150,7 +150,7 @@ class FeatureMapSaver:
             plt.subplot(313)
             plt.imshow(f_map2, cmap="gray" if feature_type == "image" else None)
             plt.axis('off')
-            plt.savefig(str(save_path), dpi=150, bbox_inches='tight')
+            plt.savefig(str(save_path), dpi=300, bbox_inches='tight')
             if self.use_tensorboard and self.tb_writer is not None:
                 self.tb_writer.add_figure(
                     tag=f"{self.folder_name}/{save_name}_{cur_batch_num * batch_size + i:02d}",
@@ -166,7 +166,7 @@ class FeatureMapSaver:
             shutil.make_archive(str(self.save_dir / self.folder_name.replace("/", "_")), 'zip',
                                 str(self.save_dir / self.folder_name))
             shutil.rmtree(str(self.save_dir / self.folder_name))
-        except FileNotFoundError as e:
+        except (FileNotFoundError, OSError) as e:
             logger.opt(exception=True, depth=1).warning(e)
 
     @property
