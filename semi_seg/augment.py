@@ -7,7 +7,7 @@ from torchvision import transforms
 from contrastyou.augment import pil_augment, SequentialWrapperTwice, SequentialWrapper
 from contrastyou.utils import fix_all_seed_for_transforms
 
-__all__ = ["augment_zoo"]
+__all__ = ["augment_zoo", "RisingWrapper"]
 
 
 class _Transform(t.Protocol):
@@ -372,8 +372,8 @@ class HippocampusStrongTransforms(_Transform):
 
 class RisingWrapper:
 
-    def __init__(self, geometry_transform: rt.BaseTransform = None,
-                 intensity_transform: rt.BaseTransform = None) -> None:
+    def __init__(self, geometry_transform: rt._AbstractTransform = None,
+                 intensity_transform: rt._AbstractTransform = None) -> None:
         super().__init__()
         self.geometry_transform = geometry_transform
         self.intensity_transform = intensity_transform

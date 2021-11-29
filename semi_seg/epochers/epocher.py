@@ -186,14 +186,17 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
         import rising.transforms as t
         import rising.random as tr
         self._affine_transformer = RisingWrapper(
-            geometry_transform=t.BaseAffine(
+            geometry_transform=t.Compose(t.BaseAffine(
                 scale=tr.UniformParameter(0.8, 1.3),
                 rotation=tr.UniformParameter(-45, 45),
                 translation=tr.UniformParameter(-0.1, 0.1),
                 degree=True,
-                interpolation_mode="nearest"
+                interpolation_mode="nearest",
+                grad=True
             ),
-            intensity_transform=t.GammaCorrection(gamma=tr.UniformParameter(0.5, 2))
+                t.Mirror(dims=tr.DiscreteParameter([0, 1]), p_sample=0.9, grad=True)
+            ),
+            intensity_transform=t.GammaCorrection(gamma=tr.UniformParameter(0.5, 2), grad=True)
         )
         self._two_stage = two_stage
         logger.opt(depth=1).trace("{} set to be using {} stage training", self.__class__.__name__,
@@ -204,7 +207,7 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
 
         self.cur_batch_num = 0
 
-    def transform_with_seed(self, features, *, mode: str = "image", seed: int):
+    def transform_with_seed(self, features, *, mode: str, seed: int):
         assert mode in ("image", "feature"), f"mode must be either `image` or `feature`, given {mode}"
         with fix_all_seed_for_transforms(seed):
             features_tf = self._affine_transformer(features, mode=mode, seed=seed)
