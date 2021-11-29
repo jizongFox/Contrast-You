@@ -11,9 +11,9 @@ CrossCorrelationParameters:
       lamda: 1.5
     cc:
       weight: 0.1
-      kernel_size: 7
+      kernel_size: 5
       diff_power: 0.75
     compact:
       weight: 0.01
     rr:
-      weight: 0.0
+      weight: 0.1
