@@ -10,7 +10,7 @@ from torch.nn import functional as F
 
 from contrastyou.arch import UNetFeatureMapEnum
 from contrastyou.hooks import TrainerHook, EpocherHook
-from contrastyou.losses.cc import CCLoss
+from contrastyou.losses.cross_correlation import CCLoss
 from contrastyou.losses.discreteMI import IIDSegmentationLoss
 from contrastyou.losses.kl import Entropy
 from contrastyou.meters import MeterInterface, AverageValueMeter

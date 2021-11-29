@@ -13,9 +13,10 @@ from torch.nn import functional as F
 from contrastyou.arch.unet import UNetFeatureMapEnum
 from contrastyou.arch.utils import SingleFeatureExtractor
 from contrastyou.hooks import TrainerHook, EpocherHook
-from contrastyou.losses.cc import CCLoss
+from contrastyou.losses.cross_correlation import CCLoss
 from contrastyou.losses.discreteMI import IIDSegmentationLoss
 from contrastyou.losses.kl import Entropy
+from contrastyou.losses.redundancy_reduction import RedundencyCriterion
 from contrastyou.meters import AverageValueMeter
 from contrastyou.projectors import CrossCorrelationProjector
 from contrastyou.utils import class_name, average_iter, item2str, probs2one_hot, deprecated, fix_all_seed_within_context
@@ -535,7 +536,27 @@ class _MIHook(_TinyHook):
 
     def __call__(self, input1: Tensor, input2: Tensor, **kwargs):
         if self.weight == 0:
+            if self.meters:
+                self.meters[self.name].add(0)
             return torch.tensor(0, device=input1.device, dtype=input1.dtype)
+        loss = self.criterion(input1, input2)
+        if self.meters:
+            self.meters[self.name].add(loss.item())
+        return loss * self.weight
+
+
+class _RedundancyReduction(_TinyHook):
+
+    def __init__(self, *, name: str = "rr", weight: float) -> None:
+        criterion = RedundencyCriterion()
+        super().__init__(name=name, criterion=criterion, weight=weight)
+
+    def __call__(self, input1: Tensor, input2: Tensor, **kwargs):
+        if self.weight == 0:
+            if self.meters:
+                self.meters[self.name].add(0)
+            return torch.tensor(0, device=input1.device, dtype=input1.dtype)
+
         loss = self.criterion(input1, input2)
         if self.meters:
             self.meters[self.name].add(loss.item())
@@ -550,6 +571,8 @@ class _CenterCompactnessHook(_TinyHook):
 
     def __call__(self, input1, input2, feature_map1, feature_map2, image, **kwargs):
         if self.weight == 0:
+            if self.meters:
+                self.meters[self.name].add(0)
             return torch.tensor(0, dtype=input1.dtype, device=input1.device)
         if torch.rand((1,)).item() > 0.5:
             return torch.tensor(0, dtype=input1.dtype, device=input1.device)

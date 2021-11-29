@@ -7,7 +7,7 @@ CrossCorrelationParameters:
   hooks:
     mi:
       weight: 0.5
-      padding: 1
+      padding: 0
       lamda: 1.5
     cc:
       weight: 0.1
@@ -15,3 +15,5 @@ CrossCorrelationParameters:
       diff_power: 0.75
     compact:
       weight: 0.01
+    rr:
+      weight: 0.0
