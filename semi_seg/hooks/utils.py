@@ -8,6 +8,7 @@ from matplotlib import pyplot as plt
 from torch import Tensor
 
 from contrastyou.utils import switch_plt_backend
+from contrastyou.writer import get_tb_writer
 from semi_seg.epochers.helper import PartitionLabelGenerator, PatientLabelGenerator, ACDCCycleGenerator, \
     SIMCLRGenerator
 
@@ -99,12 +100,12 @@ def get_label(contrast_on, data_name, partition_group, label_group):
 
 class FeatureMapSaver:
 
-    def __init__(self, save_dir: t.Union[str, Path], folder_name="vis") -> None:
-        super().__init__()
+    def __init__(self, save_dir: t.Union[str, Path], folder_name="vis", use_tensorboard: bool = True) -> None:
         assert Path(save_dir).exists() and Path(save_dir).is_dir(), save_dir
         self.save_dir: Path = Path(save_dir)
         self.folder_name = folder_name
         (self.save_dir / self.folder_name).mkdir(exist_ok=True, parents=True)
+        self.use_tensorboard = use_tensorboard
 
     @switch_plt_backend(env="agg")
     def save_map(self, *, image: Tensor, feature_map1: Tensor, feature_map2: Tensor, feature_type="feature",
@@ -123,6 +124,7 @@ class FeatureMapSaver:
         """
         assert feature_type in ("image", "feature")
         assert image.dim() == 4, f"image should have bchw dimensions, given {image.shape}."
+        batch_size = feature_map1.shape[0]
         image = image.detach()[:, 0].float().cpu()
         assert feature_map1.dim() == 4, f"feature_map should have bchw dimensions, given {feature_map1.shape}."
         if feature_type == "image":
@@ -148,7 +150,12 @@ class FeatureMapSaver:
             plt.subplot(313)
             plt.imshow(f_map2, cmap="gray" if feature_type == "image" else None)
             plt.axis('off')
-            plt.savefig(str(save_path), dpi=300, bbox_inches='tight')
+            plt.savefig(str(save_path), dpi=150, bbox_inches='tight')
+            if self.use_tensorboard and self.tb_writer is not None:
+                self.tb_writer.add_figure(
+                    tag=f"{self.folder_name}/{save_name}_{cur_batch_num * batch_size + i:02d}",
+                    figure=plt.gcf(), global_step=cur_epoch, close=True
+                )
             plt.close(fig)
 
     def zip(self) -> None:
@@ -161,3 +168,12 @@ class FeatureMapSaver:
             shutil.rmtree(str(self.save_dir / self.folder_name))
         except FileNotFoundError as e:
             logger.opt(exception=True, depth=1).warning(e)
+
+    @property
+    @lru_cache()
+    def tb_writer(self):
+        try:
+            writer = get_tb_writer()
+        except RuntimeError:
+            writer = None
+        return writer

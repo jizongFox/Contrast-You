@@ -1,0 +1,17 @@
+CrossCorrelationParameters:
+  feature_name: Up_conv2
+  num_clusters: 20
+  head_type: mlp
+  num_subheads: 1
+  save: true
+  hooks:
+    mi:
+      weight: 0.5
+      padding: 1
+      lamda: 1.5
+    cc:
+      weight: 0.1
+      kernel_size: 7
+      diff_power: 0.75
+    compact:
+      weight: 0.01
