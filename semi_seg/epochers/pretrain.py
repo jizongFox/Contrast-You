@@ -29,7 +29,7 @@ class _PretrainEpocherMixin:
     _unlabeled_loader: DataLoader
     _unzip_data: Callable[..., torch.device]
     _device: torch.device
-    transform_with_seed: Callable[[Tensor, Any], Tensor]
+    transform_with_seed: Callable[..., Tensor]
     on_master: Callable[[], bool]
     regularization: Callable[..., Tensor]
     forward_pass: Callable
@@ -61,7 +61,7 @@ class _PretrainEpocherMixin:
             seed = random.randint(0, int(1e7))
             (unlabeled_image, unlabeled_image_tf), _, unlabeled_filename, unl_partition, unl_group = \
                 self._unzip_data(data, self._device)
-            unlabeled_image_tf = self.transform_with_seed(unlabeled_image_tf, seed)
+            unlabeled_image_tf = self.transform_with_seed(unlabeled_image_tf, mode="image", seed=seed)
 
             self.batch_update(
                 cur_batch_num=self.cur_batch_num,
@@ -81,7 +81,7 @@ class _PretrainEpocherMixin:
                 unlabeled_image=unlabeled_image,
                 unlabeled_image_tf=unlabeled_image_tf
             )
-            unlabeled_logits_tf = self.transform_with_seed(unlabeled_logits, seed)
+            unlabeled_logits_tf = self.transform_with_seed(unlabeled_logits, seed=seed, mode="feature")
             reg_loss = self.regularization(
                 seed=seed,
                 unlabeled_image=unlabeled_image,
@@ -91,7 +91,7 @@ class _PretrainEpocherMixin:
                 label_group=unl_group,
                 partition_group=unl_partition,
                 unlabeled_filename=unlabeled_filename,
-                affine_transformer=partial(self.transform_with_seed, seed=seed)
+                affine_transformer=partial(self.transform_with_seed, seed=seed, mode="feature")
             )
 
         self.scale_loss(reg_loss).backward()

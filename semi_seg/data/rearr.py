@@ -56,7 +56,7 @@ class ContrastBatchSampler(Sampler):
 
         def __next__(self):
             batch_index = []
-            cur_group_samples = random.sample(self._group2index.keys(), self._scan_sample_num)
+            cur_group_samples = random.sample(list(self._group2index.keys()), self._scan_sample_num)
             assert isinstance(cur_group_samples, list), cur_group_samples
 
             # for each group sample, choose at most partition_sample_num slices per partition
