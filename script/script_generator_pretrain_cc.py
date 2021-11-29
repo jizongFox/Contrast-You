@@ -83,7 +83,7 @@ def _run_multicore_semi(*, save_dir: str, random_seed: int = 10, num_labeled_sca
     return f""" python main_multicore.py RandomSeed={random_seed} Trainer.name=semi \
      Trainer.save_dir={save_dir} Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name} \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
-    CrossCorrelationParameters.feature_names=Deconv_1x1  \
+    CrossCorrelationParameters.feature_name=Deconv_1x1  \
     CrossCorrelationParameters.num_subheads={num_subheads}  \
     CrossCorrelationParameters.head_type={head_type}  \
     CrossCorrelationParameters.hooks.mi.weight={mi_weight:.10f}  \
