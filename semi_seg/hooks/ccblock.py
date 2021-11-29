@@ -20,7 +20,7 @@ from contrastyou.losses.redundancy_reduction import RedundencyCriterion
 from contrastyou.meters import AverageValueMeter
 from contrastyou.projectors import CrossCorrelationProjector
 from contrastyou.utils import class_name, average_iter, item2str, probs2one_hot, deprecated, fix_all_seed_within_context
-from semi_seg.hooks.utils import FeatureMapSaver
+from semi_seg.hooks.utils import FeatureMapSaver, DistributionTracker
 
 if t.TYPE_CHECKING:
     from contrastyou.projectors.nn import _ProjectorHeadBase  # noqa
@@ -345,11 +345,14 @@ class ProjectorGeneralHook(TrainerHook):
         self._dist_hooks = []
         self.save = save
         self.saver = None
+        self.dist_saver = None
 
     def after_initialize(self):
         if self.save:
             self.saver = FeatureMapSaver(save_dir=self.trainer.absolute_save_dir,
                                          folder_name=f"vis/{self._hook_name}")
+            self.dist_saver = DistributionTracker(save_dir=self.trainer.absolute_save_dir,
+                                                  folder_name=f"dist/{self._hook_name}")
 
     def register_feat_hook(self, *hook: '_TinyHook'):
         logger.debug(f"register {hook}")
@@ -365,7 +368,7 @@ class ProjectorGeneralHook(TrainerHook):
 
         return _ProjectorEpocherGeneralHook(
             name=self._hook_name, extractor=self._extractor, projector=self._projector, dist_hooks=self._dist_hooks,
-            feat_hooks=self._feature_hooks, saver=self.saver
+            feat_hooks=self._feature_hooks, saver=self.saver, dist_saver=self.dist_saver
         )
 
     @property
@@ -375,13 +378,16 @@ class ProjectorGeneralHook(TrainerHook):
     def close(self):
         if self.save:
             self.saver.zip()
+            self.dist_saver.zip()
 
 
 # try to convert this to hook
 class _ProjectorEpocherGeneralHook(EpocherHook):
 
     def __init__(self, *, name: str, extractor: 'SingleFeatureExtractor', projector: '_ProjectorHeadBase',
-                 dist_hooks: t.Sequence[_TinyHook] = (), feat_hooks: t.Sequence[_TinyHook] = (), saver=None, ) -> None:
+                 dist_hooks: t.Sequence[_TinyHook] = (), feat_hooks: t.Sequence[_TinyHook] = (),
+                 saver: FeatureMapSaver = None,
+                 dist_saver: DistributionTracker = None) -> None:
         super().__init__(name=name)
         self.extractor = extractor
         self.extractor.bind()
@@ -389,6 +395,7 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
         self._feature_hooks = feat_hooks
         self._dist_hooks = dist_hooks
         self.saver = saver
+        self.dist_saver = dist_saver
 
     def configure_meters_given_epocher(self, meters: 'MeterInterface'):
         meters = super(_ProjectorEpocherGeneralHook, self).configure_meters_given_epocher(meters)
@@ -420,7 +427,7 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
                 input2=unlabeled_tf_features,
                 image=unlabeled_image_tf
             )
-        if save_image_condition:
+        if save_image_condition and self.saver is not None:
             self.saver.save_map(
                 image=unlabeled_image_tf, feature_map1=unlabeled_tf_features, feature_map2=unlabeled_features_tf,
                 cur_epoch=self.epocher.cur_epoch, cur_batch_num=self.epocher.cur_batch_num, save_name="feature"
@@ -430,10 +437,14 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
             torch.cat([unlabeled_features_tf, unlabeled_tf_features], dim=0))])
 
         if save_image_condition:
-            self.saver.save_map(
-                image=unlabeled_image_tf, feature_map1=projected_dist_tf[0], feature_map2=projected_tf_dist[1],
-                cur_epoch=self.epocher.cur_epoch, cur_batch_num=self.epocher.cur_batch_num, save_name="probability"
-            )
+            if self.saver is not None:
+                self.saver.save_map(
+                    image=unlabeled_image_tf, feature_map1=projected_dist_tf[0], feature_map2=projected_tf_dist[1],
+                    cur_epoch=self.epocher.cur_epoch, cur_batch_num=self.epocher.cur_batch_num, save_name="probability"
+                )
+            if self.dist_saver is not None:
+                self.dist_saver.save_map(dist1=projected_dist_tf[0], dist2=projected_tf_dist[0],
+                                         cur_epoch=self.epocher.cur_epoch)
         with fix_all_seed_within_context(seed):
             dist_losses = tuple(
                 self._run_dist_hooks(
