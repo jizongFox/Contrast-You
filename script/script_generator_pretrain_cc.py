@@ -363,48 +363,48 @@ if __name__ == '__main__':
     logger.info(f"logging {len(jobs)} jobs")
     for job in jobs:
         submitter.submit(" && \n ".join(job), force_show=force_show, time=6, account=next(account))
-
-    job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),
-                                                         random_seeds=random_seeds,
-                                                         max_epoch=max_epoch, num_batches=num_batches,
-                                                         data_name=data_name,
-                                                         mi_weights=[0, 0.01, 0.02, ],
-                                                         cc_weights=[0, 0.0001, 0.001, ],
-                                                         consistency_weights=[0, 0.5, ],
-                                                         include_baseline=True,
-                                                         paddings=[0], lamdas=[1.5],
-                                                         powers=[0.75],
-                                                         head_types=["linear", ],
-                                                         num_subheads=[3],
-                                                         num_clusters=[30],
-                                                         max_num=500,
-                                                         kernel_size=5,
-                                                         compact_weight=[0.0, 0.0001, 0.001, 0.01],
-                                                         rr_weight=[0, 1]
-                                                         )
-    jobs = list(job_generator)
-    logger.info(f"logging {len(jobs)} jobs")
-    for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=6, account=next(account))
-
-    job_generator = run_multicore_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi_multicore"),
-                                                                   random_seeds=random_seeds,
-                                                                   max_epoch=max_epoch, num_batches=num_batches,
-                                                                   data_name=data_name,
-                                                                   mi_weights=[0, 0.005, 0.01],
-                                                                   cc_weights=[0, 0.00001, 0.0001, ],
-                                                                   consistency_weights=[0, 0.8],
-                                                                   include_baseline=True,
-                                                                   paddings=[0], lamdas=[1.5, ],
-                                                                   powers=[0.75],
-                                                                   head_types=["linear", ],
-                                                                   num_subheads=[3],
-                                                                   multicore_multipliers=[1, 4],
-                                                                   max_num=1000,
-                                                                   kernel_size=5,
-                                                                   rr_weight=[0, 1]
-                                                                   )
-    jobs = list(job_generator)
-    logger.info(f"logging {len(jobs)} jobs")
-    for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=6, account=next(account))
+    #
+    # job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),
+    #                                                      random_seeds=random_seeds,
+    #                                                      max_epoch=max_epoch, num_batches=num_batches,
+    #                                                      data_name=data_name,
+    #                                                      mi_weights=[0, 0.01, 0.02, ],
+    #                                                      cc_weights=[0, 0.0001, 0.001, ],
+    #                                                      consistency_weights=[0, 0.5, ],
+    #                                                      include_baseline=True,
+    #                                                      paddings=[0], lamdas=[1.5],
+    #                                                      powers=[0.75],
+    #                                                      head_types=["linear", ],
+    #                                                      num_subheads=[3],
+    #                                                      num_clusters=[30],
+    #                                                      max_num=500,
+    #                                                      kernel_size=5,
+    #                                                      compact_weight=[0.0, 0.0001, 0.001, 0.01],
+    #                                                      rr_weight=[0, 1]
+    #                                                      )
+    # jobs = list(job_generator)
+    # logger.info(f"logging {len(jobs)} jobs")
+    # for job in jobs:
+    #     submitter.submit(" && \n ".join(job), force_show=force_show, time=6, account=next(account))
+    #
+    # job_generator = run_multicore_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi_multicore"),
+    #                                                                random_seeds=random_seeds,
+    #                                                                max_epoch=max_epoch, num_batches=num_batches,
+    #                                                                data_name=data_name,
+    #                                                                mi_weights=[0, 0.005, 0.01],
+    #                                                                cc_weights=[0, 0.00001, 0.0001, ],
+    #                                                                consistency_weights=[0, 0.8],
+    #                                                                include_baseline=True,
+    #                                                                paddings=[0], lamdas=[1.5, ],
+    #                                                                powers=[0.75],
+    #                                                                head_types=["linear", ],
+    #                                                                num_subheads=[3],
+    #                                                                multicore_multipliers=[1, 4],
+    #                                                                max_num=1000,
+    #                                                                kernel_size=5,
+    #                                                                rr_weight=[0, 1]
+    #                                                                )
+    # jobs = list(job_generator)
+    # logger.info(f"logging {len(jobs)} jobs")
+    # for job in jobs:
+    #     submitter.submit(" && \n ".join(job), force_show=force_show, time=6, account=next(account))
