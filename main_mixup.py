@@ -4,9 +4,10 @@ from loguru import logger
 
 from contrastyou import CONFIG_PATH, success
 from contrastyou.arch import UNet
-from contrastyou.configure import ConfigManger
+from contrastyou.configure import ConfigManager
 from contrastyou.losses.kl import KL_div
-from contrastyou.utils import fix_all_seed_within_context, adding_writable_sink, set_deterministic, extract_model_state_dict
+from contrastyou.utils import fix_all_seed_within_context, adding_writable_sink, set_deterministic, \
+    extract_model_state_dict
 from semi_seg.data.creator import get_data
 from semi_seg.hooks.mixup import MixUpHook
 from semi_seg.trainers.pretrain import PretrainEncoderTrainer
@@ -19,8 +20,8 @@ trainer_zoo = {"semi": SemiTrainer,
 
 
 def main():
-    with ConfigManger(
-        base_path=os.path.join(CONFIG_PATH, "base.yaml"), strict=True
+    with ConfigManager(
+            os.path.join(CONFIG_PATH, "base.yaml"), strict=True
     )(scope="base") as config:
         seed = config.get("RandomSeed", 10)
         _save_dir = config["Trainer"]["save_dir"]

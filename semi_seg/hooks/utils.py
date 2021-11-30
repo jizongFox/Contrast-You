@@ -8,6 +8,7 @@ from matplotlib import pyplot as plt
 from torch import Tensor
 
 from contrastyou.utils import switch_plt_backend
+from contrastyou.utils.colors import label2colored_image
 from contrastyou.writer import get_tb_writer
 from semi_seg.epochers.helper import PartitionLabelGenerator, PatientLabelGenerator, ACDCCycleGenerator, \
     SIMCLRGenerator
@@ -131,16 +132,17 @@ class FeatureMapSaver:
             feature_map1 = feature_map1.detach()[:, 0].float().cpu()
         else:
             feature_map1 = feature_map1.max(1)[1].cpu().float()
+            feature_map1 = label2colored_image(feature_map1)
         assert feature_map2.dim() == 4, f"feature_map should have bchw dimensions, given {feature_map2.shape}."
         if feature_type == "image":
             feature_map2 = feature_map2.detach()[:, 0].float().cpu()
         else:
             feature_map2 = feature_map2.max(1)[1].cpu().float()
+            feature_map2 = label2colored_image(feature_map2)
 
         for i, (img, f_map1, f_map2) in enumerate(zip(image, feature_map1, feature_map2)):
             save_path = self.save_dir / self.folder_name / f"{save_name}_{cur_epoch:03d}_{cur_batch_num:02d}_{i:03d}.png"
-            assert img.dim() == 2 and f_map1.dim() == 2 and f_map2.dim() == 2
-            fig = plt.figure(figsize=(1, 3))
+            fig = plt.figure(figsize=(1.5, 4.5))
             plt.subplot(311)
             plt.imshow(img, cmap="gray")
             plt.axis('off')

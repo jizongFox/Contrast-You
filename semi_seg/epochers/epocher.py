@@ -11,7 +11,6 @@ from torch import nn, Tensor
 from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader
 
-from contrastyou.augment.tensor_augment import TensorRandomFlip
 from contrastyou.epochers.base import EpocherBase as _EpocherBase
 from contrastyou.losses import LossClass
 from contrastyou.meters import MeterInterface, UniversalDice, AverageValueMeter
@@ -19,6 +18,7 @@ from contrastyou.types import criterionType, optimizerType, dataIterType, SizedI
 from contrastyou.utils import get_dataset, class_name, fix_all_seed_for_transforms, get_lrs_from_optimizer
 from contrastyou.utils.general import class2one_hot
 from contrastyou.utils.utils import disable_tracking_bn_stats, get_model
+from semi_seg.augment import RisingWrapper
 from semi_seg.epochers.helper import preprocess_input_with_twice_transformation, \
     preprocess_input_with_single_transformation
 from semi_seg.hooks import EMAUpdater
@@ -182,7 +182,22 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
         self._labeled_loader: SizedIterable = labeled_loader
         self._unlabeled_loader: SizedIterable = unlabeled_loader
         self._sup_criterion = sup_criterion
-        self._affine_transformer = TensorRandomFlip(axis=[1, 2], threshold=0.8)
+        # self._affine_transformer = TensorRandomFlip(axis=[1, 2], threshold=0.8)
+        import rising.transforms as t
+        import rising.random as tr
+        self._affine_transformer = RisingWrapper(
+            geometry_transform=t.Compose(t.BaseAffine(
+                scale=tr.UniformParameter(0.8, 1.3),
+                rotation=tr.UniformParameter(-45, 45),
+                translation=tr.UniformParameter(-0.1, 0.1),
+                degree=True,
+                interpolation_mode="nearest",
+                grad=True
+            ),
+                t.Mirror(dims=tr.DiscreteParameter([0, 1]), p_sample=0.9, grad=True)
+            ),
+            intensity_transform=t.GammaCorrection(gamma=tr.UniformParameter(0.5, 2), grad=True)
+        )
         self._two_stage = two_stage
         logger.opt(depth=1).trace("{} set to be using {} stage training", self.__class__.__name__,
                                   "two" if self._two_stage else "single")
@@ -192,9 +207,10 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
 
         self.cur_batch_num = 0
 
-    def transform_with_seed(self, features, seed):
+    def transform_with_seed(self, features, *, mode: str, seed: int):
+        assert mode in ("image", "feature"), f"mode must be either `image` or `feature`, given {mode}"
         with fix_all_seed_for_transforms(seed):
-            features_tf = torch.stack([self._affine_transformer(x) for x in features], dim=0)
+            features_tf = self._affine_transformer(features, mode=mode, seed=seed)
         return features_tf
 
     def configure_meters(self, meters: MeterInterface) -> MeterInterface:
@@ -224,7 +240,7 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
             (unlabeled_image, unlabeled_image_cf), _, unlabeled_filename, unl_partition, unl_group = \
                 self._unzip_data(unlabeled_data, self._device)
 
-            unlabeled_image_tf = self.transform_with_seed(unlabeled_image_cf, seed=seed)
+            unlabeled_image_tf = self.transform_with_seed(unlabeled_image_cf, seed=seed, mode="image")
 
             self.batch_update(cur_batch_num=self.cur_batch_num,
                               labeled_image=labeled_image,
@@ -252,7 +268,7 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
                 unlabeled_image_tf=unlabeled_image_tf
             )
 
-            unlabeled_logits_tf = self.transform_with_seed(unlabeled_logits, seed=seed)
+            unlabeled_logits_tf = self.transform_with_seed(unlabeled_logits, seed=seed, mode="feature")
 
             # supervised part
             one_hot_target = class2one_hot(labeled_target.squeeze(1), self.num_classes)
@@ -270,7 +286,7 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
                 partition_group=unl_partition,
                 labeled_filename=labeled_filename,
                 unlabeled_filename=unlabeled_filename,
-                affine_transformer=partial(self.transform_with_seed, seed=seed)
+                affine_transformer=partial(self.transform_with_seed, seed=seed, mode="feature")
             )
 
         total_loss = sup_loss + reg_loss
