@@ -316,18 +316,18 @@ if __name__ == '__main__':
     job_generator = run_pretrain_ft_with_grid_search(save_dir=os.path.join(save_dir, "pretrain"),
                                                      random_seeds=random_seeds, max_epoch=max_epoch,
                                                      num_batches=num_batches,
-                                                     data_name=data_name, mi_weights=[1, 0.1],
-                                                     cc_weights=[0.1, 1, 2.5, 5],
+                                                     data_name=data_name, mi_weights=(1,),
+                                                     cc_weights=[0, 0.001, 0.01, 0.1],
                                                      consistency_weights=[0.01, 0.1, 0],
                                                      include_baseline=True,
                                                      paddings=[0], lamdas=[2.5],
                                                      powers=[0.75, ],
                                                      head_types=["linear", ],
-                                                     num_subheads=2,
-                                                     num_clusters=15,
+                                                     num_subheads=(3,),
+                                                     num_clusters=20,
                                                      max_num=500,
                                                      kernel_size=5,
-                                                     compact_weight=[0.0, 0.0001, 0.001, 0.01]
+                                                     compact_weight=[0.0]
                                                      )
     jobs = list(job_generator)
     logger.info(f"logging {len(jobs)} jobs")
@@ -340,16 +340,16 @@ if __name__ == '__main__':
                                                          data_name=data_name,
                                                          mi_weights=[0, 0.01, 0.02, ],
                                                          cc_weights=[0, 0.0001, 0.001, ],
-                                                         consistency_weights=[0, 0.5, ],
+                                                         consistency_weights=[0, 0.1, 0.5, ],
                                                          include_baseline=True,
                                                          paddings=[0], lamdas=[1.5],
                                                          powers=[0.75],
                                                          head_types=["linear", ],
-                                                         num_subheads=[3],
-                                                         num_clusters=[30],
+                                                         num_subheads=3,
+                                                         num_clusters=[20],
                                                          max_num=500,
                                                          kernel_size=5,
-                                                         compact_weight=[0.0, 0.0001, 0.001, 0.01]
+                                                         compact_weight=[0.0]
                                                          )
     jobs = list(job_generator)
     logger.info(f"logging {len(jobs)} jobs")
