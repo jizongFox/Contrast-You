@@ -4,7 +4,6 @@ from torch.nn import MSELoss
 from contrastyou.hooks.base import TrainerHook, EpocherHook
 from contrastyou.meters import AverageValueMeter, MeterInterface
 from contrastyou.utils import class2one_hot
-from contrastyou.hooks import meter_focus
 
 
 class PseudoLabelTrainerHook(TrainerHook):

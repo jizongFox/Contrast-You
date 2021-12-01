@@ -1,6 +1,6 @@
 from semi_seg.hooks import create_infonce_hooks, create_sp_infonce_hooks, create_discrete_mi_consistency_hook, \
     create_mt_hook, create_differentiable_mt_hook, create_ent_min_hook, create_orthogonal_hook, create_iid_seg_hook, \
-    create_pseudo_label_hook, create_imsat_hook, create_consistency_hook, create_cross_correlation_hooks
+    create_pseudo_label_hook, create_imsat_hook, create_consistency_hook, create_cross_correlation_hooks2
 
 
 def _hook_config_validator(config, is_pretrain):
@@ -60,18 +60,17 @@ def create_hook_from_config(model, config, *, is_pretrain=False, trainer):
         im_hook = create_imsat_hook(weight=float(config["IMSATParameters"]["weight"]))
         hooks.append(im_hook)
 
-    if "CrossCorrelationParameters" in config:
-        cur_config = config["CrossCorrelationParameters"]
-        hook = create_cross_correlation_hooks(
-            model=model, feature_names=cur_config["feature_names"], cc_weights=cur_config["cc_weights"],
-            num_clusters=cur_config["num_clusters"], kernel_size=cur_config["kernel_size"],
-            head_type=cur_config["head_type"], num_subheads=cur_config["num_subheads"],
-            mi_weights=cur_config["mi_weights"], save=cur_config["save"],
-            padding=cur_config["IID"]["padding"], lamda=cur_config["IID"]["lamda"],
-            power=cur_config["norm"]["power"], adding_coordinates=cur_config["adding_coordinates"],
-            image_diff=cur_config["image_diff"]
-        )
-        hooks.append(hook)
+    if any(["CrossCorrelationParameters" in x for x in config.keys()]):
+        multiple_keys = [x for x in config.keys() if "CrossCorrelationParameters" in x]
+        for key in multiple_keys:
+            cur_config = config[key]
+            hook = create_cross_correlation_hooks2(
+                model=model, feature_name=cur_config["feature_name"],
+                num_clusters=cur_config["num_clusters"],
+                head_type=cur_config["head_type"], num_subheads=cur_config["num_subheads"],
+                save=cur_config["save"], hook_params=cur_config["hooks"]
+            )
+            hooks.append(hook)
 
     if "ConsistencyParameters" in config:
         hook = create_consistency_hook(weight=config["ConsistencyParameters"]["weight"])

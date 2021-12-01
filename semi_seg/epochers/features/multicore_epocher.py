@@ -31,7 +31,7 @@ class MultiCoreTrainEpocher(_MultiCoreMixin, SemiSupervisedEpocher, ABC):
                 unlabeled_image_tf=unlabeled_image_tf
             )
 
-            unlabeled_logits_tf = self.transform_with_seed(unlabeled_logits, seed=seed)
+            unlabeled_logits_tf = self.transform_with_seed(unlabeled_logits, seed=seed, mode="feature")
 
             # supervised part
             one_hot_target = class2one_hot(labeled_target.squeeze(1), self.num_classes)
@@ -50,7 +50,7 @@ class MultiCoreTrainEpocher(_MultiCoreMixin, SemiSupervisedEpocher, ABC):
                 partition_group=unl_partition,
                 labeled_filename=labeled_filename,
                 unlabeled_filename=unlabeled_filename,
-                affine_transformer=partial(self.transform_with_seed, seed=seed)
+                affine_transformer=partial(self.transform_with_seed, seed=seed, mode="feature")
             )
 
         total_loss = sup_loss + reg_loss

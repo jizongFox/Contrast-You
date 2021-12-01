@@ -138,7 +138,7 @@ class EpocherHook:
         with self.meters.focus_on(self.name):
             self.configure_meters_given_epocher(self.meters)
 
-    def configure_meters_given_epocher(self, meters: MeterInterface):
+    def configure_meters_given_epocher(self, meters: MeterInterface) -> MeterInterface:
         return meters
 
     # calling interface for epocher.

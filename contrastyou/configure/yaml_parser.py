@@ -98,7 +98,7 @@ class yamlArgParser:
 
         key = list(k_v_dict.keys())[0]
         value = k_v_dict[key]
-        keys = sorted(key.split("."), reverse=True)
+        keys = sorted(key.split("."), reverse=True, key=lambda x: key.split(".").index(x))
         core = {keys[0]: deepcopy(value)}
         for k in keys[1:]:
             core = {k: core}
@@ -146,14 +146,14 @@ def yaml_load(yaml_path: Union[Path, str], verbose=False) -> Dict[str, Any]:
 
 
 def yaml_write(
-    dictionary: Dict, save_dir: Union[Path, str], save_name: str, force_overwrite=True
+        dictionary: Dict, save_dir: Union[Path, str], save_name: str, force_overwrite=True
 ) -> str:
     save_path = path2Path(save_dir) / save_name
     path2Path(save_dir).mkdir(exist_ok=True, parents=True)
     if save_path.exists():
         if force_overwrite is False:
             save_path = (
-                save_name.split(".")[0] + "_copy" + "." + save_name.split(".")[1]
+                    save_name.split(".")[0] + "_copy" + "." + save_name.split(".")[1]
             )
     with open(str(save_path), "w") as outfile:  # type: ignore
         yaml.dump(dictionary, outfile, default_flow_style=False)

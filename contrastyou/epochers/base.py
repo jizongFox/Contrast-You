@@ -5,7 +5,6 @@ from contextlib import contextmanager
 from typing import Union, Dict, List, final
 
 import torch
-from loguru import logger
 from torch import nn
 from torch.cuda.amp import GradScaler
 
@@ -73,13 +72,10 @@ class EpocherBase(AMPScaler, DDPMixin, metaclass=ABCMeta):
             self._hooks.append(h)
             h.set_epocher(self)
             h.set_meters_given_epocher()
-        try:
-            yield
-        except Exception as e:
-            logger.exception(e)
-        finally:
-            self.close_hook()
+        yield
+        self.close_hook()
 
+    @final
     def close_hook(self):
         for h in self._hooks:
             h.close()
@@ -92,13 +88,9 @@ class EpocherBase(AMPScaler, DDPMixin, metaclass=ABCMeta):
             self._num_batches, int
         ), f"self._num_batches must be provided as an integer, given {self._num_batches}."
         self.indicator.set_desc_from_epocher(self)
-        try:
-            yield
-        except Exception as e:
-            logger.exception(e)
-        finally:
-            self.indicator.close()
-            self.indicator.log_result()
+        yield
+        self.indicator.close()
+        self.indicator.log_result()
 
     @abstractmethod
     def configure_meters(self, meters: MeterInterface) -> MeterInterface:

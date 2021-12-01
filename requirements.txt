@@ -27,3 +27,4 @@ git+https://github.com/jizongFox/easydict.git
 tensorboard
 loguru
 gdown
+git+https://github.com/jizongFox/rising.git

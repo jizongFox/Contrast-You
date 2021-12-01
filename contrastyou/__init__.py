@@ -18,8 +18,6 @@ Path(MODEL_PATH).mkdir(exist_ok=True, parents=True)
 Path(CONFIG_PATH).mkdir(exist_ok=True, parents=True)
 Path(OPT_PATH).mkdir(exist_ok=True, parents=True)
 
-__accounts = ["rrg-mpederso"]
-
 logger_format = "<green>{time:MM/DD HH:mm:ss.SS}</green> | <level>{level: ^7}</level> |" \
                 "{process.name:<5}.{thread.name:<5}: " \
                 "<cyan>{name:<8}</cyan>:<cyan>{function:<10}</cyan>:<cyan>{line:<4}</cyan>" \
@@ -99,10 +97,31 @@ def on_cc() -> bool:
     return False
 
 
+def on_beluga() -> bool:
+    import socket
+    hostname = socket.gethostname()
+    # on beluga
+    if "beluga" in hostname or "blg" in hostname:
+        return True
+    return False
+
+
+def on_cedar() -> bool:
+    import socket
+    hostname = socket.gethostname()
+    if "cedar" in hostname or "cdr" in hostname:
+        return True
+    return False
+
+
 def success(save_dir: str):
     filename = ".success"
     Path(str(save_dir), filename).touch()
 
 
-# import numpy to avoid some errors
 import numpy as np  # noqa
+
+__accounts = ["rrg-mpederso", ]
+if on_beluga():
+    __accounts = ["rrg-ebrahimi", ]
+
