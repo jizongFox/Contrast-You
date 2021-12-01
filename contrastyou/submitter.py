@@ -21,8 +21,15 @@ def randomString():
 default_cc_account = ["def-chdesa", "rrg-mpederso", "def-mpederso"]
 
 
-def _create_sbatch_prefix(*, account: str, time: int = 4, job_name="default_job_name", nodes=1, gres="gpu:p100:1",
+def _create_sbatch_prefix(*, account: str, time: int = 4, job_name="default_job_name", nodes=1, gres=None,
                           cpus_per_task=6, mem: int = 16, mail_user="jizong.peng.1@etsmtl.net"):
+    from contrastyou import on_cedar
+
+    if gres is None:
+        gres = "gpu:1"
+        if on_cedar():
+            gres = "gpu:p100:1"
+
     return (
         f"#!/bin/bash \n"
         f"#SBATCH --time=0-{time}:00 \n"
