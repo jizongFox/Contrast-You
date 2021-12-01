@@ -44,7 +44,7 @@ class IIDLoss(nn.Module, LossClass[t.Tuple[Tensor, Tensor, Tensor]]):
         p_j = p_i_j.sum(dim=0).view(1, k).expand(k, k)  # but should be same, symmetric
 
         loss = -p_i_j * (
-            torch.log(p_i_j + 1e-10) - self.lamb * torch.log(p_j + 1e-10) - self.lamb * torch.log(p_i + 1e-10)
+                torch.log(p_i_j + 1e-10) - self.lamb * torch.log(p_j + 1e-10) - self.lamb * torch.log(p_i + 1e-10)
         )
         loss = loss.sum()
         loss_no_lamb = -p_i_j * (torch.log(p_i_j + 1e-10) - torch.log(p_j + 1e-10) - torch.log(p_i + 1e-10))
@@ -55,16 +55,17 @@ class IIDLoss(nn.Module, LossClass[t.Tuple[Tensor, Tensor, Tensor]]):
 class IIDSegmentationLoss(nn.Module, LossClass[Tensor]):
 
     def __init__(
-        self, lamda=1.0, padding=0, eps: float = 1e-5
+            self, lamda=1.0, padding=0, eps: float = 1e-5, symmetric: bool = False,
     ) -> None:
         super(IIDSegmentationLoss, self).__init__()
         logger.trace(f"Initialize {self.__class__.__name__} with lamda: {lamda} and padding: {padding}.")
         self.lamda = lamda
         self.padding = padding
         self._eps = eps
+        self.symmetric = symmetric
 
     def forward(
-        self, x_out: Tensor, x_tf_out: Tensor, mask: Tensor = None
+            self, x_out: Tensor, x_tf_out: Tensor, mask: Tensor = None
     ) -> Tensor:
         if mask is not None:
             x_out *= mask
@@ -84,15 +85,17 @@ class IIDSegmentationLoss(nn.Module, LossClass[Tensor]):
         p_i_j /= p_i_j.sum(dim=[2, 3], keepdim=True)  # norm
 
         # symmetrise, transpose the k x k part
-        p_i_j = (p_i_j + p_i_j.permute(0, 1, 3, 2)) / 2.0
+        if self.symmetric:
+            p_i_j = (p_i_j + p_i_j.permute(0, 1, 3, 2)) / 2.0
 
         # T x T x k x k
         p_i_mat = p_i_j.sum(dim=2, keepdim=True)
+        p_j_mat = p_i_j.sum(dim=3, keepdim=True)
 
         # maximise information
         loss = -p_i_j * (
-            torch.log(p_i_j + self._eps)
-            - self.lamda * torch.log(p_i_mat + self._eps) * 2
+                torch.log(p_i_j + self._eps)
+                - self.lamda * torch.log(p_i_mat + self._eps) - self.lamda * torch.log(p_j_mat + self._eps)
         )
 
         return loss.sum() / (T_side_dense * T_side_dense)
