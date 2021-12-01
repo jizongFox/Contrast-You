@@ -168,7 +168,76 @@ class FeatureMapSaver:
             shutil.make_archive(str(self.save_dir / self.folder_name.replace("/", "_")), 'zip',
                                 str(self.save_dir / self.folder_name))
             shutil.rmtree(str(self.save_dir / self.folder_name))
-        except (FileNotFoundError, OSError) as e:
+        except (FileNotFoundError, OSError, IOError) as e:
+            logger.opt(exception=True, depth=1).warning(e)
+
+    @property
+    @lru_cache()
+    def tb_writer(self):
+        try:
+            writer = get_tb_writer()
+        except RuntimeError:
+            writer = None
+        return writer
+
+
+class DistributionTracker:
+
+    def __init__(self, save_dir: str, folder_name="dist_track", use_tensorboard=True) -> None:
+        super().__init__()
+
+        assert Path(save_dir).exists() and Path(save_dir).is_dir(), save_dir
+        self.save_dir: Path = Path(save_dir)
+        self.folder_name = folder_name
+        (self.save_dir / self.folder_name).mkdir(exist_ok=True, parents=True)
+        self.use_tensorboard = use_tensorboard
+
+    @switch_plt_backend(env="agg")
+    def save_map(self, *, dist1: Tensor, dist2: Tensor, cur_epoch) -> None:
+        """
+        Args:
+            dist1:Tensor, the semgentaiton distribution after softmax
+            dist2:Tensor, the semgentaiton distribution after softmax
+
+        """
+        assert dist1.dim() == 4 and dist2.dim() == 4
+        assert dist1.shape == dist2.shape
+
+        def get_features(dist: Tensor):
+            marginal_dist = dist.mean(dim=[0, 2, 3])
+            confidents = dist.max(1)[0].ravel()[:1000]
+            return marginal_dist.detach().cpu(), confidents.detach().cpu()
+
+        fig = plt.figure()
+        margin, confident = get_features(dist1)
+        plt.subplot(221)
+        plt.plot(margin)
+        plt.subplot(222)
+        plt.hist(confident, bins=20, histtype='step')
+        margin, confident = get_features(dist2)
+        plt.subplot(223)
+        plt.plot(margin)
+        plt.subplot(224)
+        plt.hist(confident, bins=20, histtype='step')
+
+        save_path = self.save_dir / self.folder_name / f"distribution_epoch_{cur_epoch:03d}.png"
+        plt.savefig(str(save_path), dpi=300, bbox_inches='tight')
+        if self.use_tensorboard and self.tb_writer is not None:
+            self.tb_writer.add_figure(
+                tag=f"{self.folder_name}/distribution",
+                figure=plt.gcf(), global_step=cur_epoch, close=True
+            )
+        plt.close(fig)
+
+    def zip(self) -> None:
+        """
+        Put all image folders as a zip file, in order to avoid IO things when downloading.
+        """
+        try:
+            shutil.make_archive(str(self.save_dir / self.folder_name.replace("/", "_")), 'zip',
+                                str(self.save_dir / self.folder_name))
+            shutil.rmtree(str(self.save_dir / self.folder_name))
+        except (FileNotFoundError, OSError, IOError) as e:
             logger.opt(exception=True, depth=1).warning(e)
 
     @property
