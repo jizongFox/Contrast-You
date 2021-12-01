@@ -541,8 +541,8 @@ class _CrossCorrelationHook(_TinyHook):
 
 class _MIHook(_TinyHook):
 
-    def __init__(self, *, name: str = "mi", weight: float, lamda: float, padding: int = 0) -> None:
-        criterion = IIDSegmentationLoss(lamda=lamda, padding=padding)
+    def __init__(self, *, name: str = "mi", weight: float, lamda: float, padding: int = 0, symmetric=True) -> None:
+        criterion = IIDSegmentationLoss(lamda=lamda, padding=padding, symmetric=symmetric)
         super().__init__(name=name, criterion=criterion, weight=weight)
 
     def __call__(self, input1: Tensor, input2: Tensor, **kwargs):
@@ -558,8 +558,8 @@ class _MIHook(_TinyHook):
 
 class _RedundancyReduction(_TinyHook):
 
-    def __init__(self, *, name: str = "rr", weight: float) -> None:
-        criterion = RedundencyCriterion()
+    def __init__(self, *, name: str = "rr", weight: float, symmetric: bool = True) -> None:
+        criterion = RedundencyCriterion(symmetric=symmetric)
         super().__init__(name=name, criterion=criterion, weight=weight)
 
     def __call__(self, input1: Tensor, input2: Tensor, **kwargs):

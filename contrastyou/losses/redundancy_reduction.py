@@ -11,10 +11,11 @@ from contrastyou.losses.kl import KL_div
 
 class RedundencyCriterion(nn.Module, LossClass[Tensor]):
 
-    def __init__(self, eps: float = 1e-8) -> None:
+    def __init__(self, eps: float = 1e-8, symmetric: bool = True) -> None:
         super().__init__()
         self.kl_criterion = KL_div()
         self._eps = eps
+        self.symmetric = symmetric
 
     def forward(self, x_out: Tensor, x_tf_out: Tensor):
         k = x_out.shape[1]
@@ -31,7 +32,8 @@ class RedundencyCriterion(nn.Module, LossClass[Tensor]):
         p_i_j /= p_i_j.sum(dim=[2, 3], keepdim=True)  # norm
 
         # symmetrise, transpose the k x k part
-        p_i_j = (p_i_j + p_i_j.permute(0, 1, 3, 2)) / 2.0
+        if self.symmetric:
+            p_i_j = (p_i_j + p_i_j.permute(0, 1, 3, 2)) / 2.0
         p_i_j /= p_i_j.sum()  # norm
         p_i_j = p_i_j.view(k, k)
         return (-self.onehot_label(k, device=p_i_j.device, dtype=p_i_j.dtype) * p_i_j.log()).mean()

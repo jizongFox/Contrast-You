@@ -9,6 +9,7 @@ CrossCorrelationParameters:
       weight: 0.5
       padding: 0
       lamda: 1.5
+      symmetric: true
     cc:
       weight: 0.1
       kernel_size: 5
@@ -16,4 +17,5 @@ CrossCorrelationParameters:
     compact:
       weight: 0.01
     rr:
-      weight: 0.1
+      weight: 0.0
+      symmetric: true
