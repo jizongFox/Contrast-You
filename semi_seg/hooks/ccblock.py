@@ -16,7 +16,7 @@ from contrastyou.hooks import TrainerHook, EpocherHook
 from contrastyou.losses.cross_correlation import CCLoss
 from contrastyou.losses.discreteMI import IIDSegmentationLoss
 from contrastyou.losses.kl import Entropy
-from contrastyou.losses.redundancy_reduction import RedundencyCriterion
+from contrastyou.losses.redundancy_reduction import RedundancyCriterion
 from contrastyou.meters import AverageValueMeter
 from contrastyou.projectors import CrossCorrelationProjector
 from contrastyou.utils import class_name, average_iter, item2str, probs2one_hot, deprecated, fix_all_seed_within_context
@@ -558,8 +558,8 @@ class _MIHook(_TinyHook):
 
 class _RedundancyReduction(_TinyHook):
 
-    def __init__(self, *, name: str = "rr", weight: float, symmetric: bool = True) -> None:
-        criterion = RedundencyCriterion(symmetric=symmetric)
+    def __init__(self, *, name: str = "rr", weight: float, symmetric: bool = True, lamda: float) -> None:
+        criterion = RedundancyCriterion(symmetric=symmetric, lamda=lamda)
         super().__init__(name=name, criterion=criterion, weight=weight)
 
     def __call__(self, input1: Tensor, input2: Tensor, **kwargs):
