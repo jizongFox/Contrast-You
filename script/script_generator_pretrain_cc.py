@@ -321,7 +321,7 @@ def run_multicore_semi_regularize_with_grid_search(
 
 
 if __name__ == '__main__':
-    submitter = SlurmSubmitter(work_dir="../", stop_on_error=True, on_local=on_local)
+    submitter = SlurmSubmitter(work_dir="../", stop_on_error=on_local, on_local=on_local)
     submitter.configure_environment([
         # "set -e "
         "module load python/3.8.2 ",
@@ -347,7 +347,7 @@ if __name__ == '__main__':
                                                      num_batches=num_batches,
                                                      data_name=data_name, mi_weights=(1,),
                                                      cc_weights=[0, 0.001, 0.01, 0.1],
-                                                     consistency_weights=[0.001, 0.01, 0.1, 0],
+                                                     consistency_weights=[0],
                                                      include_baseline=True,
                                                      paddings=0, lamdas=2.5,
                                                      powers=0.75,
@@ -365,7 +365,7 @@ if __name__ == '__main__':
     jobs = list(job_generator)
     logger.info(f"logging {len(jobs)} jobs")
     for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=6, account=next(account))
+        submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
 
     # use only rr
     job_generator = run_pretrain_ft_with_grid_search(save_dir=os.path.join(save_dir, "pretrain"),
@@ -373,7 +373,7 @@ if __name__ == '__main__':
                                                      num_batches=num_batches,
                                                      data_name=data_name, mi_weights=(0,),
                                                      cc_weights=[0, 0.001, 0.01, 0.1],
-                                                     consistency_weights=[0.001, 0.01, 0.1, 0],
+                                                     consistency_weights=[0],
                                                      include_baseline=False,
                                                      paddings=0, lamdas=2.5,
                                                      powers=0.75,
@@ -386,12 +386,12 @@ if __name__ == '__main__':
                                                      rr_weight=(1,),
                                                      mi_symmetric="true",
                                                      rr_symmetric="true",
-                                                     rr_lamda=(0.0001, 0.001, 0.01, 1, 10, 100)
+                                                     rr_lamda=(0, 0.0001, 0.001, 0.01, 0.1, 1, 10)
                                                      )
     jobs = list(job_generator)
     logger.info(f"logging {len(jobs)} jobs")
     for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=6, account=next(account))
+        submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
 
     # only with MI on semi supervised case
     job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),

@@ -70,23 +70,13 @@ class IIDSegmentationLoss(nn.Module, LossClass[Tensor]):
         if mask is not None:
             x_out *= mask
             x_tf_out *= mask
-
-        x_out = x_out.swapaxes(0, 1).contiguous()
-        x_tf_out = x_tf_out.swapaxes(0, 1).contiguous()
-        p_i_j = F.conv2d(
-            input=F.pad(x_out, (self.padding,) * 4, mode="reflect"),
-            weight=x_tf_out, padding=(0, 0)
-        )
-        p_i_j = p_i_j - p_i_j.min().detach() + self._eps
         T_side_dense = self.padding * 2 + 1
-
-        # T x T x k x k
-        p_i_j = p_i_j.permute(2, 3, 0, 1)
-        p_i_j /= p_i_j.sum(dim=[2, 3], keepdim=True)  # norm
-
-        # symmetrise, transpose the k x k part
-        if self.symmetric:
-            p_i_j = (p_i_j + p_i_j.permute(0, 1, 3, 2)) / 2.0
+        if self.padding > 0:
+            p_i_j = compute_joint_2D(x_out, x_tf_out, symmetric=self.symmetric)
+        elif self.padding == 0:
+            p_i_j = compute_joint_2D_with_padding_zeros(x_out, x_tf_out, symmetric=self.symmetric)
+        else:
+            raise ValueError(self.padding)
 
         # T x T x k x k
         p_i_mat = p_i_j.sum(dim=2, keepdim=True)
@@ -150,6 +140,44 @@ def compute_joint(x_out: Tensor, x_tf_out: Tensor, symmetric=True) -> Tensor:
         p_i_j = (p_i_j + p_i_j.t()) / 2.0  # symmetric
     p_i_j /= p_i_j.sum()  # normalise
 
+    return p_i_j
+
+
+def compute_joint_2D(x_out: Tensor, x_tf_out: Tensor, *, symmetric: bool = True):
+    k = x_out.shape[1]
+    x_out = x_out.swapaxes(0, 1).contiguous()
+    x_tf_out = x_tf_out.swapaxes(0, 1).contiguous()
+    p_i_j = F.conv2d(
+        input=x_out,
+        weight=x_tf_out, padding=(0, 0)
+    )
+    p_i_j = p_i_j - p_i_j.min().detach() + 1e-8
+
+    # T x T x k x k
+    p_i_j = p_i_j.permute(2, 3, 0, 1)
+    p_i_j /= p_i_j.sum(dim=[2, 3], keepdim=True)  # norm
+
+    # symmetrise, transpose the k x k part
+    if symmetric:
+        p_i_j = (p_i_j + p_i_j.permute(0, 1, 3, 2)) / 2.0
+    p_i_j /= p_i_j.sum()  # norm
+    return p_i_j
+
+
+def compute_joint_2D_with_padding_zeros(x_out: Tensor, x_tf_out: Tensor, *, symmetric: bool = True):
+    k = x_out.shape[1]
+    x_out = x_out.swapaxes(0, 1).reshape(k, -1)
+    x_tf_out = x_tf_out.swapaxes(0, 1).reshape(k, -1)
+    p_i_j = x_out @ x_tf_out.t()
+    p_i_j = p_i_j - p_i_j.min().detach() + 1e-8
+
+    # T x T x k x k
+    p_i_j /= p_i_j.sum()
+
+    # symmetrise, transpose the k x k part
+    if symmetric:
+        p_i_j = (p_i_j + p_i_j.t()) / 2.0
+    p_i_j = p_i_j.view(1, 1, k, k)
     return p_i_j
 
 
