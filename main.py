@@ -17,7 +17,7 @@ from semi_seg.data.creator import get_data
 from semi_seg.hooks import feature_until_from_hooks
 from semi_seg.trainers.pretrain import PretrainEncoderTrainer, PretrainDecoderTrainer
 from semi_seg.trainers.trainer import SemiTrainer, FineTuneTrainer, MixUpTrainer, MTTrainer, DMTTrainer
-from utils import logging_configs, find_checkpoint
+from utils import logging_configs, find_checkpoint  # noqa
 
 trainer_zoo = {"semi": SemiTrainer,
                "ft": FineTuneTrainer,

@@ -264,7 +264,7 @@ def create_cross_correlation_hooks2(
             hook.register_dist_hook(_CenterCompactnessHook(**hook_params["compact"]))
 
         if "rr" in hook_params:
-            hook.register_feat_hook(_RedundancyReduction(**hook_params["rr"]))
+            hook.register_dist_hook(_RedundancyReduction(**hook_params["rr"]))
 
     else:
         mi_params = {"lamda": hook_params["mi"]["lamda"],
