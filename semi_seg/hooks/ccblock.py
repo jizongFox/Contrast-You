@@ -20,7 +20,8 @@ from contrastyou.losses.redundancy_reduction import RedundancyCriterion
 from contrastyou.meters import AverageValueMeter
 from contrastyou.projectors import CrossCorrelationProjector
 from contrastyou.utils import class_name, average_iter, item2str, probs2one_hot, deprecated, fix_all_seed_within_context
-from semi_seg.hooks.utils import FeatureMapSaver, DistributionTracker
+from contrastyou.writer import get_tb_writer
+from semi_seg.hooks.utils import FeatureMapSaver, DistributionTracker, joint_2D_figure
 
 if t.TYPE_CHECKING:
     from contrastyou.projectors.nn import _ProjectorHeadBase  # noqa
@@ -324,6 +325,10 @@ class _TinyHook(metaclass=ABCMeta):
     def close(self):
         pass
 
+    @staticmethod
+    def get_tb_writer():
+        return get_tb_writer()
+
 
 class ProjectorGeneralHook(TrainerHook):
 
@@ -542,10 +547,10 @@ class _CrossCorrelationHook(_TinyHook):
 class _MIHook(_TinyHook):
 
     def __init__(self, *, name: str = "mi", weight: float, lamda: float, padding: int = 0, symmetric=True) -> None:
-        criterion = IIDSegmentationLoss(lamda=lamda, padding=padding, symmetric=symmetric)
+        criterion: IIDSegmentationLoss = IIDSegmentationLoss(lamda=lamda, padding=padding, symmetric=symmetric)
         super().__init__(name=name, criterion=criterion, weight=weight)
 
-    def __call__(self, input1: Tensor, input2: Tensor, **kwargs):
+    def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, **kwargs):
         if self.weight == 0:
             if self.meters:
                 self.meters[self.name].add(0)
@@ -553,6 +558,11 @@ class _MIHook(_TinyHook):
         loss = self.criterion(input1, input2)
         if self.meters:
             self.meters[self.name].add(loss.item())
+
+        if kwargs.get("save_image_condition", False):
+            self.criterion: IIDSegmentationLoss
+            joint_2D_figure(self.criterion.get_joint_matrix(), tb_writer=self.get_tb_writer(), cur_epoch=cur_epoch)
+
         return loss * self.weight
 
 
@@ -562,7 +572,7 @@ class _RedundancyReduction(_TinyHook):
         criterion = RedundancyCriterion(symmetric=symmetric, lamda=lamda)
         super().__init__(name=name, criterion=criterion, weight=weight)
 
-    def __call__(self, input1: Tensor, input2: Tensor, **kwargs):
+    def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, **kwargs):
         if self.weight == 0:
             if self.meters:
                 self.meters[self.name].add(0)
@@ -571,6 +581,11 @@ class _RedundancyReduction(_TinyHook):
         loss = self.criterion(input1, input2)
         if self.meters:
             self.meters[self.name].add(loss.item())
+
+        if kwargs.get("save_image_condition", False):
+            self.criterion: RedundancyCriterion
+            joint_2D_figure(self.criterion.get_joint_matrix(), tb_writer=self.get_tb_writer(), cur_epoch=cur_epoch)
+
         return loss * self.weight
 
 

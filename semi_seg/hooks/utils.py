@@ -2,14 +2,14 @@ import shutil
 import typing as t
 from functools import lru_cache
 from pathlib import Path
-
+import numpy as np
 from loguru import logger
 from matplotlib import pyplot as plt
 from torch import Tensor
 
 from contrastyou.utils import switch_plt_backend
 from contrastyou.utils.colors import label2colored_image
-from contrastyou.writer import get_tb_writer
+from contrastyou.writer import get_tb_writer, SummaryWriter
 from semi_seg.epochers.helper import PartitionLabelGenerator, PatientLabelGenerator, ACDCCycleGenerator, \
     SIMCLRGenerator
 
@@ -141,7 +141,8 @@ class FeatureMapSaver:
             feature_map2 = label2colored_image(feature_map2)
 
         for i, (img, f_map1, f_map2) in enumerate(zip(image, feature_map1, feature_map2)):
-            save_path = self.save_dir / self.folder_name / f"{save_name}_{cur_epoch:03d}_{cur_batch_num:02d}_{i:03d}.png"
+            save_path = self.save_dir / self.folder_name / \
+                        f"{save_name}_{cur_epoch:03d}_{cur_batch_num:02d}_{i:03d}.png"
             fig = plt.figure(figsize=(1.5, 4.5))
             plt.subplot(311)
             plt.imshow(img, cmap="gray")
@@ -248,3 +249,15 @@ class DistributionTracker:
         except RuntimeError:
             writer = None
         return writer
+
+
+@switch_plt_backend("agg")
+def joint_2D_figure(joint_map: np.ndarray, *, tb_writer: SummaryWriter, cur_epoch: int):
+    fig = plt.figure()
+    plt.imshow(joint_map)
+    plt.colorbar()
+    plt.axis('off')
+    tb_writer.add_figure(
+        tag=f"joint_matrix",
+        figure=fig, global_step=cur_epoch, close=True
+    )
