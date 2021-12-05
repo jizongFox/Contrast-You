@@ -76,12 +76,16 @@ class _PretrainEpocherMixin:
 
     def _batch_update(self, *, cur_batch_num: int, unlabeled_image, unlabeled_image_tf, seed,
                       unl_group, unl_partition, unlabeled_filename):
+        self.optimizer_zero(self._optimizer, cur_iter=cur_batch_num)
+
         with self.autocast:
             unlabeled_logits, unlabeled_tf_logits = self.forward_pass(
                 unlabeled_image=unlabeled_image,
                 unlabeled_image_tf=unlabeled_image_tf
             )
+
             unlabeled_logits_tf = self.transform_with_seed(unlabeled_logits, seed=seed, mode="feature")
+
             reg_loss = self.regularization(
                 seed=seed,
                 unlabeled_image=unlabeled_image,
@@ -96,7 +100,7 @@ class _PretrainEpocherMixin:
 
         self.scale_loss(reg_loss).backward()
         self.optimizer_step(self._optimizer, cur_iter=cur_batch_num)
-        self.optimizer_zero(self._optimizer, cur_iter=cur_batch_num)
+
         with torch.no_grad():
             self.meters["reg_loss"].add(reg_loss.item())
 

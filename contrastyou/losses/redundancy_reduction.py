@@ -20,6 +20,7 @@ class RedundancyCriterion(nn.Module, LossClass[Tensor]):
         k = x_out.shape[1]
         p_i_j = compute_joint_2D_with_padding_zeros(x_out=x_out, x_tf_out=x_tf_out, symmetric=self.symmetric)
         p_i_j = p_i_j.view(k, k)
+        self._p_i_j = p_i_j
         mask = self.onehot_label(k, device=p_i_j.device)
         diagonal_elements = p_i_j.masked_select(mask)
         off_diagonal_elements = p_i_j.masked_select(~mask)
@@ -34,6 +35,11 @@ class RedundancyCriterion(nn.Module, LossClass[Tensor]):
 
     def kl_criterion(self, dist: Tensor, prior: Tensor):
         return -(prior * (dist + self._eps).log() + (1 - prior) * (1 - dist + self._eps).log()).mean()
+
+    def get_joint_matrix(self):
+        if not hasattr(self, "_p_i_j"):
+            raise RuntimeError()
+        return self._p_i_j.detach().cpu().numpy()
 
 
 if __name__ == '__main__':

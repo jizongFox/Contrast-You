@@ -72,11 +72,12 @@ class IIDSegmentationLoss(nn.Module, LossClass[Tensor]):
             x_tf_out *= mask
         T_side_dense = self.padding * 2 + 1
         if self.padding > 0:
-            p_i_j = compute_joint_2D(x_out, x_tf_out, symmetric=self.symmetric)
+            p_i_j = compute_joint_2D(x_out, x_tf_out, symmetric=self.symmetric, padding=self.padding)
         elif self.padding == 0:
             p_i_j = compute_joint_2D_with_padding_zeros(x_out, x_tf_out, symmetric=self.symmetric)
         else:
             raise ValueError(self.padding)
+        self._p_i_j = p_i_j[0][0]
 
         # T x T x k x k
         p_i_mat = p_i_j.sum(dim=2, keepdim=True)
@@ -89,6 +90,11 @@ class IIDSegmentationLoss(nn.Module, LossClass[Tensor]):
         )
 
         return loss.sum() / (T_side_dense * T_side_dense)
+
+    def get_joint_matrix(self):
+        if not hasattr(self, "_p_i_j"):
+            raise RuntimeError()
+        return self._p_i_j.detach().cpu().numpy()
 
 
 class IIDSegmentationSmallPathLoss(IIDSegmentationLoss):
@@ -143,13 +149,13 @@ def compute_joint(x_out: Tensor, x_tf_out: Tensor, symmetric=True) -> Tensor:
     return p_i_j
 
 
-def compute_joint_2D(x_out: Tensor, x_tf_out: Tensor, *, symmetric: bool = True):
+def compute_joint_2D(x_out: Tensor, x_tf_out: Tensor, *, symmetric: bool = True, padding: int = 0):
     k = x_out.shape[1]
     x_out = x_out.swapaxes(0, 1).contiguous()
     x_tf_out = x_tf_out.swapaxes(0, 1).contiguous()
     p_i_j = F.conv2d(
         input=x_out,
-        weight=x_tf_out, padding=(0, 0)
+        weight=x_tf_out, padding=(int(padding), int(padding))
     )
     p_i_j = p_i_j - p_i_j.min().detach() + 1e-8
 

@@ -6,7 +6,7 @@ from pathlib import Path
 from easydict import EasyDict as edict
 from loguru import logger
 
-from contrastyou import CONFIG_PATH, git_hash, OPT_PATH
+from contrastyou import CONFIG_PATH, git_hash, OPT_PATH, on_cc
 from contrastyou.arch import UNet
 from contrastyou.configure import yaml_load, ConfigManager
 from contrastyou.losses.kl import KL_div
@@ -81,8 +81,10 @@ def worker(config, absolute_save_dir, seed):
         **{k: v for k, v in config["Trainer"].items() if k != "save_dir" and k != "name"}
     )
     # find the last.pth from the save folder.
-    checkpoint: t.Optional[str] = find_checkpoint(trainer.absolute_save_dir)
-    # checkpoint: t.Optional[str] = config.trainer_checkpoint
+    if on_cc():
+        checkpoint: t.Optional[str] = find_checkpoint(trainer.absolute_save_dir)
+    else:
+        checkpoint: t.Optional[str] = config.trainer_checkpoint
 
     if trainer_name not in ("ft", "dmt"):
         with fix_all_seed_within_context(seed):
