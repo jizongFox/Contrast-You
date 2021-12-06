@@ -360,7 +360,7 @@ if __name__ == '__main__':
                                                      rr_weight=[0],
                                                      mi_symmetric="true",
                                                      rr_symmetric="true",
-                                                     rr_lamda=(1,)  # useless
+                                                     rr_lamda=(2.5)  # useless
                                                      )
     jobs = list(job_generator)
     logger.info(f"logging {len(jobs)} jobs")
@@ -386,65 +386,65 @@ if __name__ == '__main__':
                                                      rr_weight=(1,),
                                                      mi_symmetric="true",
                                                      rr_symmetric="true",
-                                                     rr_lamda=(1,)
+                                                     rr_lamda=(2.5, 2, 1.5, 1)
                                                      )
     jobs = list(job_generator)
     logger.info(f"logging {len(jobs)} jobs")
     for job in jobs:
         submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
 
-    # only with MI on semi supervised case
-    job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),
-                                                         random_seeds=random_seeds,
-                                                         max_epoch=max_epoch, num_batches=num_batches,
-                                                         data_name=data_name,
-                                                         mi_weights=[0, 0.01, 0.02, ],
-                                                         cc_weights=[0, 0.0001, 0.001, ],
-                                                         consistency_weights=[0, 0.1, 0.5, ],
-                                                         include_baseline=True,
-                                                         paddings=0, lamdas=[1.5],
-                                                         powers=[0.75],
-                                                         head_types="linear",
-                                                         num_subheads=3,
-                                                         num_clusters=[20],
-                                                         max_num=500,
-                                                         kernel_size=5,
-                                                         compact_weight=0.0,
-                                                         rr_weight=0,
-                                                         mi_symmetric="true",
-                                                         rr_symmetric="true",
-                                                         rr_lamda=(1.5,)  # useless here.
-                                                         )
-
-    jobs = list(job_generator)
-    logger.info(f"logging {len(jobs)} jobs")
-    for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=8, account=next(account))
-
-    # only with RR on semi supervised case
-    job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),
-                                                         random_seeds=random_seeds,
-                                                         max_epoch=max_epoch, num_batches=num_batches,
-                                                         data_name=data_name,
-                                                         mi_weights=0,
-                                                         cc_weights=[0, 0.0001, 0.001, ],
-                                                         consistency_weights=[0, 0.1, 0.5, ],
-                                                         include_baseline=True,
-                                                         paddings=0, lamdas=[1.5],
-                                                         powers=[0.75],
-                                                         head_types="linear",
-                                                         num_subheads=3,
-                                                         num_clusters=[20],
-                                                         max_num=500,
-                                                         kernel_size=5,
-                                                         compact_weight=0.0,
-                                                         rr_weight=[0, 0.01, 0.02, ],
-                                                         mi_symmetric="true",
-                                                         rr_symmetric="true",
-                                                         rr_lamda=1.5  # useless here.
-                                                         )
-
-    jobs = list(job_generator)
-    logger.info(f"logging {len(jobs)} jobs")
-    for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=8, account=next(account))
+    # # only with MI on semi supervised case
+    # job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),
+    #                                                      random_seeds=random_seeds,
+    #                                                      max_epoch=max_epoch, num_batches=num_batches,
+    #                                                      data_name=data_name,
+    #                                                      mi_weights=[0, 0.01, 0.02, ],
+    #                                                      cc_weights=[0, 0.0001, 0.001, ],
+    #                                                      consistency_weights=[0, 0.1, 0.5, ],
+    #                                                      include_baseline=True,
+    #                                                      paddings=0, lamdas=[1.5],
+    #                                                      powers=[0.75],
+    #                                                      head_types="linear",
+    #                                                      num_subheads=3,
+    #                                                      num_clusters=[20],
+    #                                                      max_num=500,
+    #                                                      kernel_size=5,
+    #                                                      compact_weight=0.0,
+    #                                                      rr_weight=0,
+    #                                                      mi_symmetric="true",
+    #                                                      rr_symmetric="true",
+    #                                                      rr_lamda=(1.5,)  # useless here.
+    #                                                      )
+    #
+    # jobs = list(job_generator)
+    # logger.info(f"logging {len(jobs)} jobs")
+    # for job in jobs:
+    #     submitter.submit(" && \n ".join(job), force_show=force_show, time=8, account=next(account))
+    #
+    # # only with RR on semi supervised case
+    # job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),
+    #                                                      random_seeds=random_seeds,
+    #                                                      max_epoch=max_epoch, num_batches=num_batches,
+    #                                                      data_name=data_name,
+    #                                                      mi_weights=0,
+    #                                                      cc_weights=[0, 0.0001, 0.001, ],
+    #                                                      consistency_weights=[0, 0.1, 0.5, ],
+    #                                                      include_baseline=True,
+    #                                                      paddings=0, lamdas=[1.5],
+    #                                                      powers=[0.75],
+    #                                                      head_types="linear",
+    #                                                      num_subheads=3,
+    #                                                      num_clusters=[20],
+    #                                                      max_num=500,
+    #                                                      kernel_size=5,
+    #                                                      compact_weight=0.0,
+    #                                                      rr_weight=[0, 0.01, 0.02, ],
+    #                                                      mi_symmetric="true",
+    #                                                      rr_symmetric="true",
+    #                                                      rr_lamda=1.5  # useless here.
+    #                                                      )
+    #
+    # jobs = list(job_generator)
+    # logger.info(f"logging {len(jobs)} jobs")
+    # for job in jobs:
+    #     submitter.submit(" && \n ".join(job), force_show=force_show, time=8, account=next(account))
