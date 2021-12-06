@@ -19,6 +19,6 @@ CrossCorrelationParameters:
     rr:
       weight: 0.0
       symmetric: true
-      lamda: 1.0
-      enable_after: 20
+      lamda: 1.5
+      alpha: 0 # 0 is the mi, 1 is the barlow-twin.
 

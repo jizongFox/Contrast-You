@@ -14,7 +14,7 @@ from contrastyou.arch.unet import UNetFeatureMapEnum
 from contrastyou.arch.utils import SingleFeatureExtractor
 from contrastyou.hooks import TrainerHook, EpocherHook
 from contrastyou.losses.cross_correlation import CCLoss
-from contrastyou.losses.discreteMI import IIDSegmentationLoss
+from contrastyou.losses.discreteMI import IIDSegmentationLoss, IMSATLoss
 from contrastyou.losses.kl import Entropy
 from contrastyou.losses.redundancy_reduction import RedundancyCriterion
 from contrastyou.meters import AverageValueMeter
@@ -569,23 +569,23 @@ class _MIHook(_TinyHook):
 
 class _RedundancyReduction(_TinyHook):
 
-    def __init__(self, *, name: str = "rr", weight: float, symmetric: bool = True, lamda: float,
-                 enable_after: int) -> None:
+    def __init__(self, *, name: str = "rr", weight: float, symmetric: bool = True, lamda: float = 0.2,
+                 max_epoch: int) -> None:
         criterion = RedundancyCriterion(symmetric=symmetric, lamda=lamda)
         super().__init__(name=name, criterion=criterion, weight=weight)
-        self._enable_after_epoch = int(enable_after)
+        self.max_epoch = int(max_epoch)
 
     def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, **kwargs):
-        if cur_epoch < self._enable_after_epoch:
-            weight = 0.0
-        else:
-            weight = self.weight
-
-        if weight == 0:
+        if self.weight == 0:
             if self.meters:
                 self.meters[self.name].add(0)
             return torch.tensor(0, device=input1.device, dtype=input1.dtype)
 
+        self.criterion: RedundancyCriterion
+        # cur_mixed_ratio: 0: IIC
+        # 1: Barlow-twin.
+        # cur_mixed_ratio = min(float(cur_epoch / self.max_epoch), 0.2)
+        # self.criterion.set_ratio(cur_mixed_ratio)
         loss = self.criterion(input1, input2)
         if self.meters:
             self.meters[self.name].add(loss.item())
@@ -645,3 +645,26 @@ class _CenterCompactnessHook(_TinyHook):
 
     def center_loss(self, feature: Tensor, mask: Tensor, prototype: Tensor):
         return torch.mean((feature - prototype).pow(2), dim=1, keepdim=True).masked_select(mask).mean()
+
+
+class _IMSATHookWithKL(_TinyHook):
+
+    def __init__(self, *, name: str = "imsat", weight: float) -> None:
+        criterion = IMSATLoss()
+        super().__init__(name=name, criterion=criterion, weight=weight)
+
+    def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, **kwargs):
+        if self.weight == 0:
+            if self.meters:
+                self.meters[self.name].add(0)
+            return torch.tensor(0, device=input1.device, dtype=input1.dtype)
+        loss = self.criterion(input1, input2)
+        if self.meters:
+            self.meters[self.name].add(loss.item())
+
+        if kwargs.get("save_image_condition", False):
+            self.criterion: IMSATLoss
+            joint_2D_figure(self.criterion.get_joint_matrix(), tb_writer=self.get_tb_writer(), cur_epoch=cur_epoch,
+                            tag=f"{class_name(self)}_{self.name}")
+
+        return loss * self.weight

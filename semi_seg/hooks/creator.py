@@ -4,6 +4,7 @@ from typing import List, Union, TypeVar, Sequence, Any, Dict
 from torch import nn
 
 from contrastyou.arch import UNet
+from contrastyou.configure.manager import get_config
 from contrastyou.hooks.base import CombineTrainerHook, TrainerHook
 from contrastyou.utils.utils import ntuple, class_name
 from .cc import CrossCorrelationOnLogitsHook
@@ -264,7 +265,8 @@ def create_cross_correlation_hooks2(
             hook.register_dist_hook(_CenterCompactnessHook(**hook_params["compact"]))
 
         if "rr" in hook_params:
-            hook.register_dist_hook(_RedundancyReduction(**hook_params["rr"]))
+            max_epoch = int(get_config(scope="base")["Trainer"]["max_epoch"])
+            hook.register_dist_hook(_RedundancyReduction(max_epoch=max_epoch, **hook_params["rr"]))
 
     else:
         mi_params = {"lamda": hook_params["mi"]["lamda"],

@@ -2,6 +2,7 @@
 from functools import lru_cache
 
 import torch
+from loguru import logger
 from torch import Tensor, nn
 
 from contrastyou.losses import LossClass
@@ -10,23 +11,26 @@ from contrastyou.losses.discreteMI import compute_joint_2D_with_padding_zeros
 
 class RedundancyCriterion(nn.Module, LossClass[Tensor]):
 
-    def __init__(self, eps: float = 1e-8, symmetric: bool = True, lamda: float = 1) -> None:
+    def __init__(self, *, eps: float = 1e-5, symmetric: bool = True, lamda: float = 1, alpha: float) -> None:
         super().__init__()
         self._eps = eps
         self.symmetric = symmetric
         self.lamda = lamda
+        self.alpha = alpha
 
     def forward(self, x_out: Tensor, x_tf_out: Tensor):
         k = x_out.shape[1]
         p_i_j = compute_joint_2D_with_padding_zeros(x_out=x_out, x_tf_out=x_tf_out, symmetric=self.symmetric)
         p_i_j = p_i_j.view(k, k)
         self._p_i_j = p_i_j
-        mask = self.onehot_label(k, device=p_i_j.device)
-        diagonal_elements = p_i_j.masked_select(mask)
-        off_diagonal_elements = p_i_j.masked_select(~mask)
-        return self.kl_criterion(diagonal_elements, torch.tensor(1 / k, dtype=p_i_j.dtype,
-                                                                 device=p_i_j.device)) * self.lamda + self.kl_criterion(
-            off_diagonal_elements, torch.tensor(0, dtype=p_i_j.dtype, device=p_i_j.device))
+        target = ((self.onehot_label(k=k, device=p_i_j.device) / k) * self.alpha + p_i_j * (1 - self.alpha))
+        p_i = p_i_j.sum(dim=1).view(k, 1).expand(k, k)  # p_i should be the mean of the x_out
+        p_j = p_i_j.sum(dim=0).view(1, k).expand(k, k)  # but should be same, symmetric
+        constrained = (-p_i_j * (- self.lamda * torch.log(p_j + self._eps)
+                                 - self.lamda * torch.log(p_i + self._eps))
+                       ).sum()
+        pseudo_loss = -(target * (p_i_j + self._eps).log()).sum()
+        return pseudo_loss + constrained
 
     @lru_cache()
     def onehot_label(self, k, device):
@@ -40,6 +44,16 @@ class RedundancyCriterion(nn.Module, LossClass[Tensor]):
         if not hasattr(self, "_p_i_j"):
             raise RuntimeError()
         return self._p_i_j.detach().cpu().numpy()
+
+    def set_ratio(self, alpha: float):
+        """
+        0 : entropy minimization
+        1 : barlow-twin
+        """
+        assert 0 <= alpha <= 1, alpha
+        if self.alpha != alpha:
+            logger.trace(f"Setting alpha = {alpha}")
+        self.alpha = alpha
 
 
 if __name__ == '__main__':
