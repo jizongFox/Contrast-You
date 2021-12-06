@@ -2,6 +2,7 @@ import shutil
 import typing as t
 from functools import lru_cache
 from pathlib import Path
+
 import numpy as np
 from loguru import logger
 from matplotlib import pyplot as plt
@@ -252,12 +253,12 @@ class DistributionTracker:
 
 
 @switch_plt_backend("agg")
-def joint_2D_figure(joint_map: np.ndarray, *, tb_writer: SummaryWriter, cur_epoch: int):
+def joint_2D_figure(joint_map: np.ndarray, *, tb_writer: SummaryWriter, cur_epoch: int, tag: str):
     fig = plt.figure()
     plt.imshow(joint_map)
     plt.colorbar()
     plt.axis('off')
     tb_writer.add_figure(
-        tag=f"joint_matrix",
+        tag=f"{tag}/joint_matrix",
         figure=fig, global_step=cur_epoch, close=True
     )

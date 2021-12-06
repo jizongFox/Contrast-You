@@ -11,7 +11,7 @@ from contrastyou.utils import class_name
 decoder_names = UNet.decoder_names
 encoder_names = UNet.encoder_names
 
-entropy_criterion = Entropy(reduction="none")
+entropy_criterion = Entropy(reduction="none", eps=1e-8)
 
 
 class IIDSegmentationTrainerHook(TrainerHook):

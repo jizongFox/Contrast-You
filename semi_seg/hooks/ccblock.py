@@ -561,19 +561,27 @@ class _MIHook(_TinyHook):
 
         if kwargs.get("save_image_condition", False):
             self.criterion: IIDSegmentationLoss
-            joint_2D_figure(self.criterion.get_joint_matrix(), tb_writer=self.get_tb_writer(), cur_epoch=cur_epoch)
+            joint_2D_figure(self.criterion.get_joint_matrix(), tb_writer=self.get_tb_writer(), cur_epoch=cur_epoch,
+                            tag=f"{class_name(self)}_{self.name}")
 
         return loss * self.weight
 
 
 class _RedundancyReduction(_TinyHook):
 
-    def __init__(self, *, name: str = "rr", weight: float, symmetric: bool = True, lamda: float) -> None:
+    def __init__(self, *, name: str = "rr", weight: float, symmetric: bool = True, lamda: float,
+                 enable_after: int) -> None:
         criterion = RedundancyCriterion(symmetric=symmetric, lamda=lamda)
         super().__init__(name=name, criterion=criterion, weight=weight)
+        self._enable_after_epoch = int(enable_after)
 
     def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, **kwargs):
-        if self.weight == 0:
+        if cur_epoch < self._enable_after_epoch:
+            weight = 0.0
+        else:
+            weight = self.weight
+
+        if weight == 0:
             if self.meters:
                 self.meters[self.name].add(0)
             return torch.tensor(0, device=input1.device, dtype=input1.dtype)
@@ -584,7 +592,8 @@ class _RedundancyReduction(_TinyHook):
 
         if kwargs.get("save_image_condition", False):
             self.criterion: RedundancyCriterion
-            joint_2D_figure(self.criterion.get_joint_matrix(), tb_writer=self.get_tb_writer(), cur_epoch=cur_epoch)
+            joint_2D_figure(self.criterion.get_joint_matrix(), tb_writer=self.get_tb_writer(), cur_epoch=cur_epoch,
+                            tag=f"{class_name(self)}_{self.name}")
 
         return loss * self.weight
 
