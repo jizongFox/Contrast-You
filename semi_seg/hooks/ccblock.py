@@ -570,22 +570,20 @@ class _MIHook(_TinyHook):
 class _RedundancyReduction(_TinyHook):
 
     def __init__(self, *, name: str = "rr", weight: float, symmetric: bool = True, lamda: float,
-                 enable_after: int) -> None:
+                 max_epoch: int) -> None:
         criterion = RedundancyCriterion(symmetric=symmetric, lamda=lamda)
         super().__init__(name=name, criterion=criterion, weight=weight)
-        self._enable_after_epoch = int(enable_after)
+        self.max_epoch = int(max_epoch)
 
     def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, **kwargs):
-        if cur_epoch < self._enable_after_epoch:
-            weight = 0.0
-        else:
-            weight = self.weight
-
-        if weight == 0:
+        if self.weight == 0:
             if self.meters:
                 self.meters[self.name].add(0)
             return torch.tensor(0, device=input1.device, dtype=input1.dtype)
 
+        self.criterion: RedundancyCriterion
+        cur_mixed_ratio = min(float(cur_epoch / self.max_epoch), 0.8)
+        self.criterion.set_ratio(cur_mixed_ratio)
         loss = self.criterion(input1, input2)
         if self.meters:
             self.meters[self.name].add(loss.item())
