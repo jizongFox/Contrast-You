@@ -3,7 +3,6 @@ from torch import Tensor
 
 from contrastyou.arch import UNet
 from contrastyou.hooks.base import TrainerHook, EpocherHook
-from contrastyou.losses.discreteMI import IIDSegmentationLoss, imsat_loss
 from contrastyou.losses.kl import Entropy
 from contrastyou.meters import AverageValueMeter
 from contrastyou.utils import class_name
@@ -31,6 +30,8 @@ class _IIDSegmentationEpochHook(EpocherHook):
 
     def __init__(self, *, name: str, weight: float, mi_lambda=1.0) -> None:
         super().__init__(name=name)
+        from contrastyou.losses.discreteMI import IIDSegmentationLoss
+
         self._weight = weight
         self._criterion = IIDSegmentationLoss(padding=0, lamda=mi_lambda)
 
@@ -68,6 +69,7 @@ class _IMSATEpochHook(EpocherHook):
         unlabeled_tf_softmax = unlabeled_tf_logits.softmax(1)
         unlabeled_softmax_tf = unlabeled_logits_tf.softmax(1)
 
+        from contrastyou.losses.discreteMI import imsat_loss
         loss = 0.5 * (imsat_loss(unlabeled_tf_softmax) + imsat_loss(unlabeled_softmax_tf))
         self.meters["mi"].add(loss.item())
         return loss * self._weight

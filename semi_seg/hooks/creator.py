@@ -266,7 +266,7 @@ def create_cross_correlation_hooks2(
 
         if "rr" in hook_params:
             max_epoch = int(get_config(scope="base")["Trainer"]["max_epoch"])
-            hook.register_dist_hook(_RedundancyReduction(max_epoch=max_epoch, **hook_params["rr"]))
+            hook.register_dist_hook(_RedundancyReduction(**hook_params["rr"]))
 
     else:
         mi_params = {"lamda": hook_params["mi"]["lamda"],

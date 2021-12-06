@@ -569,11 +569,10 @@ class _MIHook(_TinyHook):
 
 class _RedundancyReduction(_TinyHook):
 
-    def __init__(self, *, name: str = "rr", weight: float, symmetric: bool = True, lamda: float = 0.2,
-                 max_epoch: int) -> None:
-        criterion = RedundancyCriterion(symmetric=symmetric, lamda=lamda)
+    def __init__(self, *, name: str = "rr", weight: float, symmetric: bool = True, lamda: float = 0.2, alpha: float,
+                 ) -> None:
+        criterion = RedundancyCriterion(symmetric=symmetric, lamda=lamda, alpha=alpha)
         super().__init__(name=name, criterion=criterion, weight=weight)
-        self.max_epoch = int(max_epoch)
 
     def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, **kwargs):
         if self.weight == 0:
