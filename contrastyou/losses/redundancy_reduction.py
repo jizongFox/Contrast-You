@@ -2,6 +2,7 @@
 from functools import lru_cache
 
 import torch
+from loguru import logger
 from torch import Tensor, nn
 
 from contrastyou.losses import LossClass
@@ -26,7 +27,7 @@ class RedundancyCriterion(nn.Module, LossClass[Tensor]):
         p_i = (p_i_j.sum(dim=1).view(k, 1).expand(k, k))  # p_i should be the mean of the x_out
         p_j = p_i_j.sum(dim=0).view(1, k).expand(k, k)  # but should be same, symmetric
         constrained = (-p_i_j * (
-                - self.lamb * torch.log(p_j + 1e-10) - self.lamb * torch.log(p_i + 1e-10)
+                - self.lamda * torch.log(p_j + 1e-10) - self.lamda * torch.log(p_i + 1e-10)
         )).sum()
         pseudo_loss = -(target * (p_i_j + 1e-8).log()).sum()
         return pseudo_loss + constrained
@@ -46,6 +47,8 @@ class RedundancyCriterion(nn.Module, LossClass[Tensor]):
 
     def set_ratio(self, alpha: float):
         assert 0 <= alpha <= 1, alpha
+        if self.alpha != alpha:
+            logger.trace(f"Setting alpha = {alpha}")
         self.alpha = alpha
 
 

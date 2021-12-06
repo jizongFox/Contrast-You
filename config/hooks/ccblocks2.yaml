@@ -19,6 +19,5 @@ CrossCorrelationParameters:
     rr:
       weight: 0.0
       symmetric: true
-      lamda: 1.0
-      enable_after: 20
+      lamda: 1.5
 

@@ -569,7 +569,7 @@ class _MIHook(_TinyHook):
 
 class _RedundancyReduction(_TinyHook):
 
-    def __init__(self, *, name: str = "rr", weight: float, symmetric: bool = True, lamda: float,
+    def __init__(self, *, name: str = "rr", weight: float, symmetric: bool = True, lamda: float = 0.2,
                  max_epoch: int) -> None:
         criterion = RedundancyCriterion(symmetric=symmetric, lamda=lamda)
         super().__init__(name=name, criterion=criterion, weight=weight)

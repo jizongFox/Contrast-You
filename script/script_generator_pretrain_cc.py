@@ -353,7 +353,7 @@ if __name__ == '__main__':
                                                      powers=0.75,
                                                      head_types="linear",
                                                      num_subheads=(3,),
-                                                     num_clusters=20,
+                                                     num_clusters=[10, 20],
                                                      max_num=500,
                                                      kernel_size=5,
                                                      compact_weight=0.0,
@@ -379,14 +379,14 @@ if __name__ == '__main__':
                                                      powers=0.75,
                                                      head_types="linear",
                                                      num_subheads=(3,),
-                                                     num_clusters=20,
+                                                     num_clusters=[10, 20],
                                                      max_num=500,
                                                      kernel_size=5,
                                                      compact_weight=0.0,
                                                      rr_weight=(1,),
                                                      mi_symmetric="true",
                                                      rr_symmetric="true",
-                                                     rr_lamda=(0, 0.0001, 0.001, 0.01, 0.1, 1, 10)
+                                                     rr_lamda=(1,)
                                                      )
     jobs = list(job_generator)
     logger.info(f"logging {len(jobs)} jobs")
@@ -413,7 +413,7 @@ if __name__ == '__main__':
                                                          rr_weight=0,
                                                          mi_symmetric="true",
                                                          rr_symmetric="true",
-                                                         rr_lamda=(1,)  # useless here.
+                                                         rr_lamda=(1.5,)  # useless here.
                                                          )
 
     jobs = list(job_generator)
@@ -438,10 +438,10 @@ if __name__ == '__main__':
                                                          max_num=500,
                                                          kernel_size=5,
                                                          compact_weight=0.0,
-                                                         rr_weight=[0, 0.0001, 0.001, 0.01, 0.1, ],
+                                                         rr_weight=[0, 0.01, 0.02, ],
                                                          mi_symmetric="true",
                                                          rr_symmetric="true",
-                                                         rr_lamda=(0.001, 0.01, 0.1, 1, 10)  # useless here.
+                                                         rr_lamda=1.5  # useless here.
                                                          )
 
     jobs = list(job_generator)
