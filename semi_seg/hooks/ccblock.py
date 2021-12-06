@@ -582,7 +582,10 @@ class _RedundancyReduction(_TinyHook):
             return torch.tensor(0, device=input1.device, dtype=input1.dtype)
 
         self.criterion: RedundancyCriterion
+        # cur_mixed_ratio: 0: IIC
+        # 1: Barlow-twin.
         cur_mixed_ratio = min(float(cur_epoch / self.max_epoch), 0.8)
+
         self.criterion.set_ratio(cur_mixed_ratio)
         loss = self.criterion(input1, input2)
         if self.meters:

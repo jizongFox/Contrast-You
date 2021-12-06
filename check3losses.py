@@ -12,6 +12,7 @@ from torch import nn, Tensor
 
 from contrastyou.losses import LossClass
 from contrastyou.losses.discreteMI import compute_joint
+from contrastyou.losses.kl import KL_div
 from contrastyou.mytqdm import tqdm
 from contrastyou.utils import simplex, item2str, switch_plt_backend, fix_seed, class_name
 from semi_seg.hooks.midl import entropy_criterion
@@ -35,7 +36,7 @@ class IMSATLoss(nn.Module):
     def forward(self, x_out: Tensor, x_tf_out: Tensor):
         self.x_out = x_out
         self.x_tf_out = x_tf_out
-        return (imsat_loss(x_out) + imsat_loss(x_tf_out)) / 2
+        return (imsat_loss(x_out) + imsat_loss(x_tf_out)) / 2 + KL_div()(x_out, x_tf_out)
 
     def get_joint(self):
         return compute_joint(self.x_out, self.x_tf_out, symmetric=False).squeeze().detach().cpu().numpy()
@@ -193,9 +194,9 @@ def save_joint_plot(save_dir, plot_record):
     if len(keys) == 0:
         return
     for i in range(len(plot_record[keys[0]])):
-        fig = plt.figure(figsize=(2, 2 * len(keys)))
+        fig = plt.figure(figsize=(4, 4))
 
-        for j, key in enumerate(keys, start=1):
+        for j, key in enumerate(keys[:1], start=1):
             plt.subplot(len(keys), 1, j)
             plt.imshow(plot_record[key][i])
             plt.axis('off')

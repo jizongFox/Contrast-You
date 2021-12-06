@@ -46,6 +46,10 @@ class RedundancyCriterion(nn.Module, LossClass[Tensor]):
         return self._p_i_j.detach().cpu().numpy()
 
     def set_ratio(self, alpha: float):
+        """
+        0 : entropy minimization
+        1 : barlow-twin
+        """
         assert 0 <= alpha <= 1, alpha
         if self.alpha != alpha:
             logger.trace(f"Setting alpha = {alpha}")
