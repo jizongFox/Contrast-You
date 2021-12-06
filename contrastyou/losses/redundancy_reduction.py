@@ -11,12 +11,12 @@ from contrastyou.losses.discreteMI import compute_joint_2D_with_padding_zeros
 
 class RedundancyCriterion(nn.Module, LossClass[Tensor]):
 
-    def __init__(self, eps: float = 1e-8, symmetric: bool = True, lamda: float = 1) -> None:
+    def __init__(self, *, eps: float = 1e-5, symmetric: bool = True, lamda: float = 1, alpha: float) -> None:
         super().__init__()
         self._eps = eps
         self.symmetric = symmetric
         self.lamda = lamda
-        self.alpha = 1
+        self.alpha = alpha
 
     def forward(self, x_out: Tensor, x_tf_out: Tensor):
         k = x_out.shape[1]
@@ -24,12 +24,12 @@ class RedundancyCriterion(nn.Module, LossClass[Tensor]):
         p_i_j = p_i_j.view(k, k)
         self._p_i_j = p_i_j
         target = ((self.onehot_label(k=k, device=p_i_j.device) / k) * self.alpha + p_i_j * (1 - self.alpha))
-        p_i = (p_i_j.sum(dim=1).view(k, 1).expand(k, k))  # p_i should be the mean of the x_out
+        p_i = p_i_j.sum(dim=1).view(k, 1).expand(k, k)  # p_i should be the mean of the x_out
         p_j = p_i_j.sum(dim=0).view(1, k).expand(k, k)  # but should be same, symmetric
-        constrained = (-p_i_j * (
-                - self.lamda * torch.log(p_j + 1e-10) - self.lamda * torch.log(p_i + 1e-10)
-        )).sum()
-        pseudo_loss = -(target * (p_i_j + 1e-8).log()).sum()
+        constrained = (-p_i_j * (- self.lamda * torch.log(p_j + self._eps)
+                                 - self.lamda * torch.log(p_i + self._eps))
+                       ).sum()
+        pseudo_loss = -(target * (p_i_j + self._eps).log()).sum()
         return pseudo_loss + constrained
 
     @lru_cache()

@@ -13,6 +13,37 @@ from contrastyou.losses._base import LossClass
 from contrastyou.utils import average_iter
 from contrastyou.utils.general import simplex
 from contrastyou.utils.utils import _pair  # noqa
+from semi_seg.hooks.midl import entropy_criterion
+
+
+class IMSATLoss(nn.Module, LossClass[Tensor]):
+
+    def __init__(self, eps: float = sys.float_info.epsilon):
+        """
+        :param eps:
+        """
+        super().__init__()
+        logger.trace(colored(f"Initialize {self.__class__.__name__}.", "green"))
+        self.eps = float(eps)
+
+    def forward(self, x_out: Tensor, x_tf_out: Tensor):
+        """
+        return the inverse of the MI. if the x_out == y_out, return the inverse of Entropy
+        :param x_out:
+        :param x_tf_out:
+        :return:
+        """
+        assert len(x_out.shape) == 2, x_out.shape
+        assert simplex(x_out), f"x_out not normalized."
+        assert simplex(x_tf_out), f"x_tf_out not normalized."
+        self.x_out = x_out
+        self.x_tf_out = x_tf_out
+
+        return 0.5 * (imsat_loss(x_out) + imsat_loss(x_tf_out))
+
+    def get_joint(self):
+        # todo
+        return compute_joint(self.x_out, self.x_tf_out, symmetric=False).squeeze().detach().cpu().numpy()
 
 
 class IIDLoss(nn.Module, LossClass[t.Tuple[Tensor, Tensor, Tensor]]):
@@ -86,7 +117,8 @@ class IIDSegmentationLoss(nn.Module, LossClass[Tensor]):
         # maximise information
         loss = -p_i_j * (
                 torch.log(p_i_j + self._eps)
-                - self.lamda * torch.log(p_i_mat + self._eps) - self.lamda * torch.log(p_j_mat + self._eps)
+                - self.lamda * torch.log(p_i_mat + self._eps)
+                - self.lamda * torch.log(p_j_mat + self._eps)
         )
 
         return loss.sum() / (T_side_dense * T_side_dense)
@@ -196,3 +228,15 @@ def patch_generator(feature_map, patch_size=(32, 32), step_size=(16, 16)):
     for _h in hs:
         for _w in ws:
             yield feature_map[:, :, _h:min(_h + patch_size[0], h), _w:min(_w + patch_size[1], w)]
+
+
+def imsat_loss(prediction: Tensor):
+    """
+    this loss takes the input as both classification and segmentation
+    """
+    pred = prediction.moveaxis(0, 1).reshape(prediction.shape[1], -1)
+    margin = pred.mean(1, keepdims=True)
+
+    mi = -entropy_criterion(pred.t()).mean() + entropy_criterion(margin.t()).mean()
+
+    return -mi

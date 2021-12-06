@@ -3,7 +3,7 @@ from torch import Tensor
 
 from contrastyou.arch import UNet
 from contrastyou.hooks.base import TrainerHook, EpocherHook
-from contrastyou.losses.discreteMI import IIDSegmentationLoss
+from contrastyou.losses.discreteMI import IIDSegmentationLoss, imsat_loss
 from contrastyou.losses.kl import Entropy
 from contrastyou.meters import AverageValueMeter
 from contrastyou.utils import class_name
@@ -55,15 +55,6 @@ class IMSATTrainHook(TrainerHook):
         return _IMSATEpochHook(name=self._hook_name, weight=self._weight)
 
 
-def IMSAT_loss(prediction: Tensor):
-    pred = prediction.moveaxis(0, 1).reshape(prediction.shape[1], -1)
-    margin = pred.mean(1, keepdims=True)
-
-    mi = -entropy_criterion(pred.t()).mean() + entropy_criterion(margin.t()).mean()
-
-    return -mi
-
-
 class _IMSATEpochHook(EpocherHook):
 
     def __init__(self, *, name: str, weight: float) -> None:
@@ -73,9 +64,10 @@ class _IMSATEpochHook(EpocherHook):
     def configure_meters_given_epocher(self, meters):
         meters.register_meter("mi", AverageValueMeter())
 
-    def _call_implementation(self, *, unlabeled_logits_tf, **kwargs):
-        unlabeled_tf_softmax = unlabeled_logits_tf.softmax(1)
+    def _call_implementation(self, *, unlabeled_logits_tf, unlabeled_tf_logits: Tensor, **kwargs):
+        unlabeled_tf_softmax = unlabeled_tf_logits.softmax(1)
+        unlabeled_softmax_tf = unlabeled_logits_tf.softmax(1)
 
-        loss = IMSAT_loss(unlabeled_tf_softmax)
+        loss = 0.5 * (imsat_loss(unlabeled_tf_softmax) + imsat_loss(unlabeled_softmax_tf))
         self.meters["mi"].add(loss.item())
         return loss * self._weight
