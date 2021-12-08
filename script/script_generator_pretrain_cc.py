@@ -255,7 +255,7 @@ def run_pretrain_ft_with_grid_search(
         rand_seed_gen = grid_search(random_seed=random_seeds)
         for random_seed in rand_seed_gen:
             yield run_baseline(save_dir=os.path.join(save_dir, f"seed_{random_seed['random_seed']}"),
-                               **random_seed, max_epoch=max_epoch, num_batches=num_batches,
+                               **random_seed, max_epoch=max_epoch // 2, num_batches=num_batches,
                                data_name=data_name)
 
 
@@ -286,8 +286,8 @@ def run_semi_regularize_with_grid_search(
     if include_baseline:
         rand_seed_gen = grid_search(random_seed=random_seeds)
         for random_seed in rand_seed_gen:
-            yield run_baseline(save_dir=os.path.join(save_dir, f"seed_{random_seed['random_seed']}", "baseline"),
-                               **random_seed, max_epoch=max_epoch, num_batches=num_batches,
+            yield run_baseline(save_dir=os.path.join(save_dir, f"seed_{random_seed['random_seed']}"),
+                               **random_seed, max_epoch=max_epoch // 2, num_batches=num_batches,
                                data_name=data_name)
 
 
@@ -320,8 +320,8 @@ def run_multicore_semi_regularize_with_grid_search(
     if include_baseline:
         rand_seed_gen = grid_search(random_seed=random_seeds)
         for random_seed in rand_seed_gen:
-            yield run_baseline(save_dir=os.path.join(save_dir, f"seed_{random_seed['random_seed']}", "baseline"),
-                               **random_seed, max_epoch=max_epoch, num_batches=num_batches,
+            yield run_baseline(save_dir=os.path.join(save_dir, f"seed_{random_seed['random_seed']}"),
+                               **random_seed, max_epoch=max_epoch // 2, num_batches=num_batches,
                                data_name=data_name)
 
 
@@ -346,11 +346,12 @@ if __name__ == '__main__':
         "python -c 'import torch; print(torch.randn(1,1,1,1,device=\"cuda\"))'"
     ])
     submitter.configure_sbatch(mem=24)
-    # use only mi
+
+    # use only rr
     job_generator = run_pretrain_ft_with_grid_search(save_dir=os.path.join(save_dir, "pretrain"),
                                                      random_seeds=random_seeds, max_epoch=max_epoch,
                                                      num_batches=num_batches,
-                                                     data_name=data_name, mi_weights=(1,),
+                                                     data_name=data_name, mi_weights=(0,),  # mi has been in rr
                                                      cc_weights=[0, 0.001, 0.01, 0.1],
                                                      consistency_weights=[0],
                                                      include_baseline=True,
@@ -358,100 +359,46 @@ if __name__ == '__main__':
                                                      powers=0.75,
                                                      head_types="linear",
                                                      num_subheads=(3,),
-                                                     num_clusters=[10, 20],
-                                                     max_num=500,
-                                                     kernel_size=5,
-                                                     compact_weight=0.0,
-                                                     rr_weight=[0],
-                                                     mi_symmetric="true",
-                                                     rr_symmetric="true",
-                                                     rr_lamda=(1.5),  # useless,
-                                                     rr_alpha=0,
-                                                     )
-    jobs = list(job_generator)
-    logger.info(f"logging {len(jobs)} jobs")
-    for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
-
-    # use only rr
-    job_generator = run_pretrain_ft_with_grid_search(save_dir=os.path.join(save_dir, "pretrain"),
-                                                     random_seeds=random_seeds, max_epoch=max_epoch,
-                                                     num_batches=num_batches,
-                                                     data_name=data_name, mi_weights=(0,),
-                                                     cc_weights=[0, 0.001, 0.01, 0.1],
-                                                     consistency_weights=[0],
-                                                     include_baseline=False,
-                                                     paddings=0, lamdas=2.5,
-                                                     powers=0.75,
-                                                     head_types="linear",
-                                                     num_subheads=(3,),
-                                                     num_clusters=[10, 20],
+                                                     num_clusters=[10, 20, 30, 40],
                                                      max_num=500,
                                                      kernel_size=5,
                                                      compact_weight=0.0,
                                                      rr_weight=(1,),
                                                      mi_symmetric="true",
                                                      rr_symmetric="true",
-                                                     rr_lamda=(2.5, 2, 1.5, 1),
-                                                     rr_alpha=(0, 0.1, 0.2, 0.3, 0.5, 0.8, 1)
+                                                     rr_lamda=(1,),
+                                                     rr_alpha=(0, 0.25, 0.5, 0.75, 1)
                                                      )
     jobs = list(job_generator)
     logger.info(f"logging {len(jobs)} jobs")
     for job in jobs:
         submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
 
-    # # only with MI on semi supervised case
-    # job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),
-    #                                                      random_seeds=random_seeds,
-    #                                                      max_epoch=max_epoch, num_batches=num_batches,
-    #                                                      data_name=data_name,
-    #                                                      mi_weights=[0, 0.01, 0.02, ],
-    #                                                      cc_weights=[0, 0.0001, 0.001, ],
-    #                                                      consistency_weights=[0, 0.1, 0.5, ],
-    #                                                      include_baseline=True,
-    #                                                      paddings=0, lamdas=[1.5],
-    #                                                      powers=[0.75],
-    #                                                      head_types="linear",
-    #                                                      num_subheads=3,
-    #                                                      num_clusters=[20],
-    #                                                      max_num=500,
-    #                                                      kernel_size=5,
-    #                                                      compact_weight=0.0,
-    #                                                      rr_weight=0,
-    #                                                      mi_symmetric="true",
-    #                                                      rr_symmetric="true",
-    #                                                      rr_lamda=(1.5,)  # useless here.
-    #                                                      )
-    #
-    # jobs = list(job_generator)
-    # logger.info(f"logging {len(jobs)} jobs")
-    # for job in jobs:
-    #     submitter.submit(" && \n ".join(job), force_show=force_show, time=8, account=next(account))
-    #
-    # # only with RR on semi supervised case
-    # job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),
-    #                                                      random_seeds=random_seeds,
-    #                                                      max_epoch=max_epoch, num_batches=num_batches,
-    #                                                      data_name=data_name,
-    #                                                      mi_weights=0,
-    #                                                      cc_weights=[0, 0.0001, 0.001, ],
-    #                                                      consistency_weights=[0, 0.1, 0.5, ],
-    #                                                      include_baseline=True,
-    #                                                      paddings=0, lamdas=[1.5],
-    #                                                      powers=[0.75],
-    #                                                      head_types="linear",
-    #                                                      num_subheads=3,
-    #                                                      num_clusters=[20],
-    #                                                      max_num=500,
-    #                                                      kernel_size=5,
-    #                                                      compact_weight=0.0,
-    #                                                      rr_weight=[0, 0.01, 0.02, ],
-    #                                                      mi_symmetric="true",
-    #                                                      rr_symmetric="true",
-    #                                                      rr_lamda=1.5  # useless here.
-    #                                                      )
-    #
-    # jobs = list(job_generator)
-    # logger.info(f"logging {len(jobs)} jobs")
-    # for job in jobs:
-    #     submitter.submit(" && \n ".join(job), force_show=force_show, time=8, account=next(account))
+    # only with RR on semi supervised case
+    job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),
+                                                         random_seeds=random_seeds,
+                                                         max_epoch=max_epoch, num_batches=num_batches,
+                                                         data_name=data_name,
+                                                         mi_weights=0,  # fixed
+                                                         cc_weights=[0, 0.001, 0.01, 0.1],
+                                                         consistency_weights=[0, 0.1, 0.5, ],
+                                                         include_baseline=True,
+                                                         paddings=0, lamdas=[1.5],
+                                                         powers=[0.75],
+                                                         head_types="linear",
+                                                         num_subheads=3,
+                                                         num_clusters=[40],
+                                                         max_num=500,
+                                                         kernel_size=5,
+                                                         compact_weight=0.0,
+                                                         rr_weight=[0.01, 0.02, 0.1],
+                                                         mi_symmetric="true",
+                                                         rr_symmetric="true",
+                                                         rr_lamda=(1,),
+                                                         rr_alpha=(0, 0.25, 0.5, 0.75, 1)
+                                                         )
+
+    jobs = list(job_generator)
+    logger.info(f"logging {len(jobs)} jobs")
+    for job in jobs:
+        submitter.submit(" && \n ".join(job), force_show=force_show, time=8, account=next(account))

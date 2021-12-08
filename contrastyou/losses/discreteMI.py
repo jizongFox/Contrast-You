@@ -178,7 +178,7 @@ def compute_joint(x_out: Tensor, x_tf_out: Tensor, symmetric=True) -> Tensor:
         p_i_j = (p_i_j + p_i_j.t()) / 2.0  # symmetric
     p_i_j /= p_i_j.sum()  # normalise
 
-    return p_i_j
+    return p_i_j.contiguous()
 
 
 def compute_joint_2D(x_out: Tensor, x_tf_out: Tensor, *, symmetric: bool = True, padding: int = 0):
@@ -199,7 +199,7 @@ def compute_joint_2D(x_out: Tensor, x_tf_out: Tensor, *, symmetric: bool = True,
     if symmetric:
         p_i_j = (p_i_j + p_i_j.permute(0, 1, 3, 2)) / 2.0
     p_i_j /= p_i_j.sum()  # norm
-    return p_i_j
+    return p_i_j.contiguous()
 
 
 def compute_joint_2D_with_padding_zeros(x_out: Tensor, x_tf_out: Tensor, *, symmetric: bool = True):
@@ -216,7 +216,7 @@ def compute_joint_2D_with_padding_zeros(x_out: Tensor, x_tf_out: Tensor, *, symm
     if symmetric:
         p_i_j = (p_i_j + p_i_j.t()) / 2.0
     p_i_j = p_i_j.view(1, 1, k, k)
-    return p_i_j
+    return p_i_j.contiguous()
 
 
 def patch_generator(feature_map, patch_size=(32, 32), step_size=(16, 16)):
