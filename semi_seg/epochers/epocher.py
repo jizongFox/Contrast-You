@@ -13,11 +13,11 @@ from torch.utils.data import DataLoader
 
 from contrastyou.epochers.base import EpocherBase as _EpocherBase
 from contrastyou.losses import LossClass
-from contrastyou.meters import MeterInterface, UniversalDice, AverageValueMeter
+from contrastyou.meters import MeterInterface, UniversalDice, AverageValueMeter, SurfaceMeter
 from contrastyou.types import criterionType, optimizerType, dataIterType, SizedIterable, CriterionType
 from contrastyou.utils import get_dataset, class_name, fix_all_seed_for_transforms, get_lrs_from_optimizer
 from contrastyou.utils.general import class2one_hot
-from contrastyou.utils.utils import disable_tracking_bn_stats, get_model
+from contrastyou.utils.utils import disable_tracking_bn_stats, get_model, ignore_exception
 from semi_seg.augment import RisingWrapper
 from semi_seg.epochers.helper import preprocess_input_with_twice_transformation, \
     preprocess_input_with_single_transformation
@@ -162,6 +162,28 @@ class EvalEpocher(EpocherBase):
     def _unzip_data(data, device):
         image, target, filename, partition, group = preprocess_input_with_single_transformation(data, device)
         return image, target, filename, partition, group
+
+
+class InferenceEpocher(EvalEpocher):
+    meter_focus = "infer"
+
+    def configure_meters(self, meters: MeterInterface) -> MeterInterface:
+        meters = super().configure_meters(meters)
+        C = self.num_classes
+        report_axis = list(range(1, C))
+        meters.register_meter("ASD", SurfaceMeter(C=C, report_axises=report_axis, metername="average_surface"))
+        return meters
+
+    def _batch_update(self, *, eval_img, eval_target, eval_group):
+        with self.autocast:
+            eval_logits = self._model(eval_img)
+            onehot_target = class2one_hot(eval_target.squeeze(1), self.num_classes)
+            eval_loss = self._sup_criterion(eval_logits.softmax(1), onehot_target, disable_assert=True)
+
+        self.meters["loss"].add(eval_loss.item())
+        self.meters["dice"].add(eval_logits.max(1)[1], eval_target.squeeze(1), group_name=eval_group)
+        with ignore_exception():
+            self.meters["ASD"].add(eval_logits.max(1)[1][None, ...], eval_target.squeeze(1)[None, ...])
 
 
 class SemiSupervisedEpocher(EpocherBase, ABC):
