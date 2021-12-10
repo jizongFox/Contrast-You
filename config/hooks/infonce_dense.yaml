@@ -1,9 +1,7 @@
 InfonceParams:
-  feature_names: Up_conv3
+  feature_names: Up_conv2
   weights: 1.0
   contrast_ons: self
-
-ContrastiveLoaderParams:
-  scan_sample_num: 8
-  partition_sample_num: 1
-  num_workers: 8
+  spatial_size: 20
+Trainer:
+  name: pretrain_decoder

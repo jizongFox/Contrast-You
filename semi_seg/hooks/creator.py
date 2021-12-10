@@ -92,10 +92,11 @@ def create_discrete_mi_consistency_hook(*, model: nn.Module, feature_names: Unio
     return CombineTrainerHook(discrete_mi_hook, consistency_hook)
 
 
-def _infonce_hook(*, model: nn.Module, feature_name: str, weight: float, contrast_on: str, data_name: str, ):
+def _infonce_hook(*, model: nn.Module, feature_name: str, weight: float, contrast_on: str, data_name: str,
+                  spatial_size: int):
     return INFONCEHook(name=f"infonce/{feature_name}/{contrast_on}", model=model, feature_name=feature_name,
-                       weight=weight,
-                       data_name=data_name, contrast_on=contrast_on)
+                       weight=weight, data_name=data_name, contrast_on=contrast_on,
+                       spatial_size=(spatial_size, spatial_size))
 
 
 def _infonce_sp_hook(*, model: nn.Module, feature_name: str, weight: float, contrast_on: str, data_name: str,
@@ -108,7 +109,8 @@ def _infonce_sp_hook(*, model: nn.Module, feature_name: str, weight: float, cont
 
 
 def create_infonce_hooks(*, model: nn.Module, feature_names: Union[str, List[str]], weights: Union[float, List[float]],
-                         contrast_ons: Union[str, List[str]], data_name: str, ):
+                         contrast_ons: Union[str, List[str]], spatial_size: Union[int, Sequence[int]],
+                         data_name: str, ):
     if isinstance(feature_names, str):
         num_features = 1
     else:
@@ -118,9 +120,10 @@ def create_infonce_hooks(*, model: nn.Module, feature_names: Union[str, List[str
     feature_names = pair_generator(feature_names)
     weights = pair_generator(weights)
     contrast_ons = pair_generator(contrast_ons)
+    spatial_size = pair_generator(spatial_size)
 
-    hooks = [_infonce_hook(model=model, feature_name=f, weight=w, contrast_on=c, data_name=data_name) for f, w, c in
-             zip(feature_names, weights, contrast_ons)]
+    hooks = [_infonce_hook(model=model, feature_name=f, weight=w, contrast_on=c, data_name=data_name, spatial_size=ss)
+             for f, w, c, ss in zip(feature_names, weights, contrast_ons, spatial_size)]
 
     return CombineTrainerHook(*hooks)
 

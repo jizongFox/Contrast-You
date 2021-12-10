@@ -15,7 +15,8 @@ parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFo
 parser.add_argument("save_dir", type=str, help="save dir")
 parser.add_argument("--data-name", type=str, choices=("acdc", "acdc_lv", "acdc_rv", "prostate"), default="acdc",
                     help="dataset_choice")
-parser.add_argument("--max-epoch", default=50, type=int, help="max epoch")
+parser.add_argument("--max-epoch-pretrain", default=50, type=int, help="max epoch")
+parser.add_argument("--max-epoch", default=30, type=int, help="max epoch")
 parser.add_argument("--num-batches", default=300, type=int, help="number of batches")
 parser.add_argument("--seeds", type=int, nargs="+", default=[10, ], )
 parser.add_argument("--force-show", action="store_true", help="showing script")
@@ -27,6 +28,7 @@ force_show = args.force_show
 data_name = args.data_name
 random_seeds = args.seeds
 max_epoch = args.max_epoch
+max_epoch_pretrain = args.max_epoch_pretrain
 num_batches = args.num_batches
 
 save_dir = args.save_dir
@@ -137,7 +139,8 @@ def _run_pretrain_cc(*, save_dir: str, random_seed: int = 10, max_epoch: int, nu
     """
 
 
-def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch: int, num_batches: int, data_name: str = "acdc",
+def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int, max_epoch: int, num_batches: int,
+                    data_name: str = "acdc",
                     mi_weight, cc_weight, consistency_weight, padding: int,
                     lamda: float, power: float, head_type: str, num_subheads: int, num_clusters: int, kernel_size: int,
                     compact_weight: float, rr_weight: float, mi_symmetric: str, rr_symmetric: str, rr_lamda: float,
@@ -147,7 +150,7 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch: int, num_batc
     labeled_scans = data_opt["labeled_ratios"][:-1]
     pretrain_save_dir = os.path.join(save_dir, "pretrain")
     pretrain_script = _run_pretrain_cc(
-        save_dir=pretrain_save_dir, random_seed=random_seed, max_epoch=max_epoch, num_batches=num_batches,
+        save_dir=pretrain_save_dir, random_seed=random_seed, max_epoch=max_epoch_pretrain, num_batches=num_batches,
         mi_weight=mi_weight, cc_weight=cc_weight, lr=data_opt["pre_lr"], data_name=data_name,
         consistency_weight=consistency_weight, padding=padding, lamda=lamda, power=power, head_type=head_type,
         num_subheads=num_subheads, num_clusters=num_clusters, kernel_size=kernel_size, compact_weight=compact_weight,
@@ -230,9 +233,8 @@ def run_baseline(
 
 
 def run_pretrain_ft_with_grid_search(
-        *, save_dir, random_seeds: Sequence[int] = 10, max_epoch: int, num_batches: int,
-        data_name: str,
-        mi_weights: Sequence[float], cc_weights: Sequence[float], consistency_weights: Sequence[float],
+        *, save_dir, random_seeds: Sequence[int] = 10, max_epoch_pretrain: int, max_epoch: int, num_batches: int,
+        data_name: str, mi_weights: Sequence[float], cc_weights: Sequence[float], consistency_weights: Sequence[float],
         paddings: Sequence[int], lamdas: Sequence[float], powers: Sequence[float], head_types=Sequence[str],
         num_subheads: Sequence[int], num_clusters: Sequence[int], kernel_size: Sequence[int],
         compact_weight: Sequence[float], rr_weight: Sequence[float], mi_symmetric: Sequence[str],
@@ -249,13 +251,14 @@ def run_pretrain_ft_with_grid_search(
         random_seed = param.pop("random_seed")
         sp_str = get_hyper_param_string(**param)
         yield run_pretrain_ft(save_dir=os.path.join(save_dir, f"seed_{random_seed}", sp_str), random_seed=random_seed,
-                              max_epoch=max_epoch, num_batches=num_batches, data_name=data_name, **param)
+                              max_epoch=max_epoch, num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
+                              data_name=data_name, **param)
 
     if include_baseline:
         rand_seed_gen = grid_search(random_seed=random_seeds)
         for random_seed in rand_seed_gen:
             yield run_baseline(save_dir=os.path.join(save_dir, f"seed_{random_seed['random_seed']}"),
-                               **random_seed, max_epoch=max_epoch // 2, num_batches=num_batches,
+                               **random_seed, max_epoch=max_epoch, num_batches=num_batches,
                                data_name=data_name)
 
 
@@ -287,7 +290,7 @@ def run_semi_regularize_with_grid_search(
         rand_seed_gen = grid_search(random_seed=random_seeds)
         for random_seed in rand_seed_gen:
             yield run_baseline(save_dir=os.path.join(save_dir, f"seed_{random_seed['random_seed']}"),
-                               **random_seed, max_epoch=max_epoch // 2, num_batches=num_batches,
+                               **random_seed, max_epoch=max_epoch, num_batches=num_batches,
                                data_name=data_name)
 
 
@@ -321,7 +324,7 @@ def run_multicore_semi_regularize_with_grid_search(
         rand_seed_gen = grid_search(random_seed=random_seeds)
         for random_seed in rand_seed_gen:
             yield run_baseline(save_dir=os.path.join(save_dir, f"seed_{random_seed['random_seed']}"),
-                               **random_seed, max_epoch=max_epoch // 2, num_batches=num_batches,
+                               **random_seed, max_epoch=max_epoch, num_batches=num_batches,
                                data_name=data_name)
 
 
@@ -350,7 +353,7 @@ if __name__ == '__main__':
     # use only rr
     job_generator = run_pretrain_ft_with_grid_search(save_dir=os.path.join(save_dir, "pretrain"),
                                                      random_seeds=random_seeds, max_epoch=max_epoch,
-                                                     num_batches=num_batches,
+                                                     num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
                                                      data_name=data_name, mi_weights=(0,),  # mi has been in rr
                                                      cc_weights=[0, 0.001, 0.01, 0.1],
                                                      consistency_weights=[0],

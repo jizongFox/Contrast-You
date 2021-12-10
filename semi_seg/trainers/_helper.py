@@ -6,7 +6,7 @@ from torch.utils.data.dataloader import _BaseDataLoaderIter as BaseDataLoaderIte
 
 from contrastyou import get_true_data_path
 from contrastyou.data import InfiniteRandomSampler, ScanBatchSampler, DatasetBase
-from contrastyou.utils import get_dataset, fix_seed
+from contrastyou.utils import get_dataset, fix_seed, class_name
 from semi_seg.data import ACDCDataset, ProstateDataset, mmWHSCTDataset, ProstateMDDataset, SpleenDataset, \
     HippocampusDataset
 from semi_seg.data.creator import augment_zoo, data_zoo
@@ -55,7 +55,8 @@ def _get_contrastive_dataloader(partial_loader, contrastive_params):
 
     sampler = InfiniteRandomSampler(dataset, shuffle=True)
 
-    logger.opt(depth=2).trace(f" with batch_size = {batch_size}, num_workers = {num_workers} ")
+    logger.opt(depth=2).trace(f"Contrastive {class_name(dataset)} "
+                              f"with batch_size = {batch_size}, num_workers = {num_workers} ")
 
     if data_name in ("acdc", "spleen"):
         # only group the acdc dataset

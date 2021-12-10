@@ -278,6 +278,6 @@ def ignore_exception(*exceptions, log=True):
         yield
     except exceptions as e:
         if log:
-            logger.exception(e)
+            logger.warning(e)
         else:
             pass

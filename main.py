@@ -64,7 +64,7 @@ def worker(config, absolute_save_dir, seed):
     trainer_name = config["Trainer"]["name"]
     is_pretrain = ("pretrain" in trainer_name)
     total_freedom = True if is_pretrain or trainer_name == "mixup" else False
-    if "CrossCorrelationParameters" in config:
+    if "CrossCorrelationParameters" or "InfonceParams" in config:
         total_freedom = False
     order_num = config["Data"]["order_num"]
     labeled_loader, unlabeled_loader, val_loader, test_loader = get_data(
