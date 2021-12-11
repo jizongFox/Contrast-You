@@ -18,7 +18,7 @@ from semi_seg.epochers.helper import PartitionLabelGenerator, PatientLabelGenera
 @lru_cache()
 def global_label_generator(dataset_name: str, contrast_on: str):
     logger.debug("initialize {} label generator for encoder training", contrast_on)
-    if dataset_name == "acdc":
+    if dataset_name == "acdc" or "acdc" in dataset_name:
         if contrast_on == "partition":
             return PartitionLabelGenerator()
         elif contrast_on == "patient":
@@ -70,7 +70,7 @@ def global_label_generator(dataset_name: str, contrast_on: str):
 
 
 def get_label(contrast_on, data_name, partition_group, label_group):
-    if data_name == "acdc":
+    if data_name == "acdc" or "acdc" in data_name:
         labels = global_label_generator(dataset_name="acdc", contrast_on=contrast_on) \
             (partition_list=partition_group,
              patient_list=[p.split("_")[0] for p in label_group],
