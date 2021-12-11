@@ -212,9 +212,9 @@ class _INFONCEEpochHook(EpocherHook):
             sim_logits = self._criterion.sim_logits
             pos_mask = self._criterion.pos_mask
             writer = get_tb_writer()
-            figure2board(pos_mask, "mask", self._criterion, writer, self.epocher)
-            figure2board(sim_exp, "sim_exp", self._criterion, writer, self.epocher)
-            figure2board(sim_logits, "sim_logits", self._criterion, writer, self.epocher)
+            figure2board(pos_mask, self.name + "/mask", self._criterion, writer, self.epocher)
+            figure2board(sim_exp, self.name + "/sim_exp", self._criterion, writer, self.epocher)
+            figure2board(sim_logits, self.name + "/sim_logits", self._criterion, writer, self.epocher)
 
         self._n += 1
         return loss * self._weight
@@ -246,9 +246,9 @@ class _INFONCEDenseHook(_INFONCEEpochHook):
             sim_logits = self._criterion.sim_logits
             pos_mask = self._criterion.pos_mask
             writer = get_tb_writer()
-            figure2board(pos_mask, "mask", self._criterion, writer, self.epocher)
-            figure2board(sim_exp, "sim_exp", self._criterion, writer, self.epocher)
-            figure2board(sim_logits, "sim_logits", self._criterion, writer, self.epocher)
+            figure2board(pos_mask, self.name + "/mask", self._criterion, writer, self.epocher)
+            figure2board(sim_exp, self.name + "/sim_exp", self._criterion, writer, self.epocher)
+            figure2board(sim_logits, self.name + "/sim_logits", self._criterion, writer, self.epocher)
 
         self._n += 1
         return loss * self._weight

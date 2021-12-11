@@ -211,7 +211,7 @@ if __name__ == '__main__':
                                                          random_seeds=random_seeds,
                                                          max_epoch=max_epoch, num_batches=num_batches,
                                                          data_name=data_name,
-                                                         infonce_weight=(1,),
+                                                         infonce_weight=(1, 0.1, 0.01, 0.001, 0.0001),
                                                          spatial_size=(10, 20, 30),
                                                          include_baseline=True, max_num=500
                                                          )
@@ -219,4 +219,4 @@ if __name__ == '__main__':
     jobs = list(job_generator)
     logger.info(f"logging {len(jobs)} jobs")
     for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=8, account=next(account))
+        submitter.submit(" && \n ".join(job), force_show=force_show, time=6, account=next(account))

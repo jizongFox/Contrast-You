@@ -197,7 +197,7 @@ if __name__ == '__main__':
     job_generator = run_pretrain_ft_with_grid_search(save_dir=os.path.join(save_dir, "pretrain"),
                                                      random_seeds=random_seeds, max_epoch=max_epoch,
                                                      num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
-                                                     data_name=data_name, infonce_weight=(1,),
+                                                     data_name=data_name, infonce_weight=(1, 0.1, 0.01, 0.001),
                                                      spatial_size=(10, 20, 30),
                                                      include_baseline=True, max_num=500
                                                      )
@@ -206,17 +206,17 @@ if __name__ == '__main__':
     for job in jobs:
         submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
 
-    # only with RR on semi supervised case
-    job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),
-                                                         random_seeds=random_seeds,
-                                                         max_epoch=max_epoch, num_batches=num_batches,
-                                                         data_name=data_name,
-                                                         infonce_weight=(1,),
-                                                         spatial_size=(10, 20, 30),
-                                                         include_baseline=True, max_num=500
-                                                         )
-
-    jobs = list(job_generator)
-    logger.info(f"logging {len(jobs)} jobs")
-    for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=8, account=next(account))
+    # # only with RR on semi supervised case
+    # job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),
+    #                                                      random_seeds=random_seeds,
+    #                                                      max_epoch=max_epoch, num_batches=num_batches,
+    #                                                      data_name=data_name,
+    #                                                      infonce_weight=(1, 0.1, 0.01, 0.001),
+    #                                                      spatial_size=(10, 20, 30),
+    #                                                      include_baseline=True, max_num=500
+    #                                                      )
+    #
+    # jobs = list(job_generator)
+    # logger.info(f"logging {len(jobs)} jobs")
+    # for job in jobs:
+    #     submitter.submit(" && \n ".join(job), force_show=force_show, time=8, account=next(account))
