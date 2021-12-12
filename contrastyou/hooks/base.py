@@ -22,9 +22,9 @@ class HookNameExistError(Exception):
 class _ClassNameMeta(type):
     """
     This meta class is to make sure that the training hook cannot have the same name in a single experiment.
-    if two hooks with the same name is given, a RuntimeError would be raise to stop the algorithm.
+    if two hooks with the same name is given, a `HookNameExistError` would be raised to stop the algorithm.
     """
-    names: t.List[str] = []
+    names: t.List[str] = set()
 
     def __call__(cls, *args, **kwargs):
         if "hook_name" in kwargs:

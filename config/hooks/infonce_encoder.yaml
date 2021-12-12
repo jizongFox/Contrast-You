@@ -1,0 +1,7 @@
+InfonceParams:
+  feature_names: Conv5
+  weights: 1.0
+  contrast_ons: patient
+  spatial_size: 1
+Trainer:
+  name: pretrain_decoder
