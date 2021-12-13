@@ -1,0 +1,11 @@
+CrossCorrelationParameters:
+  feature_name: Up_conv2
+  num_clusters: 20
+  head_type: linear
+  num_subheads: 1
+  save: true
+  hooks:
+    imsat:
+      weight: 0.1
+    consist:
+      weight: 0.1

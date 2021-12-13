@@ -19,7 +19,8 @@ from contrastyou.losses.kl import Entropy
 from contrastyou.losses.redundancy_reduction import RedundancyCriterion
 from contrastyou.meters import AverageValueMeter
 from contrastyou.projectors import CrossCorrelationProjector
-from contrastyou.utils import class_name, average_iter, item2str, probs2one_hot, deprecated, fix_all_seed_within_context
+from contrastyou.utils import class_name, average_iter, item2str, probs2one_hot, deprecated, \
+    fix_all_seed_within_context, simplex
 from contrastyou.writer import get_tb_writer
 from semi_seg.hooks.utils import FeatureMapSaver, DistributionTracker, joint_2D_figure
 
@@ -646,18 +647,19 @@ class _CenterCompactnessHook(_TinyHook):
         return torch.mean((feature - prototype).pow(2), dim=1, keepdim=True).masked_select(mask).mean()
 
 
-class _IMSATHookWithKL(_TinyHook):
+class _IMSATHook(_TinyHook):
 
     def __init__(self, *, name: str = "imsat", weight: float) -> None:
         criterion = IMSATLoss()
         super().__init__(name=name, criterion=criterion, weight=weight)
 
     def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, **kwargs):
+        assert simplex(input1)
         if self.weight == 0:
             if self.meters:
                 self.meters[self.name].add(0)
             return torch.tensor(0, device=input1.device, dtype=input1.dtype)
-        loss = self.criterion(input1, input2)
+        loss = self.criterion(self.flatten_predict(input1), self.flatten_predict(input2))
         if self.meters:
             self.meters[self.name].add(loss.item())
 
@@ -665,5 +667,32 @@ class _IMSATHookWithKL(_TinyHook):
             self.criterion: IMSATLoss
             joint_2D_figure(self.criterion.get_joint_matrix(), tb_writer=self.get_tb_writer(), cur_epoch=cur_epoch,
                             tag=f"{class_name(self)}_{self.name}")
+
+        return loss * self.weight
+
+    @staticmethod
+    def flatten_predict(prediction: Tensor):
+        assert prediction.dim() == 4
+        b, c, h, w = prediction.shape
+        prediction = torch.swapaxes(prediction, 0, 1)
+        prediction = prediction.reshape(c, -1)
+        prediction = torch.swapaxes(prediction, 0, 1)
+        return prediction
+
+
+class _ConsistencyHook(_TinyHook):
+    def __init__(self, *, name: str = "consistency", weight: float) -> None:
+        criterion = nn.MSELoss()
+        super().__init__(name=name, criterion=criterion, weight=weight)
+
+    def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, **kwargs):
+        assert simplex(input1)
+        if self.weight == 0:
+            if self.meters:
+                self.meters[self.name].add(0)
+            return torch.tensor(0, device=input1.device, dtype=input1.dtype)
+        loss = self.criterion(input1, input2)
+        if self.meters:
+            self.meters[self.name].add(loss.item())
 
         return loss * self.weight

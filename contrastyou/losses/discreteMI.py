@@ -42,8 +42,7 @@ class IMSATLoss(nn.Module, LossClass[Tensor]):
 
         return 0.5 * (imsat_loss(x_out, lamda=self.lamda) + imsat_loss(x_tf_out, lamda=self.lamda))
 
-    def get_joint(self):
-        # todo
+    def get_joint_matrix(self):
         return compute_joint(self.x_out, self.x_tf_out, symmetric=False).squeeze().detach().cpu().numpy()
 
 

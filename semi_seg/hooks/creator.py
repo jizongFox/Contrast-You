@@ -4,11 +4,11 @@ from typing import List, Union, TypeVar, Sequence, Any, Dict
 from torch import nn
 
 from contrastyou.arch import UNet
-from contrastyou.configure.manager import get_config
 from contrastyou.hooks.base import CombineTrainerHook, TrainerHook
 from contrastyou.utils.utils import ntuple, class_name
 from .cc import CrossCorrelationOnLogitsHook
-from .ccblock import ProjectorGeneralHook, _CrossCorrelationHook, _MIHook, _CenterCompactnessHook, _RedundancyReduction
+from .ccblock import ProjectorGeneralHook, _CrossCorrelationHook, _MIHook, _CenterCompactnessHook, _RedundancyReduction, \
+    _IMSATHook, _ConsistencyHook
 from .consistency import ConsistencyTrainerHook
 from .discretemi import DiscreteMITrainHook, DiscreteIMSATTrainHook
 from .dmt import DifferentiableMeanTeacherTrainerHook
@@ -274,8 +274,13 @@ def create_cross_correlation_hooks2(
             hook.register_dist_hook(_CenterCompactnessHook(**hook_params["compact"]))
 
         if "rr" in hook_params:
-            max_epoch = int(get_config(scope="base")["Trainer"]["max_epoch"])
             hook.register_dist_hook(_RedundancyReduction(**hook_params["rr"]))
+
+        if "imsat" in hook_params:
+            hook.register_dist_hook(_IMSATHook(**hook_params["imsat"]))
+
+        if "consist" in hook_params:
+            hook.register_dist_hook(_ConsistencyHook(**hook_params["consist"]))
 
     else:
         mi_params = {"lamda": hook_params["mi"]["lamda"],
