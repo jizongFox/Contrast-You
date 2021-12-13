@@ -1,0 +1,4 @@
+IMSATFeatureParameters:
+  weight: 0.1
+  feature_name: Up_conv2
+  num_clusters: 20

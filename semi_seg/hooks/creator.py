@@ -10,7 +10,7 @@ from contrastyou.utils.utils import ntuple, class_name
 from .cc import CrossCorrelationOnLogitsHook
 from .ccblock import ProjectorGeneralHook, _CrossCorrelationHook, _MIHook, _CenterCompactnessHook, _RedundancyReduction
 from .consistency import ConsistencyTrainerHook
-from .discretemi import DiscreteMITrainHook
+from .discretemi import DiscreteMITrainHook, DiscreteIMSATTrainHook
 from .dmt import DifferentiableMeanTeacherTrainerHook
 from .entmin import EntropyMinTrainerHook
 from .infonce import SelfPacedINFONCEHook, INFONCEHook
@@ -71,6 +71,11 @@ def create_discrete_mi_hooks(*, feature_names: List[str], weights: List[float], 
     hooks = [DiscreteMITrainHook(name=f"discreteMI/{f.lower()}", model=model, feature_name=f, weight=w, padding=p) for
              f, w, p in zip(feature_names, weights, paddings_)]
     return CombineTrainerHook(*hooks)
+
+
+def create_intermediate_imsat_hook(*, feature_name: str, weight: float, num_clusters: int, model: nn.Module):
+    return DiscreteIMSATTrainHook(name=f"discreteIMSAT/{feature_name.lower()}", model=model, feature_name=feature_name,
+                                  weight=weight, num_clusters=num_clusters, num_subheads=3, padding=0)
 
 
 def create_discrete_mi_consistency_hook(*, model: nn.Module, feature_names: Union[str, List[str]],

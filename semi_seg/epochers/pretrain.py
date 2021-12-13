@@ -1,19 +1,22 @@
 # ======== base pretrain epocher mixin ================
 import random
+import typing as t
 from abc import ABC
 from functools import partial
 from typing import Callable, Any
 
 import torch
 from torch import Tensor, nn
-from torch.optim import Optimizer
-from torch.utils.data import DataLoader
 
-from contrastyou.meters import MeterInterface
-from contrastyou.mytqdm import tqdm
 from contrastyou.utils import get_lrs_from_optimizer
 from semi_seg.epochers.epocher import SemiSupervisedEpocher, assert_transform_freedom
 from semi_seg.epochers.helper import preprocess_input_with_twice_transformation
+
+if t.TYPE_CHECKING:
+    from contrastyou.meters import MeterInterface
+    from torch.utils.data import DataLoader
+    from contrastyou.mytqdm import tqdm
+    from torch.optim import Optimizer
 
 
 class _PretrainEpocherMixin:
@@ -21,12 +24,12 @@ class _PretrainEpocherMixin:
     PretrainEpocher makes all images goes to regularization, permitting to use the other classes to create more pretrain
     models
     """
-    meters: MeterInterface
+    meters: 'MeterInterface'
     _model: nn.Module
-    _optimizer: Optimizer
-    indicator: tqdm
-    _labeled_loader: DataLoader
-    _unlabeled_loader: DataLoader
+    _optimizer: 'Optimizer'
+    indicator: 'tqdm'
+    _labeled_loader: 'DataLoader'
+    _unlabeled_loader: 'DataLoader'
     _unzip_data: Callable[..., torch.device]
     _device: torch.device
     transform_with_seed: Callable[..., Tensor]
@@ -46,7 +49,7 @@ class _PretrainEpocherMixin:
         self._chain_dataloader = chain_dataloader
         self._inference_until = inference_until
 
-    def configure_meters(self, meters: MeterInterface) -> MeterInterface:
+    def configure_meters(self, meters: 'MeterInterface') -> 'MeterInterface':
         meter = super().configure_meters(meters)  # noqa
         meter.delete_meters(["sup_loss", "sup_dice"])
         return meter

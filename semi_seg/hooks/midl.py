@@ -13,7 +13,12 @@ encoder_names = UNet.encoder_names
 entropy_criterion = Entropy(reduction="none", eps=1e-8)
 
 
+# this files considers only the output space, not intermediate space.
+
 class IIDSegmentationTrainerHook(TrainerHook):
+    """
+    This hook works directly on prediction output, without considering the intermediate feature maps
+    """
 
     def __init__(self, *, hook_name: str = "midl_hook", weight: float = 1.0, mi_lambda=1.0) -> None:
         super().__init__(hook_name=hook_name)
@@ -27,6 +32,9 @@ class IIDSegmentationTrainerHook(TrainerHook):
 
 
 class _IIDSegmentationEpochHook(EpocherHook):
+    """
+    This hook works directly on prediction output, without considering the intermediate feature maps
+    """
 
     def __init__(self, *, name: str, weight: float, mi_lambda=1.0) -> None:
         super().__init__(name=name)
@@ -47,6 +55,10 @@ class _IIDSegmentationEpochHook(EpocherHook):
 
 
 class IMSATTrainHook(TrainerHook):
+    """
+    This hook works directly on prediction output, without considering the intermediate feature maps
+    """
+
     def __init__(self, *, hook_name: str = "imsat", weight: float = 0.1):
         super().__init__(hook_name=hook_name)
         self._weight = weight
@@ -57,6 +69,9 @@ class IMSATTrainHook(TrainerHook):
 
 
 class _IMSATEpochHook(EpocherHook):
+    """
+    This hook works directly on prediction output, without considering the intermediate feature maps
+    """
 
     def __init__(self, *, name: str, weight: float) -> None:
         super().__init__(name=name)

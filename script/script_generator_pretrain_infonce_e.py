@@ -34,7 +34,7 @@ num_batches = args.num_batches
 
 save_dir = args.save_dir
 
-save_dir = os.path.join(save_dir, f"hash_{git_hash}/{data_name}")
+save_dir = os.path.join(save_dir, f"hash_{git_hash}/{data_name}/infonce_encoder")
 
 
 def get_hyper_param_string(**kwargs):

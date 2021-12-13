@@ -34,7 +34,7 @@ num_batches = args.num_batches
 
 save_dir = args.save_dir
 
-save_dir = os.path.join(save_dir, f"hash_{git_hash}/{data_name}/infonce_encoder_decoder")
+save_dir = os.path.join(save_dir, f"hash_{git_hash}/{data_name}/imsat")
 
 
 def get_hyper_param_string(**kwargs):
@@ -52,9 +52,9 @@ def _run_pretrain_cc(*, save_dir: str, random_seed: int = 10, max_epoch: int, nu
                      data_name: str = "acdc", infonce_weight: float, spatial_size: int):
     return f"""  python main_nd.py RandomSeed={random_seed} Trainer.name=pretrain_decoder Trainer.save_dir={save_dir} \
     Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches}  Optim.lr={lr:.10f} Data.name={data_name} \
-    InfonceParams.weights=[1.0,{infonce_weight:.10f}] \
-    InfonceParams.spatial_size=[1,{spatial_size}] \
-    --path config/base.yaml config/pretrain.yaml config/hooks/infonce_encoder_dense.yaml \
+    InfonceParams.weights={infonce_weight:.10f} \
+    InfonceParams.spatial_size={spatial_size} \
+    --path config/base.yaml config/pretrain.yaml config/hooks/infonce_dense.yaml \
     """
 
 
@@ -63,9 +63,9 @@ def _run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, ma
     return f""" python main_nd.py RandomSeed={random_seed} Trainer.name=semi \
      Trainer.save_dir={save_dir} Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name} \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
-    InfonceParams.weights=[1.0,{infonce_weight:.10f}] \
-    InfonceParams.spatial_size=[1,{spatial_size}] \
-    --path   config/base.yaml  config/hooks/infonce_encoder_dense.yaml  \
+    InfonceParams.weights={infonce_weight:.10f} \
+    InfonceParams.spatial_size={spatial_size} \
+    --path   config/base.yaml  config/hooks/infonce_dense.yaml  \
     """
 
 
@@ -197,7 +197,7 @@ if __name__ == '__main__':
     job_generator = run_pretrain_ft_with_grid_search(save_dir=os.path.join(save_dir, "pretrain"),
                                                      random_seeds=random_seeds, max_epoch=max_epoch,
                                                      num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
-                                                     data_name=data_name, infonce_weight=(1, 0.1, 0.01, 0.001),
+                                                     data_name=data_name, infonce_weight=(1,),
                                                      spatial_size=(10, 20, 30),
                                                      include_baseline=True, max_num=500
                                                      )
@@ -206,17 +206,17 @@ if __name__ == '__main__':
     for job in jobs:
         submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
 
-    # # only with RR on semi supervised case
-    # job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),
-    #                                                      random_seeds=random_seeds,
-    #                                                      max_epoch=max_epoch, num_batches=num_batches,
-    #                                                      data_name=data_name,
-    #                                                      infonce_weight=(1, 0.1, 0.01, 0.001),
-    #                                                      spatial_size=(10, 20, 30),
-    #                                                      include_baseline=True, max_num=500
-    #                                                      )
-    #
-    # jobs = list(job_generator)
-    # logger.info(f"logging {len(jobs)} jobs")
-    # for job in jobs:
-    #     submitter.submit(" && \n ".join(job), force_show=force_show, time=8, account=next(account))
+    # only with RR on semi supervised case
+    job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),
+                                                         random_seeds=random_seeds,
+                                                         max_epoch=max_epoch, num_batches=num_batches,
+                                                         data_name=data_name,
+                                                         infonce_weight=(1, 0.1, 0.01, 0.001, 0.0001),
+                                                         spatial_size=(10, 20, 30),
+                                                         include_baseline=True, max_num=500
+                                                         )
+
+    jobs = list(job_generator)
+    logger.info(f"logging {len(jobs)} jobs")
+    for job in jobs:
+        submitter.submit(" && \n ".join(job), force_show=force_show, time=6, account=next(account))

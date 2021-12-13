@@ -18,13 +18,14 @@ from semi_seg.hooks.midl import entropy_criterion
 
 class IMSATLoss(nn.Module, LossClass[Tensor]):
 
-    def __init__(self, eps: float = sys.float_info.epsilon):
+    def __init__(self, lamda: float = 1.0, eps: float = sys.float_info.epsilon):
         """
         :param eps:
         """
         super().__init__()
         logger.trace(colored(f"Initialize {self.__class__.__name__}.", "green"))
         self.eps = float(eps)
+        self.lamda = float(lamda)
 
     def forward(self, x_out: Tensor, x_tf_out: Tensor):
         """
@@ -39,7 +40,7 @@ class IMSATLoss(nn.Module, LossClass[Tensor]):
         self.x_out = x_out
         self.x_tf_out = x_tf_out
 
-        return 0.5 * (imsat_loss(x_out) + imsat_loss(x_tf_out))
+        return 0.5 * (imsat_loss(x_out, lamda=self.lamda) + imsat_loss(x_tf_out, lamda=self.lamda))
 
     def get_joint(self):
         # todo
@@ -230,13 +231,13 @@ def patch_generator(feature_map, patch_size=(32, 32), step_size=(16, 16)):
             yield feature_map[:, :, _h:min(_h + patch_size[0], h), _w:min(_w + patch_size[1], w)]
 
 
-def imsat_loss(prediction: Tensor):
+def imsat_loss(prediction: Tensor, lamda: float = 1.0):
     """
     this loss takes the input as both classification and segmentation
     """
     pred = prediction.moveaxis(0, 1).reshape(prediction.shape[1], -1)
     margin = pred.mean(1, keepdims=True)
 
-    mi = -entropy_criterion(pred.t()).mean() + entropy_criterion(margin.t()).mean()
+    mi = -entropy_criterion(pred.t()).mean() + entropy_criterion(margin.t()).mean() * lamda
 
     return -mi

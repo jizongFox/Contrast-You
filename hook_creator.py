@@ -1,6 +1,7 @@
 from semi_seg.hooks import create_infonce_hooks, create_sp_infonce_hooks, create_discrete_mi_consistency_hook, \
     create_mt_hook, create_differentiable_mt_hook, create_ent_min_hook, create_orthogonal_hook, create_iid_seg_hook, \
-    create_pseudo_label_hook, create_imsat_hook, create_consistency_hook, create_cross_correlation_hooks2
+    create_pseudo_label_hook, create_imsat_hook, create_consistency_hook, create_cross_correlation_hooks2, \
+    create_intermediate_imsat_hook
 
 
 def _hook_config_validator(config, is_pretrain):
@@ -58,6 +59,9 @@ def create_hook_from_config(model, config, *, is_pretrain=False, trainer):
 
     if "IMSATParameters" in config:
         im_hook = create_imsat_hook(weight=float(config["IMSATParameters"]["weight"]))
+        hooks.append(im_hook)
+    if "IMSATFeatureParameters" in config:
+        im_hook = create_intermediate_imsat_hook(**config["IMSATFeatureParameters"], model=model)
         hooks.append(im_hook)
 
     if any(["CrossCorrelationParameters" in x for x in config.keys()]):
