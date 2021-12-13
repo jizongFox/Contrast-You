@@ -49,35 +49,37 @@ def get_hyper_param_string(**kwargs):
 
 
 def _run_pretrain_cc(*, save_dir: str, random_seed: int = 10, max_epoch: int, num_batches: int, lr: float,
-                     data_name: str = "acdc", infonce_weight: float, spatial_size: int):
+                     data_name: str = "acdc", imsat_weight: float, cons_weight: float, num_clusters: int):
     return f"""  python main_nd.py RandomSeed={random_seed} Trainer.name=pretrain_decoder Trainer.save_dir={save_dir} \
     Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches}  Optim.lr={lr:.10f} Data.name={data_name} \
-    InfonceParams.weights={infonce_weight:.10f} \
-    InfonceParams.spatial_size={spatial_size} \
-    --path config/base.yaml config/pretrain.yaml config/hooks/infonce_dense.yaml \
+    IMSATFeatureParameters.weight={imsat_weight:.10f} IMSATFeatureParameters.cons_weight={cons_weight:.10f} \
+    IMSATFeatureParameters.num_clusters={num_clusters} \
+    --path config/base.yaml config/pretrain.yaml config/hooks/imsat_intermediate.yaml \
     """
 
 
 def _run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int, num_batches: int,
-              arch_checkpoint: str, lr: float, data_name: str = "acdc", infonce_weight: float, spatial_size: int):
+              arch_checkpoint: str, lr: float, data_name: str = "acdc", imsat_weight: float, cons_weight: float,
+              num_clusters: int):
     return f""" python main_nd.py RandomSeed={random_seed} Trainer.name=semi \
      Trainer.save_dir={save_dir} Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name} \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
-    InfonceParams.weights={infonce_weight:.10f} \
-    InfonceParams.spatial_size={spatial_size} \
-    --path   config/base.yaml  config/hooks/infonce_dense.yaml  \
+    IMSATFeatureParameters.weight={imsat_weight:.10f} IMSATFeatureParameters.cons_weight={cons_weight:.10f} \
+    IMSATFeatureParameters.num_clusters={num_clusters} \
+    --path   config/base.yaml  config/hooks/imsat_intermediate.yaml  \
     """
 
 
 def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int, max_epoch: int, num_batches: int,
-                    data_name: str = "acdc", infonce_weight: float, spatial_size: int
+                    data_name: str = "acdc", imsat_weight: float, cons_weight: float, num_clusters: int
                     ):
     data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
     pretrain_save_dir = os.path.join(save_dir, "pretrain")
     pretrain_script = _run_pretrain_cc(
         save_dir=pretrain_save_dir, random_seed=random_seed, max_epoch=max_epoch_pretrain, num_batches=num_batches,
-        lr=data_opt["pre_lr"], data_name=data_name, infonce_weight=infonce_weight, spatial_size=spatial_size
+        lr=data_opt["pre_lr"], data_name=data_name, imsat_weight=imsat_weight, cons_weight=cons_weight,
+        num_clusters=num_clusters
     )
     ft_save_dir = os.path.join(save_dir, "tra")
     ft_script = [
@@ -94,7 +96,7 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int,
 
 def run_semi_regularize(
         *, save_dir, random_seed: int = 10, max_epoch: int, num_batches: int, data_name: str = "acdc",
-        infonce_weight: float, spatial_size: int
+        imsat_weight: float, cons_weight: float, num_clusters: int
 ) -> List[str]:
     data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
@@ -102,7 +104,8 @@ def run_semi_regularize(
         _run_semi(
             save_dir=os.path.join(save_dir, "semi", f"labeled_num_{l:03d}"), random_seed=random_seed,
             num_labeled_scan=l, max_epoch=max_epoch, num_batches=num_batches, arch_checkpoint="null",
-            lr=data_opt["ft_lr"], data_name=data_name, infonce_weight=infonce_weight, spatial_size=spatial_size
+            lr=data_opt["ft_lr"], data_name=data_name, imsat_weight=imsat_weight, cons_weight=cons_weight,
+            num_clusters=num_clusters
         )
         for l in labeled_scans
     ]
@@ -128,10 +131,11 @@ def run_baseline(
 
 def run_pretrain_ft_with_grid_search(
         *, save_dir, random_seeds: Sequence[int] = 10, max_epoch_pretrain: int, max_epoch: int, num_batches: int,
-        data_name: str, infonce_weight: Sequence[float], spatial_size: Sequence[int],
+        data_name: str, imsat_weight: Sequence[float], cons_weight: Sequence[float], num_clusters: Sequence[int],
         include_baseline=True, max_num: Optional[int] = 200,
 ) -> Iterator[List[str]]:
-    param_generator = grid_search(max_num=max_num, infonce_weight=infonce_weight, spatial_size=spatial_size,
+    param_generator = grid_search(max_num=max_num, imsat_weight=imsat_weight, cons_weight=cons_weight,
+                                  num_clusters=num_clusters,
                                   random_seed=random_seeds)
     for param in param_generator:
         random_seed = param.pop("random_seed")
@@ -151,10 +155,11 @@ def run_pretrain_ft_with_grid_search(
 def run_semi_regularize_with_grid_search(
         *, save_dir, random_seeds: Sequence[int] = 10, max_epoch: int, num_batches: int,
         data_name: str,
-        infonce_weight: Sequence[float], spatial_size: Sequence[int],
+        imsat_weight: Sequence[float], cons_weight: Sequence[float], num_clusters: Sequence[int],
         include_baseline=True, max_num: Optional[int] = 200,
 ) -> Iterator[List[str]]:
-    param_generator = grid_search(max_num=max_num, spatial_size=spatial_size, infonce_weight=infonce_weight,
+    param_generator = grid_search(max_num=max_num, imsat_weight=imsat_weight, cons_weight=cons_weight,
+                                  num_clusters=num_clusters,
                                   random_seed=random_seeds)
     for param in param_generator:
         random_seed = param.pop("random_seed")
@@ -197,8 +202,9 @@ if __name__ == '__main__':
     job_generator = run_pretrain_ft_with_grid_search(save_dir=os.path.join(save_dir, "pretrain"),
                                                      random_seeds=random_seeds, max_epoch=max_epoch,
                                                      num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
-                                                     data_name=data_name, infonce_weight=(1,),
-                                                     spatial_size=(10, 20, 30),
+                                                     data_name=data_name, imsat_weight=(1,),
+                                                     cons_weight=(0.001, 0.01, 0.1, 1),
+                                                     num_clusters=(20, 30, 40),
                                                      include_baseline=True, max_num=500
                                                      )
     jobs = list(job_generator)
@@ -211,8 +217,9 @@ if __name__ == '__main__':
                                                          random_seeds=random_seeds,
                                                          max_epoch=max_epoch, num_batches=num_batches,
                                                          data_name=data_name,
-                                                         infonce_weight=(1, 0.1, 0.01, 0.001, 0.0001),
-                                                         spatial_size=(10, 20, 30),
+                                                         imsat_weight=(1, 0.1, 0.01),
+                                                         cons_weight=(0.001, 0.01, 0.1, 1),
+                                                         num_clusters=(20, 30, 40),
                                                          include_baseline=True, max_num=500
                                                          )
 
