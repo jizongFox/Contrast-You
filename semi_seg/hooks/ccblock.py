@@ -14,7 +14,7 @@ from contrastyou.arch.unet import UNetFeatureMapEnum
 from contrastyou.arch.utils import SingleFeatureExtractor
 from contrastyou.hooks import TrainerHook, EpocherHook
 from contrastyou.losses.cross_correlation import CCLoss
-from contrastyou.losses.discreteMI import IIDSegmentationLoss, IMSATLoss
+from contrastyou.losses.discreteMI import IIDSegmentationLoss, IMSATLoss, IMSATDynamicWeight
 from contrastyou.losses.kl import Entropy, KL_div
 from contrastyou.losses.redundancy_reduction import RedundancyCriterion
 from contrastyou.meters import AverageValueMeter
@@ -649,9 +649,14 @@ class _CenterCompactnessHook(_TinyHook):
 
 class _IMSATHook(_TinyHook):
 
-    def __init__(self, *, name: str = "imsat", weight: float) -> None:
-        criterion = IMSATLoss()
+    def __init__(self, *, name: str = "imsat", weight: float, use_dynamic=True, lamda: float = 1.0) -> None:
+        criterion = IMSATDynamicWeight(use_dynamic=use_dynamic, lamda=lamda)
         super().__init__(name=name, criterion=criterion, weight=weight)
+
+    def configure_meters(self, meters: 'MeterInterface'):
+        meters = super().configure_meters(meters)
+        meters.register_meter("weight", AverageValueMeter())
+        return meters
 
     def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, **kwargs):
         assert simplex(input1)
@@ -659,9 +664,12 @@ class _IMSATHook(_TinyHook):
             if self.meters:
                 self.meters[self.name].add(0)
             return torch.tensor(0, device=input1.device, dtype=input1.dtype)
-        loss = self.criterion(self.flatten_predict(input1), self.flatten_predict(input2))
+        loss = self.criterion(self.flatten_predict(input1))
+
         if self.meters:
+            self.criterion: IMSATDynamicWeight
             self.meters[self.name].add(loss.item())
+            self.meters["weight"].add(self.criterion.dynamic_weight)
 
         if kwargs.get("save_image_condition", False):
             self.criterion: IMSATLoss

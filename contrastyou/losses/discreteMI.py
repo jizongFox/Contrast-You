@@ -1,3 +1,4 @@
+import math
 import sys
 import typing as t
 
@@ -27,23 +28,62 @@ class IMSATLoss(nn.Module, LossClass[Tensor]):
         self.eps = float(eps)
         self.lamda = float(lamda)
 
-    def forward(self, x_out: Tensor, x_tf_out: Tensor):
+    def forward(self, x_out: Tensor, x_tf_out: Tensor = None):
         """
         return the inverse of the MI. if the x_out == y_out, return the inverse of Entropy
         :param x_out:
         :param x_tf_out:
         :return:
         """
+        idenity_input = False
+        if x_tf_out is None:
+            idenity_input = True
+            x_tf_out = x_out
         assert len(x_out.shape) == 2, x_out.shape
         assert simplex(x_out), f"x_out not normalized."
         assert simplex(x_tf_out), f"x_tf_out not normalized."
         self.x_out = x_out
         self.x_tf_out = x_tf_out
-
-        return 0.5 * (imsat_loss(x_out, lamda=self.lamda) + imsat_loss(x_tf_out, lamda=self.lamda))
+        if not idenity_input:
+            return 0.5 * (imsat_loss(x_out, lamda=self.lamda) + imsat_loss(x_tf_out, lamda=self.lamda))
+        return imsat_loss(x_out, lamda=self.lamda)
 
     def get_joint_matrix(self):
         return compute_joint(self.x_out, self.x_tf_out, symmetric=False).squeeze().detach().cpu().numpy()
+
+
+class IMSATDynamicWeight(IMSATLoss):
+
+    def __init__(self, lamda: float = 1.0, use_dynamic: bool = True,
+                 eps: float = sys.float_info.epsilon):
+        super().__init__(lamda, eps)
+        self.register_buffer("dynamic_weight", torch.tensor(lamda))
+        self.use_dynamic_weight = use_dynamic
+
+    def forward(self, x_out: Tensor, **kwargs):
+        """
+        return the inverse of the MI. if the x_out == y_out, return the inverse of Entropy
+        :param x_out:
+        :return:
+        """
+        device, dtype = x_out.device, x_out.dtype
+        self.dynamic_weight = self.dynamic_weight.to(device).to(dtype)
+
+        K = x_out.shape[1]
+        x_tf_out = x_out
+        assert len(x_out.shape) == 2, x_out.shape
+        assert simplex(x_out), f"x_out not normalized."
+        assert simplex(x_tf_out), f"x_tf_out not normalized."
+        self.x_out = x_out
+        self.x_tf_out = x_tf_out
+        marg, cond = imsat_with_entropy(x_out)
+        mi = self.dynamic_weight * marg * -1.0 + cond
+
+        if self.use_dynamic_weight:
+            with torch.no_grad():
+                increment = (math.log(K) - marg.detach()) * 0.01
+                self.dynamic_weight = self.dynamic_weight + increment
+        return mi
 
 
 class IIDLoss(nn.Module, LossClass[t.Tuple[Tensor, Tensor, Tensor]]):
@@ -240,3 +280,16 @@ def imsat_loss(prediction: Tensor, lamda: float = 1.0):
     mi = -entropy_criterion(pred.t()).mean() + entropy_criterion(margin.t()).mean() * lamda
 
     return -mi
+
+
+def imsat_with_entropy(prediction: Tensor, ):
+    """
+    this loss takes the input as both classification and segmentation
+    """
+    pred = prediction.moveaxis(0, 1).reshape(prediction.shape[1], -1)
+    margin = pred.mean(1, keepdims=True)
+
+    marginal = entropy_criterion(margin.t()).mean()
+    conditional = entropy_criterion(pred.t()).mean()
+
+    return marginal, conditional

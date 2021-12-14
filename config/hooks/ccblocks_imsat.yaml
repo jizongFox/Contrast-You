@@ -7,5 +7,7 @@ CrossCorrelationParameters:
   hooks:
     imsat:
       weight: 0.1
+      lamda: 1.0
+      use_dynamic: true
     consist:
       weight: 0.1
