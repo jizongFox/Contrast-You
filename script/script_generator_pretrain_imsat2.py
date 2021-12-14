@@ -216,8 +216,8 @@ if __name__ == '__main__':
                                                      random_seeds=random_seeds, max_epoch=max_epoch,
                                                      num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
                                                      data_name=data_name, imsat_weight=(1,),
-                                                     cons_weight=(0.001, 0.01, 0.1, 1),
-                                                     num_clusters=(20, 30, 40),
+                                                     cons_weight=(0,  0.01, 0.1, 1, 10),
+                                                     num_clusters=(40),
                                                      include_baseline=True, max_num=500,
                                                      head_type=("linear",),
                                                      num_subheads=(3,)
@@ -227,20 +227,20 @@ if __name__ == '__main__':
     for job in jobs:
         submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
 
-    # only with RR on semi supervised case
-    job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),
-                                                         random_seeds=random_seeds,
-                                                         max_epoch=max_epoch, num_batches=num_batches,
-                                                         data_name=data_name,
-                                                         imsat_weight=(1, 0.1, 0.01),
-                                                         cons_weight=(0.001, 0.01, 0.1, 1),
-                                                         num_clusters=(20, 30, 40),
-                                                         include_baseline=True, max_num=500,
-                                                         head_type=("linear",),
-                                                         num_subheads=(3,)
-                                                         )
-
-    jobs = list(job_generator)
-    logger.info(f"logging {len(jobs)} jobs")
-    for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=6, account=next(account))
+    # # only with RR on semi supervised case
+    # job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),
+    #                                                      random_seeds=random_seeds,
+    #                                                      max_epoch=max_epoch, num_batches=num_batches,
+    #                                                      data_name=data_name,
+    #                                                      imsat_weight=(1, 0.1, 0.01),
+    #                                                      cons_weight=(0.001, 0.01, 0.1, 1),
+    #                                                      num_clusters=(20, 30, 40),
+    #                                                      include_baseline=True, max_num=500,
+    #                                                      head_type=("linear",),
+    #                                                      num_subheads=(3,)
+    #                                                      )
+    #
+    # jobs = list(job_generator)
+    # logger.info(f"logging {len(jobs)} jobs")
+    # for job in jobs:
+    #     submitter.submit(" && \n ".join(job), force_show=force_show, time=6, account=next(account))

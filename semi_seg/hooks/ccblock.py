@@ -15,7 +15,7 @@ from contrastyou.arch.utils import SingleFeatureExtractor
 from contrastyou.hooks import TrainerHook, EpocherHook
 from contrastyou.losses.cross_correlation import CCLoss
 from contrastyou.losses.discreteMI import IIDSegmentationLoss, IMSATLoss
-from contrastyou.losses.kl import Entropy
+from contrastyou.losses.kl import Entropy, KL_div
 from contrastyou.losses.redundancy_reduction import RedundancyCriterion
 from contrastyou.meters import AverageValueMeter
 from contrastyou.projectors import CrossCorrelationProjector
@@ -682,7 +682,7 @@ class _IMSATHook(_TinyHook):
 
 class _ConsistencyHook(_TinyHook):
     def __init__(self, *, name: str = "consistency", weight: float) -> None:
-        criterion = nn.MSELoss()
+        criterion = KL_div()
         super().__init__(name=name, criterion=criterion, weight=weight)
 
     def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, **kwargs):
@@ -691,7 +691,7 @@ class _ConsistencyHook(_TinyHook):
             if self.meters:
                 self.meters[self.name].add(0)
             return torch.tensor(0, device=input1.device, dtype=input1.dtype)
-        loss = self.criterion(input1, input2)
+        loss = self.criterion(input1, input2.detach())
         if self.meters:
             self.meters[self.name].add(loss.item())
 
