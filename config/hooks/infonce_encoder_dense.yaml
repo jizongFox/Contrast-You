@@ -1,7 +1,7 @@
 InfonceParams:
   feature_names: [ Conv5, Up_conv2 ]
   weights: [ 1.0, 0.1 ]
-  contrast_ons: [ patient, self ]
+  contrast_ons: [ partition, self ]
   spatial_size: [ 1, 20 ]
 Trainer:
   name: pretrain_decoder
