@@ -5,3 +5,4 @@ InfonceParams:
   spatial_size: 20
 Trainer:
   name: pretrain_decoder
+  enable_scale: true
