@@ -242,8 +242,8 @@ if __name__ == '__main__':
         save_dir=os.path.join(save_dir, "pretrain", "encoder_decoder"),
         random_seeds=random_seeds, max_epoch=max_epoch,
         num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
-        data_name=data_name, infonce_decoder_weight=(1,),
-        infonce_encoder_weight=(0,),
+        data_name=data_name, infonce_decoder_weight=(0.0001, 0.001, 0.01, 0.1,),
+        infonce_encoder_weight=(1,),
         decoder_spatial_size=(20,),
         include_baseline=True, max_num=500
     )
