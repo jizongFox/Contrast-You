@@ -27,6 +27,7 @@ demo/cifar-10-python.tar.gz
 # IntelliJ project files
 .idea
 *.iml
+*.sh
 out
 gen
 venv
