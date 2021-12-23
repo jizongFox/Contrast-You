@@ -59,7 +59,7 @@ def _run_ft(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_
 def _run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int, num_batches: int,
               arch_checkpoint: str, lr: float, data_name: str = "acdc", cc_weight: float,
               consistency_weight: float, power: float, head_type: str, num_subheads: int,
-              num_clusters: int, kernel_size: int, compact_weight: float, rr_weight: float,
+              num_clusters: int, kernel_size: int, rr_weight: float,
               rr_symmetric: str, rr_lamda: float, rr_alpha: float):
     return f""" python main_nd.py RandomSeed={random_seed} Trainer.name=semi \
      Trainer.save_dir={save_dir} Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name} \
@@ -70,7 +70,6 @@ def _run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, ma
     CrossCorrelationParameters.hooks.cc.weight={cc_weight:.10f}  \
     CrossCorrelationParameters.hooks.cc.kernel_size={kernel_size}  \
     CrossCorrelationParameters.hooks.cc.diff_power={power}  \
-    CrossCorrelationParameters.hooks.compact.weight={compact_weight}  \
     CrossCorrelationParameters.hooks.rr.weight={rr_weight:.10f}  \
     CrossCorrelationParameters.hooks.rr.symmetric={rr_symmetric}  \
     CrossCorrelationParameters.hooks.rr.lamda={rr_lamda:.10f}  \
@@ -108,7 +107,7 @@ def _run_multicore_semi(*, save_dir: str, random_seed: int = 10, num_labeled_sca
 def _run_pretrain_cc(*, save_dir: str, random_seed: int = 10, max_epoch: int, num_batches: int, cc_weight: float,
                      consistency_weight: float, lr: float, data_name: str = "acdc", power: float, head_type: str,
                      num_subheads: int, num_clusters: int,
-                     kernel_size: int, compact_weight: float, rr_weight: float, rr_symmetric: str,
+                     kernel_size: int, rr_weight: float, rr_symmetric: str,
                      rr_lamda: float, rr_alpha: float):
     return f"""  python main_nd.py RandomSeed={random_seed} Trainer.name=pretrain_decoder Trainer.save_dir={save_dir} \
     Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches}  Optim.lr={lr:.10f} Data.name={data_name} \
@@ -119,7 +118,6 @@ def _run_pretrain_cc(*, save_dir: str, random_seed: int = 10, max_epoch: int, nu
     CrossCorrelationParameters.hooks.cc.kernel_size={kernel_size}  \
     CrossCorrelationParameters.hooks.cc.diff_power={power}  \
     ConsistencyParameters.weight={consistency_weight:.10f}  \
-    CrossCorrelationParameters.hooks.compact.weight={compact_weight}  \
     CrossCorrelationParameters.hooks.rr.weight={rr_weight:.10f}  \
     CrossCorrelationParameters.hooks.rr.symmetric={rr_symmetric}  \
     CrossCorrelationParameters.hooks.rr.lamda={rr_lamda:.10f} \
@@ -132,7 +130,7 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int,
                     data_name: str = "acdc",
                     cc_weight, consistency_weight,
                     power: float, head_type: str, num_subheads: int, num_clusters: int, kernel_size: int,
-                    compact_weight: float, rr_weight: float, rr_symmetric: str, rr_lamda: float,
+                    rr_weight: float, rr_symmetric: str, rr_lamda: float,
                     rr_alpha: float
                     ):
     data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
@@ -142,7 +140,7 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int,
         save_dir=pretrain_save_dir, random_seed=random_seed, max_epoch=max_epoch_pretrain, num_batches=num_batches,
         cc_weight=cc_weight, lr=data_opt["pre_lr"], data_name=data_name,
         consistency_weight=consistency_weight, power=power, head_type=head_type,
-        num_subheads=num_subheads, num_clusters=num_clusters, kernel_size=kernel_size, compact_weight=compact_weight,
+        num_subheads=num_subheads, num_clusters=num_clusters, kernel_size=kernel_size,
         rr_weight=rr_weight, rr_symmetric=rr_symmetric, rr_lamda=rr_lamda, rr_alpha=rr_alpha
     )
     ft_save_dir = os.path.join(save_dir, "tra")
@@ -161,7 +159,7 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int,
 def run_semi_regularize(
         *, save_dir, random_seed: int = 10, max_epoch: int, num_batches: int, data_name: str = "acdc",
         cc_weight: float, consistency_weight: float, power: float, head_type: str,
-        num_subheads: int, num_clusters: int, kernel_size: int, compact_weight: float, rr_weight: float,
+        num_subheads: int, num_clusters: int, kernel_size: int, rr_weight: float,
         rr_symmetric: str, rr_lamda: float, rr_alpha: float
 ) -> List[str]:
     data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
@@ -173,35 +171,12 @@ def run_semi_regularize(
             lr=data_opt["ft_lr"], data_name=data_name,
             cc_weight=cc_weight, consistency_weight=consistency_weight, power=power,
             head_type=head_type, num_subheads=num_subheads, num_clusters=num_clusters, kernel_size=kernel_size,
-            compact_weight=compact_weight, rr_weight=rr_weight, rr_symmetric=rr_symmetric,
+            rr_weight=rr_weight, rr_symmetric=rr_symmetric,
             rr_lamda=rr_lamda, rr_alpha=rr_alpha
         )
         for l in labeled_scans
     ]
     return semi_script
-
-
-# def run_multicore_semi(*, save_dir, random_seed: int = 10, max_epoch: int, num_batches: int,
-#                        data_name: str = "acdc", cc_weight: float, consistency_weight: float,
-#                        power: float, head_type: str, num_subheads: int, rr_weight: float,
-#                        multicore_multiplier: int, kernel_size: int, rr_symmetric: str,
-#                        rr_lamda: float, rr_alpha: float
-#                        ) -> List[str]:
-#     data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
-#     labeled_scans = data_opt["labeled_ratios"][:-1]
-#     semi_script = [
-#         _run_multicore_semi(
-#             save_dir=os.path.join(save_dir, "semi", f"labeled_num_{l:03d}"), random_seed=random_seed,
-#             num_labeled_scan=l, max_epoch=max_epoch, num_batches=num_batches, arch_checkpoint="null",
-#             lr=data_opt["ft_lr"], data_name=data_name,
-#             cc_weight=cc_weight, consistency_weight=consistency_weight, power=power,
-#             head_type=head_type, num_subheads=num_subheads, mulitcore_multiplier=multicore_multiplier,
-#             kernel_size=kernel_size, rr_weight=rr_weight, rr_symmetric=rr_symmetric,
-#             rr_lamda=rr_lamda, rr_alpha=rr_alpha
-#         )
-#         for l in labeled_scans
-#     ]
-#     return semi_script
 
 
 def run_baseline(
@@ -226,12 +201,12 @@ def run_pretrain_ft_with_grid_search(
         data_name: str, cc_weights: Sequence[float], consistency_weights: Sequence[float],
         powers: Sequence[float], head_types=Sequence[str],
         num_subheads: Sequence[int], num_clusters: Sequence[int], kernel_size: Sequence[int],
-        compact_weight: Sequence[float], rr_weight: Sequence[float],
+        rr_weight: Sequence[float],
         rr_symmetric: Sequence[str], rr_lamda: Sequence[float], rr_alpha: Sequence[float],
         include_baseline=True, max_num: Optional[int] = 200,
 ) -> Iterator[List[str]]:
     param_generator = grid_search(max_num=max_num, cc_weight=cc_weights,
-                                  compact_weight=compact_weight, random_seed=random_seeds,
+                                  random_seed=random_seeds,
                                   consistency_weight=consistency_weights, rr_weight=rr_weight,
                                   power=powers, head_type=head_types, num_subheads=num_subheads,
                                   kernel_size=kernel_size, rr_symmetric=rr_symmetric,
@@ -257,11 +232,11 @@ def run_semi_regularize_with_grid_search(
         cc_weights: Sequence[float], consistency_weights: Sequence[float],
         powers: Sequence[float], head_types: Sequence[str],
         num_subheads: Sequence[int], num_clusters: Sequence[int], kernel_size: Sequence[int],
-        compact_weight: Sequence[float], rr_weight: Sequence[float],
+        rr_weight: Sequence[float],
         rr_symmetric: Sequence[str], rr_lamda: Sequence[float], rr_alpha: Sequence[float],
         include_baseline=True, max_num: Optional[int] = 200,
 ) -> Iterator[List[str]]:
-    param_generator = grid_search(cc_weight=cc_weights, compact_weight=compact_weight,
+    param_generator = grid_search(cc_weight=cc_weights,
                                   random_seed=random_seeds, consistency_weight=consistency_weights, rr_weight=rr_weight,
                                   power=powers, head_type=head_types,
                                   num_subheads=num_subheads, num_clusters=num_clusters, max_num=max_num,
@@ -281,41 +256,6 @@ def run_semi_regularize_with_grid_search(
             yield run_baseline(save_dir=os.path.join(save_dir, f"seed_{random_seed['random_seed']}"),
                                **random_seed, max_epoch=max_epoch, num_batches=num_batches,
                                data_name=data_name)
-
-
-#
-# def run_multicore_semi_regularize_with_grid_search(
-#         *, save_dir, random_seeds: Sequence[int] = 10, max_epoch: int, num_batches: int,
-#         data_name: str,
-#         mi_weights: Sequence[float], cc_weights: Sequence[float], consistency_weights: Sequence[float],
-#         paddings: Sequence[int], lamdas: Sequence[float], powers: Sequence[float], head_types: Sequence[str],
-#         num_subheads: Sequence[int], kernel_size: Sequence[int], rr_weight: Sequence[float],
-#         mi_symmetric: Sequence[str],
-#         rr_symmetric: Sequence[str], rr_lamda: Sequence[float], rr_alpha: Sequence[float],
-#         include_baseline=True,
-#         multicore_multipliers: Sequence[int],
-#         max_num: Optional[int] = 200,
-# ) -> Iterator[List[str]]:
-#     param_generator = grid_search(mi_weight=mi_weights, cc_weight=cc_weights, random_seed=random_seeds,
-#                                   consistency_weight=consistency_weights, rr_weight=rr_weight, padding=paddings,
-#                                   lamda=lamdas,
-#                                   power=powers, head_type=head_types, num_subheads=num_subheads, max_num=max_num,
-#                                   multicore_multiplier=multicore_multipliers, kernel_size=kernel_size,
-#                                   mi_symmetric=mi_symmetric, rr_symmetric=rr_symmetric, rr_lamda=rr_lamda,
-#                                   rr_alpha=rr_alpha)
-#     for param in param_generator:
-#         random_seed = param.pop("random_seed")
-#         sp_str = get_hyper_param_string(**param)
-#         yield run_multicore_semi(save_dir=os.path.join(save_dir, f"seed_{random_seed}", sp_str),
-#                                  random_seed=random_seed,
-#                                  max_epoch=max_epoch, num_batches=num_batches, data_name=data_name, **param)
-#
-#     if include_baseline:
-#         rand_seed_gen = grid_search(random_seed=random_seeds)
-#         for random_seed in rand_seed_gen:
-#             yield run_baseline(save_dir=os.path.join(save_dir, f"seed_{random_seed['random_seed']}"),
-#                                **random_seed, max_epoch=max_epoch, num_batches=num_batches,
-#                                data_name=data_name)
 
 
 if __name__ == '__main__':
@@ -345,16 +285,15 @@ if __name__ == '__main__':
                                                      random_seeds=random_seeds, max_epoch=max_epoch,
                                                      num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
                                                      data_name=data_name,
-                                                     cc_weights=[0, 0.001, 0.01, 0.1],
+                                                     cc_weights=[0, 0.01, 0.1, 1],
                                                      consistency_weights=[0],
                                                      include_baseline=True,
                                                      powers=0.75,
                                                      head_types="linear",
                                                      num_subheads=(3,),
-                                                     num_clusters=[10, 20, 30, 40],
+                                                     num_clusters=[40],
                                                      max_num=500,
                                                      kernel_size=5,
-                                                     compact_weight=0.0,
                                                      rr_weight=(1,),
                                                      rr_symmetric="true",
                                                      rr_lamda=(1,),
@@ -379,7 +318,6 @@ if __name__ == '__main__':
                                                          num_clusters=[40],
                                                          max_num=500,
                                                          kernel_size=5,
-                                                         compact_weight=0.0,
                                                          rr_weight=[0.01, 0.02, 0.1],
                                                          rr_symmetric="true",
                                                          rr_lamda=(1,),
