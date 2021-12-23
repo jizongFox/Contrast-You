@@ -9,7 +9,7 @@ from loguru import logger
 from contrastyou import __accounts, on_cc, MODEL_PATH, OPT_PATH, git_hash
 from contrastyou.configure import yaml_load
 from contrastyou.submitter import SlurmSubmitter
-from script.script_generator_pretrain_cc import _run_ft
+from script.script_generator_pretrain_cc import _run_ft, _run_ft_per_class
 from script.utils import grid_search, move_dataset
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -82,8 +82,12 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int,
         num_clusters=num_clusters
     )
     ft_save_dir = os.path.join(save_dir, "tra")
+    if data_name == "acdc":
+        run_ft = _run_ft_per_class
+    else:
+        run_ft = _run_ft
     ft_script = [
-        _run_ft(
+        run_ft(
             save_dir=os.path.join(ft_save_dir, f"labeled_num_{l:03d}"), random_seed=random_seed,
             num_labeled_scan=l, max_epoch=max_epoch, num_batches=num_batches,
             arch_checkpoint=f"{os.path.join(MODEL_PATH, pretrain_save_dir, 'last.pth')}",
@@ -117,8 +121,12 @@ def run_baseline(
 ) -> List[str]:
     data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
+    if data_name == "acdc":
+        run_ft = _run_ft_per_class
+    else:
+        run_ft = _run_ft
     ft_script = [
-        _run_ft(
+        run_ft(
             save_dir=os.path.join(save_dir, "baseline", f"labeled_num_{l:03d}"), random_seed=random_seed,
             num_labeled_scan=l, max_epoch=max_epoch, num_batches=num_batches,
             arch_checkpoint="null",

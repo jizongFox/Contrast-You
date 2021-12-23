@@ -11,30 +11,20 @@ from contrastyou.configure import yaml_load
 from contrastyou.submitter import SlurmSubmitter
 from script.utils import grid_search, move_dataset
 
-parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument("save_dir", type=str, help="save dir")
-parser.add_argument("--data-name", type=str, choices=("acdc", "acdc_lv", "acdc_rv", "prostate", "spleen"),
-                    default="acdc",
-                    help="dataset_choice")
-parser.add_argument("--max-epoch-pretrain", default=50, type=int, help="max epoch")
-parser.add_argument("--max-epoch", default=30, type=int, help="max epoch")
-parser.add_argument("--num-batches", default=300, type=int, help="number of batches")
-parser.add_argument("--seeds", type=int, nargs="+", default=[10, ], )
-parser.add_argument("--force-show", action="store_true", help="showing script")
-args = parser.parse_args()
 
-account = cycle(__accounts)
-on_local = not on_cc()
-force_show = args.force_show
-data_name = args.data_name
-random_seeds = args.seeds
-max_epoch = args.max_epoch
-max_epoch_pretrain = args.max_epoch_pretrain
-num_batches = args.num_batches
-
-save_dir = args.save_dir
-
-save_dir = os.path.join(save_dir, f"hash_{git_hash}/{data_name}")
+def get_args():
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("save_dir", type=str, help="save dir")
+    parser.add_argument("--data-name", type=str, choices=("acdc", "acdc_lv", "acdc_rv", "prostate", "spleen"),
+                        default="acdc",
+                        help="dataset_choice")
+    parser.add_argument("--max-epoch-pretrain", default=50, type=int, help="max epoch")
+    parser.add_argument("--max-epoch", default=30, type=int, help="max epoch")
+    parser.add_argument("--num-batches", default=300, type=int, help="number of batches")
+    parser.add_argument("--seeds", type=int, nargs="+", default=[10, ], )
+    parser.add_argument("--force-show", action="store_true", help="showing script")
+    args = parser.parse_args()
+    return args
 
 
 def get_hyper_param_string(**kwargs):
@@ -53,6 +43,18 @@ def _run_ft(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_
     return f""" python main.py RandomSeed={random_seed} Trainer.name=ft \
      Trainer.save_dir={save_dir} Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name} \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
+    """
+
+
+def _run_ft_per_class(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int, num_batches: int,
+                      arch_checkpoint: str = "null", lr: float, data_name: str = "acdc"):
+    assert data_name == "acdc", "only support acdc dataset"
+    return f""" python main.py RandomSeed={random_seed} Trainer.name=ft \
+     Trainer.save_dir={save_dir}/lv Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name}_lv \
+    Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f}  && \
+    python main.py RandomSeed={random_seed} Trainer.name=ft \
+     Trainer.save_dir={save_dir}/rv Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name}_rv \
+    Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f}  \
     """
 
 
@@ -144,8 +146,13 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int,
         rr_weight=rr_weight, rr_symmetric=rr_symmetric, rr_lamda=rr_lamda, rr_alpha=rr_alpha
     )
     ft_save_dir = os.path.join(save_dir, "tra")
+    if data_name == "acdc":
+        run_ft = _run_ft_per_class
+    else:
+        run_ft = _run_ft
+
     ft_script = [
-        _run_ft(
+        run_ft(
             save_dir=os.path.join(ft_save_dir, f"labeled_num_{l:03d}"), random_seed=random_seed,
             num_labeled_scan=l, max_epoch=max_epoch, num_batches=num_batches,
             arch_checkpoint=f"{os.path.join(MODEL_PATH, pretrain_save_dir, 'last.pth')}",
@@ -184,8 +191,12 @@ def run_baseline(
 ) -> List[str]:
     data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
+    if data_name == "acdc":
+        run_ft = _run_ft_per_class
+    else:
+        run_ft = _run_ft
     ft_script = [
-        _run_ft(
+        run_ft(
             save_dir=os.path.join(save_dir, "baseline", f"labeled_num_{l:03d}"), random_seed=random_seed,
             num_labeled_scan=l, max_epoch=max_epoch, num_batches=num_batches,
             arch_checkpoint="null",
@@ -259,6 +270,20 @@ def run_semi_regularize_with_grid_search(
 
 
 if __name__ == '__main__':
+    args = get_args()
+    account = cycle(__accounts)
+    on_local = not on_cc()
+    force_show = args.force_show
+    data_name = args.data_name
+    random_seeds = args.seeds
+    max_epoch = args.max_epoch
+    max_epoch_pretrain = args.max_epoch_pretrain
+    num_batches = args.num_batches
+
+    save_dir = args.save_dir
+
+    save_dir = os.path.join(save_dir, f"hash_{git_hash}/{data_name}")
+
     submitter = SlurmSubmitter(work_dir="../", stop_on_error=on_local, on_local=on_local)
     submitter.configure_environment([
         # "set -e "
@@ -304,27 +329,28 @@ if __name__ == '__main__':
     for job in jobs:
         submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
 
-    # only with RR on semi supervised case
-    job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),
-                                                         random_seeds=random_seeds,
-                                                         max_epoch=max_epoch, num_batches=num_batches,
-                                                         data_name=data_name,
-                                                         cc_weights=[0, 0.001, 0.01, 0.1],
-                                                         consistency_weights=[0, 0.1, 0.5, ],
-                                                         include_baseline=True,
-                                                         powers=[0.75],
-                                                         head_types="linear",
-                                                         num_subheads=3,
-                                                         num_clusters=[40],
-                                                         max_num=500,
-                                                         kernel_size=5,
-                                                         rr_weight=[0.01, 0.02, 0.1],
-                                                         rr_symmetric="true",
-                                                         rr_lamda=(1,),
-                                                         rr_alpha=(0, 0.25, 0.5, 0.75, 1)
-                                                         )
+    if 0:
+        # only with RR on semi supervised case
+        job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),
+                                                             random_seeds=random_seeds,
+                                                             max_epoch=max_epoch, num_batches=num_batches,
+                                                             data_name=data_name,
+                                                             cc_weights=[0, 0.001, 0.01, 0.1],
+                                                             consistency_weights=[0, 0.1, 0.5, ],
+                                                             include_baseline=True,
+                                                             powers=[0.75],
+                                                             head_types="linear",
+                                                             num_subheads=3,
+                                                             num_clusters=[40],
+                                                             max_num=500,
+                                                             kernel_size=5,
+                                                             rr_weight=[0.01, 0.02, 0.1],
+                                                             rr_symmetric="true",
+                                                             rr_lamda=(1,),
+                                                             rr_alpha=(0, 0.25, 0.5, 0.75, 1)
+                                                             )
 
-    jobs = list(job_generator)
-    logger.info(f"logging {len(jobs)} jobs")
-    for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=8, account=next(account))
+        jobs = list(job_generator)
+        logger.info(f"logging {len(jobs)} jobs")
+        for job in jobs:
+            submitter.submit(" && \n ".join(job), force_show=force_show, time=8, account=next(account))

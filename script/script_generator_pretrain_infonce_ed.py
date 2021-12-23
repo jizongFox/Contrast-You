@@ -9,35 +9,25 @@ from loguru import logger
 from contrastyou import __accounts, on_cc, MODEL_PATH, OPT_PATH, git_hash
 from contrastyou.configure import yaml_load
 from contrastyou.submitter import SlurmSubmitter
-from script.script_generator_pretrain_cc import _run_ft
+from script.script_generator_pretrain_cc import _run_ft, _run_ft_per_class
 from script.utils import grid_search, move_dataset
 
-parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument("save_dir", type=str, help="save dir")
-parser.add_argument("--data-name", type=str, choices=("acdc", "acdc_lv", "acdc_rv", "prostate"), default="acdc",
-                    help="dataset_choice")
-parser.add_argument("--max-epoch-pretrain", default=50, type=int, help="max epoch")
-parser.add_argument("--max-epoch", default=30, type=int, help="max epoch")
-parser.add_argument("--num-batches", default=300, type=int, help="number of batches")
-parser.add_argument("--seeds", type=int, nargs="+", default=[10, ], )
-parser.add_argument("--force-show", action="store_true", help="showing script")
-parser.add_argument("--encoder", action="store_true", default=False, help="enable encoder pretraining")
-parser.add_argument("--decoder", action="store_true", default=False, help="enable decoder pretraining")
 
-args = parser.parse_args()
+def get_args():
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("save_dir", type=str, help="save dir")
+    parser.add_argument("--data-name", type=str, choices=("acdc", "acdc_lv", "acdc_rv", "prostate"), default="acdc",
+                        help="dataset_choice")
+    parser.add_argument("--max-epoch-pretrain", default=50, type=int, help="max epoch")
+    parser.add_argument("--max-epoch", default=30, type=int, help="max epoch")
+    parser.add_argument("--num-batches", default=300, type=int, help="number of batches")
+    parser.add_argument("--seeds", type=int, nargs="+", default=[10, ], )
+    parser.add_argument("--force-show", action="store_true", help="showing script")
+    parser.add_argument("--encoder", action="store_true", default=False, help="enable encoder pretraining")
+    parser.add_argument("--decoder", action="store_true", default=False, help="enable decoder pretraining")
 
-account = cycle(__accounts)
-on_local = not on_cc()
-force_show = args.force_show
-data_name = args.data_name
-random_seeds = args.seeds
-max_epoch = args.max_epoch
-max_epoch_pretrain = args.max_epoch_pretrain
-num_batches = args.num_batches
-
-save_dir = args.save_dir
-
-save_dir = os.path.join(save_dir, f"hash_{git_hash}/{data_name}/infonce")
+    args = parser.parse_args()
+    return args
 
 
 def get_hyper_param_string(**kwargs):
@@ -88,8 +78,12 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int,
         decoder_spatial_size=decoder_spatial_size
     )
     ft_save_dir = os.path.join(save_dir, "tra")
+    if data_name == "acdc":
+        run_ft = _run_ft_per_class
+    else:
+        run_ft = _run_ft
     ft_script = [
-        _run_ft(
+        run_ft(
             save_dir=os.path.join(ft_save_dir, f"labeled_num_{l:03d}"), random_seed=random_seed,
             num_labeled_scan=l, max_epoch=max_epoch, num_batches=num_batches,
             arch_checkpoint=f"{os.path.join(MODEL_PATH, pretrain_save_dir, 'last.pth')}",
@@ -124,8 +118,12 @@ def run_baseline(
 ) -> List[str]:
     data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
+    if data_name == "acdc":
+        run_ft = _run_ft_per_class
+    else:
+        run_ft = _run_ft
     ft_script = [
-        _run_ft(
+        run_ft(
             save_dir=os.path.join(save_dir, "baseline", f"labeled_num_{l:03d}"), random_seed=random_seed,
             num_labeled_scan=l, max_epoch=max_epoch, num_batches=num_batches,
             arch_checkpoint="null",
@@ -189,6 +187,20 @@ def run_semi_regularize_with_grid_search(
 
 
 if __name__ == '__main__':
+    args = get_args()
+    account = cycle(__accounts)
+    on_local = not on_cc()
+    force_show = args.force_show
+    data_name = args.data_name
+    random_seeds = args.seeds
+    max_epoch = args.max_epoch
+    max_epoch_pretrain = args.max_epoch_pretrain
+    num_batches = args.num_batches
+
+    save_dir = args.save_dir
+
+    save_dir = os.path.join(save_dir, f"hash_{git_hash}/{data_name}/infonce")
+
     submitter = SlurmSubmitter(work_dir="../", stop_on_error=on_local, on_local=on_local)
     submitter.configure_environment([
         # "set -e "
@@ -218,7 +230,7 @@ if __name__ == '__main__':
             num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
             data_name=data_name, infonce_decoder_weight=(0,),
             infonce_encoder_weight=(1,),
-            decoder_spatial_size=(1,),
+            decoder_spatial_size=(10,),
             include_baseline=True, max_num=500
         )
         jobs = list(job_generator)
