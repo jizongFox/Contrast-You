@@ -21,6 +21,9 @@ parser.add_argument("--max-epoch", default=30, type=int, help="max epoch")
 parser.add_argument("--num-batches", default=300, type=int, help="number of batches")
 parser.add_argument("--seeds", type=int, nargs="+", default=[10, ], )
 parser.add_argument("--force-show", action="store_true", help="showing script")
+parser.add_argument("--encoder", action="store_true", default=False, help="enable encoder pretraining")
+parser.add_argument("--decoder", action="store_true", default=False, help="enable decoder pretraining")
+
 args = parser.parse_args()
 
 account = cycle(__accounts)
@@ -207,94 +210,96 @@ if __name__ == '__main__':
     ])
     submitter.configure_sbatch(mem=24)
 
-    # only with encoder
-    job_generator = run_pretrain_ft_with_grid_search(
-        save_dir=os.path.join(save_dir, "pretrain", "encoder"),
-        random_seeds=random_seeds, max_epoch=max_epoch,
-        num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
-        data_name=data_name, infonce_decoder_weight=(0,),
-        infonce_encoder_weight=(1,),
-        decoder_spatial_size=(10,),
-        include_baseline=True, max_num=500
-    )
-    jobs = list(job_generator)
-    logger.info(f"logging {len(jobs)} jobs")
-    for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
+    if args.encoder:
+        # only with encoder
+        job_generator = run_pretrain_ft_with_grid_search(
+            save_dir=os.path.join(save_dir, "pretrain", "encoder"),
+            random_seeds=random_seeds, max_epoch=max_epoch,
+            num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
+            data_name=data_name, infonce_decoder_weight=(0,),
+            infonce_encoder_weight=(1,),
+            decoder_spatial_size=(1,),
+            include_baseline=True, max_num=500
+        )
+        jobs = list(job_generator)
+        logger.info(f"logging {len(jobs)} jobs")
+        for job in jobs:
+            submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
+    if args.decoder:
+        # only with decoder
+        job_generator = run_pretrain_ft_with_grid_search(
+            save_dir=os.path.join(save_dir, "pretrain", "decoder"),
+            random_seeds=random_seeds, max_epoch=max_epoch,
+            num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
+            data_name=data_name, infonce_decoder_weight=(1,),
+            infonce_encoder_weight=(0,),
+            decoder_spatial_size=(20,),
+            include_baseline=True, max_num=500
+        )
+        jobs = list(job_generator)
+        logger.info(f"logging {len(jobs)} jobs")
+        for job in jobs:
+            submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
 
-    # only with decoder
-    job_generator = run_pretrain_ft_with_grid_search(
-        save_dir=os.path.join(save_dir, "pretrain", "decoder"),
-        random_seeds=random_seeds, max_epoch=max_epoch,
-        num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
-        data_name=data_name, infonce_decoder_weight=(1,),
-        infonce_encoder_weight=(0,),
-        decoder_spatial_size=(20,),
-        include_baseline=True, max_num=500
-    )
-    jobs = list(job_generator)
-    logger.info(f"logging {len(jobs)} jobs")
-    for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
-
-    # encoder + decoder
-    job_generator = run_pretrain_ft_with_grid_search(
-        save_dir=os.path.join(save_dir, "pretrain", "encoder_decoder"),
-        random_seeds=random_seeds, max_epoch=max_epoch,
-        num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
-        data_name=data_name, infonce_decoder_weight=(0.0001, 0.001, 0.01, 0.1,),
-        infonce_encoder_weight=(1,),
-        decoder_spatial_size=(20,),
-        include_baseline=True, max_num=500
-    )
-    jobs = list(job_generator)
-    logger.info(f"logging {len(jobs)} jobs")
-    for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
+    if args.encoder and args.decoder:
+        # encoder + decoder
+        job_generator = run_pretrain_ft_with_grid_search(
+            save_dir=os.path.join(save_dir, "pretrain", "encoder_decoder"),
+            random_seeds=random_seeds, max_epoch=max_epoch,
+            num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
+            data_name=data_name, infonce_decoder_weight=(0.0001, 0.001, 0.01, 0.1, 1, 10),
+            infonce_encoder_weight=(0.1, 1,),
+            decoder_spatial_size=(20,),
+            include_baseline=True, max_num=500
+        )
+        jobs = list(job_generator)
+        logger.info(f"logging {len(jobs)} jobs")
+        for job in jobs:
+            submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
 
     # semi
+    if 0:
+        # only with encoder
+        job_generator = run_semi_regularize_with_grid_search(
+            save_dir=os.path.join(save_dir, "semi", "encoder"),
+            random_seeds=random_seeds, max_epoch=max_epoch,
+            num_batches=num_batches,
+            data_name=data_name, infonce_decoder_weight=(0,),
+            infonce_encoder_weight=(0.0001, 0.001, 0.01),
+            decoder_spatial_size=(10,),
+            include_baseline=True, max_num=500
+        )
+        jobs = list(job_generator)
+        logger.info(f"logging {len(jobs)} jobs")
+        for job in jobs:
+            submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
 
-    # only with encoder
-    job_generator = run_semi_regularize_with_grid_search(
-        save_dir=os.path.join(save_dir, "semi", "encoder"),
-        random_seeds=random_seeds, max_epoch=max_epoch,
-        num_batches=num_batches,
-        data_name=data_name, infonce_decoder_weight=(0,),
-        infonce_encoder_weight=(0.0001, 0.001, 0.01),
-        decoder_spatial_size=(10,),
-        include_baseline=True, max_num=500
-    )
-    jobs = list(job_generator)
-    logger.info(f"logging {len(jobs)} jobs")
-    for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
+        # only with decoder
+        job_generator = run_semi_regularize_with_grid_search(
+            save_dir=os.path.join(save_dir, "semi", "decoder"),
+            random_seeds=random_seeds, max_epoch=max_epoch,
+            num_batches=num_batches,
+            data_name=data_name, infonce_decoder_weight=(0.0001, 0.001, 0.01),
+            infonce_encoder_weight=(0,),
+            decoder_spatial_size=(20,),
+            include_baseline=True, max_num=500
+        )
+        jobs = list(job_generator)
+        logger.info(f"logging {len(jobs)} jobs")
+        for job in jobs:
+            submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
 
-    # only with decoder
-    job_generator = run_semi_regularize_with_grid_search(
-        save_dir=os.path.join(save_dir, "semi", "decoder"),
-        random_seeds=random_seeds, max_epoch=max_epoch,
-        num_batches=num_batches,
-        data_name=data_name, infonce_decoder_weight=(0.0001, 0.001, 0.01),
-        infonce_encoder_weight=(0,),
-        decoder_spatial_size=(20,),
-        include_baseline=True, max_num=500
-    )
-    jobs = list(job_generator)
-    logger.info(f"logging {len(jobs)} jobs")
-    for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
-
-    # encoder + decoder
-    job_generator = run_semi_regularize_with_grid_search(
-        save_dir=os.path.join(save_dir, "semi", "encoder_decoder"),
-        random_seeds=random_seeds, max_epoch=max_epoch,
-        num_batches=num_batches,
-        data_name=data_name, infonce_decoder_weight=(0.0001, 0.001, 0.01),
-        infonce_encoder_weight=(0.0001, 0.001, 0.01),
-        decoder_spatial_size=(20, 30),
-        include_baseline=True, max_num=500
-    )
-    jobs = list(job_generator)
-    logger.info(f"logging {len(jobs)} jobs")
-    for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
+        # encoder + decoder
+        job_generator = run_semi_regularize_with_grid_search(
+            save_dir=os.path.join(save_dir, "semi", "encoder_decoder"),
+            random_seeds=random_seeds, max_epoch=max_epoch,
+            num_batches=num_batches,
+            data_name=data_name, infonce_decoder_weight=(0.0001, 0.001, 0.01),
+            infonce_encoder_weight=(0.0001, 0.001, 0.01),
+            decoder_spatial_size=(20,),
+            include_baseline=True, max_num=500
+        )
+        jobs = list(job_generator)
+        logger.info(f"logging {len(jobs)} jobs")
+        for job in jobs:
+            submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
