@@ -9,10 +9,10 @@ CrossCorrelationParameters:
       weight: 0.1
       kernel_size: 5
       diff_power: 0.75
-    compact:
-      weight: 0.01
     rr:
       weight: 0.0
       symmetric: true
       lamda: 1.5
       alpha: 0 # 0 is the mi, 1 is the barlow-twin.
+Trainer:
+  enable_scale: true

@@ -245,12 +245,13 @@ def compute_joint_2D(x_out: Tensor, x_tf_out: Tensor, *, symmetric: bool = True,
 def compute_joint_2D_with_padding_zeros(x_out: Tensor, x_tf_out: Tensor, *, symmetric: bool = True):
     k = x_out.shape[1]
     x_out = x_out.swapaxes(0, 1).reshape(k, -1)
+    N = x_out.shape[1]
     x_tf_out = x_tf_out.swapaxes(0, 1).reshape(k, -1)
-    p_i_j = x_out @ x_tf_out.t()
-    p_i_j = p_i_j - p_i_j.min().detach() + 1e-8
+    p_i_j = (x_out / math.sqrt(N)) @ (x_tf_out.t() / math.sqrt(N))
+    # p_i_j = p_i_j - p_i_j.min().detach() + 1e-8
 
     # T x T x k x k
-    p_i_j /= p_i_j.sum()
+    # p_i_j /= p_i_j.sum()
 
     # symmetrise, transpose the k x k part
     if symmetric:
