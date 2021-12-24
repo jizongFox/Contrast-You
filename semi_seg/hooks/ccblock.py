@@ -8,6 +8,7 @@ from itertools import chain
 import torch
 from loguru import logger
 from torch import Tensor, nn
+from torch.cuda.amp import autocast
 from torch.nn import functional as F
 
 from contrastyou.arch.unet import UNetFeatureMapEnum
@@ -485,6 +486,8 @@ class _CrossCorrelationHook(_TinyHook):
         self._ent_func = Entropy(reduction="none")
         self._diff_power = diff_power
 
+    # force not using amp mixed precision training.
+    @autocast(enabled=False)
     def __call__(self, *, image: Tensor, input1: Tensor, input2: Tensor, saver: "FeatureMapSaver",
                  save_image_condition: bool, cur_epoch: int, cur_batch_num: int, **kwargs):
         if self.weight == 0:
@@ -502,7 +505,8 @@ class _CrossCorrelationHook(_TinyHook):
 
         if save_image_condition:
             saver.save_map(
-                image=self.diff_image[0], feature_map1=self.diff_prediction[0], feature_map2=self.diff_prediction[1],
+                image=self.diff_image[0], feature_map1=self.diff_prediction[0],
+                feature_map2=self.diff_prediction[1],
                 cur_epoch=cur_epoch, cur_batch_num=cur_batch_num,
                 save_name="cross_correlation", feature_type="image"
             )
