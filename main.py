@@ -59,7 +59,11 @@ def worker(config, absolute_save_dir, seed):
         model = UNet(input_dim=data_opt.input_dim, num_classes=data_opt.num_classes, **config["Arch"])
     if model_checkpoint:
         logger.info(f"loading checkpoint from  {model_checkpoint}")
-        model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=True)
+        try:
+            model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=True)
+        except RuntimeError as e:
+            # shape mismatch for network.
+            logger.warning(e)
 
     trainer_name = config["Trainer"]["name"]
     is_pretrain = ("pretrain" in trainer_name)
