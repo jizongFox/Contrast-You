@@ -254,6 +254,7 @@ class DistributionTracker:
 
 @switch_plt_backend("agg")
 def joint_2D_figure(joint_map: np.ndarray, *, tb_writer: SummaryWriter, cur_epoch: int, tag: str):
+    joint_map = joint_map.astype(np.float)
     fig = plt.figure()
     plt.imshow(joint_map)
     plt.colorbar()
