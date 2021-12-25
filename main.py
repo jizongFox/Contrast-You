@@ -58,9 +58,10 @@ def worker(config, absolute_save_dir, seed):
     with fix_all_seed_within_context(seed):
         model = UNet(input_dim=data_opt.input_dim, num_classes=data_opt.num_classes, **config["Arch"])
     if model_checkpoint:
-        logger.info(f"loading checkpoint from  {model_checkpoint}")
+        logger.info(f"loading model checkpoint from  {model_checkpoint}")
         try:
             model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=True)
+            logger.info(f"successfully loaded model checkpoint from  {model_checkpoint}")
         except RuntimeError as e:
             # shape mismatch for network.
             logger.warning(e)
