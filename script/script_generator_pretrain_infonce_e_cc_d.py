@@ -8,7 +8,7 @@ from loguru import logger
 from contrastyou import __accounts, on_cc, MODEL_PATH, OPT_PATH, git_hash
 from contrastyou.configure import yaml_load
 from contrastyou.submitter import SlurmSubmitter
-from script.script_generator_pretrain_cc import get_hyper_param_string
+from script.script_generator_pretrain_cc import get_hyper_param_string, _run_ft_per_class, _run_ft
 from script.utils import grid_search, move_dataset
 
 
@@ -22,29 +22,10 @@ def get_args():
     parser.add_argument("--max-epoch", default=30, type=int, help="max epoch")
     parser.add_argument("--num-batches", default=300, type=int, help="number of batches")
     parser.add_argument("--seeds", type=int, nargs="+", default=[10, ], )
+    parser.add_argument("--pretrain-scan-num", type=int, default=6, help="default `scan_sample_num` for pretraining")
     parser.add_argument("--force-show", action="store_true", help="showing script")
     args = parser.parse_args()
     return args
-
-
-def _run_ft(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int, num_batches: int,
-            arch_checkpoint: str = "null", lr: float, data_name: str = "acdc"):
-    return f""" python main.py RandomSeed={random_seed} Trainer.name=ft \
-     Trainer.save_dir={save_dir} Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name} \
-    Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
-    """
-
-
-def _run_ft_per_class(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int, num_batches: int,
-                      arch_checkpoint: str = "null", lr: float, data_name: str = "acdc"):
-    assert data_name == "acdc", "only support acdc dataset"
-    return f""" python main.py RandomSeed={random_seed} Trainer.name=ft \
-     Trainer.save_dir={save_dir}/lv Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name}_lv \
-    Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f}  && \
-    python main.py RandomSeed={random_seed} Trainer.name=ft \
-     Trainer.save_dir={save_dir}/rv Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name}_rv \
-    Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f}  \
-    """
 
 
 def _run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int, num_batches: int,
@@ -70,8 +51,9 @@ def _run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, ma
     """
 
 
-def _run_pretrain_cc(*, save_dir: str, random_seed: int = 10, max_epoch: int, num_batches: int, cc_weight: float,
-                     consistency_weight: float, lr: float, data_name: str = "acdc", power: float, head_type: str,
+def _run_pretrain_cc(*, save_dir: str, random_seed: int = 10, max_epoch: int, num_batches: int, scan_sample_num: int,
+                     cc_weight: float, consistency_weight: float, lr: float, data_name: str = "acdc", power: float,
+                     head_type: str,
                      num_subheads: int, num_clusters: int,
                      kernel_size: int, rr_weight: float, rr_symmetric: str,
                      rr_lamda: float, rr_alpha: float):
@@ -88,12 +70,13 @@ def _run_pretrain_cc(*, save_dir: str, random_seed: int = 10, max_epoch: int, nu
     CrossCorrelationParameters.hooks.rr.symmetric={rr_symmetric}  \
     CrossCorrelationParameters.hooks.rr.lamda={rr_lamda:.10f} \
     CrossCorrelationParameters.hooks.rr.alpha={rr_alpha:.10f}  \
+    ContrastiveLoaderParams.scan_sample_num={scan_sample_num}  \
     --path config/base.yaml config/pretrain.yaml config/hooks/ccblocks2.yaml config/hooks/consistency.yaml config/hooks/infonce_encoder.yaml \
     """
 
 
 def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int, max_epoch: int, num_batches: int,
-                    data_name: str = "acdc",
+                    data_name: str = "acdc", pretrain_scan_sample_num: int,
                     cc_weight, consistency_weight,
                     power: float, head_type: str, num_subheads: int, num_clusters: int, kernel_size: int,
                     rr_weight: float, rr_symmetric: str, rr_lamda: float,
@@ -107,7 +90,8 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int,
         cc_weight=cc_weight, lr=data_opt["pre_lr"], data_name=data_name,
         consistency_weight=consistency_weight, power=power, head_type=head_type,
         num_subheads=num_subheads, num_clusters=num_clusters, kernel_size=kernel_size,
-        rr_weight=rr_weight, rr_symmetric=rr_symmetric, rr_lamda=rr_lamda, rr_alpha=rr_alpha
+        rr_weight=rr_weight, rr_symmetric=rr_symmetric, rr_lamda=rr_lamda, rr_alpha=rr_alpha,
+        scan_sample_num=pretrain_scan_sample_num
     )
     ft_save_dir = os.path.join(save_dir, "tra")
     if data_name == "acdc":
@@ -178,10 +162,11 @@ def run_pretrain_ft_with_grid_search(
         num_subheads: Sequence[int], num_clusters: Sequence[int], kernel_size: Sequence[int],
         rr_weight: Sequence[float],
         rr_symmetric: Sequence[str], rr_lamda: Sequence[float], rr_alpha: Sequence[float],
-        include_baseline=True, max_num: Optional[int] = 200,
+        include_baseline=True, max_num: Optional[int] = 200, pretrain_scan_sample_num: Sequence[int],
 ) -> Iterator[List[str]]:
     param_generator = grid_search(max_num=max_num, cc_weight=cc_weights,
                                   random_seed=random_seeds,
+                                  pretrain_scan_sample_num=pretrain_scan_sample_num,
                                   consistency_weight=consistency_weights, rr_weight=rr_weight,
                                   power=powers, head_type=head_types, num_subheads=num_subheads,
                                   kernel_size=kernel_size, rr_symmetric=rr_symmetric,
@@ -286,7 +271,8 @@ if __name__ == '__main__':
                                                      rr_weight=(1,),
                                                      rr_symmetric="true",
                                                      rr_lamda=(1,),
-                                                     rr_alpha=(0, 0.25, 0.5, 0.75, 1)
+                                                     rr_alpha=(0, 0.25, 0.5, 0.75, 1),
+                                                     pretrain_scan_sample_num=[1, 2, 4, 6, ]
                                                      )
     jobs = list(job_generator)
     logger.info(f"logging {len(jobs)} jobs")

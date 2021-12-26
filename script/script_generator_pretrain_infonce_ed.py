@@ -1,6 +1,5 @@
 import argparse
 import os
-from collections.abc import Iterable
 from itertools import cycle
 from typing import Sequence, List, Iterator, Optional
 
@@ -9,7 +8,7 @@ from loguru import logger
 from contrastyou import __accounts, on_cc, MODEL_PATH, OPT_PATH, git_hash
 from contrastyou.configure import yaml_load
 from contrastyou.submitter import SlurmSubmitter
-from script.script_generator_pretrain_cc import _run_ft, _run_ft_per_class
+from script.script_generator_pretrain_cc import _run_ft, _run_ft_per_class, get_hyper_param_string
 from script.utils import grid_search, move_dataset
 
 
@@ -25,29 +24,20 @@ def get_args():
     parser.add_argument("--force-show", action="store_true", help="showing script")
     parser.add_argument("--encoder", action="store_true", default=False, help="enable encoder pretraining")
     parser.add_argument("--decoder", action="store_true", default=False, help="enable decoder pretraining")
+    parser.add_argument("--pretrain-scan-num", type=int, default=6, help="default `scan_sample_num` for pretraining")
 
     args = parser.parse_args()
     return args
 
 
-def get_hyper_param_string(**kwargs):
-    def to_str(v):
-        if isinstance(v, Iterable) and (not isinstance(v, str)):
-            return "_".join([str(x) for x in v])
-        return v
-
-    list_string = [f"{k}_{to_str(v)}" for k, v in kwargs.items()]
-    prefix = "/".join(list_string)
-    return prefix
-
-
 def _run_pretrain_cc(*, save_dir: str, random_seed: int = 10, max_epoch: int, num_batches: int, lr: float,
-                     data_name: str = "acdc", infonce_encoder_weight: float, infonce_decoder_weight: float,
-                     decoder_spatial_size: int):
+                     scan_sample_num: int, data_name: str = "acdc", infonce_encoder_weight: float,
+                     infonce_decoder_weight: float, decoder_spatial_size: int):
     return f"""  python main_nd.py RandomSeed={random_seed} Trainer.name=pretrain_decoder Trainer.save_dir={save_dir} \
     Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches}  Optim.lr={lr:.10f} Data.name={data_name} \
     InfonceParams.weights=[{infonce_encoder_weight:.10f},{infonce_decoder_weight:.10f}] \
     InfonceParams.spatial_size=[1,{decoder_spatial_size}] \
+    ContrastiveLoaderParams.scan_sample_num={scan_sample_num}  \
     --path config/base.yaml config/pretrain.yaml config/hooks/infonce_encoder_dense.yaml \
     """
 
@@ -65,8 +55,8 @@ def _run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, ma
 
 
 def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int, max_epoch: int, num_batches: int,
-                    data_name: str = "acdc", infonce_encoder_weight: float, infonce_decoder_weight: float,
-                    decoder_spatial_size: int
+                    data_name: str = "acdc", pretrain_scan_sample_num: int, infonce_encoder_weight: float,
+                    infonce_decoder_weight: float, decoder_spatial_size: int
                     ):
     data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
@@ -75,7 +65,8 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int,
         save_dir=pretrain_save_dir, random_seed=random_seed, max_epoch=max_epoch_pretrain, num_batches=num_batches,
         lr=data_opt["pre_lr"], data_name=data_name, infonce_decoder_weight=infonce_decoder_weight,
         infonce_encoder_weight=infonce_encoder_weight,
-        decoder_spatial_size=decoder_spatial_size
+        decoder_spatial_size=decoder_spatial_size,
+        scan_sample_num=pretrain_scan_sample_num
     )
     ft_save_dir = os.path.join(save_dir, "tra")
     if data_name == "acdc":
@@ -138,12 +129,14 @@ def run_pretrain_ft_with_grid_search(
         *, save_dir, random_seeds: Sequence[int] = 10, max_epoch_pretrain: int, max_epoch: int, num_batches: int,
         data_name: str, infonce_decoder_weight: Sequence[float], infonce_encoder_weight: Sequence[float],
         decoder_spatial_size: Sequence[int],
-        include_baseline=True, max_num: Optional[int] = 200,
+        include_baseline=True, max_num: Optional[int] = 200, pretrain_scan_sample_num: Sequence[int],
 ) -> Iterator[List[str]]:
-    param_generator = grid_search(max_num=max_num, infonce_decoder_weight=infonce_decoder_weight,
+    param_generator = grid_search(max_num=max_num,
+                                  random_seed=random_seeds,
+                                  pretrain_scan_sample_num=pretrain_scan_sample_num,
                                   infonce_encoder_weight=infonce_encoder_weight,
-                                  decoder_spatial_size=decoder_spatial_size,
-                                  random_seed=random_seeds)
+                                  infonce_decoder_weight=infonce_decoder_weight,
+                                  decoder_spatial_size=decoder_spatial_size)
     for param in param_generator:
         random_seed = param.pop("random_seed")
         sp_str = get_hyper_param_string(**param)
@@ -231,7 +224,8 @@ if __name__ == '__main__':
             data_name=data_name, infonce_decoder_weight=(0,),
             infonce_encoder_weight=(1,),
             decoder_spatial_size=(10,),
-            include_baseline=True, max_num=500
+            include_baseline=True, max_num=500,
+            pretrain_scan_sample_num=[1, 2, 4, 6, ]
         )
         jobs = list(job_generator)
         logger.info(f"logging {len(jobs)} jobs")
@@ -246,7 +240,8 @@ if __name__ == '__main__':
             data_name=data_name, infonce_decoder_weight=(1,),
             infonce_encoder_weight=(0,),
             decoder_spatial_size=(20,),
-            include_baseline=True, max_num=500
+            include_baseline=True, max_num=500,
+            pretrain_scan_sample_num=[1, 2, 4, 6, ]
         )
         jobs = list(job_generator)
         logger.info(f"logging {len(jobs)} jobs")
@@ -262,7 +257,8 @@ if __name__ == '__main__':
             data_name=data_name, infonce_decoder_weight=(0.0001, 0.001, 0.01, 0.1, 1, 10),
             infonce_encoder_weight=(0.1, 1,),
             decoder_spatial_size=(20,),
-            include_baseline=True, max_num=500
+            include_baseline=True, max_num=500,
+            pretrain_scan_sample_num=[1, 2, 4, 6, ]
         )
         jobs = list(job_generator)
         logger.info(f"logging {len(jobs)} jobs")
