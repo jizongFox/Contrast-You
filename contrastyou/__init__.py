@@ -28,7 +28,8 @@ logger_format = "<green>{time:MM/DD HH:mm:ss.SS}</green> | <level>{level: ^7}</l
 def config_logger():
     logger.remove()
 
-    logger.add(sys.stderr, format=logger_format, backtrace=False, diagnose=True, colorize=True)
+    logger.add(sys.stderr, format=logger_format, backtrace=False, diagnose=True, colorize=True,
+               filter=lambda r: r["extra"].get("enabled", True))
 
 
 config_logger()
