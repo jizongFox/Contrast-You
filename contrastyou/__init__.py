@@ -81,6 +81,13 @@ def get_true_data_path() -> str:
     return DATA_PATH
 
 
+def match_narval(name):
+    match = re.compile(r"ng\d+").match(name)
+    if match:
+        return True
+    return False
+
+
 def on_cc() -> bool:
     """return if running on Compute Canada"""
     import socket
@@ -93,6 +100,8 @@ def on_cc() -> bool:
         return True
     # on graham
     if "gra" in hostname:
+        return True
+    if "narval" in hostname or match_narval(hostname):
         return True
     return False
 
