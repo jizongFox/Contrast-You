@@ -306,7 +306,7 @@ class _CrossCorrelationEpocherHookWithSaver(_CrossCorrelationEpocherHook):
 # new interface
 class _TinyHook(metaclass=ABCMeta):
 
-    def __init__(self, *, name: str, criterion: t.Callable, weight: float) -> None:
+    def __init__(self, *, name: str, criterion: nn.Module, weight: float) -> None:
         self.name = name
         self.criterion = criterion
         self.weight = weight
@@ -331,6 +331,12 @@ class _TinyHook(metaclass=ABCMeta):
     def get_tb_writer():
         return get_tb_writer()
 
+    def __repr__(self):
+        return self.__class__.__name__ + f": {self.name}" + self.__repr_extra__()
+
+    def __repr_extra__(self):
+        return f"weight={self.weight}"
+
 
 class ProjectorGeneralHook(TrainerHook):
 
@@ -346,7 +352,8 @@ class ProjectorGeneralHook(TrainerHook):
         )
         input_dim = model.get_channel_dim(feature_name.value)  # model: type: UNet
         logger.trace(f"Creating projector with {item2str(projector_params)}")
-        self._projector = CrossCorrelationProjector(input_dim=input_dim, **projector_params)
+        with logger.contextualize(enabled=False):
+            self._projector = CrossCorrelationProjector(input_dim=input_dim, **projector_params)
 
         self._feature_hooks = []
         self._dist_hooks = []
@@ -362,11 +369,11 @@ class ProjectorGeneralHook(TrainerHook):
                                                   folder_name=f"dist/{self._hook_name}")
 
     def register_feat_hook(self, *hook: '_TinyHook'):
-        logger.debug(f"register {hook}")
+        logger.debug(f"register {','.join([str(x) for x in hook])}")
         self._feature_hooks.extend(hook)
 
     def register_dist_hook(self, *hook: '_TinyHook'):
-        logger.debug(f"register {hook}")
+        logger.debug(f"register {','.join([str(x) for x in hook])}")
         self._dist_hooks.extend(hook)
 
     def __call__(self, **kwargs):
@@ -486,6 +493,9 @@ class _CrossCorrelationHook(_TinyHook):
         self._ent_func = Entropy(reduction="none")
         self._diff_power = diff_power
 
+    def __repr_extra__(self):
+        return super(_CrossCorrelationHook, self).__repr_extra__() + f" diff_power={self._diff_power}"
+
     # force not using amp mixed precision training.
     @autocast(enabled=False)
     def __call__(self, *, image: Tensor, input1: Tensor, input2: Tensor, saver: "FeatureMapSaver",
@@ -553,7 +563,14 @@ class _MIHook(_TinyHook):
 
     def __init__(self, *, name: str = "mi", weight: float, lamda: float, padding: int = 0, symmetric=True) -> None:
         criterion: IIDSegmentationLoss = IIDSegmentationLoss(lamda=lamda, padding=padding, symmetric=symmetric)
+        self.lamda = lamda
+        self.padding = padding
+        self.symmetric = symmetric
         super().__init__(name=name, criterion=criterion, weight=weight)
+
+    def __repr_extra__(self):
+        return super(_MIHook, self).__repr_extra__() + \
+               f" lamda={self.lamda} padding={self.padding} symmetric={self.symmetric}"
 
     def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, **kwargs):
         if self.weight == 0:
@@ -574,10 +591,17 @@ class _MIHook(_TinyHook):
 
 class _RedundancyReduction(_TinyHook):
 
-    def __init__(self, *, name: str = "rr", weight: float, symmetric: bool = True, lamda: float = 0.2, alpha: float,
+    def __init__(self, *, name: str = "rr", weight: float, symmetric: bool = True, lamda: float = 1, alpha: float,
                  ) -> None:
+        self.lamda = lamda
+        self.symmetric = symmetric
+        self.alpha = alpha
         criterion = RedundancyCriterion(symmetric=symmetric, lamda=lamda, alpha=alpha)
         super().__init__(name=name, criterion=criterion, weight=weight)
+
+    def __repr_extra__(self):
+        return super(_RedundancyReduction, self).__repr_extra__() + \
+               f" lamda={self.lamda} alpha={self.alpha} symmetric={self.symmetric}"
 
     def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, **kwargs):
         if self.weight == 0:
@@ -656,6 +680,12 @@ class _IMSATHook(_TinyHook):
     def __init__(self, *, name: str = "imsat", weight: float, use_dynamic=True, lamda: float = 1.0) -> None:
         criterion = IMSATDynamicWeight(use_dynamic=use_dynamic, lamda=lamda)
         super().__init__(name=name, criterion=criterion, weight=weight)
+        self.lamda = lamda
+        self.use_dynamic = use_dynamic
+
+    def __repr_extra__(self):
+        return super(_IMSATHook, self).__repr_extra__() + \
+               f" lamda={self.lamda} dynamic={self.use_dynamic}"
 
     def configure_meters(self, meters: 'MeterInterface'):
         meters = super().configure_meters(meters)

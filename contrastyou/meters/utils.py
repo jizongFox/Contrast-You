@@ -1,7 +1,5 @@
 from abc import ABCMeta
 from collections import OrderedDict
-from collections import deque
-from queue import Queue as _Queue
 from typing import Dict, Any
 
 import pandas as pd
@@ -21,7 +19,7 @@ class HistoricalContainer(metaclass=ABCMeta):
     """
 
     def __init__(self) -> None:
-        self._record_dict = OrderedDict()
+        self._record_dict: "OrderedDict" = OrderedDict()
         self._current_epoch = 0
 
     @property
@@ -61,4 +59,3 @@ class HistoricalContainer(metaclass=ABCMeta):
 def rename_df_columns(dataframe: pd.DataFrame, name: str, sep="_"):
     dataframe.columns = list(map(lambda x: name + sep + x, dataframe.columns))
     return dataframe
-

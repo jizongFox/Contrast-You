@@ -1,48 +1,22 @@
 from functools import partial
-from typing import Dict, Any, Callable, Type, Union, Optional
+from typing import Type, Union, TYPE_CHECKING
 
 from loguru import logger
-from torch import nn, Tensor
-from torch.cuda.amp import GradScaler
-from torch.nn import ModuleList
-from torch.optim import Optimizer
-from torch.utils.data.dataloader import _BaseDataLoaderIter as BaseDataLoaderIter, DataLoader  # noqa
 
 from contrastyou.arch import UNet
-from contrastyou.losses import LossClass
-from contrastyou.meters import Storage
-from contrastyou.types import SizedIterable
-from contrastyou.writer import SummaryWriter
-from semi_seg.epochers.epocher import EpocherBase
 from semi_seg.epochers.pretrain import PretrainEncoderEpocher, PretrainDecoderEpocher
 from semi_seg.trainers._helper import _get_contrastive_dataloader
 from semi_seg.trainers.trainer import SemiTrainer
 
+if TYPE_CHECKING:
+    from semi_seg.epochers.epocher import EpocherBase
 
-class _PretrainTrainerMixin:
-    _model: nn.Module
-    _labeled_loader: SizedIterable
-    _unlabeled_loader: SizedIterable
-    _config: Dict[str, Any]
-    _start_epoch: int
-    _max_epoch: int
-    _save_dir: str
-    init: Callable[..., None]
-    on_master: Callable[[], bool]
-    tra_epoch: Callable
-    save_to: Callable
-    _contrastive_loader: BaseDataLoaderIter
-    _storage: Storage
-    _writer: Optional[SummaryWriter]
-    activate_hooks = True
-    __hooks__: ModuleList
-    _optimizer: Optimizer
-    train_epocher: Type[EpocherBase]
-    _cur_epoch: int
-    _device: str
-    _num_batches: int
-    scaler: GradScaler
-    _criterion: LossClass[Tensor]
+    _Base = SemiTrainer
+else:
+    _Base = object
+
+
+class _PretrainTrainerMixin(_Base):
 
     def __init__(self, **kwargs):
         super(_PretrainTrainerMixin, self).__init__(**kwargs)
@@ -78,26 +52,30 @@ class _PretrainTrainerMixin:
                                monitor_dataloader=self._monitor_loader)
         return super(_PretrainTrainerMixin, self)._run_epoch(epocher, *args, **kwargs)  # noqa
 
-    def _start_training(self, **kwargs):
+    def _start_training(self: Union['SemiTrainer', '_PretrainTrainerMixin'], **kwargs):
         start_epoch = max(self._cur_epoch + 1, self._start_epoch)
         self._cur_score: float
 
         for self._cur_epoch in range(start_epoch, self._max_epoch + 1):
             with self._storage:  # save csv each epoch
+
                 train_metrics = self.tra_epoch()
+
                 if self.on_master():
                     self._storage.add_from_meter_interface(
                         pre_tra=train_metrics, epoch=self._cur_epoch)
+                    assert self._writer
                     self._writer.add_scalars_from_meter_interface(
                         pre_tra=train_metrics, epoch=self._cur_epoch)
 
                 if hasattr(self, "_scheduler"):
+                    assert self._scheduler
                     self._scheduler.step()
 
             if self.on_master():
                 self.save_to(save_name="last.pth")
 
-    def _create_initialized_tra_epoch(self, **kwargs) -> EpocherBase:
+    def _create_initialized_tra_epoch(self, **kwargs) -> 'EpocherBase':
         epocher = self.train_epocher(
             model=self._model, optimizer=self._optimizer, labeled_loader=self._labeled_loader,
             unlabeled_loader=self._unlabeled_loader, sup_criterion=self._criterion, num_batches=self._num_batches,
@@ -109,14 +87,17 @@ class _PretrainTrainerMixin:
         epocher.init()
         return epocher
 
+    def inference_demo(self):
+        pass
+
 
 class PretrainEncoderTrainer(_PretrainTrainerMixin, SemiTrainer):
     @property
-    def train_epocher(self) -> Type[EpocherBase]:
+    def train_epocher(self) -> Type['EpocherBase']:
         return PretrainEncoderEpocher
 
 
 class PretrainDecoderTrainer(_PretrainTrainerMixin, SemiTrainer):
     @property
-    def train_epocher(self) -> Type[EpocherBase]:
+    def train_epocher(self) -> Type['EpocherBase']:
         return PretrainDecoderEpocher

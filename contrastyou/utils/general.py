@@ -168,4 +168,4 @@ def assert_list(func: Callable[[A], bool], Iters: Iterable) -> bool:
 
 
 def iter_average(input_iter: Iterable):
-    return sum(input_iter) / len(input_iter)
+    return sum(input_iter) / len(tuple(input_iter))

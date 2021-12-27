@@ -5,6 +5,8 @@ from copy import deepcopy
 from functools import lru_cache, partial
 from typing import Any, Dict, Optional, final
 
+import rising.random as tr
+import rising.transforms as t
 import torch
 from loguru import logger
 from torch import nn, Tensor
@@ -204,9 +206,7 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
         self._labeled_loader: SizedIterable = labeled_loader
         self._unlabeled_loader: SizedIterable = unlabeled_loader
         self._sup_criterion = sup_criterion
-        # self._affine_transformer = TensorRandomFlip(axis=[1, 2], threshold=0.8)
-        import rising.transforms as t
-        import rising.random as tr
+
         self._affine_transformer = RisingWrapper(
             geometry_transform=t.Compose(t.BaseAffine(
                 scale=tr.UniformParameter(0.8, 1.3),
@@ -214,7 +214,7 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
                 translation=tr.UniformParameter(-0.1, 0.1),
                 degree=True,
                 interpolation_mode="nearest",
-                grad=True
+                grad=True,
             ),
                 t.Mirror(dims=tr.DiscreteParameter([0, 1]), p_sample=0.9, grad=True)
             ),

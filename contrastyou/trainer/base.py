@@ -42,7 +42,7 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
         if config is not None:
             self.dump_config(self._config)
         self._optimizer = None
-        self._scheduler = None
+        self._scheduler: GradualWarmupScheduler = None
         self._initialized = False
 
     def init(self):
@@ -83,7 +83,7 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
         )
         return optimizer
 
-    def _init_scheduler(self, optimizer, scheduler_params):
+    def _init_scheduler(self, optimizer, scheduler_params) -> GradualWarmupScheduler:
         if scheduler_params is None:
             return
         max_epoch = self._max_epoch

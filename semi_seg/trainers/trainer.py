@@ -91,6 +91,7 @@ class SemiTrainer(Trainer):
             if not os.path.isabs(save_dir):
                 save_dir = create_save_dir(self, save_dir)
 
+        assert save_dir
         Path(save_dir).mkdir(exist_ok=True, parents=True)
         with open(os.path.join(save_dir, "inference_result.json"), "w") as f:
             json.dump(epoch_metric, f, indent=4)
