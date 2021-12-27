@@ -1,48 +1,27 @@
 # ======== base pretrain epocher mixin ================
+import contextlib
 import random
 import typing as t
 from abc import ABC
 from functools import partial
-from typing import Callable, Any
 
 import torch
-from torch import Tensor, nn
+from loguru import logger
+from rising.utils.transforms import iter_transform
 
 from contrastyou.utils import get_lrs_from_optimizer
 from semi_seg.epochers.epocher import SemiSupervisedEpocher, assert_transform_freedom
 from semi_seg.epochers.helper import preprocess_input_with_twice_transformation
 
+_Base = object
+
 if t.TYPE_CHECKING:
     from contrastyou.meters import MeterInterface
-    from torch.utils.data import DataLoader
-    from contrastyou.mytqdm import tqdm
-    from torch.optim import Optimizer
+
+    _Base = SemiSupervisedEpocher
 
 
-class _PretrainEpocherMixin:
-    """
-    PretrainEpocher makes all images goes to regularization, permitting to use the other classes to create more pretrain
-    models
-    """
-    meters: 'MeterInterface'
-    _model: nn.Module
-    _optimizer: 'Optimizer'
-    indicator: 'tqdm'
-    _labeled_loader: 'DataLoader'
-    _unlabeled_loader: 'DataLoader'
-    _unzip_data: Callable[..., torch.device]
-    _device: torch.device
-    transform_with_seed: Callable[..., Tensor]
-    on_master: Callable[[], bool]
-    regularization: Callable[..., Tensor]
-    forward_pass: Callable
-    autocast: Any
-    meter_focus = "pretra"
-    batch_update: Callable
-    scale_loss: Callable[[Tensor], Tensor]
-    optimizer_step: Callable
-    optimizer_zero: Callable
-    cur_batch_num: int
+class _PretrainEpocherMixin(_Base):
 
     def __init__(self, *, chain_dataloader, inference_until: str, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -78,7 +57,7 @@ class _PretrainEpocherMixin:
             self.indicator.set_postfix_statics(report_dict, cache_time=20)
 
     def _batch_update(self, *, cur_batch_num: int, unlabeled_image, unlabeled_image_tf, seed,
-                      unl_group, unl_partition, unlabeled_filename):
+                      unl_group, unl_partition, unlabeled_filename, **kwargs):
         self.optimizer_zero(self._optimizer, cur_iter=cur_batch_num)
 
         with self.autocast:
@@ -107,7 +86,7 @@ class _PretrainEpocherMixin:
         with torch.no_grad():
             self.meters["reg_loss"].add(reg_loss.item())
 
-    def _forward_pass(self, unlabeled_image, unlabeled_image_tf):
+    def _forward_pass(self, unlabeled_image, unlabeled_image_tf):  # noqa
         n_l, n_unl = 0, len(unlabeled_image)
         predict_logits = self._model(
             torch.cat([unlabeled_image, unlabeled_image_tf], dim=0), until=self._inference_until)
@@ -119,6 +98,64 @@ class _PretrainEpocherMixin:
         (image, target), (image_ct, target_ct), filename, partition, group = \
             preprocess_input_with_twice_transformation(data, device)
         return (image, image_ct), None, filename, partition, group
+
+
+class PretrainEpocherInferenceMixin(_PretrainEpocherMixin, ABC):
+    def _batch_update(self, *, cur_batch_num: int, unlabeled_image, unlabeled_image_tf, seed,  # noqa
+                      unl_group, unl_partition, unlabeled_filename):  # noqa
+
+        with self.autocast:
+            unlabeled_logits, unlabeled_tf_logits = self.forward_pass(
+                unlabeled_image=unlabeled_image,
+                unlabeled_image_tf=unlabeled_image_tf
+            )
+
+            unlabeled_logits_tf = self.transform_with_seed(unlabeled_logits, seed=seed, mode="feature")
+
+            reg_loss = self.regularization(
+                seed=seed,
+                unlabeled_image=unlabeled_image,
+                unlabeled_image_tf=unlabeled_image_tf,
+                unlabeled_tf_logits=unlabeled_tf_logits,
+                unlabeled_logits_tf=unlabeled_logits_tf,
+                label_group=unl_group,
+                partition_group=unl_partition,
+                unlabeled_filename=unlabeled_filename,
+                affine_transformer=partial(self.transform_with_seed, seed=seed, mode="feature")
+            )
+        # remove update
+        with torch.no_grad():
+            self.meters["reg_loss"].add(reg_loss.item())
+
+    @contextlib.contextmanager
+    def disable_rising_augmentation(self) -> t.ContextManager:
+        logger.trace(f"disable rising augmentation")
+        rising_wrapper = self._affine_transformer
+        geometric = iter_transform(rising_wrapper.geometry_transform)
+        geometric_p = {id(x): x.p for x in geometric if hasattr(x, "p")}
+
+        intensity = iter_transform(rising_wrapper.intensity_transform)
+        intensity_p = {id(x): x.p for x in intensity if hasattr(x, "p")}
+
+        for t in iter_transform(rising_wrapper.geometry_transform):
+            if hasattr(t, "p"):
+                setattr(t, "p", 0)
+        for t in iter_transform(rising_wrapper.intensity_transform):
+            if hasattr(t, "p"):
+                setattr(t, "p", 0)
+        yield
+        logger.trace(f"resume rising augmentation")
+
+        for t in iter_transform(rising_wrapper.geometry_transform):
+            if hasattr(t, "p"):
+                setattr(t, "p", geometric_p[id(t)])
+        for t in iter_transform(rising_wrapper.intensity_transform):
+            if hasattr(t, "p"):
+                setattr(t, "p", intensity_p[id(t)])
+
+    def _run_implement(self, **kwargs):
+        with self.disable_rising_augmentation(), torch.no_grad():
+            return super(PretrainEpocherInferenceMixin, self)._run_implement(**kwargs)
 
 
 class PretrainEncoderEpocher(_PretrainEpocherMixin, SemiSupervisedEpocher, ABC):
