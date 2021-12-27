@@ -259,7 +259,7 @@ if __name__ == '__main__':
                                                      random_seeds=random_seeds, max_epoch=max_epoch,
                                                      num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
                                                      data_name=data_name,
-                                                     cc_weights=[0, 0.01, 0.1, 1],
+                                                     cc_weights=[0, 0.01, 0.1, 1, 5],
                                                      consistency_weights=[0],
                                                      include_baseline=True,
                                                      powers=0.75,
