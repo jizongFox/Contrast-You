@@ -1,10 +1,11 @@
+from contextlib import nullcontext
 from functools import partial
 from typing import Type, Union, TYPE_CHECKING
 
 from loguru import logger
 
 from contrastyou.arch import UNet
-from semi_seg.epochers.pretrain import PretrainEncoderEpocher, PretrainDecoderEpocher
+from semi_seg.epochers.pretrain import PretrainEncoderEpocher, PretrainDecoderEpocher, PretrainDecoderEpocherInference
 from semi_seg.trainers._helper import _get_contrastive_dataloader
 from semi_seg.trainers.trainer import SemiTrainer
 
@@ -14,6 +15,8 @@ if TYPE_CHECKING:
     _Base = SemiTrainer
 else:
     _Base = object
+
+__all__ = ["PretrainEncoderTrainer", "PretrainDecoderTrainer"]
 
 
 class _PretrainTrainerMixin(_Base):
@@ -88,13 +91,45 @@ class _PretrainTrainerMixin(_Base):
         return epocher
 
 
-class PretrainEncoderTrainer(_PretrainTrainerMixin, SemiTrainer):
+if TYPE_CHECKING:
+    _BaseInference = _PretrainTrainerMixin
+else:
+    _BaseInference = object
+
+
+class _PretrainInferenceMixin(_BaseInference):
+
+    def _inference(self, *, monitor_dataloader, **kwargs):
+        epocher = PretrainDecoderEpocherInference(chain_dataloader=monitor_dataloader,
+                                                  model=self._model, optimizer=self._optimizer,
+                                                  labeled_loader=self._labeled_loader,
+                                                  unlabeled_loader=self._unlabeled_loader,
+                                                  sup_criterion=self._criterion, num_batches=self._num_batches,
+                                                  cur_epoch=self._cur_epoch, device=self._device, two_stage=False,
+                                                  disable_bn=False,
+                                                  inference_until=self._inference_until, scaler=self.scaler,
+                                                  accumulate_iter=1)
+        epocher.set_trainer(self)
+        epocher.init()
+        use_hook = self.activate_hooks and len(self._hooks) > 0
+        with epocher.register_hook(*[h() for h in self._hooks]) if use_hook else nullcontext():
+            epocher.run()
+
+    def inference(self, **kwargs):
+        monitor_dataloader = self._monitor_loader
+        self._model.eval()
+        with self._writer if self.on_master() else nullcontext():
+            self._inference(monitor_dataloader=monitor_dataloader)
+        self._model.train()
+
+
+class PretrainEncoderTrainer(_PretrainInferenceMixin, _PretrainTrainerMixin, SemiTrainer):
     @property
     def train_epocher(self) -> Type['EpocherBase']:
         return PretrainEncoderEpocher
 
 
-class PretrainDecoderTrainer(_PretrainTrainerMixin, SemiTrainer):
+class PretrainDecoderTrainer(_PretrainInferenceMixin, _PretrainTrainerMixin, SemiTrainer):
     @property
     def train_epocher(self) -> Type['EpocherBase']:
         return PretrainDecoderEpocher

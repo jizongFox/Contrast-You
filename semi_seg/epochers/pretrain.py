@@ -2,7 +2,7 @@
 import contextlib
 import random
 import typing as t
-from abc import ABC
+from abc import ABC, ABCMeta
 from functools import partial
 
 import torch
@@ -13,15 +13,15 @@ from contrastyou.utils import get_lrs_from_optimizer
 from semi_seg.epochers.epocher import SemiSupervisedEpocher, assert_transform_freedom
 from semi_seg.epochers.helper import preprocess_input_with_twice_transformation
 
-_Base = object
-
 if t.TYPE_CHECKING:
     from contrastyou.meters import MeterInterface
 
     _Base = SemiSupervisedEpocher
+else:
+    _Base = object
 
 
-class _PretrainEpocherMixin(_Base):
+class _PretrainEpocherMixin(_Base, metaclass=ABCMeta):
 
     def __init__(self, *, chain_dataloader, inference_until: str, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -100,8 +100,14 @@ class _PretrainEpocherMixin(_Base):
         return (image, image_ct), None, filename, partition, group
 
 
-class PretrainEpocherInferenceMixin(_PretrainEpocherMixin, ABC):
-    def _batch_update(self, *, cur_batch_num: int, unlabeled_image, unlabeled_image_tf, seed,  # noqa
+if t.TYPE_CHECKING:
+    _BaseInference = _PretrainEpocherMixin
+else:
+    _BaseInference = object
+
+
+class _PretrainInferenceEpocherMixin(_BaseInference, metaclass=ABCMeta):
+    def _batch_update(self, *, cur_batch_num: int, unlabeled_image, unlabeled_image_tf, seed,  # type: ignore # noqa
                       unl_group, unl_partition, unlabeled_filename):  # noqa
 
         with self.autocast:
@@ -125,10 +131,10 @@ class PretrainEpocherInferenceMixin(_PretrainEpocherMixin, ABC):
             )
         # remove update
         with torch.no_grad():
-            self.meters["reg_loss"].add(reg_loss.item())
+            self.meters["reg_loss"].add(reg_loss.item())  # type: ignore
 
     @contextlib.contextmanager
-    def disable_rising_augmentation(self) -> t.ContextManager:
+    def disable_rising_augmentation(self):
         logger.trace(f"disable rising augmentation")
         rising_wrapper = self._affine_transformer
         geometric = iter_transform(rising_wrapper.geometry_transform)
@@ -155,7 +161,7 @@ class PretrainEpocherInferenceMixin(_PretrainEpocherMixin, ABC):
 
     def _run_implement(self, **kwargs):
         with self.disable_rising_augmentation(), torch.no_grad():
-            return super(PretrainEpocherInferenceMixin, self)._run_implement(**kwargs)
+            return super(_PretrainInferenceEpocherMixin, self)._run_implement(**kwargs)
 
 
 class PretrainEncoderEpocher(_PretrainEpocherMixin, SemiSupervisedEpocher, ABC):
@@ -166,6 +172,14 @@ class PretrainEncoderEpocher(_PretrainEpocherMixin, SemiSupervisedEpocher, ABC):
 
 
 class PretrainDecoderEpocher(_PretrainEpocherMixin, SemiSupervisedEpocher, ABC):
+    def _assertion(self):
+        assert_transform_freedom(self._labeled_loader, False)
+        if self._unlabeled_loader is not None:
+            assert_transform_freedom(self._unlabeled_loader, False)
+
+
+class PretrainDecoderEpocherInference(_PretrainInferenceEpocherMixin, _PretrainEpocherMixin,
+                                      SemiSupervisedEpocher, ABC):
     def _assertion(self):
         assert_transform_freedom(self._labeled_loader, False)
         if self._unlabeled_loader is not None:

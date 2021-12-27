@@ -1,3 +1,4 @@
+import os
 import random
 import typing as t
 import warnings
@@ -430,6 +431,7 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
                              affine_transformer: t.Callable[[Tensor], Tensor],
                              unlabeled_image: Tensor, seed: int, **kwargs):
         save_image_condition = self.epocher.cur_batch_num == 0 and self.epocher.cur_epoch % 3 == 0 and self.saver is not None
+        save_image_condition = save_image_condition or (self.save_flag and self.saver is not None)
 
         n_unl = len(unlabeled_logits_tf)
         feature_ = self.extractor.feature()[-n_unl * 2:]
@@ -483,6 +485,10 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
         self.extractor.remove()
         for h in chain(self._feature_hooks, self._dist_hooks):
             h.close()
+
+    @property
+    def save_flag(self) -> bool:
+        return os.environ.get("contrast_save_flag", "false") == "true"
 
 
 class _CrossCorrelationHook(_TinyHook):
