@@ -3,13 +3,14 @@ import typing as t
 from functools import lru_cache
 from pathlib import Path
 
+import numpy as np
 from loguru import logger
 from matplotlib import pyplot as plt
 from torch import Tensor
 
 from contrastyou.utils import switch_plt_backend
 from contrastyou.utils.colors import label2colored_image
-from contrastyou.writer import get_tb_writer
+from contrastyou.writer import get_tb_writer, SummaryWriter
 from semi_seg.epochers.helper import PartitionLabelGenerator, PatientLabelGenerator, ACDCCycleGenerator, \
     SIMCLRGenerator
 
@@ -17,7 +18,7 @@ from semi_seg.epochers.helper import PartitionLabelGenerator, PatientLabelGenera
 @lru_cache()
 def global_label_generator(dataset_name: str, contrast_on: str):
     logger.debug("initialize {} label generator for encoder training", contrast_on)
-    if dataset_name == "acdc":
+    if dataset_name == "acdc" or "acdc" in dataset_name:
         if contrast_on == "partition":
             return PartitionLabelGenerator()
         elif contrast_on == "patient":
@@ -69,7 +70,7 @@ def global_label_generator(dataset_name: str, contrast_on: str):
 
 
 def get_label(contrast_on, data_name, partition_group, label_group):
-    if data_name == "acdc":
+    if data_name == "acdc" or "acdc" in data_name:
         labels = global_label_generator(dataset_name="acdc", contrast_on=contrast_on) \
             (partition_list=partition_group,
              patient_list=[p.split("_")[0] for p in label_group],
@@ -141,7 +142,8 @@ class FeatureMapSaver:
             feature_map2 = label2colored_image(feature_map2)
 
         for i, (img, f_map1, f_map2) in enumerate(zip(image, feature_map1, feature_map2)):
-            save_path = self.save_dir / self.folder_name / f"{save_name}_{cur_epoch:03d}_{cur_batch_num:02d}_{i:03d}.png"
+            save_path = self.save_dir / self.folder_name / \
+                        f"{save_name}_{cur_epoch:03d}_{cur_batch_num:02d}_{i:03d}.png"
             fig = plt.figure(figsize=(1.5, 4.5))
             plt.subplot(311)
             plt.imshow(img, cmap="gray")
@@ -248,3 +250,16 @@ class DistributionTracker:
         except RuntimeError:
             writer = None
         return writer
+
+
+@switch_plt_backend("agg")
+def joint_2D_figure(joint_map: np.ndarray, *, tb_writer: SummaryWriter, cur_epoch: int, tag: str):
+    joint_map = joint_map.astype(float)
+    fig = plt.figure()
+    plt.imshow(joint_map)
+    plt.colorbar()
+    plt.axis('off')
+    tb_writer.add_figure(
+        tag=f"{tag}/joint_matrix",
+        figure=fig, global_step=cur_epoch, close=True
+    )

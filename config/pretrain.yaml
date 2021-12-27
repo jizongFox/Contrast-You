@@ -5,13 +5,13 @@ Trainer:
 Optim:
   name: RAdam
   lr: 0.0000001
-  weight_decay: 0.00001
+  weight_decay: 0.0
 
 Scheduler:
   multiplier: 400
   warmup_max: 10
 
 ContrastiveLoaderParams:
-  scan_sample_num: 4
+  scan_sample_num: 6
   partition_sample_num: 1
   num_workers: 8

@@ -1,11 +1,12 @@
 from typing import List
 
 import torch
-from torch import nn
+from torch import nn, Tensor
 
 from contrastyou.arch import UNet
 from contrastyou.arch.utils import SingleFeatureExtractor
 from contrastyou.hooks.base import TrainerHook, EpocherHook
+from contrastyou.losses.discreteMI import IMSATLoss
 from contrastyou.meters import AverageValueMeter
 
 decoder_names = UNet.decoder_names
@@ -113,3 +114,63 @@ class _DiscreteMIEpochHook(EpocherHook):
 
     def close(self):
         self._extractor.remove()
+
+
+class DiscreteIMSATTrainHook(DiscreteMITrainHook):
+
+    def __init__(self, *, name, model: nn.Module, feature_name: str, weight: float = 1.0, num_clusters=20,
+                 num_subheads=5, cons_weight: float) -> None:
+        super().__init__(name=name, model=model, feature_name=feature_name, weight=weight, num_clusters=num_clusters,
+                         num_subheads=num_subheads)
+        self._criterion = IMSATLoss(lamda=1.0)
+        self._consistency_criterion = nn.MSELoss()
+        self._consistency_weight = float(cons_weight)
+
+    def __call__(self):
+        return _DiscreteIMSATEpochHook(name=self._hook_name, weight=self._weight, extractor=self._extractor,
+                                       projector=self._projector, criterion=self._criterion,
+                                       cons_criterion=self._consistency_criterion,
+                                       cons_weight=self._consistency_weight)
+
+
+class _DiscreteIMSATEpochHook(_DiscreteMIEpochHook):
+
+    def __init__(self, *, name: str, weight: float, extractor, projector, criterion, cons_criterion,
+                 cons_weight) -> None:
+        super().__init__(name=name, weight=weight, extractor=extractor, projector=projector, criterion=criterion)
+        self._cons_criterion = cons_criterion
+        self._cons_weight = cons_weight
+
+    def configure_meters_given_epocher(self, meters):
+        super(_DiscreteIMSATEpochHook, self).configure_meters_given_epocher(meters)
+        meters.register_meter("cons", AverageValueMeter())
+
+    def _call_implementation(self, *, unlabeled_image, unlabeled_image_tf, affine_transformer, **kwargs):
+        n_unl = len(unlabeled_image)
+        feature_ = self._extractor.feature()[-n_unl * 2:]
+        proj_feature, proj_tf_feature = torch.chunk(feature_, 2, dim=0)
+        assert proj_feature.shape == proj_tf_feature.shape
+        proj_feature_tf = affine_transformer(proj_feature)
+
+        prob1, prob2 = list(
+            zip(*[torch.chunk(x, 2, 0) for x in self._projector(
+                torch.cat([proj_feature_tf, proj_tf_feature], dim=0)
+            )])
+        )
+        loss = sum([self._criterion(self.flatten_predict(x1), self.flatten_predict(x2)) for x1, x2 in
+                    zip(prob1, prob2)]) / len(prob1)
+        cons_loss = sum([self._cons_criterion(x1, x2) for x1, x2 in zip(prob1, prob2)]) / len(prob1)
+
+        self.meters["mi"].add(loss.item())
+        self.meters["cons"].add(cons_loss.item())
+
+        return loss * self._weight + cons_loss * self._cons_weight
+
+    @staticmethod
+    def flatten_predict(prediction: Tensor):
+        assert prediction.dim() == 4
+        b, c, h, w = prediction.shape
+        prediction = torch.swapaxes(prediction, 0, 1)
+        prediction = prediction.reshape(c, -1)
+        prediction = torch.swapaxes(prediction, 0, 1)
+        return prediction

@@ -1,3 +1,4 @@
+import typing as t
 from functools import partial
 from typing import List, Union
 
@@ -23,20 +24,18 @@ def region_extractor(normalize_features, *, point_nums=5, seed: int):
     """
     extractor for dense features, used for contrastive training.
     """
+
+    def get_feature_selected(feature_map, n_point_coordinate):
+        return torch.stack([feature_map[:, n[0], n[1]] for n in n_point_coordinate], dim=0)
+
+    def get_n_point_coordinate(h, w, n):
+        return [(x, y) for x, y in zip(np.random.choice(range(h), n, replace=False),
+                                       np.random.choice(range(w), n, replace=False))]
+
     with fix_all_seed_for_transforms(seed):
-        def get_feature_selected(feature_map, n_point_coordinate):
-            return torch.stack([feature_map[:, n[0], n[1]] for n in n_point_coordinate], dim=0)
-
         h, w = normalize_features.shape[2:]
-        return torch.cat(
-            [get_feature_selected(single_feature, get_n_point_coordinate(n=point_nums, h=h, w=w))
-             for single_feature in normalize_features],
-            dim=0)
-
-
-def get_n_point_coordinate(h, w, n):
-    return [(x, y) for x, y in zip(np.random.choice(range(h), n, replace=False),
-                                   np.random.choice(range(w), n, replace=False))]
+        return torch.cat([get_feature_selected(single_feature, get_n_point_coordinate(n=point_nums, h=h, w=w))
+                          for single_feature in normalize_features], dim=0)
 
 
 @switch_plt_backend("agg")
@@ -83,7 +82,8 @@ class INFONCEHook(TrainerHook):
     def learnable_modules(self) -> List[nn.Module]:
         return [self._projector, ]
 
-    def __init__(self, *, name, model: nn.Module, feature_name: str, weight: float = 1.0, spatial_size=None,
+    def __init__(self, *, name, model: nn.Module, feature_name: str, weight: float = 1.0,
+                 spatial_size: t.Sequence[int] = None,
                  data_name: str, contrast_on: str) -> None:
         super().__init__(hook_name=name)
         assert feature_name in encoder_names + decoder_names, feature_name
@@ -93,9 +93,10 @@ class INFONCEHook(TrainerHook):
         self._extractor = SingleFeatureExtractor(model, feature_name=feature_name)  # noqa
         input_dim = model.get_channel_dim(feature_name)
         if feature_name in encoder_names:
-            spatial_size = spatial_size or (1, 1)
+            assert (spatial_size is None) or (spatial_size == (1, 1))
+            spatial_size = (1, 1)
         else:
-            spatial_size = spatial_size or (10, 10)
+            assert isinstance(spatial_size, t.Sequence) and isinstance(tuple(spatial_size)[0], int)
         self._projector = self.init_projector(input_dim=input_dim, spatial_size=spatial_size)
         self._criterion = self.init_criterion()
         self._label_generator = partial(get_label, contrast_on=contrast_on, data_name=data_name)
@@ -211,9 +212,9 @@ class _INFONCEEpochHook(EpocherHook):
             sim_logits = self._criterion.sim_logits
             pos_mask = self._criterion.pos_mask
             writer = get_tb_writer()
-            figure2board(pos_mask, "mask", self._criterion, writer, self.epocher)
-            figure2board(sim_exp, "sim_exp", self._criterion, writer, self.epocher)
-            figure2board(sim_logits, "sim_logits", self._criterion, writer, self.epocher)
+            figure2board(pos_mask, self.name + "/mask", self._criterion, writer, self.epocher)
+            figure2board(sim_exp, self.name + "/sim_exp", self._criterion, writer, self.epocher)
+            figure2board(sim_logits, self.name + "/sim_logits", self._criterion, writer, self.epocher)
 
         self._n += 1
         return loss * self._weight
@@ -245,9 +246,9 @@ class _INFONCEDenseHook(_INFONCEEpochHook):
             sim_logits = self._criterion.sim_logits
             pos_mask = self._criterion.pos_mask
             writer = get_tb_writer()
-            figure2board(pos_mask, "mask", self._criterion, writer, self.epocher)
-            figure2board(sim_exp, "sim_exp", self._criterion, writer, self.epocher)
-            figure2board(sim_logits, "sim_logits", self._criterion, writer, self.epocher)
+            figure2board(pos_mask, self.name + "/mask", self._criterion, writer, self.epocher)
+            figure2board(sim_exp, self.name + "/sim_exp", self._criterion, writer, self.epocher)
+            figure2board(sim_logits, self.name + "/sim_logits", self._criterion, writer, self.epocher)
 
         self._n += 1
         return loss * self._weight

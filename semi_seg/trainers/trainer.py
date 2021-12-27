@@ -1,19 +1,26 @@
+import json
+import os
 from copy import deepcopy
+from pathlib import Path
 from typing import Type, Dict, Any
 
 from loguru import logger
 from torch import nn, Tensor
 from torch.cuda.amp import GradScaler
+from torch.utils.data import DataLoader
 
 from contrastyou import optim
-from contrastyou.arch.discriminator import Discriminator
+from contrastyou.arch.discriminator import Discriminator, class_name
+from contrastyou.data import ScanBatchSampler
 from contrastyou.losses import LossClass
+from contrastyou.trainer import create_save_dir
 from contrastyou.trainer.base import Trainer
 from contrastyou.types import criterionType, SizedIterable
-from contrastyou.utils import fix_all_seed_within_context
+from contrastyou.utils import fix_all_seed_within_context, get_dataset
 from contrastyou.utils.printable import item2str
 from semi_seg.epochers.comparable import MixUpEpocher, AdversarialEpocher
-from semi_seg.epochers.epocher import EpocherBase, SemiSupervisedEpocher, FineTuneEpocher, EvalEpocher, DMTEpcoher
+from semi_seg.epochers.epocher import EpocherBase, SemiSupervisedEpocher, FineTuneEpocher, EvalEpocher, DMTEpcoher, \
+    InferenceEpocher
 from semi_seg.hooks import MeanTeacherTrainerHook, EMAUpdater
 
 
@@ -62,6 +69,57 @@ class SemiTrainer(Trainer):
         epocher.set_trainer(self)
         epocher.init()
         return epocher
+
+    def inference(self, checkpoint_path: str = None, save_dir: str = None):
+        # make self._test_loader to be a patient based Dataloader
+        # load_checkpoint
+        if checkpoint_path is None:
+            checkpoint_path = self.absolute_save_dir
+        if not os.path.isabs(checkpoint_path):
+            raise ValueError(f"`checkpoint_path` must be an absolute path, given {checkpoint_path}")
+
+        logger.info(f"Resume checkpoint from {checkpoint_path}...")
+        self.resume_from_path(str(checkpoint_path), name="last.pth")
+
+        test_loader = self.patch_scan_based_dataloader(self._test_loader)
+
+        epoch_metric, _ = self._inference(test_loader=test_loader)
+
+        if save_dir is None:
+            save_dir = self.absolute_save_dir
+        else:
+            if not os.path.isabs(save_dir):
+                save_dir = create_save_dir(self, save_dir)
+
+        assert save_dir
+        Path(save_dir).mkdir(exist_ok=True, parents=True)
+        with open(os.path.join(save_dir, "inference_result.json"), "w") as f:
+            json.dump(epoch_metric, f, indent=4)
+            logger.info(f"Saved inference results in {save_dir}/\"inference_result.json\"")
+
+        self._writer.add_scalars_from_meter_interface(infer=epoch_metric, epoch=10000)
+        logger.info(f"Inference results: " + item2str(epoch_metric))
+        logger.success(f"{class_name(self)} Done")
+
+    # store the results.
+
+    def _inference(self, *, test_loader: DataLoader):
+        epocher = InferenceEpocher(model=self._model, loader=test_loader, sup_criterion=self._criterion,
+                                   cur_epoch=10000, device=self._device, scaler=self.scaler,
+                                   accumulate_iter=self._accumulate_iter)
+        epocher.set_trainer(self)
+        epocher.init()
+        epocher.run()
+        return epocher.get_metric(), epocher.get_score()
+
+    @staticmethod
+    def patch_scan_based_dataloader(loader) -> DataLoader:
+
+        # redo the test_loader
+        test_dataset = get_dataset(loader)
+        patient_sampler = ScanBatchSampler(dataset=test_dataset, shuffle=False)
+        loader = DataLoader(test_dataset, batch_sampler=patient_sampler, batch_size=1, num_workers=2)
+        return loader
 
 
 class MTTrainer(SemiTrainer):

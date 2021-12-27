@@ -52,7 +52,7 @@ class ACDCStrongTransforms(_Transform):
 
     trainval = SequentialWrapperTwice(
         com_transform=transforms.Compose([
-            transforms.RandomCrop(224),
+            transforms.CenterCrop(224),
 
         ]),
         image_transform=transforms.Compose([
@@ -106,7 +106,7 @@ class ACDCLVStrongTransforms(_Transform):
 
     trainval = SequentialWrapperTwice(
         com_transform=transforms.Compose([
-            transforms.RandomCrop(224),
+            transforms.CenterCrop(224),
 
         ]),
         image_transform=transforms.Compose([
@@ -160,7 +160,7 @@ class ACDCRVStrongTransforms(_Transform):
 
     trainval = SequentialWrapperTwice(
         com_transform=transforms.Compose([
-            transforms.RandomCrop(224),
+            transforms.CenterCrop(224),
 
         ]),
         image_transform=transforms.Compose([
@@ -209,7 +209,7 @@ class ProstateStrongTransforms(_Transform):
     )
     trainval = SequentialWrapperTwice(
         com_transform=transforms.Compose([
-            transforms.RandomCrop(224),
+            transforms.CenterCrop(224),
 
         ]),
         image_transform=transforms.Compose([
@@ -259,7 +259,7 @@ class SpleenStrongTransforms(_Transform):
     trainval = SequentialWrapperTwice(
         com_transform=transforms.Compose([
             transforms.Resize(320),
-            transforms.RandomCrop(256),
+            transforms.CenterCrop(256),
         ]),
         image_transform=transforms.Compose([
             transforms.ToTensor()
@@ -307,7 +307,7 @@ class MMWHSStrongTransforms(_Transform):
 
     trainval = SequentialWrapperTwice(
         com_transform=transforms.Compose([
-            transforms.RandomCrop(224),
+            transforms.CenterCrop(224),
 
         ]),
         image_transform=transforms.Compose([
@@ -357,7 +357,7 @@ class HippocampusStrongTransforms(_Transform):
     )
     trainval = SequentialWrapperTwice(
         com_transform=transforms.Compose([
-            transforms.RandomCrop(64),
+            transforms.CenterCrop(64),
 
         ]),
         image_transform=transforms.Compose([

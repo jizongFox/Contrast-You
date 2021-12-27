@@ -8,19 +8,22 @@ from itertools import chain
 import torch
 from loguru import logger
 from torch import Tensor, nn
+from torch.cuda.amp import autocast
 from torch.nn import functional as F
 
 from contrastyou.arch.unet import UNetFeatureMapEnum
 from contrastyou.arch.utils import SingleFeatureExtractor
 from contrastyou.hooks import TrainerHook, EpocherHook
 from contrastyou.losses.cross_correlation import CCLoss
-from contrastyou.losses.discreteMI import IIDSegmentationLoss
-from contrastyou.losses.kl import Entropy
-from contrastyou.losses.redundancy_reduction import RedundencyCriterion
+from contrastyou.losses.discreteMI import IIDSegmentationLoss, IMSATLoss, IMSATDynamicWeight
+from contrastyou.losses.kl import Entropy, KL_div
+from contrastyou.losses.redundancy_reduction import RedundancyCriterion
 from contrastyou.meters import AverageValueMeter
 from contrastyou.projectors import CrossCorrelationProjector
-from contrastyou.utils import class_name, average_iter, item2str, probs2one_hot, deprecated, fix_all_seed_within_context
-from semi_seg.hooks.utils import FeatureMapSaver, DistributionTracker
+from contrastyou.utils import class_name, average_iter, item2str, probs2one_hot, deprecated, \
+    fix_all_seed_within_context, simplex
+from contrastyou.writer import get_tb_writer
+from semi_seg.hooks.utils import FeatureMapSaver, DistributionTracker, joint_2D_figure
 
 if t.TYPE_CHECKING:
     from contrastyou.projectors.nn import _ProjectorHeadBase  # noqa
@@ -303,7 +306,7 @@ class _CrossCorrelationEpocherHookWithSaver(_CrossCorrelationEpocherHook):
 # new interface
 class _TinyHook(metaclass=ABCMeta):
 
-    def __init__(self, *, name: str, criterion: t.Callable, weight: float) -> None:
+    def __init__(self, *, name: str, criterion: nn.Module, weight: float) -> None:
         self.name = name
         self.criterion = criterion
         self.weight = weight
@@ -324,6 +327,16 @@ class _TinyHook(metaclass=ABCMeta):
     def close(self):
         pass
 
+    @staticmethod
+    def get_tb_writer():
+        return get_tb_writer()
+
+    def __repr__(self):
+        return self.__class__.__name__ + f": {self.name}" + self.__repr_extra__()
+
+    def __repr_extra__(self):
+        return f"weight={self.weight}"
+
 
 class ProjectorGeneralHook(TrainerHook):
 
@@ -339,7 +352,8 @@ class ProjectorGeneralHook(TrainerHook):
         )
         input_dim = model.get_channel_dim(feature_name.value)  # model: type: UNet
         logger.trace(f"Creating projector with {item2str(projector_params)}")
-        self._projector = CrossCorrelationProjector(input_dim=input_dim, **projector_params)
+        with logger.contextualize(enabled=False):
+            self._projector = CrossCorrelationProjector(input_dim=input_dim, **projector_params)
 
         self._feature_hooks = []
         self._dist_hooks = []
@@ -355,11 +369,11 @@ class ProjectorGeneralHook(TrainerHook):
                                                   folder_name=f"dist/{self._hook_name}")
 
     def register_feat_hook(self, *hook: '_TinyHook'):
-        logger.debug(f"register {hook}")
+        logger.debug(f"register {','.join([str(x) for x in hook])}")
         self._feature_hooks.extend(hook)
 
     def register_dist_hook(self, *hook: '_TinyHook'):
-        logger.debug(f"register {hook}")
+        logger.debug(f"register {','.join([str(x) for x in hook])}")
         self._dist_hooks.extend(hook)
 
     def __call__(self, **kwargs):
@@ -439,7 +453,7 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
         if save_image_condition:
             if self.saver is not None:
                 self.saver.save_map(
-                    image=unlabeled_image_tf, feature_map1=projected_dist_tf[0], feature_map2=projected_tf_dist[1],
+                    image=unlabeled_image_tf, feature_map1=projected_dist_tf[0], feature_map2=projected_tf_dist[0],
                     cur_epoch=self.epocher.cur_epoch, cur_batch_num=self.epocher.cur_batch_num, save_name="probability"
                 )
             if self.dist_saver is not None:
@@ -479,6 +493,11 @@ class _CrossCorrelationHook(_TinyHook):
         self._ent_func = Entropy(reduction="none")
         self._diff_power = diff_power
 
+    def __repr_extra__(self):
+        return super(_CrossCorrelationHook, self).__repr_extra__() + f" diff_power={self._diff_power}"
+
+    # force not using amp mixed precision training.
+    @autocast(enabled=False)
     def __call__(self, *, image: Tensor, input1: Tensor, input2: Tensor, saver: "FeatureMapSaver",
                  save_image_condition: bool, cur_epoch: int, cur_batch_num: int, **kwargs):
         if self.weight == 0:
@@ -496,7 +515,8 @@ class _CrossCorrelationHook(_TinyHook):
 
         if save_image_condition:
             saver.save_map(
-                image=self.diff_image[0], feature_map1=self.diff_prediction[0], feature_map2=self.diff_prediction[1],
+                image=self.diff_image[0], feature_map1=self.diff_prediction[0],
+                feature_map2=self.diff_prediction[1],
                 cur_epoch=cur_epoch, cur_batch_num=cur_batch_num,
                 save_name="cross_correlation", feature_type="image"
             )
@@ -542,10 +562,17 @@ class _CrossCorrelationHook(_TinyHook):
 class _MIHook(_TinyHook):
 
     def __init__(self, *, name: str = "mi", weight: float, lamda: float, padding: int = 0, symmetric=True) -> None:
-        criterion = IIDSegmentationLoss(lamda=lamda, padding=padding, symmetric=symmetric)
+        criterion: IIDSegmentationLoss = IIDSegmentationLoss(lamda=lamda, padding=padding, symmetric=symmetric)
+        self.lamda = lamda
+        self.padding = padding
+        self.symmetric = symmetric
         super().__init__(name=name, criterion=criterion, weight=weight)
 
-    def __call__(self, input1: Tensor, input2: Tensor, **kwargs):
+    def __repr_extra__(self):
+        return super(_MIHook, self).__repr_extra__() + \
+               f" lamda={self.lamda} padding={self.padding} symmetric={self.symmetric}"
+
+    def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, **kwargs):
         if self.weight == 0:
             if self.meters:
                 self.meters[self.name].add(0)
@@ -553,24 +580,49 @@ class _MIHook(_TinyHook):
         loss = self.criterion(input1, input2)
         if self.meters:
             self.meters[self.name].add(loss.item())
+
+        if kwargs.get("save_image_condition", False):
+            self.criterion: IIDSegmentationLoss
+            joint_2D_figure(self.criterion.get_joint_matrix(), tb_writer=self.get_tb_writer(), cur_epoch=cur_epoch,
+                            tag=f"{class_name(self)}_{self.name}")
+
         return loss * self.weight
 
 
 class _RedundancyReduction(_TinyHook):
 
-    def __init__(self, *, name: str = "rr", weight: float, symmetric: bool = True) -> None:
-        criterion = RedundencyCriterion(symmetric=symmetric)
+    def __init__(self, *, name: str = "rr", weight: float, symmetric: bool = True, lamda: float = 1, alpha: float,
+                 ) -> None:
+        self.lamda = lamda
+        self.symmetric = symmetric
+        self.alpha = alpha
+        criterion = RedundancyCriterion(symmetric=symmetric, lamda=lamda, alpha=alpha)
         super().__init__(name=name, criterion=criterion, weight=weight)
 
-    def __call__(self, input1: Tensor, input2: Tensor, **kwargs):
+    def __repr_extra__(self):
+        return super(_RedundancyReduction, self).__repr_extra__() + \
+               f" lamda={self.lamda} alpha={self.alpha} symmetric={self.symmetric}"
+
+    def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, **kwargs):
         if self.weight == 0:
             if self.meters:
                 self.meters[self.name].add(0)
             return torch.tensor(0, device=input1.device, dtype=input1.dtype)
 
+        self.criterion: RedundancyCriterion
+        # cur_mixed_ratio: 0: IIC
+        # 1: Barlow-twin.
+        # cur_mixed_ratio = min(float(cur_epoch / self.max_epoch), 0.2)
+        # self.criterion.set_ratio(cur_mixed_ratio)
         loss = self.criterion(input1, input2)
         if self.meters:
             self.meters[self.name].add(loss.item())
+
+        if kwargs.get("save_image_condition", False):
+            self.criterion: RedundancyCriterion
+            joint_2D_figure(self.criterion.get_joint_matrix(), tb_writer=self.get_tb_writer(), cur_epoch=cur_epoch,
+                            tag=f"{class_name(self)}_{self.name}")
+
         return loss * self.weight
 
 
@@ -621,3 +673,68 @@ class _CenterCompactnessHook(_TinyHook):
 
     def center_loss(self, feature: Tensor, mask: Tensor, prototype: Tensor):
         return torch.mean((feature - prototype).pow(2), dim=1, keepdim=True).masked_select(mask).mean()
+
+
+class _IMSATHook(_TinyHook):
+
+    def __init__(self, *, name: str = "imsat", weight: float, use_dynamic=True, lamda: float = 1.0) -> None:
+        criterion = IMSATDynamicWeight(use_dynamic=use_dynamic, lamda=lamda)
+        super().__init__(name=name, criterion=criterion, weight=weight)
+        self.lamda = lamda
+        self.use_dynamic = use_dynamic
+
+    def __repr_extra__(self):
+        return super(_IMSATHook, self).__repr_extra__() + \
+               f" lamda={self.lamda} dynamic={self.use_dynamic}"
+
+    def configure_meters(self, meters: 'MeterInterface'):
+        meters = super().configure_meters(meters)
+        meters.register_meter("weight", AverageValueMeter())
+        return meters
+
+    def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, **kwargs):
+        assert simplex(input1)
+        if self.weight == 0:
+            if self.meters:
+                self.meters[self.name].add(0)
+            return torch.tensor(0, device=input1.device, dtype=input1.dtype)
+        loss = self.criterion(self.flatten_predict(input1))
+
+        if self.meters:
+            self.criterion: IMSATDynamicWeight
+            self.meters[self.name].add(loss.item())
+            self.meters["weight"].add(self.criterion.dynamic_weight)
+
+        if kwargs.get("save_image_condition", False):
+            self.criterion: IMSATLoss
+            joint_2D_figure(self.criterion.get_joint_matrix(), tb_writer=self.get_tb_writer(), cur_epoch=cur_epoch,
+                            tag=f"{class_name(self)}_{self.name}")
+
+        return loss * self.weight
+
+    @staticmethod
+    def flatten_predict(prediction: Tensor):
+        assert prediction.dim() == 4
+        b, c, h, w = prediction.shape
+        prediction = torch.swapaxes(prediction, 0, 1)
+        prediction = prediction.reshape(c, -1)
+        prediction = torch.swapaxes(prediction, 0, 1)
+        return prediction
+
+
+class _ConsistencyHook(_TinyHook):
+    def __init__(self, *, name: str = "consistency", weight: float) -> None:
+        criterion = KL_div()
+        super().__init__(name=name, criterion=criterion, weight=weight)
+
+    def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, **kwargs):
+        assert simplex(input1)
+        if self.weight == 0:
+            if self.meters:
+                self.meters[self.name].add(0)
+            return torch.tensor(0, device=input1.device, dtype=input1.dtype)
+        loss = self.criterion(input1, input2.detach())
+        if self.meters:
+            self.meters[self.name].add(loss.item())
+
+        return loss * self.weight

@@ -1,3 +1,4 @@
+import math
 from typing import Optional, OrderedDict
 from typing import TypeVar, List, Dict, Union
 
@@ -57,6 +58,24 @@ class Entropy(nn.Module, LossClass[Tensor]):
             return e.sum()
         else:
             return e
+
+
+class EntropyPrior(Entropy):
+
+    def __init__(self, reduction="mean", eps=1e-16):
+        super().__init__(reduction, eps)
+        assert reduction == "mean", f"only support mean"
+        self.__kl_criterion = KL_div()
+
+    def forward(self, input_: Tensor, prior: Tensor = None) -> Tensor:
+        assert input_.dim() >= 2
+        C = input_.shape[1]
+        if prior is None:
+            prior = torch.tensor([1 / C for _ in range(C)], device=input_.device, dtype=input_.dtype)[None, ...]
+        assert isinstance(prior, Tensor)
+        assert prior.shape == input_.mean(0, keepdim=True).shape
+
+        return math.log(float(C)) - self.__kl_criterion(prior, input_)
 
 
 class KL_div(nn.Module, LossClass[Tensor]):

@@ -6,7 +6,7 @@ from pathlib import Path
 from easydict import EasyDict as edict
 from loguru import logger
 
-from contrastyou import CONFIG_PATH, git_hash, OPT_PATH
+from contrastyou import CONFIG_PATH, git_hash, OPT_PATH, on_cc
 from contrastyou.arch import UNet
 from contrastyou.configure import yaml_load, ConfigManager
 from contrastyou.losses.kl import KL_div
@@ -17,7 +17,7 @@ from semi_seg.data.creator import get_data
 from semi_seg.hooks import feature_until_from_hooks
 from semi_seg.trainers.pretrain import PretrainEncoderTrainer, PretrainDecoderTrainer
 from semi_seg.trainers.trainer import SemiTrainer, FineTuneTrainer, MixUpTrainer, MTTrainer, DMTTrainer
-from utils import logging_configs, find_checkpoint
+from utils import logging_configs, find_checkpoint  # noqa
 
 trainer_zoo = {"semi": SemiTrainer,
                "ft": FineTuneTrainer,
@@ -58,13 +58,18 @@ def worker(config, absolute_save_dir, seed):
     with fix_all_seed_within_context(seed):
         model = UNet(input_dim=data_opt.input_dim, num_classes=data_opt.num_classes, **config["Arch"])
     if model_checkpoint:
-        logger.info(f"loading checkpoint from  {model_checkpoint}")
-        model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=True)
+        logger.info(f"loading model checkpoint from  {model_checkpoint}")
+        try:
+            model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=True)
+            logger.info(f"successfully loaded model checkpoint from  {model_checkpoint}")
+        except RuntimeError as e:
+            # shape mismatch for network.
+            logger.warning(e)
 
     trainer_name = config["Trainer"]["name"]
     is_pretrain = ("pretrain" in trainer_name)
     total_freedom = True if is_pretrain or trainer_name == "mixup" else False
-    if "CrossCorrelationParameters" in config:
+    if "CrossCorrelationParameters" or "InfonceParams" in config:
         total_freedom = False
     order_num = config["Data"]["order_num"]
     labeled_loader, unlabeled_loader, val_loader, test_loader = get_data(
@@ -81,8 +86,10 @@ def worker(config, absolute_save_dir, seed):
         **{k: v for k, v in config["Trainer"].items() if k != "save_dir" and k != "name"}
     )
     # find the last.pth from the save folder.
-    checkpoint: t.Optional[str] = find_checkpoint(trainer.absolute_save_dir)
-    # checkpoint: t.Optional[str] = config.trainer_checkpoint
+    if on_cc():
+        checkpoint: t.Optional[str] = find_checkpoint(trainer.absolute_save_dir)
+    else:
+        checkpoint: t.Optional[str] = config.trainer_checkpoint
 
     if trainer_name not in ("ft", "dmt"):
         with fix_all_seed_within_context(seed):
@@ -105,7 +112,8 @@ def worker(config, absolute_save_dir, seed):
         trainer.init()
         if checkpoint:
             trainer.resume_from_path(checkpoint)
-        return trainer.start_training()
+        trainer.start_training()
+        return trainer.inference()
 
 
 if __name__ == '__main__':

@@ -13,6 +13,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from loguru import logger
 from torch import nn
 from torch.optim import Optimizer
 from torch.utils.data.dataloader import DataLoader, _BaseDataLoaderIter  # noqa
@@ -267,3 +268,16 @@ class switch_plt_backend:
                 return func(*args, **kwargs)
 
         return wrapper
+
+
+@contextmanager
+def ignore_exception(*exceptions, log=True):
+    if len(exceptions) == 0:
+        exceptions = (Exception,)
+    try:
+        yield
+    except exceptions as e:
+        if log:
+            logger.warning(e)
+        else:
+            pass

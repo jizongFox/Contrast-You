@@ -1,8 +1,8 @@
 InfonceParams:
-  feature_names: Up_conv2
+  feature_names: Conv5
   weights: 1.0
-  contrast_ons: self
-  spatial_size: 20
+  contrast_ons: partition
+  spatial_size: 1
 Trainer:
   name: pretrain_decoder
   enable_scale: true

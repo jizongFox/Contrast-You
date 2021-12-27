@@ -7,9 +7,10 @@ from contrastyou.arch import UNet
 from contrastyou.hooks.base import CombineTrainerHook, TrainerHook
 from contrastyou.utils.utils import ntuple, class_name
 from .cc import CrossCorrelationOnLogitsHook
-from .ccblock import ProjectorGeneralHook, _CrossCorrelationHook, _MIHook, _CenterCompactnessHook, _RedundancyReduction
+from .ccblock import ProjectorGeneralHook, _CrossCorrelationHook, _MIHook, _CenterCompactnessHook, _RedundancyReduction, \
+    _IMSATHook, _ConsistencyHook
 from .consistency import ConsistencyTrainerHook
-from .discretemi import DiscreteMITrainHook
+from .discretemi import DiscreteMITrainHook, DiscreteIMSATTrainHook
 from .dmt import DifferentiableMeanTeacherTrainerHook
 from .entmin import EntropyMinTrainerHook
 from .infonce import SelfPacedINFONCEHook, INFONCEHook
@@ -72,6 +73,12 @@ def create_discrete_mi_hooks(*, feature_names: List[str], weights: List[float], 
     return CombineTrainerHook(*hooks)
 
 
+def create_intermediate_imsat_hook(*, feature_name: str, weight: float, num_clusters: int, cons_weight: float,
+                                   model: nn.Module):
+    return DiscreteIMSATTrainHook(name=f"discreteIMSAT/{feature_name.lower()}", model=model, feature_name=feature_name,
+                                  weight=weight, num_clusters=num_clusters, num_subheads=3, cons_weight=cons_weight)
+
+
 def create_discrete_mi_consistency_hook(*, model: nn.Module, feature_names: Union[str, List[str]],
                                         mi_weights: Union[float, List[float]],
                                         dense_paddings: List[int] = None, consistency_weight: float):
@@ -91,10 +98,11 @@ def create_discrete_mi_consistency_hook(*, model: nn.Module, feature_names: Unio
     return CombineTrainerHook(discrete_mi_hook, consistency_hook)
 
 
-def _infonce_hook(*, model: nn.Module, feature_name: str, weight: float, contrast_on: str, data_name: str, ):
+def _infonce_hook(*, model: nn.Module, feature_name: str, weight: float, contrast_on: str, data_name: str,
+                  spatial_size: int):
     return INFONCEHook(name=f"infonce/{feature_name}/{contrast_on}", model=model, feature_name=feature_name,
-                       weight=weight,
-                       data_name=data_name, contrast_on=contrast_on)
+                       weight=weight, data_name=data_name, contrast_on=contrast_on,
+                       spatial_size=(spatial_size, spatial_size))
 
 
 def _infonce_sp_hook(*, model: nn.Module, feature_name: str, weight: float, contrast_on: str, data_name: str,
@@ -107,7 +115,8 @@ def _infonce_sp_hook(*, model: nn.Module, feature_name: str, weight: float, cont
 
 
 def create_infonce_hooks(*, model: nn.Module, feature_names: Union[str, List[str]], weights: Union[float, List[float]],
-                         contrast_ons: Union[str, List[str]], data_name: str, ):
+                         contrast_ons: Union[str, List[str]], spatial_size: Union[int, Sequence[int]],
+                         data_name: str, ):
     if isinstance(feature_names, str):
         num_features = 1
     else:
@@ -117,9 +126,10 @@ def create_infonce_hooks(*, model: nn.Module, feature_names: Union[str, List[str
     feature_names = pair_generator(feature_names)
     weights = pair_generator(weights)
     contrast_ons = pair_generator(contrast_ons)
+    spatial_size = pair_generator(spatial_size)
 
-    hooks = [_infonce_hook(model=model, feature_name=f, weight=w, contrast_on=c, data_name=data_name) for f, w, c in
-             zip(feature_names, weights, contrast_ons)]
+    hooks = [_infonce_hook(model=model, feature_name=f, weight=w, contrast_on=c, data_name=data_name, spatial_size=ss)
+             for f, w, c, ss in zip(feature_names, weights, contrast_ons, spatial_size)]
 
     return CombineTrainerHook(*hooks)
 
@@ -264,7 +274,13 @@ def create_cross_correlation_hooks2(
             hook.register_dist_hook(_CenterCompactnessHook(**hook_params["compact"]))
 
         if "rr" in hook_params:
-            hook.register_feat_hook(_RedundancyReduction(**hook_params["rr"]))
+            hook.register_dist_hook(_RedundancyReduction(**hook_params["rr"]))
+
+        if "imsat" in hook_params:
+            hook.register_dist_hook(_IMSATHook(**hook_params["imsat"]))
+
+        if "consist" in hook_params:
+            hook.register_dist_hook(_ConsistencyHook(**hook_params["consist"]))
 
     else:
         mi_params = {"lamda": hook_params["mi"]["lamda"],

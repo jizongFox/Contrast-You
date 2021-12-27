@@ -161,7 +161,7 @@ class _IOMixin(_BufferMixin, metaclass=ABCMeta):
             raise FileNotFoundError(path_)
         state_dict = torch.load(str(path_), map_location="cpu")
         self.load_state_dict(state_dict, strict)
-        logger.success(f"Successfully loaded checkpoint from {str(path_)}.")
+        logger.info(f"Successfully loaded checkpoint from {str(path_)}.")
 
     def save_to(self, *, save_dir: str = None, save_name: str):
         assert path2Path(save_name).suffix in (".pth", ".pt"), path2Path(save_name).suffix

@@ -1,6 +1,5 @@
 import argparse
 import os
-from collections.abc import Iterable
 from itertools import cycle
 from typing import Sequence, List, Iterator, Optional
 
@@ -9,6 +8,7 @@ from loguru import logger
 from contrastyou import __accounts, on_cc, MODEL_PATH, OPT_PATH, git_hash
 from contrastyou.configure import yaml_load
 from contrastyou.submitter import SlurmSubmitter
+from script.script_generator_pretrain_cc import get_hyper_param_string, _run_ft_per_class, _run_ft
 from script.utils import grid_search, move_dataset
 
 
@@ -26,37 +26,6 @@ def get_args():
     parser.add_argument("--force-show", action="store_true", help="showing script")
     args = parser.parse_args()
     return args
-
-
-def get_hyper_param_string(**kwargs):
-    def to_str(v):
-        if isinstance(v, Iterable) and (not isinstance(v, str)):
-            return "_".join([str(x) for x in v])
-        return v
-
-    list_string = [f"{k}_{to_str(v)}" for k, v in kwargs.items()]
-    prefix = "/".join(list_string)
-    return prefix
-
-
-def _run_ft(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int, num_batches: int,
-            arch_checkpoint: str = "null", lr: float, data_name: str = "acdc"):
-    return f""" python main.py RandomSeed={random_seed} Trainer.name=ft \
-     Trainer.save_dir={save_dir} Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name} \
-    Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
-    """
-
-
-def _run_ft_per_class(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int, num_batches: int,
-                      arch_checkpoint: str = "null", lr: float, data_name: str = "acdc"):
-    assert data_name == "acdc", "only support acdc dataset"
-    return f""" python main.py RandomSeed={random_seed} Trainer.name=ft \
-     Trainer.save_dir={save_dir}/lv Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name}_lv \
-    Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f}  && \
-    python main.py RandomSeed={random_seed} Trainer.name=ft \
-     Trainer.save_dir={save_dir}/rv Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name}_rv \
-    Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f}  \
-    """
 
 
 def _run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int, num_batches: int,
@@ -78,32 +47,7 @@ def _run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, ma
     CrossCorrelationParameters.hooks.rr.lamda={rr_lamda:.10f}  \
     CrossCorrelationParameters.hooks.rr.alpha={rr_alpha:.10f}  \
     ConsistencyParameters.weight={consistency_weight:.10f}  \
-    --path   config/base.yaml  config/hooks/ccblocks2.yaml  config/hooks/consistency.yaml\
-    """
-
-
-def _run_multicore_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int,
-                        num_batches: int,
-                        arch_checkpoint: str, lr: float, data_name: str = "acdc", cc_weight: float,
-                        consistency_weight: float, power: float, head_type: str,
-                        num_subheads: int, mulitcore_multiplier: int, kernel_size: int, rr_weight: float,
-                        rr_symmetric: str, rr_lamda: float, rr_alpha: float):
-    return f""" python main_multicore.py RandomSeed={random_seed} Trainer.name=semi \
-     Trainer.save_dir={save_dir} Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name} \
-    Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
-    CrossCorrelationParameters.feature_name=Deconv_1x1  \
-    CrossCorrelationParameters.num_subheads={num_subheads}  \
-    CrossCorrelationParameters.head_type={head_type}  \
-    CrossCorrelationParameters.hooks.cc.weight={cc_weight:.10f}  \
-    CrossCorrelationParameters.hooks.cc.diff_power={power}  \
-    CrossCorrelationParameters.hooks.cc.kernel_size={kernel_size}  \
-    CrossCorrelationParameters.hooks.rr.weight={rr_weight:.10f}  \
-    CrossCorrelationParameters.hooks.rr.symmetric={rr_symmetric}  \
-    CrossCorrelationParameters.hooks.rr.lamda={rr_lamda:.10f} \
-    CrossCorrelationParameters.hooks.rr.alpha={rr_alpha:.10f}  \
-    ConsistencyParameters.weight={consistency_weight:.10f}  \
-    MulticoreParameters.multiplier={mulitcore_multiplier} \
-    --path   config/base.yaml  config/hooks/ccblocks2.yaml config/hooks/multicore.yaml config/hooks/consistency.yaml\
+    --path   config/base.yaml  config/hooks/ccblocks2.yaml  config/hooks/consistency.yaml config/hooks/infonce_encoder.yaml \
     """
 
 
@@ -127,7 +71,7 @@ def _run_pretrain_cc(*, save_dir: str, random_seed: int = 10, max_epoch: int, nu
     CrossCorrelationParameters.hooks.rr.lamda={rr_lamda:.10f} \
     CrossCorrelationParameters.hooks.rr.alpha={rr_alpha:.10f}  \
     ContrastiveLoaderParams.scan_sample_num={scan_sample_num}  \
-    --path config/base.yaml config/pretrain.yaml config/hooks/ccblocks2.yaml config/hooks/consistency.yaml\
+    --path config/base.yaml config/pretrain.yaml config/hooks/ccblocks2.yaml config/hooks/consistency.yaml config/hooks/infonce_encoder.yaml \
     """
 
 
@@ -285,6 +229,7 @@ if __name__ == '__main__':
     max_epoch_pretrain = args.max_epoch_pretrain
     num_batches = args.num_batches
     pretrain_scan_num = args.pretrain_scan_num
+
     save_dir = args.save_dir
 
     save_dir = os.path.join(save_dir, f"hash_{git_hash}/{data_name}")

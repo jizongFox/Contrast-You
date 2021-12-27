@@ -6,7 +6,7 @@ from torch import Tensor
 from . import Metric
 from .surface_distance import mod_hausdorff_distance, hausdorff_distance, average_surface_distance
 from ..types import to_float
-from ..utils.general import one_hot, simplex, probs2one_hot, class2one_hot
+from ..utils.general import one_hot, simplex, probs2one_hot, class2one_hot, iter_average
 
 
 class SurfaceMeter(Metric):
@@ -61,7 +61,7 @@ class SurfaceMeter(Metric):
         assert not pred.requires_grad and not target.requires_grad
 
         onehot_pred, onehot_target = self._convert2onehot(pred, target)
-        B, C, *hw = pred.shape
+        B, C, *hw = onehot_pred.shape
         mhd = self._evalue(onehot_pred, onehot_target, voxelspacing)
         assert mhd.shape == (B, len(self._report_axis))
         self._mhd.append(mhd)
@@ -75,10 +75,12 @@ class SurfaceMeter(Metric):
 
     def summary(self) -> dict:
         means, stds = self.value()
-        return {
+        result = {
             f"{self._abbr}{i}": to_float(means[num])
             for num, i in enumerate(self._report_axis)
         }
+        result.update({f"{self._abbr}_mean": iter_average(result.values())})
+        return result
 
     def detailed_summary(self) -> dict:
         means, stds = self.value()
@@ -121,11 +123,8 @@ class SurfaceMeter(Metric):
             class2one_hot(target, self._C).long(),
         )
 
-    def get_plot_names(self) -> List[str]:
-        return [f"{self._abbr}{i}" for num, i in enumerate(self._report_axis)]
-
     def __repr__(self):
         string = f"C={self._C}, report_axis={self._report_axis}\n"
         return (
-            string + "\t" + "\t".join([f"{k}:{v}" for k, v in self.summary().items()])
+                string + "\t" + "\t".join([f"{k}:{v}" for k, v in self.summary().items()])
         )
