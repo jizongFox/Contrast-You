@@ -284,7 +284,7 @@ if __name__ == '__main__':
     max_epoch = args.max_epoch
     max_epoch_pretrain = args.max_epoch_pretrain
     num_batches = args.num_batches
-
+    pretrain_scan_num = args.pretrain_scan_num
     save_dir = args.save_dir
 
     save_dir = os.path.join(save_dir, f"hash_{git_hash}/{data_name}")
@@ -328,7 +328,7 @@ if __name__ == '__main__':
                                                      rr_symmetric="true",
                                                      rr_lamda=(1,),
                                                      rr_alpha=(0, 0.25, 0.5, 0.75, 1),
-                                                     pretrain_scan_sample_num=[1, 2, 4, 6, ]
+                                                     pretrain_scan_sample_num=(pretrain_scan_num,)
                                                      )
     jobs = list(job_generator)
     logger.info(f"logging {len(jobs)} jobs")

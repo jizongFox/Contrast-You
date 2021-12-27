@@ -52,7 +52,7 @@ class _PretrainTrainerMixin(_Base):
                                monitor_dataloader=self._monitor_loader)
         return super(_PretrainTrainerMixin, self)._run_epoch(epocher, *args, **kwargs)  # noqa
 
-    def _start_training(self: Union['SemiTrainer', '_PretrainTrainerMixin'], **kwargs):
+    def _start_training(self, **kwargs):
         start_epoch = max(self._cur_epoch + 1, self._start_epoch)
         self._cur_score: float
 
@@ -86,9 +86,6 @@ class _PretrainTrainerMixin(_Base):
         epocher.set_trainer(self)
         epocher.init()
         return epocher
-
-    def inference_demo(self):
-        pass
 
 
 class PretrainEncoderTrainer(_PretrainTrainerMixin, SemiTrainer):

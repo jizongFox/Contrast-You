@@ -189,6 +189,7 @@ if __name__ == '__main__':
     max_epoch = args.max_epoch
     max_epoch_pretrain = args.max_epoch_pretrain
     num_batches = args.num_batches
+    pretrain_scan_num = args.pretrain_scan_num
 
     save_dir = args.save_dir
 
@@ -225,7 +226,7 @@ if __name__ == '__main__':
             infonce_encoder_weight=(1,),
             decoder_spatial_size=(10,),
             include_baseline=True, max_num=500,
-            pretrain_scan_sample_num=[1, 2, 4, 6, ]
+            pretrain_scan_sample_num=(pretrain_scan_num,)
         )
         jobs = list(job_generator)
         logger.info(f"logging {len(jobs)} jobs")
@@ -240,8 +241,8 @@ if __name__ == '__main__':
             data_name=data_name, infonce_decoder_weight=(1,),
             infonce_encoder_weight=(0,),
             decoder_spatial_size=(20,),
-            include_baseline=True, max_num=500,
-            pretrain_scan_sample_num=[1, 2, 4, 6, ]
+            include_baseline=False, max_num=500,
+            pretrain_scan_sample_num=(pretrain_scan_num,)
         )
         jobs = list(job_generator)
         logger.info(f"logging {len(jobs)} jobs")
@@ -255,10 +256,10 @@ if __name__ == '__main__':
             random_seeds=random_seeds, max_epoch=max_epoch,
             num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
             data_name=data_name, infonce_decoder_weight=(0.0001, 0.001, 0.01, 0.1, 1, 10),
-            infonce_encoder_weight=(0.1, 1,),
+            infonce_encoder_weight=(1,),
             decoder_spatial_size=(20,),
-            include_baseline=True, max_num=500,
-            pretrain_scan_sample_num=[1, 2, 4, 6, ]
+            include_baseline=False, max_num=500,
+            pretrain_scan_sample_num=(pretrain_scan_num,)
         )
         jobs = list(job_generator)
         logger.info(f"logging {len(jobs)} jobs")
