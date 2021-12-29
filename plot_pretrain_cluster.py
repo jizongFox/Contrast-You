@@ -92,7 +92,7 @@ def worker(config, absolute_save_dir, seed):
             trainer.start_training()
             os.environ["contrast_save_flag"] = "true"
 
-            trainer.inference()
+            return trainer.inference()
 
 
 if __name__ == '__main__':

@@ -15,9 +15,12 @@ from script.utils import grid_search, move_dataset
 def get_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("save_dir", type=str, help="save dir")
-    parser.add_argument("--data-name", type=str, choices=("acdc", "acdc_lv", "acdc_rv", "prostate", "spleen"),
-                        default="acdc",
-                        help="dataset_choice")
+    parser.add_argument(
+        "--data-name", type=str,
+        choices=("acdc", "acdc_lv", "acdc_rv", "prostate", "spleen", "hippocampus"),
+        default="acdc",
+        help="dataset_choice"
+    )
     parser.add_argument("--max-epoch-pretrain", default=50, type=int, help="max epoch")
     parser.add_argument("--max-epoch", default=30, type=int, help="max epoch")
     parser.add_argument("--num-batches", default=300, type=int, help="number of batches")
@@ -287,6 +290,11 @@ if __name__ == '__main__':
     pretrain_scan_num = args.pretrain_scan_num
     save_dir = args.save_dir
 
+    if "acdc" in data_name:
+        power = (0.75,)
+    else:
+        power = [1, 1.25, 1.5]
+
     save_dir = os.path.join(save_dir, f"hash_{git_hash}/{data_name}")
 
     submitter = SlurmSubmitter(work_dir="../", stop_on_error=on_local, on_local=on_local)
@@ -318,7 +326,7 @@ if __name__ == '__main__':
                                                      cc_weights=[0, 0.1, 1, 2],
                                                      consistency_weights=[0],
                                                      include_baseline=True,
-                                                     powers=0.75,
+                                                     powers=power,
                                                      head_types="linear",
                                                      num_subheads=(3,),
                                                      num_clusters=[40],
@@ -344,7 +352,7 @@ if __name__ == '__main__':
                                                              cc_weights=[0, 0.001, 0.01, 0.1],
                                                              consistency_weights=[0, 0.1, 0.5, ],
                                                              include_baseline=True,
-                                                             powers=[0.75],
+                                                             powers=power,
                                                              head_types="linear",
                                                              num_subheads=3,
                                                              num_clusters=[40],

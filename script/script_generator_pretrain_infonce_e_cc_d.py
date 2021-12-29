@@ -230,6 +230,11 @@ if __name__ == '__main__':
     num_batches = args.num_batches
     pretrain_scan_num = args.pretrain_scan_num
 
+    if "acdc" in data_name:
+        power = (0.75,)
+    else:
+        power = [1, 1.25, 1.5]
+
     save_dir = args.save_dir
 
     save_dir = os.path.join(save_dir, f"hash_{git_hash}/{data_name}")
@@ -263,7 +268,7 @@ if __name__ == '__main__':
                                                      cc_weights=[0, 0.1, 1, 2],
                                                      consistency_weights=[0],
                                                      include_baseline=True,
-                                                     powers=0.75,
+                                                     powers=power,
                                                      head_types="linear",
                                                      num_subheads=(3,),
                                                      num_clusters=[40],
@@ -289,7 +294,7 @@ if __name__ == '__main__':
                                                              cc_weights=[0, 0.001, 0.01, 0.1],
                                                              consistency_weights=[0, 0.1, 0.5, ],
                                                              include_baseline=True,
-                                                             powers=[0.75],
+                                                             powers=power,
                                                              head_types="linear",
                                                              num_subheads=3,
                                                              num_clusters=[40],
