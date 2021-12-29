@@ -1,22 +1,24 @@
 #!/bin/bash
+set -e
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
-python plot_pretrain_cluster.py Trainer.save_dir=beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_1/pretrain \
-  trainer_checkpoint=/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_1/pretrain/last.pth \
-  --path /home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_1/pretrain/config.yaml &
+#python plot_pretrain_cluster.py Trainer.save_dir=beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_1/pretrain \
+#  trainer_checkpoint=/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_1/pretrain/last.pth \
+#  --path /home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_1/pretrain/config.yaml &
+#
+#python plot_pretrain_cluster.py Trainer.save_dir=beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0/pretrain \
+#  trainer_checkpoint=/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0/pretrain/last.pth \
+#  --path /home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0/pretrain/config.yaml &
+#wait
 
-python plot_pretrain_cluster.py Trainer.save_dir=beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0/pretrain \
-  trainer_checkpoint=/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0/pretrain/last.pth \
-  --path /home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0/pretrain/config.yaml &
+#python plot_pretrain_cluster.py Trainer.save_dir=beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.25/pretrain \
+#  trainer_checkpoint=/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.25/pretrain/last.pth \
+#  --path /home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.25/pretrain/config.yaml &
 
-python plot_pretrain_cluster.py Trainer.save_dir=beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.25/pretrain \
-  trainer_checkpoint=/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.25/pretrain/last.pth \
-  --path /home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.25/pretrain/config.yaml &
-
-python plot_pretrain_cluster.py Trainer.save_dir=beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.5/pretrain \
-  trainer_checkpoint=/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.5/pretrain/last.pth \
-  --path /home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.5/pretrain/config.yaml &
-
-wait
+#python plot_pretrain_cluster.py Trainer.save_dir=beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.5/pretrain \
+#  trainer_checkpoint=/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.5/pretrain/last.pth \
+#  --path /home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.5/pretrain/config.yaml &
+#
+#wait
 
 python plot_pretrain_cluster.py Trainer.save_dir=beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.75/pretrain \
   trainer_checkpoint=/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.75/pretrain/last.pth \

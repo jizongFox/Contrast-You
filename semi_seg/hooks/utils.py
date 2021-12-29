@@ -252,6 +252,20 @@ class DistributionTracker:
         return writer
 
 
+class MatrixSaver:
+    def __init__(self, save_dir: t.Union[str, Path], folder_name="matrix") -> None:
+        assert Path(save_dir).exists() and Path(save_dir).is_dir(), save_dir
+        self.save_dir: Path = Path(save_dir)
+        self.folder_name = folder_name
+        (self.save_dir / self.folder_name).mkdir(exist_ok=True, parents=True)
+
+    def save_matrix(self, *, matrix: Tensor, cur_epoch: int, cur_batch_num: int, save_name: str) -> None:
+        matrix_ = matrix.detach().cpu().numpy()
+        save_path = self.save_dir / self.folder_name / \
+                    f"{save_name}_{cur_epoch:03d}_{cur_batch_num:02d}.npy"
+        np.save(str(save_path), matrix_.astype(np.float16, copy=False))
+
+
 @switch_plt_backend("agg")
 def joint_2D_figure(joint_map: np.ndarray, *, tb_writer: SummaryWriter, cur_epoch: int, tag: str):
     joint_map = joint_map.astype(float)

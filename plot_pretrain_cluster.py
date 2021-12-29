@@ -91,6 +91,7 @@ def worker(config, absolute_save_dir, seed):
                 trainer.resume_from_path(checkpoint)
             trainer.start_training()
             os.environ["contrast_save_flag"] = "true"
+            os.environ["contrast_save_np_flag"] = "true"
 
             trainer.inference()
 
