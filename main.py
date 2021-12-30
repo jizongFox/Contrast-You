@@ -81,7 +81,7 @@ def worker(config, absolute_save_dir, seed):
     Trainer: 'Trainer' = trainer_zoo[trainer_name]
 
     trainer = Trainer(
-        model=model, labeled_loader=labeled_loader, unlabeled_loader=unlabeled_loader,
+        model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
         val_loader=val_loader, test_loader=test_loader, criterion=KL_div(), config=config, save_dir=absolute_save_dir,
         **{k: v for k, v in config["Trainer"].items() if k != "save_dir" and k != "name"}
     )
