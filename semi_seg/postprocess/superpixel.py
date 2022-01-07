@@ -20,7 +20,7 @@ def do_superpixel(image_path: str, num_clusters: int):
 
     # apply SLIC and extract (approximately) the supplied number
     # of segments
-    segments = slic(image, n_segments=num_clusters, compactness=0.03, multichannel=False, sigma=5)
+    segments = slic(image, n_segments=num_clusters, compactness=0.001, multichannel=False, sigma=5)
     return segments
 
 
@@ -33,9 +33,10 @@ def pipeline(image_path: str, num_clusters: int, root_dir: str, save_dir: str):
     imsave(str(save_path), segment.astype(np.uint8))
 
 
+
 if __name__ == '__main__':
-    root_dir = Path(DATA_PATH, "ACDC_contrast")
-    save_dir = Path(DATA_PATH, "ACDC_superpixel")
+    root_dir = Path(DATA_PATH, "PROSTATE")
+    save_dir = Path(DATA_PATH, "PROSTATE_superpixel")
     image_list = sorted((root_dir / "train" / "img").glob("*.png"))
 
     pipeline_ = partial(pipeline, num_clusters=40, root_dir=root_dir, save_dir=save_dir)

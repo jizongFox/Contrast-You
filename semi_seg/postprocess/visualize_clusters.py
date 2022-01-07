@@ -13,14 +13,28 @@ from torchvision.transforms import CenterCrop
 
 from contrastyou.utils.colors import label2colored_image
 
-image_dir = "/home/jizong/Workspace/Contrast-You/.data/ACDC_contrast/train/img"
-gt_dir = "/home/jizong/Workspace/Contrast-You/.data/ACDC_contrast/train/gt"
-rr_050 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.5/pretrain/matrix/cc_Up_conv2"
-rr_075 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.75/pretrain/matrix/cc_Up_conv2"
-rr_025 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.25/pretrain/matrix/cc_Up_conv2"
-rr_000 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0/pretrain/matrix/cc_Up_conv2"
-rr_100 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_1/pretrain/matrix/cc_Up_conv2"
-superpixel_dir = "/home/jizong/Workspace/Contrast-You/.data/ACDC_superpixel/train/img"
+# image_dir = "/home/jizong/Workspace/Contrast-You/.data/ACDC_contrast/train/img"
+# gt_dir = "/home/jizong/Workspace/Contrast-You/.data/ACDC_contrast/train/gt"
+# rr_050 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.5/pretrain/matrix/cc_Up_conv2"
+# rr_075 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.75/pretrain/matrix/cc_Up_conv2"
+# rr_025 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.25/pretrain/matrix/cc_Up_conv2"
+# rr_000 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0/pretrain/matrix/cc_Up_conv2"
+# rr_100 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_1/pretrain/matrix/cc_Up_conv2"
+# superpixel_dir = "/home/jizong/Workspace/Contrast-You/.data/ACDC_superpixel/train/img"
+
+# /home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample
+
+image_dir = "/home/jizong/Workspace/Contrast-You/.data/PROSTATE/train/img"
+gt_dir = "/home/jizong/Workspace/Contrast-You/.data/PROSTATE/train/gt"
+rr_050 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_0.5/pretrain/matrix/cc_Up_conv2"
+rr_075 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_0.75/pretrain/matrix/cc_Up_conv2"
+rr_025 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_0.25/pretrain/matrix/cc_Up_conv2"
+rr_000 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_0/pretrain/matrix/cc_Up_conv2"
+rr_100 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_1/pretrain/matrix/cc_Up_conv2"
+superpixel_dir = "/home/jizong/Workspace/Contrast-You/.data/PROSTATE_superpixel/train/img"
+
+
+
 
 
 def image_grouper(root_dir: str, pattern: str) -> t.Iterator:
@@ -121,19 +135,19 @@ def get_segment(iter_: t.Iterator, num_volume: int):
 
 
 if __name__ == '__main__':
-    pattern = "feature"
-    slice_index = 0
-    volume_num = 9
+    pattern = "probability"
+    slice_index = 15
+    volume_num = 0
 
-    image_gen = image_grouper(root_dir=image_dir, pattern=r"patient\d+_\d+")
+    image_gen = image_grouper(root_dir=image_dir, pattern=r"Case\d+_\d+")
     segment = get_segment(image_gen, volume_num)
     image_slice = segment[slice_index]
 
-    gt_gen = image_grouper(root_dir=gt_dir, pattern=r"patient\d+_\d+")
+    gt_gen = image_grouper(root_dir=gt_dir, pattern=r"Case\d+_\d+")
     segment = get_segment(gt_gen, volume_num)
     gt_slice = segment[slice_index]
 
-    superpixel = superpixel_grouper(superpixel_dir, r"patient\d+_\d+")
+    superpixel = superpixel_grouper(superpixel_dir, r"Case\d+_\d+")
     segment = get_segment(superpixel, volume_num)
     slice_sp = segment[slice_index]
 
