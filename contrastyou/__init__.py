@@ -116,6 +116,15 @@ def on_beluga() -> bool:
     return False
 
 
+def on_narval() -> bool:
+    import socket
+    hostname = socket.gethostname()
+    # on beluga
+    if "narval" in hostname or match_narval(hostname):
+        return True
+    return False
+
+
 def on_cedar() -> bool:
     import socket
     hostname = socket.gethostname()
@@ -132,5 +141,5 @@ def success(save_dir: str):
 import numpy as np  # noqa
 
 __accounts = ["rrg-mpederso", ]
-if on_beluga():
+if on_beluga() or on_narval():
     __accounts = ["rrg-ebrahimi", ]
