@@ -31,6 +31,7 @@ class _PretrainTrainerMixin(_Base):
         self._contrastive_loader, self._monitor_loader = _get_contrastive_dataloader(
             self._unlabeled_loader, self._config["ContrastiveLoaderParams"]
         )
+        self._contrastive_loader = iter(self._contrastive_loader)
         self._inference_until = None
 
     @property

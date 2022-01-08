@@ -8,7 +8,8 @@ from loguru import logger
 from contrastyou import __accounts, on_cc, MODEL_PATH, OPT_PATH, git_hash
 from contrastyou.configure import yaml_load
 from contrastyou.submitter import SlurmSubmitter
-from script.script_generator_pretrain_cc import get_hyper_param_string, _run_ft_per_class, _run_ft
+from script.script_generator_pretrain_cc import get_hyper_param_string, _run_ft_per_class, _run_ft, \
+    run_baseline_with_grid_search
 from script.utils import grid_search, move_dataset
 
 
@@ -134,27 +135,6 @@ def run_semi_regularize(
     return semi_script
 
 
-def run_baseline(
-        *, save_dir, random_seed: int = 10, max_epoch: int, num_batches: int, data_name: str = "acdc"
-) -> List[str]:
-    data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
-    labeled_scans = data_opt["labeled_ratios"][:-1]
-    if data_name == "acdc":
-        run_ft = _run_ft_per_class
-    else:
-        run_ft = _run_ft
-    ft_script = [
-        run_ft(
-            save_dir=os.path.join(save_dir, "baseline", f"labeled_num_{l:03d}"), random_seed=random_seed,
-            num_labeled_scan=l, max_epoch=max_epoch, num_batches=num_batches,
-            arch_checkpoint="null",
-            lr=data_opt["ft_lr"], data_name=data_name
-        )
-        for l in labeled_scans
-    ]
-    return ft_script
-
-
 def run_pretrain_ft_with_grid_search(
         *, save_dir, random_seeds: Sequence[int] = 10, max_epoch_pretrain: int, max_epoch: int, num_batches: int,
         data_name: str, cc_weights: Sequence[float], consistency_weights: Sequence[float],
@@ -162,7 +142,7 @@ def run_pretrain_ft_with_grid_search(
         num_subheads: Sequence[int], num_clusters: Sequence[int], kernel_size: Sequence[int],
         rr_weight: Sequence[float],
         rr_symmetric: Sequence[str], rr_lamda: Sequence[float], rr_alpha: Sequence[float],
-        include_baseline=True, max_num: Optional[int] = 200, pretrain_scan_sample_num: Sequence[int],
+        max_num: Optional[int] = 200, pretrain_scan_sample_num: Sequence[int],
 ) -> Iterator[List[str]]:
     param_generator = grid_search(max_num=max_num, cc_weight=cc_weights,
                                   random_seed=random_seeds,
@@ -178,13 +158,6 @@ def run_pretrain_ft_with_grid_search(
                               max_epoch=max_epoch, num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
                               data_name=data_name, **param)
 
-    if include_baseline:
-        rand_seed_gen = grid_search(random_seed=random_seeds)
-        for random_seed in rand_seed_gen:
-            yield run_baseline(save_dir=os.path.join(save_dir, f"seed_{random_seed['random_seed']}"),
-                               **random_seed, max_epoch=max_epoch, num_batches=num_batches,
-                               data_name=data_name)
-
 
 def run_semi_regularize_with_grid_search(
         *, save_dir, random_seeds: Sequence[int] = 10, max_epoch: int, num_batches: int,
@@ -194,7 +167,7 @@ def run_semi_regularize_with_grid_search(
         num_subheads: Sequence[int], num_clusters: Sequence[int], kernel_size: Sequence[int],
         rr_weight: Sequence[float],
         rr_symmetric: Sequence[str], rr_lamda: Sequence[float], rr_alpha: Sequence[float],
-        include_baseline=True, max_num: Optional[int] = 200,
+        max_num: Optional[int] = 200,
 ) -> Iterator[List[str]]:
     param_generator = grid_search(cc_weight=cc_weights,
                                   random_seed=random_seeds, consistency_weight=consistency_weights, rr_weight=rr_weight,
@@ -209,13 +182,6 @@ def run_semi_regularize_with_grid_search(
         yield run_semi_regularize(save_dir=os.path.join(save_dir, f"seed_{random_seed}", sp_str),
                                   random_seed=random_seed,
                                   max_epoch=max_epoch, num_batches=num_batches, data_name=data_name, **param)
-
-    if include_baseline:
-        rand_seed_gen = grid_search(random_seed=random_seeds)
-        for random_seed in rand_seed_gen:
-            yield run_baseline(save_dir=os.path.join(save_dir, f"seed_{random_seed['random_seed']}"),
-                               **random_seed, max_epoch=max_epoch, num_batches=num_batches,
-                               data_name=data_name)
 
 
 if __name__ == '__main__':
@@ -260,6 +226,11 @@ if __name__ == '__main__':
     ])
     submitter.configure_sbatch(mem=24)
 
+    # baseline
+    job_generator = run_baseline_with_grid_search(
+        save_dir=os.path.join(save_dir, "pretrain"), random_seeds=random_seeds, max_epoch=max_epoch,
+        num_batches=num_batches, data_name=data_name)
+
     # use only rr
     job_generator = run_pretrain_ft_with_grid_search(save_dir=os.path.join(save_dir, "pretrain"),
                                                      random_seeds=random_seeds, max_epoch=max_epoch,
@@ -267,7 +238,6 @@ if __name__ == '__main__':
                                                      data_name=data_name,
                                                      cc_weights=[0, 0.1, 1, 2],
                                                      consistency_weights=[0],
-                                                     include_baseline=True,
                                                      powers=power,
                                                      head_types="linear",
                                                      num_subheads=(3,),
@@ -293,7 +263,6 @@ if __name__ == '__main__':
                                                              data_name=data_name,
                                                              cc_weights=[0, 0.001, 0.01, 0.1],
                                                              consistency_weights=[0, 0.1, 0.5, ],
-                                                             include_baseline=True,
                                                              powers=power,
                                                              head_types="linear",
                                                              num_subheads=3,
