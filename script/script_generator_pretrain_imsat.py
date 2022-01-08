@@ -194,6 +194,10 @@ if __name__ == '__main__':
     job_generator = run_baseline_with_grid_search(
         save_dir=os.path.join(save_dir, "pretrain"), random_seeds=random_seeds, max_epoch=max_epoch,
         num_batches=num_batches, data_name=data_name)
+    jobs = list(job_generator)
+    logger.info(f"logging {len(jobs)} jobs")
+    for job in jobs:
+        submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
 
     # use only rr
     job_generator = run_pretrain_ft_with_grid_search(save_dir=os.path.join(save_dir, "pretrain"),
