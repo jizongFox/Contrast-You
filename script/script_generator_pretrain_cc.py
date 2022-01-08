@@ -294,8 +294,10 @@ if __name__ == '__main__':
 
     if "acdc" in data_name:
         power = (0.75,)
+    elif "prostate" in data_name:
+        power = (0.5,)
     else:
-        power = [1, 1.25, 1.5]
+        raise NotImplementedError("powers")
 
     save_dir = os.path.join(save_dir, f"hash_{git_hash}/{data_name}")
 
@@ -334,7 +336,7 @@ if __name__ == '__main__':
                                                      random_seeds=random_seeds, max_epoch=max_epoch,
                                                      num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
                                                      data_name=data_name,
-                                                     cc_weights=[0, 0.1, 1, 2],
+                                                     cc_weights=[0, 0.1, 0.5, 1, 2],
                                                      consistency_weights=[0],
                                                      powers=power,
                                                      head_types="linear",
