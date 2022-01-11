@@ -1,10 +1,11 @@
+from deepclustering2.dataset import ACDCSemiInterface
+
 from contrastyou import DATA_PATH
-from contrastyou.datasets.acdc_dataset import ACDCSemiInterface
-from semi_seg.augment import ACDCStrongTransforms
+from semi_seg.augment import ACDCTransforms2
 
 datainterface_zoos = {"acdc": ACDCSemiInterface,
                       }
-augment_zoos = {"acdc": ACDCStrongTransforms,
+augment_zoos = {"acdc": ACDCTransforms2()
                 }
 
 

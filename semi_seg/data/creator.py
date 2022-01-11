@@ -24,7 +24,7 @@ def create_tra_test_dataset(name: str, total_freedom: bool = True):
         total_freedom: control the augmentation strength, where if only two images are positionally aligned or not.
     """
     data_class = data_zoo[name]
-    aug_transform = augment_zoo[name]
+    aug_transform = augment_zoo[name]()
     tra_transform = aug_transform.pretrain
     tra_transform._total_freedom = total_freedom
     val_transform = aug_transform.val

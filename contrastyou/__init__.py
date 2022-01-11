@@ -2,6 +2,7 @@ import os
 import re
 import subprocess
 import sys
+import warnings
 from functools import lru_cache
 from pathlib import Path
 
@@ -52,7 +53,9 @@ def get_git_hash_tag() -> str:
 def get_git_timestamp():
     p = subprocess.Popen(["git", "log", '-1', '--date=iso'], stdout=subprocess.PIPE)
     out, err = p.communicate()
-    m = re.search('\d{2}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}', out.decode("utf-8"))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        m = re.search('\d{2}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}', out.decode("utf-8"))
     try:
         date_time = m.group(0)
         _date, _time = date_time.strip().split(" ")

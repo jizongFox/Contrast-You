@@ -530,6 +530,7 @@ class ToLabel(object):
         :param mapping: Optional dictionary containing the mapping.
         """
         super().__init__()
+        self.mapping = mapping
         self.mapping_call = np.vectorize(lambda x: mapping[x]) if mapping else None
 
     def __call__(self, img: Image.Image):
