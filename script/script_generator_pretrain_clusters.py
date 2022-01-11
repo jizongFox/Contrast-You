@@ -9,7 +9,7 @@ from contrastyou import __accounts, on_cc, MODEL_PATH, OPT_PATH, git_hash
 from contrastyou.configure import yaml_load
 from contrastyou.submitter import SlurmSubmitter
 from script.script_generator_pretrain_cc import _run_ft, _run_ft_per_class, get_hyper_param_string, \
-    run_baseline_with_grid_search
+    run_baseline_with_grid_search, enable_acdc_all_class_train
 from script.utils import grid_search, move_dataset
 
 
@@ -78,7 +78,7 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int,
         use_dynamic=use_dynamic, scan_sample_num=pretrain_scan_sample_num
     )
     ft_save_dir = os.path.join(save_dir, "tra")
-    if data_name == "acdc":
+    if data_name == "acdc" and not enable_acdc_all_class_train:
         run_ft = _run_ft_per_class
     else:
         run_ft = _run_ft

@@ -11,6 +11,8 @@ from contrastyou.configure import yaml_load
 from contrastyou.submitter import SlurmSubmitter
 from script.utils import grid_search, move_dataset
 
+enable_acdc_all_class_train = os.environ.get("ACDC_ALL_CLASS", "0") == "1"
+
 
 def get_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -156,7 +158,7 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int,
         scan_sample_num=pretrain_scan_sample_num
     )
     ft_save_dir = os.path.join(save_dir, "tra")
-    if data_name == "acdc":
+    if data_name == "acdc" and not enable_acdc_all_class_train:
         run_ft = _run_ft_per_class
     else:
         run_ft = _run_ft
@@ -201,7 +203,7 @@ def run_baseline(
 ) -> List[str]:
     data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
-    if data_name == "acdc":
+    if data_name == "acdc" and not enable_acdc_all_class_train:
         run_ft = _run_ft_per_class
     else:
         run_ft = _run_ft
