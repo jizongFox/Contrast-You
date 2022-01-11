@@ -200,17 +200,17 @@ if __name__ == '__main__':
     for job in jobs:
         submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
 
-    # use only rr
+    # native imsat way with kl
     job_generator = run_pretrain_ft_with_grid_search(save_dir=os.path.join(save_dir, "pretrain"),
                                                      random_seeds=random_seeds, max_epoch=max_epoch,
                                                      num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
                                                      data_name=data_name, imsat_weight=(1,),
-                                                     cons_weight=(0, 0.01, 0.1, 1, 10),
+                                                     cons_weight=(0, 0.001, 0.01, 0.1, 1, 10),
                                                      num_clusters=(40),
                                                      max_num=500,
                                                      head_type=("linear",),
                                                      num_subheads=(3,),
-                                                     imsat_lamda=(1, 2, 5, 10),
+                                                     imsat_lamda=(1,),
                                                      use_dynamic=("false",),
                                                      pretrain_scan_sample_num=(pretrain_scan_num,)
                                                      )
@@ -219,7 +219,7 @@ if __name__ == '__main__':
     for job in jobs:
         submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
 
-    # use only rr
+    # penalty based imsat way with kl
     job_generator = run_pretrain_ft_with_grid_search(save_dir=os.path.join(save_dir, "pretrain"),
                                                      random_seeds=random_seeds, max_epoch=max_epoch,
                                                      num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
@@ -237,21 +237,3 @@ if __name__ == '__main__':
     logger.info(f"logging {len(jobs)} jobs")
     for job in jobs:
         submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
-
-    # # only with RR on semi supervised case
-    # job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),
-    #                                                      random_seeds=random_seeds,
-    #                                                      max_epoch=max_epoch, num_batches=num_batches,
-    #                                                      data_name=data_name,
-    #                                                      imsat_weight=(1, 0.1, 0.01),
-    #                                                      cons_weight=(0.001, 0.01, 0.1, 1),
-    #                                                      num_clusters=(20, 30, 40),
-    #                                                      include_baseline=True, max_num=500,
-    #                                                      head_type=("linear",),
-    #                                                      num_subheads=(3,)
-    #                                                      )
-    #
-    # jobs = list(job_generator)
-    # logger.info(f"logging {len(jobs)} jobs")
-    # for job in jobs:
-    #     submitter.submit(" && \n ".join(job), force_show=force_show, time=6, account=next(account))
