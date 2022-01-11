@@ -5,8 +5,8 @@ from copy import deepcopy
 from functools import lru_cache, partial
 from typing import Any, Dict, Optional, final
 
-import rising.random as tr
-import rising.transforms as t
+import rising.random as rr
+import rising.transforms as rt
 import torch
 from loguru import logger
 from torch import nn, Tensor
@@ -208,17 +208,17 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
         self._sup_criterion = sup_criterion
 
         self._affine_transformer = RisingWrapper(
-            geometry_transform=t.Compose(t.BaseAffine(
-                scale=tr.UniformParameter(0.8, 1.3),
-                rotation=tr.UniformParameter(-45, 45),
-                translation=tr.UniformParameter(-0.1, 0.1),
+            geometry_transform=rt.Compose(rt.BaseAffine(
+                scale=rr.UniformParameter(0.8, 1.3),
+                rotation=rr.UniformParameter(-45, 45),
+                translation=rr.UniformParameter(-0.1, 0.1),
                 degree=True,
                 interpolation_mode="nearest",
                 grad=True,
             ),
-                t.Mirror(dims=tr.DiscreteParameter([0, 1]), p_sample=0.9, grad=True)
+                rt.Mirror(dims=rr.DiscreteParameter([0, 1]), p_sample=0.9, grad=True)
             ),
-            intensity_transform=t.GammaCorrection(gamma=tr.UniformParameter(0.5, 2), grad=True)
+            intensity_transform=rt.GammaCorrection(gamma=rr.UniformParameter(0.5, 2), grad=True)
         )
         self._two_stage = two_stage
         logger.opt(depth=1).trace("{} set to be using {} stage training", self.__class__.__name__,
@@ -357,6 +357,7 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
 
 
 class FineTuneEpocher(SemiSupervisedEpocher, ABC):
+    meter_focus = "ft"
 
     def __init__(self, *, model: nn.Module, optimizer: optimizerType, labeled_loader: dataIterType,
                  sup_criterion: criterionType, num_batches: int, cur_epoch=0, device="cpu", scaler: GradScaler,
