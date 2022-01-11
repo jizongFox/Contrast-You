@@ -34,9 +34,6 @@ rr_100 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b0
 superpixel_dir = "/home/jizong/Workspace/Contrast-You/.data/PROSTATE_superpixel/train/img"
 
 
-
-
-
 def image_grouper(root_dir: str, pattern: str) -> t.Iterator:
     def load_np_image(path):
         return np.asarray(Image.open(path).convert('L'))
@@ -136,7 +133,7 @@ def get_segment(iter_: t.Iterator, num_volume: int):
 
 if __name__ == '__main__':
     pattern = "probability"
-    slice_index = 15
+    slice_index = 35
     volume_num = 0
 
     image_gen = image_grouper(root_dir=image_dir, pattern=r"Case\d+_\d+")
@@ -175,10 +172,10 @@ if __name__ == '__main__':
 
     slice_100 = segment[slice_index]
 
-    slice_sp, slice_000, slice_025, slice_050, slice_075, slice_100 = \
+    slice_sp, slice_000, slice_025, slice_050, slice_075, slice_100, gt_slice = \
         hungarian_match(slice_sp, slice_000, slice_025,
                         slice_050,
-                        slice_075, slice_100,
+                        slice_075, slice_100, gt_slice,
                         reference_cluster=slice_050,
                         num_clusters=40)
     plt.subplot(331)
@@ -186,7 +183,7 @@ if __name__ == '__main__':
     plt.axis('off')
 
     plt.subplot(332)
-    plt.imshow(gt_slice)
+    plt.imshow(label2colored_image(gt_slice))
     plt.axis('off')
 
     plt.subplot(333)
