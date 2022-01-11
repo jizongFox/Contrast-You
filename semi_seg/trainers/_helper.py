@@ -44,7 +44,7 @@ def _get_contrastive_dataloader(partial_loader, contrastive_params):
 
     num_workers = contrastive_params.pop("num_workers")
 
-    augment = augment_zoo[data_name]
+    augment = augment_zoo[data_name]()
 
     batch_sampler = None
 

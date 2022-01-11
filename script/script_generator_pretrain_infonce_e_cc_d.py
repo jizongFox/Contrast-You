@@ -16,7 +16,8 @@ from script.utils import grid_search, move_dataset
 def get_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("save_dir", type=str, help="save dir")
-    parser.add_argument("--data-name", type=str, choices=("acdc", "acdc_lv", "acdc_rv", "prostate", "spleen"),
+    parser.add_argument("--data-name", type=str,
+                        choices=("acdc", "acdc_lv", "acdc_rv", "acdc_myo", "prostate", "spleen"),
                         default="acdc",
                         help="dataset_choice")
     parser.add_argument("--max-epoch-pretrain", default=50, type=int, help="max epoch")
@@ -196,7 +197,7 @@ if __name__ == '__main__':
     num_batches = args.num_batches
     pretrain_scan_num = args.pretrain_scan_num
 
-    if "acdc" in data_name:
+    if "acdc" in data_name:  # for all subclasses of `acdc` dataset
         power = (0.75,)
     else:
         power = [1, 1.25, 1.5]

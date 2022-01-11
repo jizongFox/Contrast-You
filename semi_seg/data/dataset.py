@@ -177,7 +177,7 @@ class HippocampusDataset(ContrastDataset, _Hippocampus):
         return str(2)
 
 
-data_zoo = {"acdc_lv": ACDCDataset, "acdc_rv": ACDCDataset, "acdc": ACDCDataset, "prostate": ProstateDataset,
+data_zoo = {"acdc_lv": ACDCDataset, "acdc_rv": ACDCDataset,"acdc_myo": ACDCDataset, "acdc": ACDCDataset, "prostate": ProstateDataset,
             "prostate_md": ProstateMDDataset,
             "mmwhsct": mmWHSCTDataset, "mmwhsmr": mmWHSMRDataset, "spleen": SpleenDataset,
             "hippocampus": HippocampusDataset}

@@ -17,7 +17,7 @@ def get_args():
     parser.add_argument("save_dir", type=str, help="save dir")
     parser.add_argument(
         "--data-name", type=str,
-        choices=("acdc", "acdc_lv", "acdc_rv", "prostate", "spleen", "hippocampus"),
+        choices=("acdc", "acdc_lv", "acdc_rv", "acdc_myo", "prostate", "spleen", "hippocampus"),
         default="acdc",
         help="dataset_choice"
     )
@@ -58,6 +58,9 @@ def _run_ft_per_class(*, save_dir: str, random_seed: int = 10, num_labeled_scan:
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f}  && \
     python main.py RandomSeed={random_seed} Trainer.name=ft \
      Trainer.save_dir={save_dir}/rv Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name}_rv \
+    Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f}  && \
+    python main.py RandomSeed={random_seed} Trainer.name=ft \
+     Trainer.save_dir={save_dir}/myo Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name}_myo \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f}  \
     """
 
