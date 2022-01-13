@@ -2,7 +2,7 @@ CrossCorrelationParameters:
   feature_name: Up_conv2
   num_clusters: 20
   head_type: linear
-  num_subheads: 1
+  num_subheads: 5
   save: true
   hooks:
     imsat:

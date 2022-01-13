@@ -1,12 +1,17 @@
 import os
 import pprint
+import typing
 from functools import reduce
 from typing import Optional
 
 from loguru import logger
+from torch.utils.data import DataLoader
+from torchvision.transforms import Compose
 
 from contrastyou.configure import dictionary_merge_by_hierachy, extract_dictionary_from_anchor, \
     extract_params_with_key_prefix, ConfigManager
+from contrastyou.data import DatasetBase
+from contrastyou.utils import get_dataset
 
 
 def separate_pretrain_finetune_configs(config_manager):
@@ -70,3 +75,19 @@ def grouper(array_list, group_num):
         batch.append(item)
     if len(batch) > 0:
         yield batch
+
+
+class ColorInverseTransform:
+    def __call__(self, image):
+        return 1 - image
+
+
+def _make_da_dataloader(dataloader: DataLoader):
+    dataset: 'DatasetBase' = get_dataset(dataloader)
+    previous_img_transform = dataset._transforms._image_transform
+    dataset._transforms._image_transform = Compose([previous_img_transform, ColorInverseTransform()])
+    return dataloader
+
+
+def make_data_dataloaders(*dataloader: DataLoader) -> typing.Tuple[DataLoader, ...]:
+    return tuple([_make_da_dataloader(loader) for loader in dataloader])

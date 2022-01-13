@@ -181,7 +181,7 @@ def create_val_loader(*, test_loader) -> t.Tuple[DataLoader, DataLoader]:
 
 
 def get_data(data_params, labeled_loader_params, unlabeled_loader_params, *, pretrain=False, total_freedom=False,
-             order_num=0):
+             order_num=0) -> t.Tuple[DataLoader, DataLoader, DataLoader, DataLoader]:
     labeled_loader, unlabeled_loader, test_loader = get_data_loaders(
         data_params=data_params, labeled_loader_params=labeled_loader_params,
         unlabeled_loader_params=unlabeled_loader_params, pretrain=pretrain, group_test=True,

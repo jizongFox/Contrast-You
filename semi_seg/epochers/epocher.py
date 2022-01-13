@@ -1,7 +1,6 @@
 import random
 from abc import ABC
 from contextlib import nullcontext
-from copy import deepcopy
 from functools import lru_cache, partial
 from typing import Any, Dict, Optional, final
 
@@ -16,14 +15,13 @@ from torch.utils.data import DataLoader
 from contrastyou.epochers.base import EpocherBase as _EpocherBase
 from contrastyou.losses import LossClass
 from contrastyou.meters import MeterInterface, UniversalDice, AverageValueMeter, SurfaceMeter
-from contrastyou.types import criterionType, optimizerType, dataIterType, SizedIterable, CriterionType
+from contrastyou.types import criterionType, optimizerType, dataIterType, SizedIterable
 from contrastyou.utils import get_dataset, class_name, fix_all_seed_for_transforms, get_lrs_from_optimizer
 from contrastyou.utils.general import class2one_hot
 from contrastyou.utils.utils import disable_tracking_bn_stats, get_model, ignore_exception
 from semi_seg.augment import RisingWrapper
 from semi_seg.epochers.helper import preprocess_input_with_twice_transformation, \
     preprocess_input_with_single_transformation
-from semi_seg.hooks import EMAUpdater
 
 
 def assert_transform_freedom(dataloader, is_true):
@@ -257,15 +255,17 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
         for self.cur_batch_num, labeled_data, unlabeled_data in zip(self.indicator, self._labeled_loader,
                                                                     self._unlabeled_loader):
             seed = random.randint(0, int(1e7))
-            (labeled_image, _), labeled_target, labeled_filename, _, label_group = \
+            (labeled_image, labeled_image_cf), labeled_target, labeled_filename, _, label_group = \
                 self._unzip_data(labeled_data, self._device)
             (unlabeled_image, unlabeled_image_cf), _, unlabeled_filename, unl_partition, unl_group = \
                 self._unzip_data(unlabeled_data, self._device)
 
+            labeled_image_tf = self.transform_with_seed(labeled_image_cf, seed=seed, mode="image")
             unlabeled_image_tf = self.transform_with_seed(unlabeled_image_cf, seed=seed, mode="image")
 
             self.batch_update(cur_batch_num=self.cur_batch_num,
                               labeled_image=labeled_image,
+                              labeled_image_tf=labeled_image_tf,
                               labeled_target=labeled_target,
                               labeled_filename=labeled_filename,
                               label_group=label_group, unlabeled_image=unlabeled_image,
@@ -277,15 +277,17 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
             report_dict = self.meters.statistics()
             self.indicator.set_postfix_statics(report_dict, cache_time=20)
 
-    def _batch_update(self, *, cur_batch_num: int, labeled_image, labeled_target, labeled_filename, label_group,
-                      unlabeled_image, unlabeled_image_tf, seed, unl_group, unl_partition, unlabeled_filename,
-                      retain_graph=False,
-                      **kwargs):
+    def _batch_update(
+            self, *, cur_batch_num: int, labeled_image, labeled_image_tf, labeled_target, labeled_filename,
+            label_group, unlabeled_image, unlabeled_image_tf, seed, unl_group, unl_partition, unlabeled_filename,
+            retain_graph=False,
+            **kwargs):
         self.optimizer_zero(self._optimizer, cur_iter=cur_batch_num)
 
         with self.autocast:
-            label_logits, unlabeled_logits, unlabeled_tf_logits = self.forward_pass(
+            label_logits, label_tf_logits, unlabeled_logits, unlabeled_tf_logits = self.forward_pass(
                 labeled_image=labeled_image,
+                labeled_image_tf=labeled_image_tf,
                 unlabeled_image=unlabeled_image,
                 unlabeled_image_tf=unlabeled_image_tf
             )
@@ -299,6 +301,7 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
             reg_loss = self.regularization(
                 seed=seed,
                 labeled_image=labeled_image,
+                labeled_image_tf=labeled_image_tf,
                 labeled_target=labeled_target,
                 unlabeled_image=unlabeled_image,
                 unlabeled_image_tf=unlabeled_image_tf,
@@ -324,21 +327,23 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
                                             group_name=label_group)
                 self.meters["reg_loss"].add(reg_loss.item())
 
-    def _forward_pass(self, labeled_image, unlabeled_image, unlabeled_image_tf):
+    def _forward_pass(self, labeled_image, labeled_image_tf, unlabeled_image, unlabeled_image_tf):
         n_l, n_unl = len(labeled_image), len(unlabeled_image)
         if self._two_stage:
-            label_logits = self._model(labeled_image)
+            label_logits = self._model(torch.cat([labeled_image, labeled_image_tf]))
+            label_logits, label_tf_logits = torch.chunk(label_logits, 2)
             with self._bn_context(self._model):
                 unlabeled_logits, unlabeled_tf_logits = \
                     torch.split(self._model(torch.cat([unlabeled_image, unlabeled_image_tf], dim=0)),
                                 [n_unl, n_unl], dim=0)
-            return label_logits, unlabeled_logits, unlabeled_tf_logits
-        predict_logits = self._model(torch.cat([labeled_image, unlabeled_image, unlabeled_image_tf], dim=0))
-        label_logits, unlabeled_logits, unlabeled_tf_logits = \
-            torch.split(predict_logits, [n_l, n_unl, n_unl], dim=0)
-        return label_logits, unlabeled_logits, unlabeled_tf_logits
+            return label_logits, label_tf_logits, unlabeled_logits, unlabeled_tf_logits
+        predict_logits = self._model(
+            torch.cat([labeled_image, labeled_image_tf, unlabeled_image, unlabeled_image_tf], dim=0))
+        label_logits, label_tf_logits, unlabeled_logits, unlabeled_tf_logits = \
+            torch.split(predict_logits, [n_l, n_l, n_unl, n_unl], dim=0)
+        return label_logits, label_tf_logits, unlabeled_logits, unlabeled_tf_logits
 
-    @property  # noqa
+    @property  # type: ignore # noqa
     @lru_cache()
     def _bn_context(self):
         return disable_tracking_bn_stats if self._disable_bn else nullcontext
@@ -396,92 +401,3 @@ class FineTuneEpocher(SemiSupervisedEpocher, ABC):
                 self.meters["sup_loss"].add(sup_loss.item())
                 self.meters["sup_dice"].add(label_logits.max(1)[1], labeled_target.squeeze(1),
                                             group_name=label_group)
-
-
-class DMTEpcoher(SemiSupervisedEpocher):
-    """
-    This class verified the feasibility of `higher` package in the context of mean teacher
-    """
-    meter_focus = "dmt"
-
-    def __init__(self, *, model: nn.Module, teacher_model: nn.Module, optimizer: optimizerType,
-                 labeled_loader: SizedIterable, unlabeled_loader: SizedIterable, sup_criterion: criterionType,
-                 num_batches: int, cur_epoch=0, device="cpu", two_stage: bool = False, disable_bn: bool = False,
-                 scaler: GradScaler, accumulate_iter: int, mt_criterion: CriterionType, ema_updater: EMAUpdater,
-                 mt_weight=10.0, meta_weight=0.001, **kwargs) -> None:
-        super().__init__(model=model, optimizer=optimizer, labeled_loader=labeled_loader,
-                         unlabeled_loader=unlabeled_loader, sup_criterion=sup_criterion, num_batches=num_batches,
-                         cur_epoch=cur_epoch, device=device, two_stage=two_stage, disable_bn=disable_bn, scaler=scaler,
-                         accumulate_iter=accumulate_iter, **kwargs)
-        self._teacher_model = teacher_model
-        self._mt_criterion = mt_criterion
-        self._mt_weight = mt_weight
-        self._ema_updater = ema_updater
-        self._meta_weight = meta_weight
-
-    def _assertion(self):
-        assert len(self._hooks) == 0
-        assert not self.scaler._enabled, "only support traditional training."  # noqa
-
-    def _batch_update(self, *, cur_batch_num: int, labeled_image, labeled_target, labeled_filename, label_group,
-                      unlabeled_image, unlabeled_image_tf, seed, unl_group, unl_partition, unlabeled_filename,
-                      retain_graph=False, **kwargs):
-        self.optimizer_zero(self._optimizer, cur_iter=cur_batch_num)
-        label_logits, unlabeled_logits, unlabeled_tf_logits = self.forward_pass(
-            labeled_image=labeled_image,
-            unlabeled_image=unlabeled_image,
-            unlabeled_image_tf=unlabeled_image_tf
-        )
-
-        unlabeled_logits_tf = self.transform_with_seed(unlabeled_logits, seed=seed)
-        # supervised part
-        one_hot_target = class2one_hot(labeled_target.squeeze(1), self.num_classes)
-        sup_loss = self._sup_criterion(label_logits.softmax(1), one_hot_target)
-        # regularized part
-        reg_loss = self.mt_update(
-            teacher_model=self._teacher_model, unlabeled_tf_logits=unlabeled_tf_logits,
-            unlabeled_image=unlabeled_image,
-            affine_transformer=partial(self.transform_with_seed, seed=seed)
-        )
-        total_loss = sup_loss + reg_loss * 0.1
-        self.teacher_model.zero_grad()
-        old_teacher = deepcopy(self.teacher_model.state_dict())
-
-        # gradient backpropagation
-        first_deriv = torch.autograd.grad(total_loss, tuple(self._model.parameters()), create_graph=True)
-        model_s_1 = [v - self._meta_weight * g for v, g in zip(self._model.parameters(), first_deriv)]
-        model_t_1 = [0.999 * v_t.detach() + 0.001 * v_s_1 for v_t, v_s_1 in
-                     zip(self.teacher_model.parameters(), model_s_1)]
-
-        for p, p_ in zip(self.teacher_model.parameters(), model_t_1):
-            setattr(p, "data", p_.data)
-            setattr(p, "grad", p_.grad)
-
-        meta_loss = self._sup_criterion(self._teacher_model(labeled_image).softmax(1), one_hot_target)
-
-        meta_grad = torch.autograd.grad(meta_loss, tuple(self._model.parameters()), only_inputs=True)
-        self._optimizer.step()
-
-        # recording can be here or in the regularization method
-        self.teacher_model.load_state_dict(old_teacher)
-        self._ema_updater(ema_model=self.teacher_model, student_model=self._model)
-
-        if self.on_master():
-            with torch.no_grad():
-                self.meters["sup_loss"].add(sup_loss.item())
-                self.meters["sup_dice"].add(label_logits.max(1)[1], labeled_target.squeeze(1),
-                                            group_name=label_group)
-                self.meters["reg_loss"].add(reg_loss.item())
-
-    def mt_update(self, *, teacher_model, unlabeled_tf_logits, unlabeled_image, affine_transformer):
-        # taken from mean teacher
-        student_unlabeled_tf_prob = unlabeled_tf_logits.softmax(1)
-        with torch.no_grad():
-            teacher_unlabeled_prob = teacher_model(unlabeled_image).softmax(1)
-            teacher_unlabeled_prob_tf = affine_transformer(teacher_unlabeled_prob)
-        loss = self._mt_criterion(teacher_unlabeled_prob_tf, student_unlabeled_tf_prob)
-        return loss
-
-    @property
-    def teacher_model(self):
-        return self._teacher_model

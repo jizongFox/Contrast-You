@@ -17,7 +17,7 @@ from semi_seg.data.creator import get_data
 from semi_seg.hooks import feature_until_from_hooks
 from semi_seg.trainers.pretrain import PretrainEncoderTrainer, PretrainDecoderTrainer
 from semi_seg.trainers.trainer import SemiTrainer, FineTuneTrainer, MixUpTrainer, MTTrainer
-from utils import logging_configs, find_checkpoint  # noqa
+from utils import logging_configs, find_checkpoint, make_data_dataloaders  # noqa
 
 trainer_zoo = {"semi": SemiTrainer,
                "ft": FineTuneTrainer,
@@ -78,6 +78,9 @@ def worker(config, absolute_save_dir, seed):
         order_num=order_num
     )
 
+    # convert the data 2 source B
+    unlabeled_loader, val_loader, test_loader = make_data_dataloaders(unlabeled_loader, val_loader, test_loader)
+
     Trainer: 'Trainer' = trainer_zoo[trainer_name]
 
     trainer = Trainer(
@@ -119,6 +122,6 @@ def worker(config, absolute_save_dir, seed):
 if __name__ == '__main__':
     import torch
 
-    torch.use_deterministic_algorithms(True)
-    # torch.backends.cudnn.benchmark = True  # noqa
+    # torch.use_deterministic_algorithms(True)
+    torch.backends.cudnn.benchmark = True  # noqa
     main()

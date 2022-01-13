@@ -304,7 +304,6 @@ class _CrossCorrelationEpocherHookWithSaver(_CrossCorrelationEpocherHook):
         return cc_loss * self.cc_weight + mi_loss * self.mi_weight
 
 
-# new interface
 class _TinyHook(metaclass=ABCMeta):
 
     def __init__(self, *, name: str, criterion: nn.Module, weight: float) -> None:
@@ -358,6 +357,7 @@ class ProjectorGeneralHook(TrainerHook):
 
         self._feature_hooks = []
         self._dist_hooks = []
+        self._alignment_hooks = []
         self.save = save
         self.saver = None
         self.dist_saver = None
@@ -377,13 +377,18 @@ class ProjectorGeneralHook(TrainerHook):
         logger.debug(f"register {','.join([str(x) for x in hook])}")
         self._dist_hooks.extend(hook)
 
+    def register_alignment_hook(self, *hook: '_TinyHook'):
+        logger.debug(f"register {','.join([str(x) for x in hook])}")
+        self._alignment_hooks.extend(hook)
+
     def __call__(self, **kwargs):
         if (len(self._feature_hooks) + len(self._dist_hooks)) == 0:
             raise RuntimeError(f"hooks not registered for {class_name(self)}.")
 
         return _ProjectorEpocherGeneralHook(
             name=self._hook_name, extractor=self._extractor, projector=self._projector, dist_hooks=self._dist_hooks,
-            feat_hooks=self._feature_hooks, saver=self.saver, dist_saver=self.dist_saver
+            feat_hooks=self._feature_hooks, alignment_hooks=self._alignment_hooks,
+            saver=self.saver, dist_saver=self.dist_saver
         )
 
     @property
@@ -396,11 +401,11 @@ class ProjectorGeneralHook(TrainerHook):
             self.dist_saver.zip()
 
 
-# try to convert this to hook
 class _ProjectorEpocherGeneralHook(EpocherHook):
 
     def __init__(self, *, name: str, extractor: 'SingleFeatureExtractor', projector: '_ProjectorHeadBase',
                  dist_hooks: t.Sequence[_TinyHook] = (), feat_hooks: t.Sequence[_TinyHook] = (),
+                 alignment_hooks: t.Sequence[_TinyHook] = (),
                  saver: FeatureMapSaver = None,
                  dist_saver: DistributionTracker = None) -> None:
         super().__init__(name=name)
@@ -409,12 +414,13 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
         self.projector = projector
         self._feature_hooks = feat_hooks
         self._dist_hooks = dist_hooks
+        self._alignment_hooks = alignment_hooks
         self.saver = saver
         self.dist_saver = dist_saver
 
     def configure_meters_given_epocher(self, meters: 'MeterInterface'):
         meters = super(_ProjectorEpocherGeneralHook, self).configure_meters_given_epocher(meters)
-        for h in chain(self._dist_hooks, self._feature_hooks):
+        for h in chain(self._dist_hooks, self._feature_hooks, self._alignment_hooks):
             h.meters = meters
             h.hook = weakref.proxy(self)
             h.configure_meters(meters)
@@ -429,57 +435,113 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
 
     def _call_implementation(self, unlabeled_image_tf: Tensor, unlabeled_logits_tf: Tensor,
                              affine_transformer: t.Callable[[Tensor], Tensor],
-                             unlabeled_image: Tensor, seed: int, **kwargs):
+                             unlabeled_image: Tensor, seed: int, labeled_image_tf, **kwargs):
         save_image_condition = self.epocher.cur_batch_num == 0 and self.epocher.cur_epoch % 3 == 0 and self.saver is not None
         save_image_condition = save_image_condition or (self.save_flag and self.saver is not None)
+        n_lab = len(kwargs["labeled_image"])
+        _labeled_features = self.extractor.feature()[:n_lab * 2]
+        _labeled_features, \
+        labeled_tf_features = torch.chunk(_labeled_features, 2, dim=0)
+        labeled_features_tf = affine_transformer(_labeled_features)
 
         n_unl = len(unlabeled_logits_tf)
-        feature_ = self.extractor.feature()[-n_unl * 2:]
-        _unlabeled_features, unlabeled_tf_features = torch.chunk(feature_, 2, dim=0)
+        _unlabeled_features = self.extractor.feature()[-n_unl * 2:]
+        _unlabeled_features, \
+        unlabeled_tf_features = torch.chunk(_unlabeled_features, 2, dim=0)
         unlabeled_features_tf = affine_transformer(_unlabeled_features)
+
         with fix_all_seed_within_context(seed):
-            feature_loss = self._run_feature_hooks(
+            labeled_feature_loss = self._run_feature_hooks(
+                input1=labeled_features_tf,
+                input2=labeled_tf_features,
+                image=labeled_image_tf,
+                stage_name="labeled_features"
+            )
+        with fix_all_seed_within_context(seed):
+            unlabeled_feature_loss = self._run_feature_hooks(
                 input1=unlabeled_features_tf,
                 input2=unlabeled_tf_features,
-                image=unlabeled_image_tf
+                image=unlabeled_image_tf,
+                stage_name="labeled_features"
+
+            )
+        # save_images.
+        if save_image_condition and self.saver is not None:
+            self.saver.save_map(
+                image=labeled_image_tf, feature_map1=labeled_tf_features, feature_map2=labeled_features_tf,
+                cur_epoch=self.epocher.cur_epoch, cur_batch_num=self.epocher.cur_batch_num, save_name="labeled_feature"
             )
         if save_image_condition and self.saver is not None:
             self.saver.save_map(
                 image=unlabeled_image_tf, feature_map1=unlabeled_tf_features, feature_map2=unlabeled_features_tf,
-                cur_epoch=self.epocher.cur_epoch, cur_batch_num=self.epocher.cur_batch_num, save_name="feature"
+                cur_epoch=self.epocher.cur_epoch, cur_batch_num=self.epocher.cur_batch_num,
+                save_name="unlabeled_feature"
             )
+        labeled_projected_dist_tf, labeled_projected_tf_dist = zip(*[torch.chunk(x, 2) for x in self.projector(
+            torch.cat([labeled_features_tf, labeled_tf_features], dim=0))])
 
-        projected_dist_tf, projected_tf_dist = zip(*[torch.chunk(x, 2) for x in self.projector(
+        unlabeled_projected_dist_tf, unlabeled_projected_tf_dist = zip(*[torch.chunk(x, 2) for x in self.projector(
             torch.cat([unlabeled_features_tf, unlabeled_tf_features], dim=0))])
 
         if save_image_condition:
             if self.saver is not None:
                 self.saver.save_map(
-                    image=unlabeled_image_tf, feature_map1=projected_dist_tf[0], feature_map2=projected_tf_dist[0],
-                    cur_epoch=self.epocher.cur_epoch, cur_batch_num=self.epocher.cur_batch_num, save_name="probability"
+                    image=unlabeled_image_tf, feature_map1=labeled_projected_dist_tf[0],
+                    feature_map2=labeled_projected_tf_dist[0],
+                    cur_epoch=self.epocher.cur_epoch, cur_batch_num=self.epocher.cur_batch_num,
+                    save_name="labeled_probability"
                 )
-            if self.dist_saver is not None:
-                self.dist_saver.save_map(dist1=projected_dist_tf[0], dist2=projected_tf_dist[0],
-                                         cur_epoch=self.epocher.cur_epoch)
+                self.saver.save_map(
+                    image=unlabeled_image_tf, feature_map1=unlabeled_projected_dist_tf[0],
+                    feature_map2=unlabeled_projected_tf_dist[0],
+                    cur_epoch=self.epocher.cur_epoch, cur_batch_num=self.epocher.cur_batch_num,
+                    save_name="unlabeled_probability"
+                )
+
         with fix_all_seed_within_context(seed):
-            dist_losses = tuple(
+            _labeled_dist_losses = tuple(
+                self._run_dist_hooks(
+                    input1=prob1, input2=prob2, image=labeled_image_tf,
+                    feature_map1=labeled_tf_features, feature_map2=labeled_features_tf, saver=self.saver,
+                    save_image_condition=save_image_condition, cur_epoch=self.epocher.cur_epoch,
+                    cur_batch_num=self.epocher.cur_batch_num,
+                    stage_name="labeled_features"
+                )
+                for prob1, prob2 in zip(labeled_projected_tf_dist, labeled_projected_dist_tf)
+            )
+
+        with fix_all_seed_within_context(seed):
+            _unlabeled_dist_losses = tuple(
                 self._run_dist_hooks(
                     input1=prob1, input2=prob2, image=unlabeled_image_tf,
                     feature_map1=unlabeled_tf_features, feature_map2=unlabeled_features_tf, saver=self.saver,
                     save_image_condition=save_image_condition, cur_epoch=self.epocher.cur_epoch,
-                    cur_batch_num=self.epocher.cur_batch_num
+                    cur_batch_num=self.epocher.cur_batch_num,
+                    stage_name="unlabeled_features"
                 )
-                for prob1, prob2 in zip(projected_tf_dist, projected_dist_tf)
+                for prob1, prob2 in zip(unlabeled_projected_tf_dist, unlabeled_projected_dist_tf)
             )
-        dist_loss = sum(dist_losses) / len(dist_losses)
+        with fix_all_seed_within_context(seed):
+            _dist_alignment_losses = [
+                self._run_alignment_hooks(labeled_dist=labeled_dist, unlabeled_dist=unlabeled_dist)
+                for labeled_dist, unlabeled_dist in zip(
+                    chain(*[labeled_projected_tf_dist, labeled_projected_tf_dist]),
+                    chain(*[unlabeled_projected_tf_dist, unlabeled_projected_tf_dist])
+                )]
 
-        return feature_loss + dist_loss
+        labeled_dist_loss = sum(_labeled_dist_losses) / len(_labeled_dist_losses)
+        unlabeled_dist_loss = sum(_unlabeled_dist_losses) / len(_unlabeled_dist_losses)
+
+        return labeled_feature_loss + unlabeled_feature_loss + labeled_dist_loss + unlabeled_dist_loss
 
     def _run_feature_hooks(self, **kwargs):
         return sum([h(**kwargs) for h in self._feature_hooks])
 
     def _run_dist_hooks(self, **kwargs):
         return sum([h(**kwargs) for h in self._dist_hooks])
+
+    def _run_alignment_hooks(self, **kwargs):
+        return sum([h(**kwargs) for h in self._alignment_hooks])
 
     def close(self):
         self.extractor.remove()
@@ -744,3 +806,21 @@ class _ConsistencyHook(_TinyHook):
             self.meters[self.name].add(loss.item())
 
         return loss * self.weight
+
+
+class _ClusterAlignmentHook(_TinyHook):
+
+    def __init__(self, *, name: str = "alignment", weight: float) -> None:
+        criterion = nn.MSELoss()
+        super().__init__(name=name, criterion=criterion, weight=weight)
+
+    def __call__(self, *, labeled_dist: Tensor, unlabeled_dist: Tensor, **kwargs):
+        if self.weight == 0:
+            if self.meters:
+                self.meters[self.name].add(0)
+            return torch.tensor(0, device=labeled_dist.device, dtype=labeled_dist.dtype)
+
+        loss = self.criterion(labeled_dist.mean(dim=[0, 2, 3]), unlabeled_dist.mean(dim=[0, 2, 3]))
+        if self.meters:
+            self.meters[self.name].add(loss.item())
+        return loss

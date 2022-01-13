@@ -1,6 +1,5 @@
 import json
 import os
-from copy import deepcopy
 from pathlib import Path
 from typing import Type, Dict, Any
 
@@ -19,9 +18,8 @@ from contrastyou.types import criterionType, SizedIterable
 from contrastyou.utils import fix_all_seed_within_context, get_dataset
 from contrastyou.utils.printable import item2str
 from semi_seg.epochers.comparable import MixUpEpocher, AdversarialEpocher
-from semi_seg.epochers.epocher import EpocherBase, SemiSupervisedEpocher, FineTuneEpocher, EvalEpocher, DMTEpcoher, \
-    InferenceEpocher
-from semi_seg.hooks import MeanTeacherTrainerHook, EMAUpdater
+from semi_seg.epochers.epocher import EpocherBase, SemiSupervisedEpocher, FineTuneEpocher, EvalEpocher, InferenceEpocher
+from semi_seg.hooks import MeanTeacherTrainerHook
 
 
 class SemiTrainer(Trainer):
@@ -165,35 +163,6 @@ class MTTrainer(SemiTrainer):
                 self.save_to(save_name="last.pth")
                 if best_case_sofa:
                     self.save_to(save_name="best.pth")
-
-
-class DMTTrainer(SemiTrainer):
-
-    def __init__(self, *, model: nn.Module, labeled_loader: SizedIterable, unlabeled_loader: SizedIterable,
-                 val_loader: SizedIterable, test_loader: SizedIterable, criterion: LossClass[Tensor], save_dir: str,
-                 max_epoch: int = 100, num_batches: int = 100, device="cpu", disable_bn: bool, two_stage: bool,
-                 config: Dict[str, Any], enable_scale=True, accumulate_iter: int = 1, **kwargs) -> None:
-        super().__init__(model=model, labeled_loader=labeled_loader, unlabeled_loader=unlabeled_loader,
-                         val_loader=val_loader, test_loader=test_loader, criterion=criterion, save_dir=save_dir,
-                         max_epoch=max_epoch, num_batches=num_batches, device=device, disable_bn=disable_bn,
-                         two_stage=two_stage, config=config, enable_scale=enable_scale, accumulate_iter=accumulate_iter,
-                         **kwargs)
-        self._teacher_model = deepcopy(model)
-
-    @property
-    def train_epocher(self) -> Type[DMTEpcoher]:
-        return DMTEpcoher
-
-    def _create_initialized_tra_epoch(self, **kwargs) -> EpocherBase:
-        epocher = self.train_epocher(
-            model=self._model, optimizer=self._optimizer, labeled_loader=self._labeled_loader,
-            unlabeled_loader=self._unlabeled_loader, sup_criterion=self._criterion, num_batches=self._num_batches,
-            cur_epoch=self._cur_epoch, device=self._device, two_stage=self._two_stage, disable_bn=self._disable_bn,
-            scaler=self.scaler, accumulate_iter=self._accumulate_iter, mt_criterion=nn.MSELoss(),
-            ema_updater=EMAUpdater(), teacher_model=self._teacher_model
-        )
-        epocher.init()
-        return epocher
 
 
 class FineTuneTrainer(SemiTrainer):
