@@ -455,14 +455,16 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
                 input1=labeled_features_tf,
                 input2=labeled_tf_features,
                 image=labeled_image_tf,
-                stage_name="labeled_features"
+                stage_name="labeled_features",
+                tag="labeled"
             )
         with fix_all_seed_within_context(seed):
             unlabeled_feature_loss = self._run_feature_hooks(
                 input1=unlabeled_features_tf,
                 input2=unlabeled_tf_features,
                 image=unlabeled_image_tf,
-                stage_name="labeled_features"
+                stage_name="unlabeled_features",
+                tag="unlabeled"
 
             )
         # save_images.
@@ -505,7 +507,8 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
                     feature_map1=labeled_tf_features, feature_map2=labeled_features_tf, saver=self.saver,
                     save_image_condition=save_image_condition, cur_epoch=self.epocher.cur_epoch,
                     cur_batch_num=self.epocher.cur_batch_num,
-                    stage_name="labeled_features"
+                    stage_name="labeled_features",
+                    tag="labeled"
                 )
                 for prob1, prob2 in zip(labeled_projected_tf_dist, labeled_projected_dist_tf)
             )
@@ -517,7 +520,8 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
                     feature_map1=unlabeled_tf_features, feature_map2=unlabeled_features_tf, saver=self.saver,
                     save_image_condition=save_image_condition, cur_epoch=self.epocher.cur_epoch,
                     cur_batch_num=self.epocher.cur_batch_num,
-                    stage_name="unlabeled_features"
+                    stage_name="unlabeled_features",
+                    tag="unlabeled"
                 )
                 for prob1, prob2 in zip(unlabeled_projected_tf_dist, unlabeled_projected_dist_tf)
             )
@@ -640,7 +644,7 @@ class _MIHook(_TinyHook):
         return super(_MIHook, self).__repr_extra__() + \
                f" lamda={self.lamda} padding={self.padding} symmetric={self.symmetric}"
 
-    def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, **kwargs):
+    def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, tag: str, **kwargs):
         if self.weight == 0:
             if self.meters:
                 self.meters[self.name].add(0)
@@ -652,7 +656,7 @@ class _MIHook(_TinyHook):
         if kwargs.get("save_image_condition", False):
             self.criterion: IIDSegmentationLoss
             joint_2D_figure(self.criterion.get_joint_matrix(), tb_writer=self.get_tb_writer(), cur_epoch=cur_epoch,
-                            tag=f"{class_name(self)}_{self.name}")
+                            tag=f"{tag}_{class_name(self)}_{self.name}")
 
         return loss * self.weight
 
@@ -671,7 +675,7 @@ class _RedundancyReduction(_TinyHook):
         return super(_RedundancyReduction, self).__repr_extra__() + \
                f" lamda={self.lamda} alpha={self.alpha} symmetric={self.symmetric}"
 
-    def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, **kwargs):
+    def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, tag: str, **kwargs):
         if self.weight == 0:
             if self.meters:
                 self.meters[self.name].add(0)
@@ -689,7 +693,7 @@ class _RedundancyReduction(_TinyHook):
         if kwargs.get("save_image_condition", False):
             self.criterion: RedundancyCriterion
             joint_2D_figure(self.criterion.get_joint_matrix(), tb_writer=self.get_tb_writer(), cur_epoch=cur_epoch,
-                            tag=f"{class_name(self)}_{self.name}")
+                            tag=f"{tag}_{class_name(self)}_{self.name}")
 
         return loss * self.weight
 
@@ -760,7 +764,7 @@ class _IMSATHook(_TinyHook):
         meters.register_meter("weight", AverageValueMeter())
         return meters
 
-    def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, **kwargs):
+    def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, tag: str, **kwargs):
         assert simplex(input1)
         if self.weight == 0:
             if self.meters:
@@ -776,7 +780,7 @@ class _IMSATHook(_TinyHook):
         if kwargs.get("save_image_condition", False):
             self.criterion: IMSATLoss
             joint_2D_figure(self.criterion.get_joint_matrix(), tb_writer=self.get_tb_writer(), cur_epoch=cur_epoch,
-                            tag=f"{class_name(self)}_{self.name}")
+                            tag=f"{tag}_{class_name(self)}_{self.name}")
 
         return loss * self.weight
 

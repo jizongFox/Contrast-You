@@ -229,7 +229,7 @@ if __name__ == '__main__':
                                                          cc_weights=[0, ],
                                                          consistency_weights=[0],
                                                          powers=power,
-                                                         head_types="linear",
+                                                         head_types=("linear", "mlp"),
                                                          num_subheads=(3,),
                                                          num_clusters=[40],
                                                          max_num=500,
