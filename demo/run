@@ -1,0 +1,19 @@
+#!/bin/bash
+
+python main.py >singlebn_baseline.txt
+python main.py --source-cluster-weight 0.1 >singlebn_source_cluster_0.1.txt
+python main.py --source-cluster-weight 1 >singlebn_source_cluster_1.0.txt
+python main.py --source-cluster-weight 1 --target-cluster-weight 1 \
+  >singlebn_source_cluster_1.0_target_cluster_1.0.txt
+python main.py --source-cluster-weight 1 --target-cluster-weight 1 --alignment-weight 1.0 \
+  >singlebn_source_cluster_1.0_target_cluster_1.0_alignment_1.0.txt
+
+
+
+python main.py --double-bn  >doublebn_baseline.txt
+python main.py --double-bn  --source-cluster-weight 0.1 >doublebn_source_cluster_0.1.txt
+python main.py --double-bn  --source-cluster-weight 1 >doublebn_source_cluster_1.0.txt
+python main.py --double-bn  --source-cluster-weight 1 --target-cluster-weight 1 \
+  >doublebn_source_cluster_1.0_target_cluster_1.0.txt
+python main.py --double-bn  --source-cluster-weight 1 --target-cluster-weight 1 --alignment-weight 1.0 \
+  >doublebn_source_cluster_1.0_target_cluster_1.0_alignment_1.0.txt

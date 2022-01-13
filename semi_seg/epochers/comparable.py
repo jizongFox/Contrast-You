@@ -91,7 +91,8 @@ class AdversarialEpocher(SemiSupervisedEpocher, ABC):
                  disc_optimizer=None, reg_weight=None, dis_consider_image: bool, **kwargs) -> None:
         super().__init__(model=model, optimizer=optimizer, labeled_loader=labeled_loader,
                          unlabeled_loader=unlabeled_loader, sup_criterion=sup_criterion, num_batches=num_batches,
-                         cur_epoch=cur_epoch, device=device, two_stage=two_stage, disable_bn=disable_bn, **kwargs)
+                         affine_transformer=None, cur_epoch=cur_epoch, device=device, two_stage=two_stage,
+                         disable_bn=disable_bn, **kwargs)
         self._discriminator = discriminator
         self._discr_optimizer = disc_optimizer
         self._reg_weight = float(reg_weight)

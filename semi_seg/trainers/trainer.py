@@ -3,6 +3,8 @@ import os
 from pathlib import Path
 from typing import Type, Dict, Any
 
+import rising.random as rr
+import rising.transforms as rt
 from loguru import logger
 from torch import nn, Tensor
 from torch.cuda.amp import GradScaler
@@ -17,6 +19,7 @@ from contrastyou.trainer.base import Trainer
 from contrastyou.types import criterionType, SizedIterable
 from contrastyou.utils import fix_all_seed_within_context, get_dataset
 from contrastyou.utils.printable import item2str
+from semi_seg.augment import RisingWrapper
 from semi_seg.epochers.comparable import MixUpEpocher, AdversarialEpocher
 from semi_seg.epochers.epocher import EpocherBase, SemiSupervisedEpocher, FineTuneEpocher, EvalEpocher, InferenceEpocher
 from semi_seg.hooks import MeanTeacherTrainerHook
@@ -46,8 +49,22 @@ class SemiTrainer(Trainer):
         logger.info(f"{'Enable' if enable_scale else 'Disable'} mixed precision training "
                     f"with an accumulate iter: {accumulate_iter}")
 
+        self._affine_transformer = RisingWrapper(
+            geometry_transform=rt.Compose(rt.BaseAffine(
+                scale=rr.UniformParameter(0.8, 1.3),
+                rotation=rr.UniformParameter(-45, 45),
+                translation=rr.UniformParameter(-0.1, 0.1),
+                degree=True,
+                interpolation_mode="nearest",
+                grad=True,
+            ),
+                rt.Mirror(dims=rr.DiscreteParameter([0, 1]), p_sample=0.9, grad=True)
+            ),
+            intensity_transform=rt.GammaCorrection(gamma=rr.UniformParameter(0.5, 2), grad=True)
+        )
+
     @property
-    def train_epocher(self) -> Type[EpocherBase]:
+    def train_epocher(self) -> Type[SemiSupervisedEpocher]:
         return SemiSupervisedEpocher
 
     def _create_initialized_tra_epoch(self, **kwargs) -> EpocherBase:
@@ -55,7 +72,7 @@ class SemiTrainer(Trainer):
             model=self._model, optimizer=self._optimizer, labeled_loader=self._labeled_loader,
             unlabeled_loader=self._unlabeled_loader, sup_criterion=self._criterion, num_batches=self._num_batches,
             cur_epoch=self._cur_epoch, device=self._device, two_stage=self._two_stage, disable_bn=self._disable_bn,
-            scaler=self.scaler, accumulate_iter=self._accumulate_iter
+            scaler=self.scaler, accumulate_iter=self._accumulate_iter, affine_transformer=self._affine_transformer
         )
         epocher.set_trainer(self)
         epocher.init()

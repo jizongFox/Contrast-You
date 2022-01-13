@@ -4,8 +4,6 @@ from contextlib import nullcontext
 from functools import lru_cache, partial
 from typing import Any, Dict, Optional, final
 
-import rising.random as rr
-import rising.transforms as rt
 import torch
 from loguru import logger
 from torch import nn, Tensor
@@ -19,9 +17,9 @@ from contrastyou.types import criterionType, optimizerType, dataIterType, SizedI
 from contrastyou.utils import get_dataset, class_name, fix_all_seed_for_transforms, get_lrs_from_optimizer
 from contrastyou.utils.general import class2one_hot
 from contrastyou.utils.utils import disable_tracking_bn_stats, get_model, ignore_exception
-from semi_seg.augment import RisingWrapper
 from semi_seg.epochers.helper import preprocess_input_with_twice_transformation, \
     preprocess_input_with_single_transformation
+from utils import switch_bn
 
 
 def assert_transform_freedom(dataloader, is_true):
@@ -117,7 +115,7 @@ class EvalEpocher(EpocherBase):
     meter_focus = "eval"
 
     def get_score(self) -> float:
-        metric = self.meters["dice"].summary()
+        metric = self.meters["dice"].summary()  # type: ignore
         return metric["DSC_mean"]
 
     def __init__(self, *, model: nn.Module, loader: DataLoader, sup_criterion: LossClass, cur_epoch=0, device="cpu",
@@ -195,8 +193,8 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
             assert_transform_freedom(self._unlabeled_loader, False)
 
     def __init__(self, *, model: nn.Module, optimizer: optimizerType, labeled_loader: SizedIterable,
-                 unlabeled_loader: SizedIterable, sup_criterion: criterionType, num_batches: int, cur_epoch=0,
-                 device="cpu", two_stage: bool = False, disable_bn: bool = False, scaler: GradScaler,
+                 unlabeled_loader: SizedIterable, sup_criterion: criterionType, num_batches: int, affine_transformer,
+                 cur_epoch=0, device="cpu", two_stage: bool = False, disable_bn: bool = False, scaler: GradScaler,
                  accumulate_iter: int, **kwargs) -> None:
         super().__init__(model=model, num_batches=num_batches, cur_epoch=cur_epoch, device=device, scaler=scaler,
                          accumulate_iter=accumulate_iter)
@@ -205,19 +203,8 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
         self._unlabeled_loader: SizedIterable = unlabeled_loader
         self._sup_criterion = sup_criterion
 
-        self._affine_transformer = RisingWrapper(
-            geometry_transform=rt.Compose(rt.BaseAffine(
-                scale=rr.UniformParameter(0.8, 1.3),
-                rotation=rr.UniformParameter(-45, 45),
-                translation=rr.UniformParameter(-0.1, 0.1),
-                degree=True,
-                interpolation_mode="nearest",
-                grad=True,
-            ),
-                rt.Mirror(dims=rr.DiscreteParameter([0, 1]), p_sample=0.9, grad=True)
-            ),
-            intensity_transform=rt.GammaCorrection(gamma=rr.UniformParameter(0.5, 2), grad=True)
-        )
+        self._affine_transformer = affine_transformer
+
         self._two_stage = two_stage
         logger.opt(depth=1).trace("{} set to be using {} stage training", self.__class__.__name__,
                                   "two" if self._two_stage else "single")
@@ -329,10 +316,12 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
 
     def _forward_pass(self, labeled_image, labeled_image_tf, unlabeled_image, unlabeled_image_tf):
         n_l, n_unl = len(labeled_image), len(unlabeled_image)
+        assert self._two_stage is True
         if self._two_stage:
-            label_logits = self._model(torch.cat([labeled_image, labeled_image_tf]))
+            with switch_bn(self._model, 0):
+                label_logits = self._model(torch.cat([labeled_image, labeled_image_tf]))
             label_logits, label_tf_logits = torch.chunk(label_logits, 2)
-            with self._bn_context(self._model):
+            with self._bn_context(self._model), switch_bn(self._model, 1):
                 unlabeled_logits, unlabeled_tf_logits = \
                     torch.split(self._model(torch.cat([unlabeled_image, unlabeled_image_tf], dim=0)),
                                 [n_unl, n_unl], dim=0)
@@ -365,11 +354,13 @@ class FineTuneEpocher(SemiSupervisedEpocher, ABC):
     meter_focus = "ft"
 
     def __init__(self, *, model: nn.Module, optimizer: optimizerType, labeled_loader: dataIterType,
-                 sup_criterion: criterionType, num_batches: int, cur_epoch=0, device="cpu", scaler: GradScaler,
+                 sup_criterion: criterionType, affine_transformer, num_batches: int, cur_epoch=0, device="cpu",
+                 scaler: GradScaler,
                  accumulate_iter: int, **kwargs) -> None:
         super().__init__(model=model, optimizer=optimizer, labeled_loader=labeled_loader, sup_criterion=sup_criterion,
-                         num_batches=num_batches, cur_epoch=cur_epoch, device=device, scaler=scaler,
-                         accumulate_iter=accumulate_iter, **kwargs)
+                         num_batches=num_batches, affine_transformer=affine_transformer, cur_epoch=cur_epoch,
+                         device=device,
+                         scaler=scaler, accumulate_iter=accumulate_iter, **kwargs)
 
     def configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super().configure_meters(meters)
@@ -377,7 +368,8 @@ class FineTuneEpocher(SemiSupervisedEpocher, ABC):
         return meters
 
     def _forward_pass(self, labeled_image, **kwargs):
-        label_logits = self._model(labeled_image)
+        with switch_bn(self._model, 0):
+            label_logits = self._model(labeled_image)
         return label_logits
 
     def _batch_update(self, *, cur_batch_num: int, labeled_image, labeled_target, label_group, retain_graph=False,

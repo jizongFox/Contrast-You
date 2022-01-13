@@ -42,10 +42,10 @@ class SurfaceMeter(Metric):
         self._n = 0
 
     def _add(
-        self,
-        pred: Tensor,
-        target: Tensor,
-        voxelspacing: Union[List[float], float] = None,
+            self,
+            pred: Tensor,
+            target: Tensor,
+            voxelspacing: Union[List[float], float] = None,
     ):
         """
         add pred and target
@@ -73,7 +73,7 @@ class SurfaceMeter(Metric):
         mhd = np.concatenate(self._mhd, axis=0)
         return (mhd.mean(0), mhd.std(0))
 
-    def summary(self) -> dict:
+    def _summary(self) -> dict:
         means, stds = self.value()
         result = {
             f"{self._abbr}{i}": to_float(means[num])
@@ -103,7 +103,7 @@ class SurfaceMeter(Metric):
         result = np.zeros([B, len(self._report_axis)])
         for b, (one_batch_img, one_batch_gt) in enumerate(zip(pred, target)):
             for c, (one_slice_img, one_slice_gt) in enumerate(
-                zip(one_batch_img[self._report_axis], one_batch_gt[self._report_axis])
+                    zip(one_batch_img[self._report_axis], one_batch_gt[self._report_axis])
             ):
                 mhd = self._surface_function(
                     one_slice_img, one_slice_gt, voxel_spacing=voxel_spacing

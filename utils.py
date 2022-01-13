@@ -1,3 +1,4 @@
+import contextlib
 import os
 import pprint
 import typing
@@ -5,6 +6,7 @@ from functools import reduce
 from typing import Optional
 
 from loguru import logger
+from torch import nn as nn
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose
 
@@ -12,6 +14,7 @@ from contrastyou.configure import dictionary_merge_by_hierachy, extract_dictiona
     extract_params_with_key_prefix, ConfigManager
 from contrastyou.data import DatasetBase
 from contrastyou.utils import get_dataset
+from demo.model import _TwinBNCONTEXT
 
 
 def separate_pretrain_finetune_configs(config_manager):
@@ -91,3 +94,64 @@ def _make_da_dataloader(dataloader: DataLoader):
 
 def make_data_dataloaders(*dataloader: DataLoader) -> typing.Tuple[DataLoader, ...]:
     return tuple([_make_da_dataloader(loader) for loader in dataloader])
+
+
+class TwinBatchNorm2d(nn.Module):
+
+    def __init__(self, num_features, eps=1e-5, momentum=0.1, affine=True, track_running_stats=True, device=None,
+                 dtype=None):
+        super(TwinBatchNorm2d, self).__init__()
+        self.bn1 = nn.BatchNorm2d(num_features, eps, momentum, affine, track_running_stats, device, dtype)
+        self.bn2 = nn.BatchNorm2d(num_features, eps, momentum, affine, track_running_stats, device, dtype)
+        self._indicator = 0
+
+    def forward(self, x):
+        if len(_TwinBNCONTEXT) == 0:
+            raise RuntimeError(f"{self.__class__.__name__} must be used with context manager of `switch_bn`.")
+        if self.indicator == 0:
+            return self.bn1(x)
+        else:
+            return self.bn2(x)
+
+    @property
+    def indicator(self):
+        return self._indicator
+
+    @indicator.setter
+    def indicator(self, value):
+        assert value in (0, 1)
+        self._indicator = value
+
+
+def convert2TwinBN(module: nn.Module):
+    module_output = module
+    if isinstance(module, nn.BatchNorm2d):
+        module_output = TwinBatchNorm2d(
+            module.num_features,
+            module.eps,
+            module.momentum,
+            module.affine,
+            module.track_running_stats,
+            device=module.running_mean.device,
+            dtype=module.running_mean.dtype,
+        )
+    for name, child in module.named_children():
+        module_output.add_module(
+            name, convert2TwinBN(child)
+        )
+    del module
+    return module_output
+
+
+@contextlib.contextmanager
+def switch_bn(module: nn.Module, indicator: int):
+    _TwinBNCONTEXT.append("A")
+    previous_state = {n: v.indicator for n, v in module.named_modules() if isinstance(v, TwinBatchNorm2d)}
+    for n, v in module.named_modules():
+        if isinstance(v, TwinBatchNorm2d):
+            v.indicator = indicator
+    yield
+    for n, v in module.named_modules():
+        if isinstance(v, TwinBatchNorm2d):
+            v.indicator = previous_state[n]
+    _TwinBNCONTEXT.pop()

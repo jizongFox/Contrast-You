@@ -17,7 +17,7 @@ from semi_seg.data.creator import get_data
 from semi_seg.hooks import feature_until_from_hooks
 from semi_seg.trainers.pretrain import PretrainEncoderTrainer, PretrainDecoderTrainer
 from semi_seg.trainers.trainer import SemiTrainer, FineTuneTrainer, MixUpTrainer, MTTrainer
-from utils import logging_configs, find_checkpoint, make_data_dataloaders  # noqa
+from utils import logging_configs, find_checkpoint, make_data_dataloaders, convert2TwinBN  # noqa
 
 trainer_zoo = {"semi": SemiTrainer,
                "ft": FineTuneTrainer,
@@ -56,6 +56,7 @@ def worker(config, absolute_save_dir, seed):
     model_checkpoint = config["Arch"].pop("checkpoint", None)
     with fix_all_seed_within_context(seed):
         model = UNet(input_dim=data_opt.input_dim, num_classes=data_opt.num_classes, **config["Arch"])
+        model = convert2TwinBN(model)
     if model_checkpoint:
         logger.info(f"loading model checkpoint from  {model_checkpoint}")
         try:
