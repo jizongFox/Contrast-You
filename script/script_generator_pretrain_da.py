@@ -46,7 +46,7 @@ def get_hyper_param_string(**kwargs):
 
 def _run_ft(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int, num_batches: int,
             arch_checkpoint: str = "null", lr: float, data_name: str = "acdc"):
-    return f""" python main.py RandomSeed={random_seed} Trainer.name=ft \
+    return f""" python main_da.py RandomSeed={random_seed} Trainer.name=ft \
      Trainer.save_dir={save_dir} Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name} \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
     """
@@ -226,7 +226,7 @@ if __name__ == '__main__':
                                                          random_seeds=random_seeds, max_epoch=max_epoch,
                                                          num_batches=num_batches,
                                                          data_name=data_name,
-                                                         cc_weights=[1],
+                                                         cc_weights=[0, ],
                                                          consistency_weights=[0],
                                                          powers=power,
                                                          head_types="linear",
@@ -238,7 +238,7 @@ if __name__ == '__main__':
                                                          rr_symmetric="true",
                                                          rr_lamda=(1,),
                                                          rr_alpha=(0.5,),
-                                                         align_weight=(0.0, 0.01, 0.1, 1)
+                                                         align_weight=(0.0, 0.01, 0.1, 1, 10, 20)
                                                          )
     jobs = list(job_generator)
     logger.info(f"logging {len(jobs)} jobs")

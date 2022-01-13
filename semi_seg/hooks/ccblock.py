@@ -486,7 +486,7 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
         if save_image_condition:
             if self.saver is not None:
                 self.saver.save_map(
-                    image=unlabeled_image_tf, feature_map1=labeled_projected_dist_tf[0],
+                    image=labeled_image_tf, feature_map1=labeled_projected_dist_tf[0],
                     feature_map2=labeled_projected_tf_dist[0],
                     cur_epoch=self.epocher.cur_epoch, cur_batch_num=self.epocher.cur_batch_num,
                     save_name="labeled_probability"
