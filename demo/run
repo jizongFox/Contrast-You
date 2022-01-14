@@ -1,19 +1,26 @@
 #!/bin/bash
+export CUBLAS_WORKSPACE_CONFIG=:16:8
 
-python main.py --log-save-file singlebn_baseline
-python main.py --source-cluster-weight 0.1 --log-save-file singlebn_source_cluster_0.1
-python main.py --source-cluster-weight 1 --log-save-file singlebn_source_cluster_1.0
-python main.py --source-cluster-weight 1 --target-cluster-weight 1 \
-  --log-save-file singlebn_source_cluster_1.0_target_cluster_1.0
-python main.py --source-cluster-weight 1 --target-cluster-weight 1 --alignment-weight 1.0 \
-  --log-save-file singlebn_source_cluster_1.0_target_cluster_1.0_alignment_1.0
+run() {
+  python main.py --seed $1 --log-save-file singlebn_baseline
+  python main.py --seed $1 --source-cluster-weight 0.1 --log-save-file singlebn_source_cluster_0.1
+  python main.py --seed $1 --source-cluster-weight 1 --log-save-file singlebn_source_cluster_1.0
+  python main.py --seed $1 --source-cluster-weight 1 --target-cluster-weight 1 \
+    --log-save-file singlebn_source_cluster_1.0_target_cluster_1.0
+  python main.py --seed $1 --source-cluster-weight 1 --target-cluster-weight 1 --alignment-weight 1.0 \
+    --log-save-file singlebn_source_cluster_1.0_target_cluster_1.0_alignment_1.0
 
+  python main.py --seed $1 --double-bn --log-save-file doublebn_baseline
+  python main.py --seed $1 --double-bn --source-cluster-weight 0.1 --log-save-file doublebn_source_cluster_0.1
+  python main.py --seed $1 --double-bn --source-cluster-weight 1 --log-save-file doublebn_source_cluster_1.0
+  python main.py --seed $1 --double-bn --source-cluster-weight 1 --target-cluster-weight 1 \
+    --log-save-file doublebn_source_cluster_1.0_target_cluster_1.0
+  python main.py --seed $1 --double-bn --source-cluster-weight 1 --target-cluster-weight 1 --alignment-weight 1.0 \
+    --log-save-file doublebn_source_cluster_1.0_target_cluster_1.0_alignment_1.0
 
+}
 
-python main.py --double-bn  --log-save-file doublebn_baseline
-python main.py --double-bn  --source-cluster-weight 0.1 --log-save-file doublebn_source_cluster_0.1
-python main.py --double-bn  --source-cluster-weight 1 --log-save-file doublebn_source_cluster_1.0
-python main.py --double-bn  --source-cluster-weight 1 --target-cluster-weight 1 \
-  --log-save-file doublebn_source_cluster_1.0_target_cluster_1.0
-python main.py --double-bn  --source-cluster-weight 1 --target-cluster-weight 1 --alignment-weight 1.0 \
-  --log-save-file doublebn_source_cluster_1.0_target_cluster_1.0_alignment_1.0
+run 10
+run 20
+run 30
+run 40
