@@ -24,6 +24,7 @@ def get_args():
     parser.add_argument("--alignment-weight", default=0.0, type=float, )
     parser.add_argument("--seed", default=10, type=float, )
     parser.add_argument("--double-bn", default=False, action="store_true")
+    parser.add_argument("--log-save-file", required=True, type=str)
     return parser.parse_args()
 
 
@@ -36,6 +37,7 @@ max_epoch = 100
 num_batches = 500
 tqdm = partial(tqdm, leave=False)
 switch_bn = _switch_bn if args.double_bn else nullcontext
+logger.add(f"{args.log_save_file}.log", level="TRACE")
 
 with fix_all_seed_within_context(seed):
     model = SimpleNet(num_classes=num_classes, input_dim=1)
