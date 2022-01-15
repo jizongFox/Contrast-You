@@ -206,7 +206,7 @@ if __name__ == '__main__':
                                                      num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
                                                      data_name=data_name, imsat_weight=(1,),
                                                      cons_weight=(0, 0.001, 0.01, 0.1, 1, 10),
-                                                     num_clusters=(40),
+                                                     num_clusters=[20, 40, 60],
                                                      max_num=500,
                                                      head_type=("linear",),
                                                      num_subheads=(3,),

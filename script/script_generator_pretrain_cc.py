@@ -346,7 +346,7 @@ if __name__ == '__main__':
                                                      powers=power,
                                                      head_types="linear",
                                                      num_subheads=(3,),
-                                                     num_clusters=[40],
+                                                     num_clusters=[20, 40, 60],
                                                      max_num=500,
                                                      kernel_size=5,
                                                      rr_weight=(1,),
