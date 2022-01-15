@@ -112,104 +112,93 @@ def get_segment(iter_: t.Iterator, num_volume: int):
 
 
 if __name__ == '__main__':
-    # image_dir = "/home/jizong/Workspace/Contrast-You/.data/ACDC_contrast/train/img"
-    # gt_dir = "/home/jizong/Workspace/Contrast-You/.data/ACDC_contrast/train/gt"
-    # rr_050 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.5/pretrain/matrix/cc_Up_conv2"
-    # rr_075 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.75/pretrain/matrix/cc_Up_conv2"
-    # rr_025 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.25/pretrain/matrix/cc_Up_conv2"
-    # rr_000 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0/pretrain/matrix/cc_Up_conv2"
-    # rr_100 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_1/pretrain/matrix/cc_Up_conv2"
+    image_dir = "/home/jizong/Workspace/Contrast-You/.data/ACDC_contrast/train/img"
+    gt_dir = "/home/jizong/Workspace/Contrast-You/.data/ACDC_contrast/train/gt"
+    k_05 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_dc984e0f99f/acdc/pretrain/seed_10/cc_weight_1/pretrain_scan_sample_num_6/consistency_weight_0/rr_weight_1/power_0.75/head_type_linear/num_subheads_3/kernel_size_5/rr_symmetric_true/num_clusters_5/rr_lamda_1/rr_alpha_0.5/pretrain/matrix/cc_Up_conv2"
+    k_10 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_dc984e0f99f/acdc/pretrain/seed_10/cc_weight_1/pretrain_scan_sample_num_6/consistency_weight_0/rr_weight_1/power_0.75/head_type_linear/num_subheads_3/kernel_size_5/rr_symmetric_true/num_clusters_10/rr_lamda_1/rr_alpha_0.5/pretrain/matrix/cc_Up_conv2"
+    k_20 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_dc984e0f99f/acdc/pretrain/seed_10/cc_weight_1/pretrain_scan_sample_num_6/consistency_weight_0/rr_weight_1/power_0.75/head_type_linear/num_subheads_3/kernel_size_5/rr_symmetric_true/num_clusters_20/rr_lamda_1/rr_alpha_0.5/pretrain/matrix/cc_Up_conv2"
+    k_40 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.5/pretrain/matrix/cc_Up_conv2"
+    k_60 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_dc984e0f99f/acdc/pretrain/seed_10/cc_weight_1/pretrain_scan_sample_num_6/consistency_weight_0/rr_weight_1/power_0.75/head_type_linear/num_subheads_3/kernel_size_5/rr_symmetric_true/num_clusters_60/rr_lamda_1/rr_alpha_0.5/pretrain/matrix/cc_Up_conv2"
     # superpixel_dir = "/home/jizong/Workspace/Contrast-You/.data/ACDC_superpixel/train/img"
 
     # /home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample
 
-    image_dir = "/home/jizong/Workspace/Contrast-You/.data/PROSTATE/train/img"
-    gt_dir = "/home/jizong/Workspace/Contrast-You/.data/PROSTATE/train/gt"
-    rr_050 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_0.5/pretrain/matrix/cc_Up_conv2"
-    rr_075 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_0.75/pretrain/matrix/cc_Up_conv2"
-    rr_025 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_0.25/pretrain/matrix/cc_Up_conv2"
-    rr_000 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_0/pretrain/matrix/cc_Up_conv2"
-    rr_100 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_1/pretrain/matrix/cc_Up_conv2"
-    superpixel_dir = "/home/jizong/Workspace/Contrast-You/.data/PROSTATE_superpixel/train/img"
+    # image_dir = "/home/jizong/Workspace/Contrast-You/.data/PROSTATE/train/img"
+    # gt_dir = "/home/jizong/Workspace/Contrast-You/.data/PROSTATE/train/gt"
+    # rr_050 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_0.5/pretrain/matrix/cc_Up_conv2"
+    # rr_075 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_0.75/pretrain/matrix/cc_Up_conv2"
+    # rr_025 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_0.25/pretrain/matrix/cc_Up_conv2"
+    # rr_000 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_0/pretrain/matrix/cc_Up_conv2"
+    # rr_100 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_1/pretrain/matrix/cc_Up_conv2"
+    # superpixel_dir = "/home/jizong/Workspace/Contrast-You/.data/PROSTATE_superpixel/train/img"
 
     pattern = "probability"
-    slice_index = 35
-    volume_num = 0
+    slice_index = 2
+    volume_num = 5
 
-    image_gen = image_grouper(root_dir=image_dir, pattern=r"Case\d+_\d+")
+    image_gen = image_grouper(root_dir=image_dir, pattern=r"patient\d+_\d+")
     segment = get_segment(image_gen, volume_num)
     image_slice = segment[slice_index]
-
-    gt_gen = image_grouper(root_dir=gt_dir, pattern=r"Case\d+_\d+")
+    # 
+    gt_gen = image_grouper(root_dir=gt_dir, pattern=r"patient\d+_\d+")
     segment = get_segment(gt_gen, volume_num)
     gt_slice = segment[slice_index]
 
-    superpixel = superpixel_grouper(superpixel_dir, r"Case\d+_\d+")
-    segment = get_segment(superpixel, volume_num)
-    slice_sp = segment[slice_index]
+    # superpixel = superpixel_grouper(superpixel_dir, r"Case\d+_\d+")
+    # segment = get_segment(superpixel, volume_num)
+    # slice_sp = segment[slice_index]
 
-    case_050 = cc_grouper(rr_050, pattern=f"{pattern}_\d+\d+")
-    segment = get_segment(case_050, volume_num)
-    slice_050 = segment[slice_index]
+    case_05 = cc_grouper(k_05, pattern=f"{pattern}_\d+\d+")
+    segment = get_segment(case_05, volume_num)
+    slice_05 = segment[slice_index]
 
-    case_025 = cc_grouper(rr_025, pattern=f"{pattern}_\d+\d+")
-    segment = get_segment(case_025, volume_num)
+    case_10 = cc_grouper(k_10, pattern=f"{pattern}_\d+\d+")
+    segment = get_segment(case_10, volume_num)
+    slice_10 = segment[slice_index]
 
-    slice_025 = segment[slice_index]
+    case_20 = cc_grouper(k_20, pattern=f"{pattern}_\d+\d+")
+    segment = get_segment(case_20, volume_num)
+    slice_20 = segment[slice_index]
 
-    case_075 = cc_grouper(rr_075, pattern=f"{pattern}_\d+\d+")
-    segment = get_segment(case_075, volume_num)
+    case_40 = cc_grouper(k_40, pattern=f"{pattern}_\d+\d+")
+    segment = get_segment(case_40, volume_num)
+    slice_40 = segment[slice_index]
 
-    slice_075 = segment[slice_index]
+    case_60 = cc_grouper(k_60, pattern=f"{pattern}_\d+\d+")
+    segment = get_segment(case_60, volume_num)
+    slice_60 = segment[slice_index]
 
-    case_000 = cc_grouper(rr_000, pattern=f"{pattern}_\d+\d+")
-    segment = get_segment(case_000, volume_num)
-
-    slice_000 = segment[slice_index]
-
-    case_100 = cc_grouper(rr_100, pattern=f"{pattern}_\d+\d+")
-    segment = get_segment(case_100, volume_num)
-
-    slice_100 = segment[slice_index]
-
-    slice_sp, slice_000, slice_025, slice_050, slice_075, slice_100, gt_slice = \
-        hungarian_match(slice_sp, slice_000, slice_025,
-                        slice_050,
-                        slice_075, slice_100, gt_slice,
-                        reference_cluster=slice_050,
-                        num_clusters=40)
+    slice_05, slice_10, slice_20, slice_40, slice_60, = \
+        hungarian_match(slice_05, slice_10, slice_20, slice_40, slice_60,
+                        reference_cluster=slice_40,
+                        num_clusters=60)
     plt.subplot(331)
     plt.imshow(image_slice, cmap="gray")
     plt.axis('off')
 
     plt.subplot(332)
-    plt.imshow(label2colored_image(gt_slice))
+    plt.imshow(label2colored_image(slice_05))
     plt.axis('off')
 
     plt.subplot(333)
-    plt.imshow(label2colored_image(slice_sp))
+    plt.imshow(label2colored_image(slice_10))
     plt.axis('off')
 
     plt.subplot(334)
-    plt.imshow(label2colored_image(slice_000))
+    plt.imshow(label2colored_image(slice_20))
     plt.axis('off')
 
     plt.subplot(335)
-    plt.imshow(label2colored_image(slice_025))
+    plt.imshow(label2colored_image(slice_40))
     plt.axis('off')
 
     plt.subplot(336)
-    plt.imshow(label2colored_image(slice_050))
+    plt.imshow(label2colored_image(slice_60))
     plt.axis('off')
 
     plt.subplot(337)
-    plt.imshow(label2colored_image(slice_075))
+    plt.imshow(gt_slice)
     plt.axis('off')
-
-    plt.subplot(338)
-    plt.imshow(label2colored_image(slice_100))
-    plt.axis('off')
-
     plt.tight_layout()
 
     plt.show()
