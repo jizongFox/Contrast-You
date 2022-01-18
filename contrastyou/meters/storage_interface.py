@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List, Dict, TypeVar
 
 import pandas as pd
+from loguru import logger
 from termcolor import colored
 
 from .utils import HistoricalContainer, rename_df_columns
@@ -80,7 +81,7 @@ class Storage(metaclass=ABCMeta):
 
     def load_state_dict(self, state_dict):
         self.__storage = state_dict
-        print(colored(self.summary(), "green"))
+        logger.info("Previous meters: \n" + colored(self.summary(), "green"))
 
     def to_csv(self):
         path = path2Path(self._save_dir)
