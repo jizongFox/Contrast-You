@@ -70,7 +70,7 @@ class SemiTrainer(Trainer):
         epocher.init()
         return epocher
 
-    def inference(self, checkpoint_path: str = None, save_dir: str = None):
+    def inference(self, checkpoint_path: str = None, checkpoint_name: str = "best.pth", save_dir: str = None):
         # make self._test_loader to be a patient based Dataloader
         # load_checkpoint
         if checkpoint_path is None:
@@ -79,7 +79,7 @@ class SemiTrainer(Trainer):
             raise ValueError(f"`checkpoint_path` must be an absolute path, given {checkpoint_path}")
 
         logger.info(f"Resume checkpoint from {checkpoint_path}...")
-        self.resume_from_path(str(checkpoint_path), name="last.pth")
+        self.resume_from_path(str(checkpoint_path), name=checkpoint_name)
 
         test_loader = self.patch_scan_based_dataloader(self._test_loader)
 
