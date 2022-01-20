@@ -46,7 +46,7 @@ class L2LossChecker:
 
 class EMAUpdater:
     def __init__(
-        self, alpha=0.999, justify_alpha=True, weight_decay=1e-5, update_bn=False
+            self, alpha=0.999, justify_alpha=True, weight_decay=1e-5, update_bn=False
     ) -> None:
         self._alpha = alpha
         self._weight_decay = weight_decay
@@ -61,7 +61,7 @@ class EMAUpdater:
             alpha = min(1 - 1 / (self.__global_step + 1), self._alpha)
 
         for ema_param, s_param in zip(
-            ema_model.parameters(), student_model.parameters()
+                ema_model.parameters(), student_model.parameters()
         ):
             ema_param.data.mul_(alpha).add_(1 - alpha, s_param.data)
             if self._weight_decay > 0:
@@ -70,7 +70,7 @@ class EMAUpdater:
         if self._update_bn:
             # running mean and vars for bn
             for (name, ema_buffer), (_, s_buffer) in zip(
-                ema_model.named_buffers(), student_model.named_buffers(),
+                    ema_model.named_buffers(), student_model.named_buffers(),
             ):
                 if "running_mean" in name or "running_var" in name:
                     ema_buffer.data.mul_(alpha).add_(1 - alpha, s_buffer.data)
@@ -111,10 +111,12 @@ class MeanTeacherTrainerHook(TrainerHook):
             detach_model(_model)
 
     def __call__(self):
-        return _MeanTeacherEpocherHook(name=self._hook_name, weight=self._weight, criterion=self._criterion,
-                                       teacher_model=self._teacher_model, updater=self._updater,
-                                       extra_teachers=self._extra_teachers, extra_updater=self._extra_teacher_updater,
-                                       hard_clip=self._hard_clip)
+        return _MeanTeacherEpocherHook(
+            name=self._hook_name, weight=self._weight, criterion=self._criterion,
+            teacher_model=self._teacher_model, updater=self._updater,
+            extra_teachers=self._extra_teachers, extra_updater=self._extra_teacher_updater,
+            hard_clip=self._hard_clip
+        )
 
     @property
     def teacher_model(self):
@@ -143,7 +145,7 @@ class _MeanTeacherEpocherHook(EpocherHook):
                  extra_updater, hard_clip: bool = False) -> None:
         super().__init__(name=name)
         self._weight = weight
-        self._criterion = L2LossChecker(criterion)
+        self._criterion = criterion  # l2checker can break the pipeline if padding values are given.
         self._teacher_model = teacher_model
         self._updater = updater
         self._hard_clip = hard_clip
@@ -169,11 +171,11 @@ class _MeanTeacherEpocherHook(EpocherHook):
         self.meters.register_meter("loss", AverageValueMeter())
 
     def _call_implementation(self, *, unlabeled_tf_logits, unlabeled_image, seed, affine_transformer,
-                 **kwargs):
+                             **kwargs):
         student_unlabeled_tf_prob = unlabeled_tf_logits.softmax(1)
         with torch.no_grad():
             teacher_unlabeled_prob = self.teacher_model(unlabeled_image).softmax(1)
-            teacher_unlabeled_prob_tf = affine_transformer(teacher_unlabeled_prob)
+            teacher_unlabeled_prob_tf = affine_transformer(teacher_unlabeled_prob, mode="feature")
             if self._hard_clip:
                 C = teacher_unlabeled_prob_tf.shape[1]
                 teacher_unlabeled_prob_tf = teacher_unlabeled_prob_tf.max(1)[1]
