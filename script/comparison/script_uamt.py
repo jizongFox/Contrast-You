@@ -37,9 +37,9 @@ def _run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, ma
     return f""" python main_nd.py RandomSeed={random_seed} Trainer.name=semi \
      Trainer.save_dir={save_dir} Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name} \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
-    MeanTeacherParameters.weight={mt_weight:.10f} \
-    MeanTeacherParameters.hard_clip={hard_clip}  \
-    --path   config/base.yaml  config/hooks/mt.yaml  \
+    UAMeanTeacherParameters.weight={mt_weight:.10f} \
+    UAMeanTeacherParameters.hard_clip={hard_clip}  \
+    --path   config/base.yaml  config/hooks/uamt.yaml  \
     """
 
 
@@ -51,23 +51,23 @@ def _run_semi_per_class(*, save_dir: str, random_seed: int = 10, num_labeled_sca
     return f""" python main_nd.py RandomSeed={random_seed} Trainer.name=semi \
      Trainer.save_dir={save_dir}/lv Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name}_lv \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
-    MeanTeacherParameters.weight={mt_weight:.10f} \
-    MeanTeacherParameters.hard_clip={hard_clip}  \
-    --path   config/base.yaml  config/hooks/mt.yaml  \
+    UAMeanTeacherParameters.weight={mt_weight:.10f} \
+    UAMeanTeacherParameters.hard_clip={hard_clip}  \
+    --path   config/base.yaml  config/hooks/uamt.yaml  \
     &&\
     python main_nd.py RandomSeed={random_seed} Trainer.name=semi \
      Trainer.save_dir={save_dir}/rv Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name}_rv \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
-    MeanTeacherParameters.weight={mt_weight:.10f} \
-    MeanTeacherParameters.hard_clip={hard_clip}  \
-    --path   config/base.yaml  config/hooks/mt.yaml  \
+    UAMeanTeacherParameters.weight={mt_weight:.10f} \
+    UAMeanTeacherParameters.hard_clip={hard_clip}  \
+    --path   config/base.yaml  config/hooks/uamt.yaml  \
     &&\
     python main_nd.py RandomSeed={random_seed} Trainer.name=semi \
      Trainer.save_dir={save_dir}/myo Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name}_myo \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
-    MeanTeacherParameters.weight={mt_weight:.10f} \
-    MeanTeacherParameters.hard_clip={hard_clip}  \
-    --path   config/base.yaml  config/hooks/mt.yaml \
+    UAMeanTeacherParameters.weight={mt_weight:.10f} \
+    UAMeanTeacherParameters.hard_clip={hard_clip}  \
+    --path   config/base.yaml  config/hooks/uamt.yaml \
     """
 
 

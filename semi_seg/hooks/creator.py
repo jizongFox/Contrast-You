@@ -16,7 +16,7 @@ from .entmin import EntropyMinTrainerHook
 from .infonce import SelfPacedINFONCEHook, INFONCEHook
 from .midl import IIDSegmentationTrainerHook
 from .midl import IMSATTrainHook
-from .mt import MeanTeacherTrainerHook
+from .mt import MeanTeacherTrainerHook, UAMeanTeacherTrainerHook
 from .orthogonal import OrthogonalTrainerHook
 from .pseudolabel import PseudoLabelTrainerHook
 
@@ -163,6 +163,13 @@ def create_mt_hook(*, model: nn.Module, weight: float, alpha: float = 0.999, wei
                    update_bn: bool = False, num_teachers: int = 1, hard_clip: bool = False):
     hook = MeanTeacherTrainerHook(name="mt", weight=weight, model=model, alpha=alpha, weight_decay=weight_decay,
                                   update_bn=update_bn, num_teachers=num_teachers, hard_clip=hard_clip)
+    return hook
+
+
+def create_uamt_hook(*, model: nn.Module, weight: float, alpha: float = 0.999, weight_decay: float = 0.000001,
+                     update_bn: bool = False, num_teachers: int = 1, hard_clip: bool = False):
+    hook = UAMeanTeacherTrainerHook(name="mt", weight=weight, model=model, alpha=alpha, weight_decay=weight_decay,
+                                    update_bn=update_bn, num_teachers=num_teachers, hard_clip=hard_clip)
     return hook
 
 
