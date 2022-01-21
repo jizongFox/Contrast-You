@@ -9,8 +9,8 @@ from torch import nn
 from contrastyou.meters import MeterInterface, AverageValueMeter
 from contrastyou.types import optimizerType, dataIterType, criterionType
 from contrastyou.utils import get_lrs_from_optimizer, class2one_hot
-from .helper import preprocess_input_with_twice_transformation
 from .epocher import SemiSupervisedEpocher, assert_transform_freedom
+from .helper import preprocess_input_with_twice_transformation
 
 
 class MixUpEpocher(SemiSupervisedEpocher, ABC):
@@ -92,17 +92,17 @@ class AdversarialEpocher(SemiSupervisedEpocher, ABC):
         super().__init__(model=model, optimizer=optimizer, labeled_loader=labeled_loader,
                          unlabeled_loader=unlabeled_loader, sup_criterion=sup_criterion, num_batches=num_batches,
                          cur_epoch=cur_epoch, device=device, two_stage=two_stage, disable_bn=disable_bn, **kwargs)
+        assert isinstance(discriminator, nn.Module)
+        assert isinstance(disc_optimizer, torch.optim.Optimizer)
         self._discriminator = discriminator
         self._discr_optimizer = disc_optimizer
         self._reg_weight = float(reg_weight)
-        assert isinstance(discriminator, nn.Module)
-        assert isinstance(disc_optimizer, torch.optim.Optimizer)
         self._dis_consider_image = dis_consider_image
 
     def _run(self, **kwargs):
         self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer))
         self._model.train()
-        return self._run_adver(**kwargs)
+        return self._run_implementation(**kwargs)
 
     def configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super(AdversarialEpocher, self).configure_meters(meters)
@@ -113,7 +113,7 @@ class AdversarialEpocher(SemiSupervisedEpocher, ABC):
             meters.register_meter("reg_weight", AverageValueMeter())
         return meters
 
-    def _run_adver(self, **kwargs):
+    def _run_implementation(self, **kwargs):
         # following https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html
         criterion = nn.BCELoss()
         TRUE_LABEL = 1.

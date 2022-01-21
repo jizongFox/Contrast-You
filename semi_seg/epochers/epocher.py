@@ -199,7 +199,7 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
     def __init__(self, *, model: nn.Module, optimizer: optimizerType, labeled_loader: SizedIterable,
                  unlabeled_loader: SizedIterable, sup_criterion: criterionType, num_batches: int, cur_epoch=0,
                  device="cpu", two_stage: bool = False, disable_bn: bool = False, scaler: GradScaler,
-                 accumulate_iter: int, **kwargs) -> None:
+                 accumulate_iter: int = 1, **kwargs) -> None:
         super().__init__(model=model, num_batches=num_batches, cur_epoch=cur_epoch, device=device, scaler=scaler,
                          accumulate_iter=accumulate_iter)
         self._optimizer = optimizer

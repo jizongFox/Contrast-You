@@ -254,7 +254,7 @@ class AdversarialTrainer(SemiTrainer):
             model=self._model, optimizer=self._optimizer, labeled_loader=self._labeled_loader,
             unlabeled_loader=self._unlabeled_loader, sup_criterion=self._criterion, num_batches=self._num_batches,
             cur_epoch=self._cur_epoch, device=self._device, two_stage=self._two_stage, disable_bn=self._disable_bn,
-            discriminator=self._discriminator, discr_optimizer=self._dis_optimizer, reg_weight=self._reg_weight,
+            discriminator=self._discriminator, disc_optimizer=self._dis_optimizer, reg_weight=self._reg_weight,
             dis_consider_image=self._dis_consider_image, scaler=self.scaler
         )
         epocher.init()

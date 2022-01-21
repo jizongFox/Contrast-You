@@ -1,21 +1,24 @@
 # the adversarial training use trainer and epochers directly, without using the hook, since it consists of multiple
 # gradient steps.
 import os
+from pathlib import Path
 
+import torch
+from easydict import EasyDict as edict
 from loguru import logger
 
-from contrastyou import CONFIG_PATH, success
+from contrastyou import CONFIG_PATH, success, OPT_PATH
 from contrastyou.arch import UNet
-from contrastyou.configure import ConfigManger
+from contrastyou.configure import ConfigManager, yaml_load
 from contrastyou.losses.kl import KL_div
-from contrastyou.utils import fix_all_seed_within_context, adding_writable_sink, set_deterministic, extract_model_state_dict
+from contrastyou.utils import fix_all_seed_within_context, adding_writable_sink, extract_model_state_dict
 from semi_seg.data.creator import get_data
 from semi_seg.trainers.trainer import SemiTrainer, AdversarialTrainer
 
 
 def main():
-    with ConfigManger(
-        base_path=os.path.join(CONFIG_PATH, "base.yaml"), strict=True
+    with ConfigManager(
+            os.path.join(CONFIG_PATH, "base.yaml"), strict=True
     )(scope="base") as config:
         seed = config.get("RandomSeed", 10)
         _save_dir = config["Trainer"]["save_dir"]
@@ -26,9 +29,14 @@ def main():
 
 
 def worker(config, absolute_save_dir, seed, ):
+    data_name = config.Data.name
+    data_opt = yaml_load(Path(OPT_PATH) / (data_name + ".yaml"))
+    data_opt = edict(data_opt)
+    config.OPT = data_opt
+
     model_checkpoint = config["Arch"].pop("checkpoint", None)
     with fix_all_seed_within_context(seed):
-        model = UNet(**config["Arch"])
+        model = UNet(input_dim=data_opt.input_dim, num_classes=data_opt.num_classes, **config["Arch"])
     if model_checkpoint:
         logger.info(f"loading checkpoint from  {model_checkpoint}")
         model.load_state_dict(extract_model_state_dict(model_checkpoint), strict=True)
@@ -53,5 +61,6 @@ def worker(config, absolute_save_dir, seed, ):
 
 
 if __name__ == '__main__':
-    set_deterministic(True)
+    # set_deterministic(True)
+    torch.backends.cudnn.benchmark = True  # noqa
     main()
