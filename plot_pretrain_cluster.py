@@ -98,7 +98,7 @@ def worker(config, absolute_save_dir, seed):
                 raise RuntimeError("end of time")
 
             signal.signal(signal.SIGALRM, handler)
-            signal.alarm(5 * 60)
+            signal.alarm(3 * 60)
 
             trainer.inference()
 

@@ -102,6 +102,11 @@ class _IOMixin(_BufferMixin, metaclass=ABCMeta):
         if isinstance(config, edict):
             from contrastyou.configure import edict2dict
             config = edict2dict(config)
+
+        if Path(path_, save_name).exists():
+            all_save_names = sorted(Path(path_).glob("*.yaml"))
+            save_name = f"{save_name.split('.')[0]}_{len(all_save_names)}.yaml"
+
         yaml_write(config, str(path_), save_name=save_name)
 
     def state_dict(self, **kwargs) -> dict:
@@ -131,7 +136,7 @@ class _IOMixin(_BufferMixin, metaclass=ABCMeta):
                 continue
 
             if hasattr(module, "load_state_dict") and callable(
-                getattr(module, "load_state_dict", None)
+                    getattr(module, "load_state_dict", None)
             ):
                 try:
                     module.load_state_dict(state_dict[module_name])

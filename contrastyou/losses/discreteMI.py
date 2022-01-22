@@ -49,7 +49,8 @@ class IMSATLoss(nn.Module, LossClass[Tensor]):
         return imsat_loss(x_out, lamda=self.lamda)
 
     def get_joint_matrix(self):
-        return compute_joint(self.x_out, self.x_tf_out, symmetric=False).squeeze().detach().cpu().numpy()
+        return compute_joint_2D_with_padding_zeros(self.x_out, self.x_tf_out,
+                                                   symmetric=False).squeeze().detach().cpu().numpy()
 
 
 class IMSATDynamicWeight(IMSATLoss):

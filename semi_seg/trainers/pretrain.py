@@ -104,7 +104,7 @@ class _PretrainInferenceMixin(_BaseInference):
                                                   model=self._model, optimizer=self._optimizer,
                                                   labeled_loader=self._labeled_loader,
                                                   unlabeled_loader=self._unlabeled_loader,
-                                                  sup_criterion=self._criterion, num_batches=self._num_batches,
+                                                  sup_criterion=self._criterion, num_batches=len(monitor_dataloader),
                                                   cur_epoch=self._cur_epoch, device=self._device, two_stage=False,
                                                   disable_bn=False,
                                                   inference_until=self._inference_until, scaler=self.scaler,

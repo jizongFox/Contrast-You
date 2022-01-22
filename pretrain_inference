@@ -27,13 +27,11 @@
 #  trainer_checkpoint=${SAMPLE_PATH}/rr_alpha_0.75/pretrain/last.pth \
 #  --path ${SAMPLE_PATH}/rr_alpha_0.75/pretrain/config.yaml
 
-
 #!/bin/bash
 
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
 
-
-SAMPLE_PATH=/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_dc984e0f99f/acdc/pretrain/seed_10/cc_weight_1/pretrain_scan_sample_num_6/consistency_weight_0/rr_weight_1/power_0.75/head_type_linear/num_subheads_3/kernel_size_5/rr_symmetric_true
+#SAMPLE_PATH=/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_dc984e0f99f/acdc/pretrain/seed_10/cc_weight_1/pretrain_scan_sample_num_6/consistency_weight_0/rr_weight_1/power_0.75/head_type_linear/num_subheads_3/kernel_size_5/rr_symmetric_true
 #
 #num_cluster=5
 #python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH}/num_clusters_${num_cluster}/rr_lamda_1/rr_alpha_0.5/pretrain \
@@ -45,12 +43,10 @@ SAMPLE_PATH=/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_dc984e0
 #  trainer_checkpoint=${SAMPLE_PATH}/num_clusters_${num_cluster}/rr_lamda_1/rr_alpha_0.5/pretrain/last.pth \
 #  --path ${SAMPLE_PATH}/num_clusters_${num_cluster}/rr_lamda_1/rr_alpha_0.5/pretrain/config.yaml
 
-
-num_cluster=20
-python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH}/num_clusters_${num_cluster}/rr_lamda_1/rr_alpha_0.5/pretrain \
-  trainer_checkpoint=${SAMPLE_PATH}/num_clusters_${num_cluster}/rr_lamda_1/rr_alpha_0.5/pretrain/last.pth \
-  --path ${SAMPLE_PATH}/num_clusters_${num_cluster}/rr_lamda_1/rr_alpha_0.5/pretrain/config.yaml
-
+#num_cluster=20
+#python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH}/num_clusters_${num_cluster}/rr_lamda_1/rr_alpha_0.5/pretrain \
+#  trainer_checkpoint=${SAMPLE_PATH}/num_clusters_${num_cluster}/rr_lamda_1/rr_alpha_0.5/pretrain/last.pth \
+#  --path ${SAMPLE_PATH}/num_clusters_${num_cluster}/rr_lamda_1/rr_alpha_0.5/pretrain/config.yaml
 
 #num_cluster=40
 #python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH}/num_clusters_${num_cluster}/rr_lamda_1/rr_alpha_0.5/pretrain \
@@ -64,3 +60,107 @@ python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH}/num_clusters_${n
 #  --path ${SAMPLE_PATH}/num_clusters_${num_cluster}/rr_lamda_1/rr_alpha_0.5/pretrain/config.yaml
 #
 #
+
+#cc_weight=0
+#SAMPLE_PATH=/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/seed_30/cc_weight_${cc_weight}/consistency_weight_0/rr_weight_1/power_0.75/head_type_linear/num_subheads_3/kernel_size_5/rr_symmetric_true/num_clusters_40/rr_lamda_1/rr_alpha_0.5/pretrain
+#
+#python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH} \
+#  trainer_checkpoint=${SAMPLE_PATH}/last.pth \
+#  --path ${SAMPLE_PATH}/config.yaml
+#
+#cc_weight=0.1
+#SAMPLE_PATH=/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/seed_30/cc_weight_${cc_weight}/consistency_weight_0/rr_weight_1/power_0.75/head_type_linear/num_subheads_3/kernel_size_5/rr_symmetric_true/num_clusters_40/rr_lamda_1/rr_alpha_0.5/pretrain
+#
+#python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH} \
+#  trainer_checkpoint=${SAMPLE_PATH}/last.pth \
+#  --path ${SAMPLE_PATH}/config.yaml
+#
+#cc_weight=0.01
+#SAMPLE_PATH=/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/seed_30/cc_weight_${cc_weight}/consistency_weight_0/rr_weight_1/power_0.75/head_type_linear/num_subheads_3/kernel_size_5/rr_symmetric_true/num_clusters_40/rr_lamda_1/rr_alpha_0.5/pretrain
+#
+#python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH} \
+#  trainer_checkpoint=${SAMPLE_PATH}/last.pth \
+#  --path ${SAMPLE_PATH}/config.yaml
+#
+#cc_weight=0.5
+#SAMPLE_PATH=/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/seed_30/cc_weight_${cc_weight}/consistency_weight_0/rr_weight_1/power_0.75/head_type_linear/num_subheads_3/kernel_size_5/rr_symmetric_true/num_clusters_40/rr_lamda_1/rr_alpha_0.5/pretrain
+#
+#python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH} \
+#  trainer_checkpoint=${SAMPLE_PATH}/last.pth \
+#  --path ${SAMPLE_PATH}/config.yaml
+#
+#cc_weight=1
+#SAMPLE_PATH=/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/seed_30/cc_weight_${cc_weight}/consistency_weight_0/rr_weight_1/power_0.75/head_type_linear/num_subheads_3/kernel_size_5/rr_symmetric_true/num_clusters_40/rr_lamda_1/rr_alpha_0.5/pretrain
+#
+#python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH} \
+#  trainer_checkpoint=${SAMPLE_PATH}/last.pth \
+#  --path ${SAMPLE_PATH}/config.yaml
+#
+#cc_weight=2
+#SAMPLE_PATH=/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/seed_30/cc_weight_${cc_weight}/consistency_weight_0/rr_weight_1/power_0.75/head_type_linear/num_subheads_3/kernel_size_5/rr_symmetric_true/num_clusters_40/rr_lamda_1/rr_alpha_0.5/pretrain
+#
+#python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH} \
+#  trainer_checkpoint=${SAMPLE_PATH}/last.pth \
+#  --path ${SAMPLE_PATH}/config.yaml
+#
+#cc_weight=4
+#SAMPLE_PATH=/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/seed_30/cc_weight_${cc_weight}/consistency_weight_0/rr_weight_1/power_0.75/head_type_linear/num_subheads_3/kernel_size_5/rr_symmetric_true/num_clusters_40/rr_lamda_1/rr_alpha_0.5/pretrain
+#
+#python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH} \
+#  trainer_checkpoint=${SAMPLE_PATH}/last.pth \
+#  --path ${SAMPLE_PATH}/config.yaml
+#
+#cc_weight=6
+#SAMPLE_PATH=/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/seed_30/cc_weight_${cc_weight}/consistency_weight_0/rr_weight_1/power_0.75/head_type_linear/num_subheads_3/kernel_size_5/rr_symmetric_true/num_clusters_40/rr_lamda_1/rr_alpha_0.5/pretrain
+#
+#python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH} \
+#  trainer_checkpoint=${SAMPLE_PATH}/last.pth \
+#  --path ${SAMPLE_PATH}/config.yaml
+
+#cons_weight=0.1
+#SAMPLE_PATH=/home/jizong/Workspace/Contrast-You/runs/beluga3/1229_imsat/acdc/hash_f0cc6ea6552/acdc/imsat/pretrain/seed_30/imsat_weight_1/cons_weight_${cons_weight}/num_clusters_40/pretrain_scan_sample_num_6/num_subheads_3/head_type_linear/imsat_lamda_5/use_dynamic_false/pretrain
+#python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH} \
+#  trainer_checkpoint=${SAMPLE_PATH}/last.pth \
+#  --path ${SAMPLE_PATH}/config.yaml
+#
+#cons_weight=1
+#SAMPLE_PATH=/home/jizong/Workspace/Contrast-You/runs/beluga3/1229_imsat/acdc/hash_f0cc6ea6552/acdc/imsat/pretrain/seed_30/imsat_weight_1/cons_weight_${cons_weight}/num_clusters_40/pretrain_scan_sample_num_6/num_subheads_3/head_type_linear/imsat_lamda_5/use_dynamic_false/pretrain
+#python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH} \
+#  trainer_checkpoint=${SAMPLE_PATH}/last.pth \
+#  --path ${SAMPLE_PATH}/config.yaml
+#
+#cons_weight=5
+#SAMPLE_PATH=/home/jizong/Workspace/Contrast-You/runs/beluga3/1229_imsat/acdc/hash_f0cc6ea6552/acdc/imsat/pretrain/seed_30/imsat_weight_1/cons_weight_${cons_weight}/num_clusters_40/pretrain_scan_sample_num_6/num_subheads_3/head_type_linear/imsat_lamda_5/use_dynamic_false/pretrain
+#python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH} \
+#  trainer_checkpoint=${SAMPLE_PATH}/last.pth \
+#  --path ${SAMPLE_PATH}/config.yaml
+
+#cons_weight=10
+#SAMPLE_PATH=/home/jizong/Workspace/Contrast-You/runs/beluga3/1229_imsat/acdc/hash_f0cc6ea6552/acdc/imsat/pretrain/seed_30/imsat_weight_1/cons_weight_${cons_weight}/num_clusters_40/pretrain_scan_sample_num_6/num_subheads_3/head_type_linear/imsat_lamda_5/use_dynamic_false/pretrain
+#python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH} \
+#  trainer_checkpoint=${SAMPLE_PATH}/last.pth \
+#  --path ${SAMPLE_PATH}/config.yaml
+
+alpha=0
+SAMPLE_PATH=/home/jizong/Workspace/Contrast-You/runs/narval/0111/prostate/infonce_cc/hash_4d80f63a70f/prostate/pretrain/sample/rr_lamda_1/rr_alpha_${alpha}/pretrain
+python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH} \
+  trainer_checkpoint=${SAMPLE_PATH}/last.pth \
+  --path ${SAMPLE_PATH}/config.yaml
+
+alpha=0.25
+SAMPLE_PATH=/home/jizong/Workspace/Contrast-You/runs/narval/0111/prostate/infonce_cc/hash_4d80f63a70f/prostate/pretrain/sample/rr_lamda_1/rr_alpha_${alpha}/pretrain
+python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH} \
+  trainer_checkpoint=${SAMPLE_PATH}/last.pth \
+  --path ${SAMPLE_PATH}/config.yaml
+
+alpha=0.5
+SAMPLE_PATH=/home/jizong/Workspace/Contrast-You/runs/narval/0111/prostate/infonce_cc/hash_4d80f63a70f/prostate/pretrain/sample/rr_lamda_1/rr_alpha_${alpha}/pretrain
+python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH} \
+  trainer_checkpoint=${SAMPLE_PATH}/last.pth \
+  --path ${SAMPLE_PATH}/config.yaml
+
+alpha=0.75
+SAMPLE_PATH=/home/jizong/Workspace/Contrast-You/runs/narval/0111/prostate/infonce_cc/hash_4d80f63a70f/prostate/pretrain/sample/rr_lamda_1/rr_alpha_${alpha}/pretrain
+python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH} \
+  trainer_checkpoint=${SAMPLE_PATH}/last.pth \
+  --path ${SAMPLE_PATH}/config.yaml

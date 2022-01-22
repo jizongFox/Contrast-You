@@ -525,8 +525,6 @@ class _CrossCorrelationHook(_TinyHook):
     @autocast(enabled=False)
     def __call__(self, *, image: Tensor, input1: Tensor, input2: Tensor, saver: "FeatureMapSaver",
                  save_image_condition: bool, cur_epoch: int, cur_batch_num: int, **kwargs):
-        if self.weight == 0:
-            return torch.tensor(0.0, dtype=image.dtype, device=image.device)
         device = image.device
         self.criterion.to(device)  # noqa
 
