@@ -17,7 +17,7 @@ from .infonce import SelfPacedINFONCEHook, INFONCEHook
 from .midl import IIDSegmentationTrainerHook
 from .midl import IMSATTrainHook
 from .mixup import MixUpTrainHook
-from .mt import MeanTeacherTrainerHook, UAMeanTeacherTrainerHook
+from .mt import MeanTeacherTrainerHook, UAMeanTeacherTrainerHook, ICTMeanTeacherTrainerHook
 from .orthogonal import OrthogonalTrainerHook
 from .pseudolabel import PseudoLabelTrainerHook
 
@@ -308,3 +308,9 @@ def create_cross_correlation_hooks2(
 
 def create_mixup_hook(*, weight: float, enable_bn: bool):
     return MixUpTrainHook(hook_name="mixup", weight=weight, enable_bn=enable_bn)
+
+
+def create_ict_hook(*, weight: float, alpha: float, weight_decay: float, update_bn: bool, model):
+    hook = ICTMeanTeacherTrainerHook(name="ict", weight=weight, alpha=alpha, weight_decay=weight_decay,
+                                     update_bn=update_bn, model=model)
+    return hook

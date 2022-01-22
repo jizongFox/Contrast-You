@@ -10,6 +10,7 @@ from torch.nn.modules.batchnorm import _BatchNorm  # noqa
 from contrastyou.hooks.base import TrainerHook, EpocherHook
 from contrastyou.meters import AverageValueMeter, MeterInterface
 from contrastyou.utils import simplex, class2one_hot, fix_all_seed_within_context
+from semi_seg.hooks.utils import mixup_data
 
 
 def pair_iterator(model_list: t.List[nn.Module]) -> t.Iterable[t.Tuple[nn.Module, nn.Module]]:
@@ -83,13 +84,16 @@ class EMAUpdater:
 
 class MeanTeacherTrainerHook(TrainerHook):
 
-    def __init__(self, name: str, model: nn.Module, weight: float, alpha: float = 0.999, weight_decay: float = 1e-5,
+    def __init__(self, *, name: str, model: nn.Module, weight: float, alpha: float = 0.999, weight_decay: float = 1e-5,
                  update_bn=False, num_teachers: int = 1, hard_clip=False):
         """
         adding parameters: num_teachers to host multiple teacher model
         The first model is going to update the bn or not but the following models must update bn by force
         """
         super().__init__(hook_name=name)
+        if num_teachers > 1:
+            raise RuntimeError(f"Current version only support one Teacher, given {num_teachers} Teachers.")
+
         self._weight = weight
         self._criterion = nn.MSELoss(reduction="none")  # change the mse to reduction none
         if update_bn:
@@ -142,7 +146,7 @@ class MeanTeacherTrainerHook(TrainerHook):
 
 
 class _MeanTeacherEpocherHook(EpocherHook):
-    def __init__(self, name: str, weight: float, criterion, teacher_model, updater, extra_teachers,
+    def __init__(self, *, name: str, weight: float, criterion, teacher_model, updater, extra_teachers,
                  extra_updater, hard_clip: bool = False) -> None:
         super().__init__(name=name)
         self._weight = weight
@@ -274,3 +278,46 @@ class _UAMeanTeacherEpocherHook(_MeanTeacherEpocherHook):
     @property
     def max_epoch(self) -> int:
         return self.epocher.trainer._max_epoch
+
+
+class ICTMeanTeacherTrainerHook(MeanTeacherTrainerHook):
+
+    def __init__(self, *, name: str, model: nn.Module, weight: float, alpha: float = 0.999, weight_decay: float = 1e-5,
+                 update_bn=False, ):
+        super().__init__(name=name, model=model, weight=weight, alpha=alpha, weight_decay=weight_decay,
+                         update_bn=update_bn, num_teachers=1, hard_clip=False)
+
+    def __call__(self):
+        return _ICTMeanTeacherEpocherHook(
+            name=self._hook_name, weight=self._weight, criterion=self._criterion,
+            teacher_model=self._teacher_model, updater=self._updater,
+            extra_teachers=self._extra_teachers, extra_updater=self._extra_teacher_updater,
+        )
+
+
+class _ICTMeanTeacherEpocherHook(_MeanTeacherEpocherHook):
+
+    def __init__(self, *, name: str, weight: float, criterion, teacher_model, updater, extra_teachers,
+                 extra_updater) -> None:
+        super().__init__(name=name, weight=weight, criterion=criterion, teacher_model=teacher_model, updater=updater,
+                         extra_teachers=extra_teachers, extra_updater=extra_updater, hard_clip=False)
+
+    def _call_implementation(
+            self, *, unlabeled_tf_logits, unlabeled_image: Tensor, unlabeled_image_tf, seed,  # noqa
+            **kwargs):  # noqa
+
+        with torch.no_grad():
+            teacher_unlabeled_prob = self.teacher_model(unlabeled_image).softmax(1)
+            teacher_unlabeled_tf_prob = self.teacher_model(unlabeled_image_tf).softmax(1)
+            with fix_all_seed_within_context(seed):
+                mixed_image, mixed_target = mixup_data(
+                    x=torch.cat([unlabeled_image, unlabeled_image_tf], dim=0),
+                    y=torch.cat([teacher_unlabeled_prob, teacher_unlabeled_tf_prob], dim=0),
+                    alpha=0.2, device=unlabeled_image.device
+                )
+        student_mixed_prob = self.model(mixed_image).softmax(1)
+
+        loss = self._criterion(student_mixed_prob, mixed_target.squeeze()).mean()
+        if self.meters:
+            self.meters["loss"].add(loss.item())
+        return self._weight * loss

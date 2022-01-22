@@ -1,0 +1,5 @@
+ICTMeanTeacherParameters:
+  weight: 1
+  alpha: 0.99
+  weight_decay: 0.000001
+  update_bn: false

@@ -2,7 +2,7 @@ from contrastyou.utils import class_name
 from semi_seg.hooks import create_infonce_hooks, create_sp_infonce_hooks, create_discrete_mi_consistency_hook, \
     create_mt_hook, create_differentiable_mt_hook, create_ent_min_hook, create_orthogonal_hook, create_iid_seg_hook, \
     create_pseudo_label_hook, create_imsat_hook, create_consistency_hook, create_cross_correlation_hooks2, \
-    create_intermediate_imsat_hook, create_uamt_hook, create_mixup_hook
+    create_intermediate_imsat_hook, create_uamt_hook, create_mixup_hook, create_ict_hook
 
 
 def _hook_config_validator(config, is_pretrain):
@@ -37,10 +37,17 @@ def create_hook_from_config(model, config, *, is_pretrain=False, trainer):
 
     if "UAMeanTeacherParameters" in config:
         if is_pretrain:
-            raise RuntimeError("`MeanTeacherParameters` are not supported for pretrain stage")
+            raise RuntimeError("`UAMeanTeacherParameters` are not supported for pretrain stage")
         uamt_hook = create_uamt_hook(model=model, **config["UAMeanTeacherParameters"])
         hooks.append(uamt_hook)
         trainer.set_model4inference(uamt_hook.teacher_model)
+
+    if "ICTMeanTeacherParameters" in config:
+        if is_pretrain:
+            raise RuntimeError("`ICTMeanTeacherParameters` are not supported for pretrain stage")
+        ict_hook = create_ict_hook(model=model, **config["ICTMeanTeacherParameters"])
+        hooks.append(ict_hook)
+        trainer.set_model4inference(ict_hook.teacher_model)
 
     if "DifferentiableMeanTeacherParameters" in config:
         if is_pretrain:

@@ -1,8 +1,6 @@
 from contextlib import nullcontext
 from functools import lru_cache
-from typing import Union
 
-import numpy as np
 import torch
 from loguru import logger
 from torch import Tensor
@@ -11,22 +9,7 @@ from contrastyou.hooks.base import TrainerHook, EpocherHook
 from contrastyou.losses.kl import KL_div
 from contrastyou.meters import MeterInterface, AverageValueMeter
 from contrastyou.utils import fix_all_seed_within_context, disable_tracking_bn_stats, class2one_hot
-
-
-def mixup_data(x, y, *, alpha=1.0, device: Union[str, torch.device]):
-    """Returns mixed inputs, pairs of targets, and lambda"""
-    if alpha > 0:
-        lam = np.random.beta(alpha, alpha)
-    else:
-        lam = 1
-
-    batch_size = x.shape[0]
-
-    index = torch.randperm(batch_size).to(device)
-
-    mixed_x = lam * x + (1 - lam) * x[index, :]
-    mixed_y = lam * y + (1 - lam) * y[index, :]
-    return mixed_x, mixed_y
+from semi_seg.hooks.utils import mixup_data
 
 
 class MixUpTrainHook(TrainerHook):
