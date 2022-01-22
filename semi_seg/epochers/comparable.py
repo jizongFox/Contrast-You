@@ -3,7 +3,6 @@ from abc import ABC
 from functools import lru_cache, partial
 
 import torch
-from loguru import logger
 from torch import nn
 
 from contrastyou.meters import MeterInterface, AverageValueMeter
@@ -93,9 +92,6 @@ class MixupEpocher(SemiSupervisedEpocher, ABC):
 
 class AdversarialEpocher(SemiSupervisedEpocher, ABC):
 
-    def _assertion(self):
-        pass
-
     def __init__(self, *, model: nn.Module, optimizer: optimizerType, labeled_loader: dataIterType,
                  unlabeled_loader: dataIterType, sup_criterion: criterionType, num_batches: int, cur_epoch=0,
                  device="cpu", two_stage: bool = False, disable_bn: bool = False, discriminator=None,
@@ -141,14 +137,6 @@ class AdversarialEpocher(SemiSupervisedEpocher, ABC):
                 unlabeled_data = next(self.unlabeled_iter)
                 (unlabeled_image, _), _, unlabeled_filename, unl_partition, unl_group = \
                     self._unzip_data(unlabeled_data, self._device)
-            if self.cur_batch_num < 5:
-                if self._reg_weight > 0:
-                    logger.trace(f"{self.__class__.__name__}--"
-                                 f"cur_batch:{self.cur_batch_num}, labeled_filenames: {','.join(labeled_filename)}, "
-                                 f"unlabeled_filenames: {','.join(unlabeled_filename)}")
-                else:
-                    logger.trace(f"{self.__class__.__name__}--"
-                                 f"cur_batch:{self.cur_batch_num}, labeled_filenames: {','.join(labeled_filename)}")
 
             # update segmentation
             self._optimizer.zero_grad()
