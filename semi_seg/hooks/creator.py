@@ -16,6 +16,7 @@ from .entmin import EntropyMinTrainerHook
 from .infonce import SelfPacedINFONCEHook, INFONCEHook
 from .midl import IIDSegmentationTrainerHook
 from .midl import IMSATTrainHook
+from .mixup import MixUpTrainHook
 from .mt import MeanTeacherTrainerHook, UAMeanTeacherTrainerHook
 from .orthogonal import OrthogonalTrainerHook
 from .pseudolabel import PseudoLabelTrainerHook
@@ -303,3 +304,7 @@ def create_cross_correlation_hooks2(
         )
     hooks.append(hook)
     return CombineTrainerHook(*hooks)
+
+
+def create_mixup_hook(*, weight: float, enable_bn: bool):
+    return MixUpTrainHook(hook_name="mixup", weight=weight, enable_bn=enable_bn)

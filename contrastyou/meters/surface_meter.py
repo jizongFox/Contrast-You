@@ -73,7 +73,7 @@ class SurfaceMeter(Metric):
         mhd = np.concatenate(self._mhd, axis=0)
         return (mhd.mean(0), mhd.std(0))
 
-    def summary(self) -> dict:
+    def _summary(self) -> dict:
         means, stds = self.value()
         result = {
             f"{self._abbr}{i}": to_float(means[num])

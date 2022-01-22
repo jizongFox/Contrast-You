@@ -1,6 +1,6 @@
 import random
 from abc import ABC
-from functools import lru_cache
+from functools import lru_cache, partial
 
 import torch
 from loguru import logger
@@ -9,75 +9,86 @@ from torch import nn
 from contrastyou.meters import MeterInterface, AverageValueMeter
 from contrastyou.types import optimizerType, dataIterType, criterionType
 from contrastyou.utils import get_lrs_from_optimizer, class2one_hot
-from .epocher import SemiSupervisedEpocher, assert_transform_freedom
-from .helper import preprocess_input_with_twice_transformation
+from .epocher import SemiSupervisedEpocher
 
 
-class MixUpEpocher(SemiSupervisedEpocher, ABC):
-    def _assertion(self):
-        assert_transform_freedom(self._labeled_loader, True)
-        if self._unlabeled_loader is not None:
-            assert_transform_freedom(self._unlabeled_loader, True)
+class MixupEpocher(SemiSupervisedEpocher, ABC):
+    """Compared with the original `SemiSupervisedEpocher`, there is no unlabeled images involved in the training"""
 
-    def _run(self, **kwargs):
-        self.meters["lr"].add(get_lrs_from_optimizer(self._optimizer))
-        self._model.train()
-        return self._run_mix_up()
+    def _forward_pass(self, *, labeled_image, labeled_image_tf, **kwargs):
+        predict_logits = self._model(torch.cat([labeled_image, labeled_image_tf], dim=0))
+        label_logits, labeled_tf_logits = torch.chunk(predict_logits, 2, dim=0)
+        return label_logits, labeled_tf_logits
 
-    @staticmethod
-    def _unzip_data(data, device):
-        (image, target), (image_ct, target_ct), filename, partition, group = \
-            preprocess_input_with_twice_transformation(data, device)
-        return (image, image_ct), (target, target_ct), filename, partition, group
-
-    def _run_mix_up(self):
-        for self.cur_batch_num, labeled_data, in zip(self.indicator, self._labeled_loader):
+    def _run_implement(self):
+        if len(self._unlabeled_loader) == 0:
+            # in a fully supervised setting
+            # maybe not necessary to control the randomness?
+            self._unlabeled_loader = self._labeled_loader
+        for self.cur_batch_num, labeled_data, unlabeled_data in zip(self.indicator, self._labeled_loader,
+                                                                    self._unlabeled_loader):
             seed = random.randint(0, int(1e7))
-            with self.autocast:
-                (labeled_image, labeled_image_tf), (
-                    labeled_target, labeled_target_tf), labeled_filename, _, label_group = \
-                    self._unzip_data(labeled_data, self._device)
+            (labeled_image, _), labeled_target, labeled_filename, _, label_group = \
+                self._unzip_data(labeled_data, self._device)
+            (unlabeled_image, unlabeled_image_cf), _, unlabeled_filename, unl_partition, unl_group = \
+                self._unzip_data(unlabeled_data, self._device)
+            # do not break the randomness
 
-                if self.cur_batch_num < 5:
-                    logger.trace(f"{self.__class__.__name__}--"
-                                 f"cur_batch:{self.cur_batch_num}, labeled_filenames: {','.join(labeled_filename)}")
+            labeled_image_tf = self.transform_with_seed(labeled_image, seed=seed, mode="image")
+            labeled_target_tf = self.transform_with_seed(labeled_target.float(), seed=seed, mode="feature")
 
-                label_logits = self.forward_pass(
-                    labeled_image=labeled_image,
-                    labeled_image_tf=labeled_image_tf
-                )
+            self.batch_update(cur_batch_num=self.cur_batch_num,
+                              labeled_image=labeled_image,
+                              labeled_image_tf=labeled_image_tf,
+                              labeled_target=labeled_target,
+                              labeled_target_tf=labeled_target_tf,
+                              labeled_filename=labeled_filename,
+                              label_group=label_group, unlabeled_image=unlabeled_image,
+                              seed=seed, unl_group=unl_group, unl_partition=unl_partition,
+                              unlabeled_filename=unlabeled_filename,
+                              retain_graph=self._retain_graph)
 
-                # supervised part
-                onehot_target = class2one_hot(labeled_target.squeeze(1), self.num_classes)
-                sup_loss = self._sup_criterion(label_logits.softmax(1), onehot_target)
-                # regularized part
-                reg_loss = self.regularization(
-                    labeled_image=labeled_image,
-                    labeled_image_tf=labeled_image_tf,
-                    labeled_target=labeled_target,
-                    labeled_target_tf=labeled_target_tf,
-                    seed=seed
-                )
+            report_dict = self.meters.statistics()
+            self.indicator.set_postfix_statics(report_dict, cache_time=20)
 
-                total_loss = sup_loss + reg_loss
-            # gradient backpropagation
-            self._optimizer.zero_grad()
-            self.scale_loss(total_loss).backward()
-            self.optimizer_step(self._optimizer)
-            # recording can be here or in the regularization method
-            if self.on_master():
-                with torch.no_grad():
-                    self.meters["sup_loss"].add(sup_loss.item())
-                    self.meters["sup_dice"].add(label_logits.max(1)[1], labeled_target.squeeze(1),
-                                                group_name=label_group)
-                    self.meters["reg_loss"].add(reg_loss.item())
+    def _batch_update(self, *, cur_batch_num: int, labeled_image, labeled_target, labeled_image_tf, labeled_target_tf,
+                      labeled_filename, label_group,
+                      seed, unl_group, unl_partition, unlabeled_filename,
+                      retain_graph=False,
+                      **kwargs):
+        self.optimizer_zero(self._optimizer, cur_iter=cur_batch_num)
 
-                report_dict = self.meters.statistics()
-                self.indicator.set_postfix_statics(report_dict, cache_time=10)
+        with self.autocast:
+            label_logits, labeled_tf_logits = self.forward_pass(
+                labeled_image=labeled_image,
+                labeled_image_tf=labeled_image_tf
+            )
+            # supervised part
+            one_hot_target = class2one_hot(labeled_target.squeeze(1), self.num_classes)
+            sup_loss = self._sup_criterion(label_logits.softmax(1), one_hot_target)
+            # regularized part
+            reg_loss = self.regularization(
+                seed=seed,
+                labeled_image=labeled_image,
+                labeled_target=labeled_target,
+                labeled_image_tf=labeled_image_tf,
+                labeled_target_tf=labeled_target_tf,
+                labeled_filename=labeled_filename,
+                affine_transformer=partial(self.transform_with_seed, seed=seed, mode="feature")
+            )
 
-    def _forward_pass(self, labeled_image, **kwargs):
-        label_logits = self._model(labeled_image)
-        return label_logits
+        total_loss = sup_loss + reg_loss
+        # gradient backpropagation
+        self.scale_loss(total_loss).backward(retain_graph=retain_graph)
+        self.optimizer_step(self._optimizer, cur_iter=cur_batch_num)
+
+        # recording can be here or in the regularization method
+        if self.on_master():
+            with torch.no_grad():
+                self.meters["sup_loss"].add(sup_loss.item())
+                self.meters["sup_dice"].add(label_logits.max(1)[1], labeled_target.squeeze(1),
+                                            group_name=label_group)
+                self.meters["reg_loss"].add(reg_loss.item())
 
 
 class AdversarialEpocher(SemiSupervisedEpocher, ABC):

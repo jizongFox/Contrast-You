@@ -18,7 +18,7 @@ from contrastyou.trainer.base import Trainer
 from contrastyou.types import criterionType, SizedIterable
 from contrastyou.utils import fix_all_seed_within_context, get_dataset
 from contrastyou.utils.printable import item2str
-from semi_seg.epochers.comparable import MixUpEpocher, AdversarialEpocher
+from semi_seg.epochers.comparable import AdversarialEpocher, MixupEpocher
 from semi_seg.epochers.epocher import EpocherBase, SemiSupervisedEpocher, FineTuneEpocher, EvalEpocher, DMTEpcoher, \
     InferenceEpocher
 from semi_seg.hooks import MeanTeacherTrainerHook, EMAUpdater
@@ -209,7 +209,7 @@ class MixUpTrainer(SemiTrainer):
 
     @property
     def train_epocher(self) -> Type[EpocherBase]:
-        return MixUpEpocher
+        return MixupEpocher
 
 
 class AdversarialTrainer(SemiTrainer):
