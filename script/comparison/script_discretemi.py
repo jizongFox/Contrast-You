@@ -34,7 +34,7 @@ def _run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, ma
               num_batches: int, arch_checkpoint: str, lr: float, data_name: str = "acdc",
               con_weight: float,
               ):
-    return f""" python main_adv.py RandomSeed={random_seed} Trainer.name=semi \
+    return f""" python main_nd.py RandomSeed={random_seed} Trainer.name=semi \
      Trainer.save_dir={save_dir} Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name} \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
     DiscreteMIConsistencyParams.consistency_weight={con_weight:.10f} \
@@ -47,19 +47,19 @@ def _run_semi_per_class(*, save_dir: str, random_seed: int = 10, num_labeled_sca
                         con_weight: float,
                         ):
     assert data_name == "acdc", data_name
-    return f""" python main_adv.py RandomSeed={random_seed} Trainer.name=semi \
+    return f""" python main_nd.py RandomSeed={random_seed} Trainer.name=semi \
      Trainer.save_dir={save_dir}/lv Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name}_lv \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
     DiscreteMIConsistencyParams.consistency_weight={con_weight:.10f} \
     --path   config/base.yaml  config/hooks/udaiic.yaml  \
     &&\
-    python main_adv.py RandomSeed={random_seed} Trainer.name=semi \
+    python main_nd.py RandomSeed={random_seed} Trainer.name=semi \
      Trainer.save_dir={save_dir}/rv Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name}_rv \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
     DiscreteMIConsistencyParams.consistency_weight={con_weight:.10f} \
     --path   config/base.yaml  config/hooks/udaiic.yaml  \
     &&\
-    python main_adv.py RandomSeed={random_seed} Trainer.name=semi \
+    python main_nd.py RandomSeed={random_seed} Trainer.name=semi \
      Trainer.save_dir={save_dir}/myo Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name}_myo \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
     DiscreteMIConsistencyParams.consistency_weight={con_weight:.10f} \
