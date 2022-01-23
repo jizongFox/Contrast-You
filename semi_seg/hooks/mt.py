@@ -246,7 +246,7 @@ class _UAMeanTeacherEpocherHook(_MeanTeacherEpocherHook):
         loss = self._criterion(teacher_unlabeled_prob_tf, student_unlabeled_tf_prob).mean(1)
         mask = (entropy_tf < 3 / 4 * math.log(C) + 1 / 4 * math.log(C) * float(self.cur_epoch / self.max_epoch)).float()
         loss = loss * mask
-        loss = loss.mean()
+        loss = loss.mean() / (mask.mean().item() + 1e-2)
         self.meters["loss"].add(loss.item())
         self.meters["mask"].add(mask.mean().item())
         return self._weight * loss
