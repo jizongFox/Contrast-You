@@ -75,7 +75,7 @@ def _run_semi_per_class(*, save_dir: str, random_seed: int = 10, num_labeled_sca
 
 def run_semi_regularize(
         *, save_dir, random_seed: int = 10, max_epoch: int, num_batches: int, data_name: str = "acdc",
-        mt_weight: float, hard_clip: str, arch_checkpoint: str = "null",
+        mt_weight: float, hard_clip: str, arch_checkpoint: str = "null"
 ) -> List[str]:
     data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
@@ -97,17 +97,17 @@ def run_semi_regularize(
 
 
 def run_baseline_with_grid_search(*, save_dir, random_seeds: Sequence[int] = 10, max_epoch: int, num_batches: int,
-                                  data_name: str = "acdc"):
+                                  data_name: str = "acdc", arch_checkpoint: str):
     rand_seed_gen = grid_search(random_seed=random_seeds)
     for random_seed in rand_seed_gen:
         _arch_checkpoint = arch_checkpoint
         if _arch_checkpoint != "null":
             _arch_checkpoint = _arch_checkpoint.replace("{}", f"{random_seed['random_seed']}")
             _arch_checkpoint = os.path.join(MODEL_PATH, _arch_checkpoint, "last.pth")
-            assert os.path.exists(_arch_checkpoint), _arch_checkpoint
+            assert os.path.exists(_arch_checkpoint) and os.path.isfile(_arch_checkpoint), _arch_checkpoint
         yield run_baseline(save_dir=os.path.join(save_dir, f"seed_{random_seed['random_seed']}"),
                            **random_seed, max_epoch=max_epoch, num_batches=num_batches,
-                           data_name=data_name, arch_checkpoint=arch_checkpoint)
+                           data_name=data_name, arch_checkpoint=_arch_checkpoint)
 
 
 def run_semi_regularize_with_grid_search(
@@ -124,12 +124,12 @@ def run_semi_regularize_with_grid_search(
         if _arch_checkpoint != "null":
             _arch_checkpoint = _arch_checkpoint.replace("{}", f"{random_seed}")
             _arch_checkpoint = os.path.join(MODEL_PATH, _arch_checkpoint, "last.pth")
-            assert os.path.exists(_arch_checkpoint), _arch_checkpoint
+            assert os.path.exists(_arch_checkpoint) and os.path.isfile(_arch_checkpoint), _arch_checkpoint
         sp_str = get_hyper_param_string(**param)
         yield run_semi_regularize(save_dir=os.path.join(save_dir, f"seed_{random_seed}", sp_str),
                                   random_seed=random_seed,
                                   max_epoch=max_epoch, num_batches=num_batches, data_name=data_name,
-                                  arch_checkpoint=arch_checkpoint, **param)
+                                  arch_checkpoint=_arch_checkpoint, **param)
 
 
 if __name__ == '__main__':
@@ -149,6 +149,7 @@ if __name__ == '__main__':
             "contrast": "contrast_checkpoint.yaml"
         }
         arch_checkpoint = yaml_load(Path(MODEL_PATH, path_name[arch_checkpoint]))[data_name]
+        assert os.path.exists(arch_checkpoint) and os.path.isdir(arch_checkpoint), arch_checkpoint
 
     save_dir = os.path.join(save_dir, f"hash_{git_hash}/{data_name}")
 
@@ -175,8 +176,8 @@ if __name__ == '__main__':
 
     # baseline
     job_generator = run_baseline_with_grid_search(
-        save_dir=os.path.join(save_dir, "uamt"), random_seeds=random_seeds, max_epoch=max_epoch,
-        num_batches=num_batches, data_name=data_name)
+        save_dir=os.path.join(save_dir, "mt"), random_seeds=random_seeds, max_epoch=max_epoch,
+        num_batches=num_batches, data_name=data_name, arch_checkpoint=arch_checkpoint)
 
     jobs = list(job_generator)
     logger.info(f"logging {len(jobs)} jobs")
