@@ -148,7 +148,7 @@ if __name__ == '__main__':
             "cc": "cc_checkpoint.yaml",
             "contrast": "contrast_checkpoint.yaml"
         }
-        arch_checkpoint = yaml_load(Path(MODEL_PATH, path_name[arch_checkpoint]))["path"]
+        arch_checkpoint = yaml_load(Path(MODEL_PATH, path_name[arch_checkpoint]))[data_name]
 
     save_dir = os.path.join(save_dir, f"hash_{git_hash}/{data_name}")
 

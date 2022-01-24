@@ -148,7 +148,7 @@ if __name__ == '__main__':
             "cc": "cc_checkpoint.yaml",
             "contrast": "contrast_checkpoint.yaml"
         }
-        arch_checkpoint = yaml_load(Path(MODEL_PATH, path_name[arch_checkpoint]))["path"]
+        arch_checkpoint = yaml_load(Path(MODEL_PATH, path_name[arch_checkpoint]))[data_name]
 
     save_dir = os.path.join(save_dir, f"hash_{git_hash}/{data_name}")
 
@@ -174,14 +174,14 @@ if __name__ == '__main__':
     submitter.configure_sbatch(mem=24)
 
     # baseline
-    # job_generator = run_baseline_with_grid_search(
-    #     save_dir=os.path.join(save_dir, "mt"), random_seeds=random_seeds, max_epoch=max_epoch,
-    #     num_batches=num_batches, data_name=data_name, arch_checkpoint=arch_checkpoint)
-    #
-    # jobs = list(job_generator)
-    # logger.info(f"logging {len(jobs)} jobs")
-    # for job in jobs:
-    #     submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
+    job_generator = run_baseline_with_grid_search(
+        save_dir=os.path.join(save_dir, "mt"), random_seeds=random_seeds, max_epoch=max_epoch,
+        num_batches=num_batches, data_name=data_name, arch_checkpoint=arch_checkpoint)
+
+    jobs = list(job_generator)
+    logger.info(f"logging {len(jobs)} jobs")
+    for job in jobs:
+        submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
 
     # only with RR on semi supervised case
     job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "mt"),
