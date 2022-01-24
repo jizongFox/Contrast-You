@@ -104,7 +104,7 @@ def run_baseline_with_grid_search(*, save_dir, random_seeds: Sequence[int] = 10,
         if _arch_checkpoint != "null":
             _arch_checkpoint = _arch_checkpoint.replace("{}", f"{random_seed['random_seed']}")
             _arch_checkpoint = os.path.join(MODEL_PATH, _arch_checkpoint, "last.pth")
-            assert os.path.exists(_arch_checkpoint), _arch_checkpoint
+            assert os.path.exists(_arch_checkpoint) and os.path.isfile(_arch_checkpoint), _arch_checkpoint
         yield run_baseline(save_dir=os.path.join(save_dir, f"seed_{random_seed['random_seed']}"),
                            **random_seed, max_epoch=max_epoch, num_batches=num_batches,
                            data_name=data_name, arch_checkpoint=_arch_checkpoint)
@@ -124,7 +124,7 @@ def run_semi_regularize_with_grid_search(
         if _arch_checkpoint != "null":
             _arch_checkpoint = _arch_checkpoint.replace("{}", f"{random_seed}")
             _arch_checkpoint = os.path.join(MODEL_PATH, _arch_checkpoint, "last.pth")
-            assert os.path.exists(_arch_checkpoint), _arch_checkpoint
+            assert os.path.exists(_arch_checkpoint) and os.path.isfile(_arch_checkpoint), _arch_checkpoint
         sp_str = get_hyper_param_string(**param)
         yield run_semi_regularize(save_dir=os.path.join(save_dir, f"seed_{random_seed}", sp_str),
                                   random_seed=random_seed,
