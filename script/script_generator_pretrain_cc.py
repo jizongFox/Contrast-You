@@ -203,7 +203,8 @@ def run_semi_regularize(
 
 
 def run_baseline(
-        *, save_dir, random_seed: int = 10, max_epoch: int, num_batches: int, data_name: str = "acdc"
+        *, save_dir, random_seed: int = 10, max_epoch: int, num_batches: int, data_name: str = "acdc",
+        arch_checkpoint: str = "null"
 ) -> List[str]:
     data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
@@ -215,8 +216,7 @@ def run_baseline(
         run_ft(
             save_dir=os.path.join(save_dir, "baseline", f"labeled_num_{l:03d}"), random_seed=random_seed,
             num_labeled_scan=l, max_epoch=max_epoch, num_batches=num_batches,
-            arch_checkpoint="null",
-            lr=data_opt["ft_lr"], data_name=data_name
+            lr=data_opt["ft_lr"], data_name=data_name, arch_checkpoint=arch_checkpoint,
         )
         for l in labeled_scans
     ]
@@ -224,12 +224,12 @@ def run_baseline(
 
 
 def run_baseline_with_grid_search(*, save_dir, random_seeds: Sequence[int] = 10, max_epoch: int, num_batches: int,
-                                  data_name: str = "acdc"):
+                                  data_name: str = "acdc", arch_checkpoint: str = "null"):
     rand_seed_gen = grid_search(random_seed=random_seeds)
     for random_seed in rand_seed_gen:
         yield run_baseline(save_dir=os.path.join(save_dir, f"seed_{random_seed['random_seed']}"),
                            **random_seed, max_epoch=max_epoch, num_batches=num_batches,
-                           data_name=data_name)
+                           data_name=data_name, arch_checkpoint=arch_checkpoint)
 
 
 def run_pretrain_ft_with_grid_search(
