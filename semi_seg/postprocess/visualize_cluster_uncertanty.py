@@ -11,8 +11,6 @@ from matplotlib import pyplot as plt
 from scipy.optimize import linear_sum_assignment as linear_assignment
 from torchvision.transforms import CenterCrop
 
-from contrastyou.utils.colors import label2colored_image
-
 
 def image_grouper(root_dir: str, pattern: str) -> t.Iterator:
     def load_np_image(path):
@@ -42,6 +40,16 @@ def cc_grouper(root_dir: str, pattern: str) -> t.Iterator:
         matched = grex.match(str(npy.relative_to(root_dir)))
         if matched:
             yield np.load(npy).argmax(1)
+
+
+def cc_uncertainty_grouper(root_dir: str, pattern: str) -> t.Iterator:
+    npy_list = sorted(Path(root_dir).rglob("*.npy"))
+    grex = re.compile(pattern)
+    for npy in npy_list:
+        matched = grex.match(str(npy.relative_to(root_dir)))
+        if matched:
+            probability = np.load(npy).astype(np.float)
+            yield -(probability * np.log(probability + 1e-10)).sum(1).astype(float)
 
 
 def superpixel_grouper(root_dir: str, group_pattern: str) -> t.Iterator:
@@ -150,40 +158,40 @@ if __name__ == '__main__':
     segment = get_segment(superpixel, volume_num)
     slice_sp = segment[slice_index]
 
-    imsat = cc_grouper(imsat_dir, f"{pattern}_\d+\d+")
+    imsat = cc_uncertainty_grouper(imsat_dir, f"{pattern}_\d+\d+")
     segment = get_segment(imsat, volume_num)
     imsat = segment[slice_index]
 
-    case_050 = cc_grouper(rr_050, pattern=f"{pattern}_\d+\d+")
+    case_050 = cc_uncertainty_grouper(rr_050, pattern=f"{pattern}_\d+\d+")
     segment = get_segment(case_050, volume_num)
     slice_050 = segment[slice_index]
 
-    case_025 = cc_grouper(rr_025, pattern=f"{pattern}_\d+\d+")
+    case_025 = cc_uncertainty_grouper(rr_025, pattern=f"{pattern}_\d+\d+")
     segment = get_segment(case_025, volume_num)
 
     slice_025 = segment[slice_index]
 
-    case_075 = cc_grouper(rr_075, pattern=f"{pattern}_\d+\d+")
+    case_075 = cc_uncertainty_grouper(rr_075, pattern=f"{pattern}_\d+\d+")
     segment = get_segment(case_075, volume_num)
 
     slice_075 = segment[slice_index]
 
-    case_000 = cc_grouper(rr_000, pattern=f"{pattern}_\d+\d+")
+    case_000 = cc_uncertainty_grouper(rr_000, pattern=f"{pattern}_\d+\d+")
     segment = get_segment(case_000, volume_num)
 
     slice_000 = segment[slice_index]
 
-    case_100 = cc_grouper(rr_100, pattern=f"{pattern}_\d+\d+")
+    case_100 = cc_uncertainty_grouper(rr_100, pattern=f"{pattern}_\d+\d+")
     segment = get_segment(case_100, volume_num)
 
     slice_100 = segment[slice_index]
 
-    slice_sp, slice_000, slice_025, slice_050, slice_075, slice_100, imsat = \
-        hungarian_match(slice_sp, slice_000, slice_025,
-                        slice_050,
-                        slice_075, slice_100, imsat,
-                        reference_cluster=slice_050,
-                        num_clusters=40)
+    # slice_sp, slice_000, slice_025, slice_050, slice_075, slice_100, imsat = \
+    #     hungarian_match(slice_sp, slice_000, slice_025,
+    #                     slice_050,
+    #                     slice_075, slice_100, imsat,
+    #                     reference_cluster=slice_050,
+    #                     num_clusters=40)
     plt.subplot(331)
     plt.imshow(image_slice, cmap="gray")
     plt.axis('off')
@@ -193,31 +201,37 @@ if __name__ == '__main__':
     plt.axis('off')
 
     plt.subplot(333)
-    plt.imshow(label2colored_image(slice_sp))
+    plt.imshow(slice_sp)
     plt.axis('off')
 
     plt.subplot(334)
-    plt.imshow(label2colored_image(imsat))
+    plt.imshow(imsat, )
+    # plt.colorbar()
     plt.axis('off')
 
     plt.subplot(335)
-    plt.imshow(label2colored_image(slice_000))
+    plt.imshow(slice_000, vmin=0, vmax=3.6)
+    # plt.colorbar()
     plt.axis('off')
 
     plt.subplot(336)
-    plt.imshow(label2colored_image(slice_025))
+    plt.imshow(slice_025, vmin=0, vmax=3.6)
+    # plt.colorbar()
     plt.axis('off')
 
     plt.subplot(337)
-    plt.imshow(label2colored_image(slice_050))
+    plt.imshow(slice_050, vmin=0, vmax=3.6)
+    # plt.colorbar()
     plt.axis('off')
 
     plt.subplot(338)
-    plt.imshow(label2colored_image(slice_075))
+    plt.imshow(slice_075, vmin=0, vmax=3.6)
+    # plt.colorbar()
     plt.axis('off')
 
     plt.subplot(339)
-    plt.imshow(label2colored_image(slice_100))
+    plt.imshow(slice_100, vmin=0, vmax=3.6)
+    plt.colorbar()
     plt.axis('off')
 
     plt.tight_layout()
