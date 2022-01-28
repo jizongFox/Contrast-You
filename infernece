@@ -1,0 +1,39 @@
+#!/bin/bash
+export PYTHONOPTIMIZE=1
+acdc_inference() {
+   python main.py Trainer.save_dir=$1/lv trainer_checkpoint=$2/lv/last.pth  --path $2/lv/config.yaml
+  python main.py Trainer.save_dir=$1/rv trainer_checkpoint=$2/rv/last.pth  --path $2/rv/config.yaml
+  python main.py Trainer.save_dir=$1/myo trainer_checkpoint=$2/myo/last.pth  --path $2/myo/config.yaml
+}
+#acdc_inference images/ps  /home/jizong/Workspace/Contrast-You/runs/narval/0110/acdc/cc/hash_7b077a923cf/acdc/pretrain/seed_10/baseline/labeled_num_001
+#acdc_inference images/mt  /home/jizong/Workspace/Contrast-You/runs/narval/0120_comparison/mt/hash_a9e4bb1046f/acdc/mt/seed_30/mt_weight_1/hard_clip_true/semi/labeled_num_001
+#acdc_inference images/adv      /home/jizong/Workspace/Contrast-You/runs/narval/0120_comparison/adv/hash_5e08600a781/acdc/adv/seed_30/adv_weight_0.01/semi/labeled_num_001
+#acdc_inference images/contrast-pretrain   /home/jizong/Workspace/Contrast-You/runs/narval/0110/acdc/infonce/hash_7b077a923cf/acdc/infonce/pretrain/encoder_decoder/seed_30/pretrain_scan_sample_num_6/infonce_encoder_weight_1/infonce_decoder_weight_0.0001/decoder_spatial_size_20/tra/labeled_num_001
+#acdc_inference images/ours-pretrain       /home/jizong/Workspace/Contrast-You/runs/narval/0110/acdc/infonce_cc/hash_7b077a923cf/acdc/pretrain/seed_30/cc_weight_1/pretrain_scan_sample_num_6/consistency_weight_0/rr_weight_1/power_0.75/head_type_linear/num_subheads_3/kernel_size_5/rr_symmetric_true/num_clusters_40/rr_lamda_1/rr_alpha_0.5/tra/labeled_num_001
+#acdc_inference images/contrast-mt      /home/jizong/Workspace/Contrast-You/runs/narval/0122_comparison/mt/infonce/hash_bc533ded6c2/acdc/mt/seed_10/mt_weight_0.01/hard_clip_true/semi/labeled_num_001
+#acdc_inference images/ours-mt          /home/jizong/Workspace/Contrast-You/runs/narval/0122_comparison/mt/cc/hash_bc533ded6c2/acdc/mt/seed_30/mt_weight_1/hard_clip_false/semi/labeled_num_001
+
+visual_acdc() {
+  cd /home/jizong/Workspace/Contrast-You/runs/images
+    viewer --img_source ./adv/$1/img/ --gt_folders  ./ps/$1/gt/ ./ps/$1/pred/ ./mt/$1/pred/ ./adv/$1/pred/ ./contrast-pretrain/$1/pred/ ./ours-pretrain/$1/pred/ ./contrast-mt/$1/pred/ ./ours-mt/$1/pred/ --no_contour --alpha 0.7 --zeroclass_transparent
+
+}
+#visual myo
+
+prostate_inference() {
+   python main.py Trainer.save_dir=$1 trainer_checkpoint=$2/last.pth  --path $2/config.yaml
+}
+#prostate_inference images_prostate/ps    /home/jizong/Workspace/Contrast-You/runs/narval/0111/prostate/cc/hash_4d80f63a70f/prostate/pretrain/seed_10/baseline/labeled_num_004
+#prostate_inference images_prostate/mt      /home/jizong/Workspace/Contrast-You/runs/narval/0120_comparison/mt/hash_a9e4bb1046f/prostate/mt/seed_10/mt_weight_1/hard_clip_true/semi/labeled_num_004
+#prostate_inference images_prostate/adv /home/jizong/Workspace/Contrast-You/runs/narval/0120_comparison/adv/hash_5e08600a781/prostate/adv/seed_20/adv_weight_0.001/semi/labeled_num_004
+#prostate_inference images_prostate/contrast-pretrain /home/jizong/Workspace/Contrast-You/runs/narval/0111/prostate/infonce/hash_4d80f63a70f/prostate/infonce/pretrain/encoder/seed_30/pretrain_scan_sample_num_6/infonce_encoder_weight_1/infonce_decoder_weight_0/decoder_spatial_size_10/tra/labeled_num_004
+#prostate_inference images_prostate/ours-pretrain /home/jizong/Workspace/Contrast-You/runs/narval/0111/prostate/infonce_cc/hash_4d80f63a70f/prostate/pretrain/seed_30/cc_weight_0.1/pretrain_scan_sample_num_6/consistency_weight_0/rr_weight_1/power_1.5/head_type_linear/num_subheads_3/kernel_size_5/rr_symmetric_true/num_clusters_40/rr_lamda_1/rr_alpha_0.5/tra/labeled_num_004
+#prostate_inference images_prostate/contrast-mt /home/jizong/Workspace/Contrast-You/runs/narval/0122_comparison/mt/cc/hash_bc533ded6c2/prostate/mt/seed_20/mt_weight_0.1/hard_clip_false/semi/labeled_num_004
+#prostate_inference images_prostate/ours-mt /home/jizong/Workspace/Contrast-You/runs/narval/0122_comparison/mt/infonce/hash_bc533ded6c2/prostate/mt/seed_10/mt_weight_2/hard_clip_true/semi/labeled_num_004
+
+visual_prostate() {
+  cd /home/jizong/Workspace/Contrast-You/runs/images_prostate/
+    viewer --img_source ./adv/$1/img/ --gt_folders  ./ps/$1/gt/ ./ps/$1/pred/ ./mt/$1/pred/ ./adv/$1/pred/ ./contrast-pretrain/$1/pred/ ./ours-pretrain/$1/pred/ ./contrast-mt/$1/pred/ ./ours-mt/$1/pred/ --no_contour --alpha 0.7 --zeroclass_transparent --group_pattern "Case\d+_\d+"
+
+}
+visual_prostate

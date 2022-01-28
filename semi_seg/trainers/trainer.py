@@ -70,7 +70,8 @@ class SemiTrainer(Trainer):
         epocher.init()
         return epocher
 
-    def inference(self, checkpoint_path: str = None, checkpoint_name: str = "best.pth", save_dir: str = None):
+    def inference(self, checkpoint_path: str = None, checkpoint_name: str = "best.pth", save_dir: str = None,
+                  enable_prediction_save=False):
         # make self._test_loader to be a patient based Dataloader
         # load_checkpoint
         if checkpoint_path is None:
@@ -83,7 +84,8 @@ class SemiTrainer(Trainer):
 
         test_loader = self.patch_scan_based_dataloader(self._test_loader)
 
-        epoch_metric, _ = self._inference(test_loader=test_loader)
+        epoch_metric, _ = self._inference(test_loader=test_loader,
+                                          enable_prediction_save=enable_prediction_save)
 
         if save_dir is None:
             save_dir = self.absolute_save_dir
@@ -103,10 +105,11 @@ class SemiTrainer(Trainer):
 
     # store the results.
 
-    def _inference(self, *, test_loader: DataLoader):
+    def _inference(self, *, test_loader: DataLoader, enable_prediction_save):
         epocher = InferenceEpocher(model=self._model, loader=test_loader, sup_criterion=self._criterion,
                                    cur_epoch=10000, device=self._device, scaler=self.scaler,
-                                   accumulate_iter=self._accumulate_iter)
+                                   accumulate_iter=self._accumulate_iter,
+                                   enable_prediction_saver=enable_prediction_save)
         epocher.set_trainer(self)
         epocher.init()
         epocher.run()
