@@ -112,47 +112,52 @@ def get_segment(iter_: t.Iterator, num_volume: int):
 
 
 if __name__ == '__main__':
-    image_dir = "/home/jizong/Workspace/Contrast-You/.data/ACDC_contrast/train/img"
-    gt_dir = "/home/jizong/Workspace/Contrast-You/.data/ACDC_contrast/train/gt"
-    rr_050 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.5/pretrain/matrix/cc_Up_conv2"
-    rr_075 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.75/pretrain/matrix/cc_Up_conv2"
-    rr_025 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.25/pretrain/matrix/cc_Up_conv2"
-    rr_000 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0/pretrain/matrix/cc_Up_conv2"
-    rr_100 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_1/pretrain/matrix/cc_Up_conv2"
-    superpixel_dir = "/home/jizong/Workspace/Contrast-You/.data/ACDC_superpixel/train/img"
-    imsat_dir = "/home/jizong/Workspace/Contrast-You/runs/beluga3/1229_imsat/acdc/hash_f0cc6ea6552/acdc/imsat/pretrain/seed_30/imsat_weight_1/cons_weight_10/num_clusters_40/pretrain_scan_sample_num_6/num_subheads_3/head_type_linear/imsat_lamda_5/use_dynamic_false/pretrain/matrix/cc_Up_conv2"
+    # image_dir = "/home/jizong/Workspace/Contrast-You/.data/ACDC_contrast/train/img"
+    # gt_dir = "/home/jizong/Workspace/Contrast-You/.data/ACDC_contrast/train/gt"
+    # rr_050 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.5/pretrain/matrix/cc_Up_conv2"
+    # rr_075 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.75/pretrain/matrix/cc_Up_conv2"
+    # rr_025 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0.25/pretrain/matrix/cc_Up_conv2"
+    # rr_000 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_0/pretrain/matrix/cc_Up_conv2"
+    # rr_100 = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample/rr_alpha_1/pretrain/matrix/cc_Up_conv2"
+    # superpixel_dir = "/home/jizong/Workspace/Contrast-You/.data/ACDC_superpixel/train/img"
+    # imsat_dir = "/home/jizong/Workspace/Contrast-You/runs/beluga3/1229_imsat/acdc/hash_f0cc6ea6552/acdc/imsat/pretrain/seed_30/imsat_weight_1/cons_weight_10/num_clusters_40/pretrain_scan_sample_num_6/num_subheads_3/head_type_linear/imsat_lamda_5/use_dynamic_false/pretrain/matrix/cc_Up_conv2"
+    # iic_dir = "/home/jizong/Workspace/Contrast-You/runs/beluga/1224_cc/acdc/hash_a2fcd4d9976/acdc/pretrain/seed_30/cc_weight_0/consistency_weight_0/rr_weight_1/power_0.75/head_type_linear/num_subheads_3/kernel_size_5/rr_symmetric_true/num_clusters_40/rr_lamda_1/rr_alpha_0/pretrain/matrix/cc_Up_conv2"
     # /home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample
-    #
-    # image_dir = "/home/jizong/Workspace/Contrast-You/.data/PROSTATE/train/img"
-    # gt_dir = "/home/jizong/Workspace/Contrast-You/.data/PROSTATE/train/gt"
-    # rr_050 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_0.5/pretrain/matrix/cc_Up_conv2"
-    # rr_075 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_0.75/pretrain/matrix/cc_Up_conv2"
-    # rr_025 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_0.25/pretrain/matrix/cc_Up_conv2"
-    # rr_000 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_0/pretrain/matrix/cc_Up_conv2"
-    # rr_100 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_1/pretrain/matrix/cc_Up_conv2"
-    # superpixel_dir = "/home/jizong/Workspace/Contrast-You/.data/PROSTATE_superpixel/train/img"
-    # imsat_dir = "/home/jizong/Workspace/Contrast-You/runs/narval/0111/prostate/clusters/hash_4d80f63a70f/prostate/imsat/pretrain/seed_30/imsat_weight_1/cons_weight_10/num_clusters_40/pretrain_scan_sample_num_6/num_subheads_3/head_type_linear/imsat_lamda_1/use_dynamic_true/pretrain/matrix/cc_Up_conv2"
 
+    image_dir = "/home/jizong/Workspace/Contrast-You/.data/PROSTATE/train/img"
+    gt_dir = "/home/jizong/Workspace/Contrast-You/.data/PROSTATE/train/gt"
+    rr_050 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_0.5/pretrain/matrix/cc_Up_conv2"
+    rr_075 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_0.75/pretrain/matrix/cc_Up_conv2"
+    rr_025 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_0.25/pretrain/matrix/cc_Up_conv2"
+    rr_000 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_0/pretrain/matrix/cc_Up_conv2"
+    rr_100 = "/home/jizong/Workspace/Contrast-You/runs/narval/0107/cc/hash_2d42fc6b083/prostate/sample/rr_alpha_1/pretrain/matrix/cc_Up_conv2"
+    superpixel_dir = "/home/jizong/Workspace/Contrast-You/.data/PROSTATE_superpixel/train/img"
+    imsat_dir = "/home/jizong/Workspace/Contrast-You/runs/narval/0111/prostate/clusters/hash_4d80f63a70f/prostate/imsat/pretrain/seed_30/imsat_weight_1/cons_weight_10/num_clusters_40/pretrain_scan_sample_num_6/num_subheads_3/head_type_linear/imsat_lamda_1/use_dynamic_true/pretrain/matrix/cc_Up_conv2"
+    iic_dir="/home/jizong/Workspace/Contrast-You/runs/narval/0111/prostate/cc/hash_4d80f63a70f/prostate/pretrain/seed_30/cc_weight_0/pretrain_scan_sample_num_6/consistency_weight_0/rr_weight_1/power_0.5/head_type_linear/num_subheads_3/kernel_size_5/rr_symmetric_true/num_clusters_40/rr_lamda_1/rr_alpha_0/pretrain/matrix/cc_Up_conv2"
     pattern = "probability"
 
-    slice_index = 5
+    slice_index = 31
     volume_num = 0
 
-    image_gen = image_grouper(root_dir=image_dir, pattern=r"patient\d+_\d+")
+    image_gen = image_grouper(root_dir=image_dir, pattern=r"Case\d+_\d+")
     segment = get_segment(image_gen, volume_num)
     image_slice = segment[slice_index]
 
-    gt_gen = image_grouper(root_dir=gt_dir, pattern=r"patient\d+_\d+")
+    gt_gen = image_grouper(root_dir=gt_dir, pattern=r"Case\d+_\d+")
     segment = get_segment(gt_gen, volume_num)
     gt_slice = segment[slice_index]
 
-    superpixel = superpixel_grouper(superpixel_dir, r"patient\d+_\d+")
+    superpixel = superpixel_grouper(superpixel_dir, r"Case\d+_\d+")
     segment = get_segment(superpixel, volume_num)
     slice_sp = segment[slice_index]
 
     imsat = cc_grouper(imsat_dir, f"{pattern}_\d+\d+")
     segment = get_segment(imsat, volume_num)
     imsat = segment[slice_index]
+
+    iic = cc_grouper(iic_dir, f"{pattern}_\d+\d+")
+    segment = get_segment(iic, volume_num)
+    iic = segment[slice_index]
 
     case_050 = cc_grouper(rr_050, pattern=f"{pattern}_\d+\d+")
     segment = get_segment(case_050, volume_num)
@@ -178,7 +183,7 @@ if __name__ == '__main__':
 
     slice_100 = segment[slice_index]
 
-    slice_sp, slice_000, slice_025, slice_050, slice_075, slice_100, imsat = \
+    slice_sp, slice_000, slice_025, slice_050, slice_075, slice_100, imsat,  = \
         hungarian_match(slice_sp, slice_000, slice_025,
                         slice_050,
                         slice_075, slice_100, imsat,
@@ -199,10 +204,13 @@ if __name__ == '__main__':
     plt.subplot(334)
     plt.imshow(label2colored_image(imsat))
     plt.axis('off')
-
     plt.subplot(335)
-    plt.imshow(label2colored_image(slice_000))
+    plt.imshow(label2colored_image(iic))
     plt.axis('off')
+
+    # plt.subplot(335)
+    # plt.imshow(label2colored_image(slice_000))
+    # plt.axis('off')
 
     plt.subplot(336)
     plt.imshow(label2colored_image(slice_025))

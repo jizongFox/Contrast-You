@@ -1,31 +1,41 @@
 #!/bin/bash
 
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
+#
+#python plot_pretrain_cluster.py Trainer.save_dir=/home/jizong/Workspace/Contrast-You/runs/beluga/1224_cc/acdc/hash_a2fcd4d9976/acdc/pretrain/seed_30/cc_weight_0/consistency_weight_0/rr_weight_1/power_0.75/head_type_linear/num_subheads_3/kernel_size_5/rr_symmetric_true/num_clusters_40/rr_lamda_1/rr_alpha_0/pretrain \
+#  trainer_checkpoint=/home/jizong/Workspace/Contrast-You/runs/beluga/1224_cc/acdc/hash_a2fcd4d9976/acdc/pretrain/seed_30/cc_weight_0/consistency_weight_0/rr_weight_1/power_0.75/head_type_linear/num_subheads_3/kernel_size_5/rr_symmetric_true/num_clusters_40/rr_lamda_1/rr_alpha_0/pretrain/last.pth  \
+#  --path /home/jizong/Workspace/Contrast-You/runs/beluga/1224_cc/acdc/hash_a2fcd4d9976/acdc/pretrain/seed_30/cc_weight_0/consistency_weight_0/rr_weight_1/power_0.75/head_type_linear/num_subheads_3/kernel_size_5/rr_symmetric_true/num_clusters_40/rr_lamda_1/rr_alpha_0/pretrain/config.yaml
 
 
-SAMPLE_PATH=/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample
-
-python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH}_new/rr_alpha_1/pretrain \
-  trainer_checkpoint=${SAMPLE_PATH}/rr_alpha_1/pretrain/last.pth CrossCorrelationParameters.hooks.rr.alpha=0 \
-  --path ${SAMPLE_PATH}/rr_alpha_1/pretrain/config.yaml
-
-python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH}_new/rr_alpha_0/pretrain \
-  trainer_checkpoint=${SAMPLE_PATH}/rr_alpha_0/pretrain/last.pth CrossCorrelationParameters.hooks.rr.alpha=0 \
-  --path ${SAMPLE_PATH}/rr_alpha_0/pretrain/config.yaml
-
-python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH}_new/rr_alpha_0.25/pretrain \
-  trainer_checkpoint=${SAMPLE_PATH}/rr_alpha_0.25/pretrain/last.pth CrossCorrelationParameters.hooks.rr.alpha=0 \
-  --path ${SAMPLE_PATH}/rr_alpha_0.25/pretrain/config.yaml
-
-python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH}_new/rr_alpha_0.5/pretrain \
-  trainer_checkpoint=${SAMPLE_PATH}/rr_alpha_0.5/pretrain/last.pth CrossCorrelationParameters.hooks.rr.alpha=0 \
-  --path ${SAMPLE_PATH}/rr_alpha_0.5/pretrain/config.yaml
+python plot_pretrain_cluster.py Trainer.save_dir=/home/jizong/Workspace/Contrast-You/runs/narval/0111/prostate/cc/hash_4d80f63a70f/prostate/pretrain/seed_30/cc_weight_0/pretrain_scan_sample_num_6/consistency_weight_0/rr_weight_1/power_0.5/head_type_linear/num_subheads_3/kernel_size_5/rr_symmetric_true/num_clusters_40/rr_lamda_1/rr_alpha_0/pretrain \
+  trainer_checkpoint=/home/jizong/Workspace/Contrast-You/runs/narval/0111/prostate/cc/hash_4d80f63a70f/prostate/pretrain/seed_30/cc_weight_0/pretrain_scan_sample_num_6/consistency_weight_0/rr_weight_1/power_0.5/head_type_linear/num_subheads_3/kernel_size_5/rr_symmetric_true/num_clusters_40/rr_lamda_1/rr_alpha_0/pretrain/last.pth  \
+  --path /home/jizong/Workspace/Contrast-You/runs/narval/0111/prostate/cc/hash_4d80f63a70f/prostate/pretrain/seed_30/cc_weight_0/pretrain_scan_sample_num_6/consistency_weight_0/rr_weight_1/power_0.5/head_type_linear/num_subheads_3/kernel_size_5/rr_symmetric_true/num_clusters_40/rr_lamda_1/rr_alpha_0/pretrain/config.yaml
 
 
 
-python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH}_new/rr_alpha_0.75/pretrain \
-  trainer_checkpoint=${SAMPLE_PATH}/rr_alpha_0.75/pretrain/last.pth CrossCorrelationParameters.hooks.rr.alpha=0 \
-  --path ${SAMPLE_PATH}/rr_alpha_0.75/pretrain/config.yaml
+#SAMPLE_PATH=/home/jizong/Workspace/Contrast-You/runs/beluga/1224_combine/acdc/hash_955663565fd/acdc/pretrain/sample
+#
+#python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH}_new/rr_alpha_1/pretrain \
+#  trainer_checkpoint=${SAMPLE_PATH}/rr_alpha_1/pretrain/last.pth CrossCorrelationParameters.hooks.rr.alpha=0 \
+#  --path ${SAMPLE_PATH}/rr_alpha_1/pretrain/config.yaml
+#
+#python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH}_new/rr_alpha_0/pretrain \
+#  trainer_checkpoint=${SAMPLE_PATH}/rr_alpha_0/pretrain/last.pth CrossCorrelationParameters.hooks.rr.alpha=0 \
+#  --path ${SAMPLE_PATH}/rr_alpha_0/pretrain/config.yaml
+#
+#python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH}_new/rr_alpha_0.25/pretrain \
+#  trainer_checkpoint=${SAMPLE_PATH}/rr_alpha_0.25/pretrain/last.pth CrossCorrelationParameters.hooks.rr.alpha=0 \
+#  --path ${SAMPLE_PATH}/rr_alpha_0.25/pretrain/config.yaml
+#
+#python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH}_new/rr_alpha_0.5/pretrain \
+#  trainer_checkpoint=${SAMPLE_PATH}/rr_alpha_0.5/pretrain/last.pth CrossCorrelationParameters.hooks.rr.alpha=0 \
+#  --path ${SAMPLE_PATH}/rr_alpha_0.5/pretrain/config.yaml
+#
+#
+#
+#python plot_pretrain_cluster.py Trainer.save_dir=${SAMPLE_PATH}_new/rr_alpha_0.75/pretrain \
+#  trainer_checkpoint=${SAMPLE_PATH}/rr_alpha_0.75/pretrain/last.pth CrossCorrelationParameters.hooks.rr.alpha=0 \
+#  --path ${SAMPLE_PATH}/rr_alpha_0.75/pretrain/config.yaml
 
 #!/bin/bash
 
