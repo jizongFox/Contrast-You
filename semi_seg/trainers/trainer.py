@@ -18,7 +18,7 @@ from contrastyou.trainer.base import Trainer
 from contrastyou.types import criterionType, SizedIterable
 from contrastyou.utils import fix_all_seed_within_context, get_dataset
 from contrastyou.utils.printable import item2str
-from semi_seg.epochers.comparable import MixUpEpocher, AdversarialEpocher
+from semi_seg.epochers.comparable import AdversarialEpocher, MixupEpocher
 from semi_seg.epochers.epocher import EpocherBase, SemiSupervisedEpocher, FineTuneEpocher, EvalEpocher, DMTEpcoher, \
     InferenceEpocher
 from semi_seg.hooks import MeanTeacherTrainerHook, EMAUpdater
@@ -70,7 +70,8 @@ class SemiTrainer(Trainer):
         epocher.init()
         return epocher
 
-    def inference(self, checkpoint_path: str = None, checkpoint_name: str = "best.pth", save_dir: str = None):
+    def inference(self, checkpoint_path: str = None, checkpoint_name: str = "best.pth", save_dir: str = None,
+                  enable_prediction_save=False):
         # make self._test_loader to be a patient based Dataloader
         # load_checkpoint
         if checkpoint_path is None:
@@ -83,7 +84,8 @@ class SemiTrainer(Trainer):
 
         test_loader = self.patch_scan_based_dataloader(self._test_loader)
 
-        epoch_metric, _ = self._inference(test_loader=test_loader)
+        epoch_metric, _ = self._inference(test_loader=test_loader,
+                                          enable_prediction_save=enable_prediction_save)
 
         if save_dir is None:
             save_dir = self.absolute_save_dir
@@ -103,10 +105,11 @@ class SemiTrainer(Trainer):
 
     # store the results.
 
-    def _inference(self, *, test_loader: DataLoader):
+    def _inference(self, *, test_loader: DataLoader, enable_prediction_save):
         epocher = InferenceEpocher(model=self._model, loader=test_loader, sup_criterion=self._criterion,
                                    cur_epoch=10000, device=self._device, scaler=self.scaler,
-                                   accumulate_iter=self._accumulate_iter)
+                                   accumulate_iter=self._accumulate_iter,
+                                   enable_prediction_saver=enable_prediction_save)
         epocher.set_trainer(self)
         epocher.init()
         epocher.run()
@@ -209,7 +212,7 @@ class MixUpTrainer(SemiTrainer):
 
     @property
     def train_epocher(self) -> Type[EpocherBase]:
-        return MixUpEpocher
+        return MixupEpocher
 
 
 class AdversarialTrainer(SemiTrainer):
@@ -254,7 +257,7 @@ class AdversarialTrainer(SemiTrainer):
             model=self._model, optimizer=self._optimizer, labeled_loader=self._labeled_loader,
             unlabeled_loader=self._unlabeled_loader, sup_criterion=self._criterion, num_batches=self._num_batches,
             cur_epoch=self._cur_epoch, device=self._device, two_stage=self._two_stage, disable_bn=self._disable_bn,
-            discriminator=self._discriminator, discr_optimizer=self._dis_optimizer, reg_weight=self._reg_weight,
+            discriminator=self._discriminator, disc_optimizer=self._dis_optimizer, reg_weight=self._reg_weight,
             dis_consider_image=self._dis_consider_image, scaler=self.scaler
         )
         epocher.init()

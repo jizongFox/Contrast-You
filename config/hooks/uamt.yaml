@@ -1,0 +1,7 @@
+UAMeanTeacherParameters:
+  weight: 10
+  alpha: 0.99
+  weight_decay: 0.000001
+  update_bn: false
+  num_teachers: 1
+  hard_clip: false

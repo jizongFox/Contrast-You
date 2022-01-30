@@ -1,2 +1,2 @@
 Trainer:
-  reg_weight: 0.0
+  reg_weight: 0.1

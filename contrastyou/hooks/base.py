@@ -24,14 +24,14 @@ class _ClassNameMeta(type):
     This meta class is to make sure that the training hook cannot have the same name in a single experiment.
     if two hooks with the same name is given, a `HookNameExistError` would be raised to stop the algorithm.
     """
-    names: t.List[str] = set()
+    names: t.Set[str] = set()
 
     def __call__(cls, *args, **kwargs):
         if "hook_name" in kwargs:
             hook_name = kwargs["hook_name"]
             if hook_name in cls.names:
                 raise HookNameExistError(hook_name)
-            cls.names.append(hook_name)
+            cls.names.add(hook_name)
         return super(_ClassNameMeta, cls).__call__(*args, **kwargs)
 
 
@@ -120,7 +120,7 @@ class EpocherHook:
     def __init__(self, *, name: str, ) -> None:
         self._name = name
         self._epocher = None
-        self.meters = None
+        self.meters: t.Optional[MeterInterface] = None
         self._epocher_init = False
 
     def set_epocher(self, epocher):

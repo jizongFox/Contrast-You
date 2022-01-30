@@ -1,5 +1,6 @@
 import os
 import warnings
+from pathlib import Path
 from typing import List, Union
 
 import numpy as np
@@ -95,3 +96,14 @@ def write_img_target(image: Tensor, target: Tensor, save_dir: str, filenames: Un
         _write_single_png(img * 255, os.path.join(save_dir, "img"), f)
     for targ, f in zip(target, filenames):
         _write_single_png(targ, os.path.join(save_dir, "gt"), f)
+
+
+class InferenceSaver:
+    def __init__(self, enable: bool, save_dir: str) -> None:
+        self.enable = enable
+        self.save_dir = Path(save_dir)
+
+    def __call__(self, *, image: Tensor, target: Tensor, predict_logit: Tensor, filenames: Union[str, List[str]]):
+        if self.enable:
+            write_img_target(image=image, target=target, save_dir=str(self.save_dir), filenames=filenames)
+            write_predict(predict_logit=predict_logit, save_dir=str(self.save_dir), filenames=filenames)

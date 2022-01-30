@@ -22,7 +22,7 @@ from contrastyou.utils.general import class2one_hot
 from contrastyou.utils.utils import disable_tracking_bn_stats, get_model, ignore_exception
 from semi_seg.augment import RisingWrapper
 from semi_seg.epochers.helper import preprocess_input_with_twice_transformation, \
-    preprocess_input_with_single_transformation
+    preprocess_input_with_single_transformation, InferenceSaver
 from semi_seg.hooks import EMAUpdater
 
 
@@ -146,12 +146,13 @@ class EvalEpocher(EpocherBase):
             eval_img, eval_target, file_path, _, group = self._unzip_data(eval_data, self._device)
             self.batch_update(eval_img=eval_img,
                               eval_target=eval_target,
-                              eval_group=group)
+                              eval_group=group,
+                              file_names=file_path)
 
             report_dict = self.meters.statistics()
             self.indicator.set_postfix_statics(report_dict)
 
-    def _batch_update(self, *, eval_img, eval_target, eval_group):
+    def _batch_update(self, *, eval_img, eval_target, eval_group, file_names):
         with self.autocast:
             eval_logits = self._model(eval_img)
             onehot_target = class2one_hot(eval_target.squeeze(1), self.num_classes)
@@ -169,6 +170,16 @@ class EvalEpocher(EpocherBase):
 class InferenceEpocher(EvalEpocher):
     meter_focus = "infer"
 
+    def __init__(self, *, model: nn.Module, loader: DataLoader, sup_criterion: LossClass, cur_epoch=0, device="cpu",
+                 scaler: GradScaler, accumulate_iter: int, enable_prediction_saver: bool = True) -> None:
+        super().__init__(model=model, loader=loader, sup_criterion=sup_criterion, cur_epoch=cur_epoch, device=device,
+                         scaler=scaler, accumulate_iter=accumulate_iter)
+        self.enable_prediction_saver = enable_prediction_saver
+
+    def _run(self, **kwargs):
+        self.saver = InferenceSaver(enable=self.enable_prediction_saver, save_dir=self.trainer.absolute_save_dir)
+        return super()._run(**kwargs)
+
     def configure_meters(self, meters: MeterInterface) -> MeterInterface:
         meters = super().configure_meters(meters)
         C = self.num_classes
@@ -176,11 +187,12 @@ class InferenceEpocher(EvalEpocher):
         meters.register_meter("ASD", SurfaceMeter(C=C, report_axises=report_axis, metername="average_surface"))
         return meters
 
-    def _batch_update(self, *, eval_img, eval_target, eval_group):
+    def _batch_update(self, *, eval_img, eval_target, eval_group, file_names):
         with self.autocast:
             eval_logits = self._model(eval_img)
             onehot_target = class2one_hot(eval_target.squeeze(1), self.num_classes)
             eval_loss = self._sup_criterion(eval_logits.softmax(1), onehot_target, disable_assert=True)
+            self.saver(image=eval_img, target=eval_target, predict_logit=eval_logits, filenames=file_names)
 
         self.meters["loss"].add(eval_loss.item())
         self.meters["dice"].add(eval_logits.max(1)[1], eval_target.squeeze(1), group_name=eval_group)
@@ -199,7 +211,7 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
     def __init__(self, *, model: nn.Module, optimizer: optimizerType, labeled_loader: SizedIterable,
                  unlabeled_loader: SizedIterable, sup_criterion: criterionType, num_batches: int, cur_epoch=0,
                  device="cpu", two_stage: bool = False, disable_bn: bool = False, scaler: GradScaler,
-                 accumulate_iter: int, **kwargs) -> None:
+                 accumulate_iter: int = 1, **kwargs) -> None:
         super().__init__(model=model, num_batches=num_batches, cur_epoch=cur_epoch, device=device, scaler=scaler,
                          accumulate_iter=accumulate_iter)
         self._optimizer = optimizer

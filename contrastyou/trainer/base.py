@@ -22,6 +22,18 @@ from ..types import optimizerType as _optimizer_type, SizedIterable
 from ..writer import SummaryWriter
 
 
+def run_once(f):
+    def wrapper(*args, **kwargs):
+        if not wrapper.has_run:
+            wrapper.has_run = True
+            return f(*args, **kwargs)
+        else:
+            raise RuntimeError(f"{f} has been called more than once.")
+
+    wrapper.has_run = False
+    return wrapper
+
+
 class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
     RUN_PATH = MODEL_PATH  # type:str # absolute path
 
@@ -164,6 +176,7 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
     def inference_model(self):
         return self._inference_model
 
+    @run_once
     def set_model4inference(self, model: nn.Module):
         logger.trace(f"change inference model from {id(self._inference_model)} to {id(model)}")
         self._inference_model = model

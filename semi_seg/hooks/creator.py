@@ -16,7 +16,8 @@ from .entmin import EntropyMinTrainerHook
 from .infonce import SelfPacedINFONCEHook, INFONCEHook
 from .midl import IIDSegmentationTrainerHook
 from .midl import IMSATTrainHook
-from .mt import MeanTeacherTrainerHook
+from .mixup import MixUpTrainHook
+from .mt import MeanTeacherTrainerHook, UAMeanTeacherTrainerHook, ICTMeanTeacherTrainerHook
 from .orthogonal import OrthogonalTrainerHook
 from .pseudolabel import PseudoLabelTrainerHook
 
@@ -166,6 +167,13 @@ def create_mt_hook(*, model: nn.Module, weight: float, alpha: float = 0.999, wei
     return hook
 
 
+def create_uamt_hook(*, model: nn.Module, weight: float, alpha: float = 0.999, weight_decay: float = 0.000001,
+                     update_bn: bool = False, num_teachers: int = 1, hard_clip: bool = False):
+    hook = UAMeanTeacherTrainerHook(name="mt", weight=weight, model=model, alpha=alpha, weight_decay=weight_decay,
+                                    update_bn=update_bn, num_teachers=num_teachers, hard_clip=hard_clip)
+    return hook
+
+
 def create_differentiable_mt_hook(*, model: nn.Module, weight: float, alpha: float = 0.999,
                                   weight_decay: float = 0.000001, meta_weight=0, meta_criterion: str,
                                   method_name: str, ):
@@ -296,3 +304,13 @@ def create_cross_correlation_hooks2(
         )
     hooks.append(hook)
     return CombineTrainerHook(*hooks)
+
+
+def create_mixup_hook(*, weight: float, enable_bn: bool):
+    return MixUpTrainHook(hook_name="mixup", weight=weight, enable_bn=enable_bn)
+
+
+def create_ict_hook(*, weight: float, alpha: float, weight_decay: float, update_bn: bool, model):
+    hook = ICTMeanTeacherTrainerHook(name="ict", weight=weight, alpha=alpha, weight_decay=weight_decay,
+                                     update_bn=update_bn, model=model)
+    return hook

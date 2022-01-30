@@ -2,8 +2,10 @@ import shutil
 import typing as t
 from functools import lru_cache
 from pathlib import Path
+from typing import Union
 
 import numpy as np
+import torch
 from loguru import logger
 from matplotlib import pyplot as plt
 from torch import Tensor
@@ -263,3 +265,19 @@ def joint_2D_figure(joint_map: np.ndarray, *, tb_writer: SummaryWriter, cur_epoc
         tag=f"{tag}/joint_matrix",
         figure=fig, global_step=cur_epoch, close=True
     )
+
+
+def mixup_data(x, y, *, alpha=1.0, device: Union[str, torch.device]):
+    """Returns mixed inputs, pairs of targets, and lambda"""
+    if alpha > 0:
+        lam = np.random.beta(alpha, alpha)
+    else:
+        lam = 1
+
+    batch_size = x.shape[0]
+
+    index = torch.randperm(batch_size).to(device)
+
+    mixed_x = lam * x + (1 - lam) * x[index, :]
+    mixed_y = lam * y + (1 - lam) * y[index, :]
+    return mixed_x, mixed_y
