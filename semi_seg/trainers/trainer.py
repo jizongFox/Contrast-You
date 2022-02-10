@@ -97,7 +97,8 @@ class SemiTrainer(Trainer):
             json.dump(epoch_metric, f, indent=4)
             logger.info(f"Saved inference results in {save_dir}/\"inference_result.json\"")
 
-        self._writer.add_scalars_from_meter_interface(infer=epoch_metric, epoch=10000)
+        if self._writer:
+            self._writer.add_scalars_from_meter_interface(infer=epoch_metric, epoch=10000)
         logger.info(f"Inference results: " + item2str(epoch_metric))
         logger.success(f"{class_name(self)} Done")
 
