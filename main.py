@@ -114,7 +114,7 @@ def worker(config, absolute_save_dir, seed):
         if checkpoint:
             trainer.resume_from_path(checkpoint)
         trainer.start_training()
-        return trainer.inference()
+        return trainer.inference(checkpoint_path=checkpoint)
 
 
 if __name__ == '__main__':
