@@ -106,6 +106,7 @@ class _IOMixin(_BufferMixin, metaclass=ABCMeta):
         if Path(path_, save_name).exists():
             all_save_names = sorted(Path(path_).glob("*.yaml"))
             save_name = f"{save_name.split('.')[0]}_{len(all_save_names)}.yaml"
+
         yaml_write(config, str(path_), save_name=save_name)
 
     def state_dict(self, **kwargs) -> dict:

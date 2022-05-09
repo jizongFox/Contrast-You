@@ -1,4 +1,5 @@
 import os
+import signal
 import typing as t
 from pathlib import Path
 
@@ -91,6 +92,13 @@ def worker(config, absolute_save_dir, seed):
                 trainer.resume_from_path(checkpoint)
             trainer.start_training()
             os.environ["contrast_save_flag"] = "true"
+            os.environ["contrast_save_np_flag"] = "true"
+
+            def handler(*args, **kwargs):
+                raise RuntimeError("end of time")
+
+            signal.signal(signal.SIGALRM, handler)
+            signal.alarm(3 * 60)
 
             return trainer.inference()
 

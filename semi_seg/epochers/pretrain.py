@@ -56,7 +56,7 @@ class _PretrainEpocherMixin(_Base, metaclass=ABCMeta):
             report_dict = self.meters.statistics()
             self.indicator.set_postfix_statics(report_dict, cache_time=20)
 
-    def _batch_update(self, *, cur_batch_num: int, unlabeled_image, unlabeled_image_tf, seed,
+    def _batch_update(self, *, cur_batch_num: int, unlabeled_image, unlabeled_image_tf, seed,  # type: ignore
                       unl_group, unl_partition, unlabeled_filename, **kwargs):
         self.optimizer_zero(self._optimizer, cur_iter=cur_batch_num)
 
@@ -84,7 +84,8 @@ class _PretrainEpocherMixin(_Base, metaclass=ABCMeta):
         self.optimizer_step(self._optimizer, cur_iter=cur_batch_num)
 
         with torch.no_grad():
-            self.meters["reg_loss"].add(reg_loss.item())
+            if self.meters:
+                self.meters["reg_loss"].add(reg_loss.item())
 
     def _forward_pass(self, unlabeled_image, unlabeled_image_tf):  # noqa
         n_l, n_unl = 0, len(unlabeled_image)

@@ -24,7 +24,7 @@ from contrastyou.projectors import CrossCorrelationProjector
 from contrastyou.utils import class_name, average_iter, item2str, probs2one_hot, deprecated, \
     fix_all_seed_within_context, simplex
 from contrastyou.writer import get_tb_writer
-from semi_seg.hooks.utils import FeatureMapSaver, DistributionTracker, joint_2D_figure
+from semi_seg.hooks.utils import FeatureMapSaver, DistributionTracker, joint_2D_figure, MatrixSaver
 
 if t.TYPE_CHECKING:
     from contrastyou.projectors.nn import _ProjectorHeadBase  # noqa
@@ -368,6 +368,7 @@ class ProjectorGeneralHook(TrainerHook):
                                          folder_name=f"vis/{self._hook_name}")
             self.dist_saver = DistributionTracker(save_dir=self.trainer.absolute_save_dir,
                                                   folder_name=f"dist/{self._hook_name}")
+            self.matrix_saver = MatrixSaver(self.trainer.absolute_save_dir, f"matrix/{self._hook_name}")
 
     def register_feat_hook(self, *hook: '_TinyHook'):
         logger.debug(f"register {','.join([str(x) for x in hook])}")
@@ -383,7 +384,7 @@ class ProjectorGeneralHook(TrainerHook):
 
         return _ProjectorEpocherGeneralHook(
             name=self._hook_name, extractor=self._extractor, projector=self._projector, dist_hooks=self._dist_hooks,
-            feat_hooks=self._feature_hooks, saver=self.saver, dist_saver=self.dist_saver
+            feat_hooks=self._feature_hooks, saver=self.saver, dist_saver=self.dist_saver, matrix_saver=self.matrix_saver
         )
 
     @property
@@ -402,7 +403,8 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
     def __init__(self, *, name: str, extractor: 'SingleFeatureExtractor', projector: '_ProjectorHeadBase',
                  dist_hooks: t.Sequence[_TinyHook] = (), feat_hooks: t.Sequence[_TinyHook] = (),
                  saver: FeatureMapSaver = None,
-                 dist_saver: DistributionTracker = None) -> None:
+                 dist_saver: DistributionTracker = None,
+                 matrix_saver: MatrixSaver = None) -> None:
         super().__init__(name=name)
         self.extractor = extractor
         self.extractor.bind()
@@ -411,6 +413,7 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
         self._dist_hooks = dist_hooks
         self.saver = saver
         self.dist_saver = dist_saver
+        self.mx_saver = matrix_saver
 
     def configure_meters_given_epocher(self, meters: 'MeterInterface'):
         meters = super(_ProjectorEpocherGeneralHook, self).configure_meters_given_epocher(meters)
@@ -430,8 +433,12 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
     def _call_implementation(self, unlabeled_image_tf: Tensor, unlabeled_logits_tf: Tensor,
                              affine_transformer: t.Callable[[Tensor], Tensor],
                              unlabeled_image: Tensor, seed: int, **kwargs):
-        save_image_condition = self.epocher.cur_batch_num == 0 and self.epocher.cur_epoch % 3 == 0 and self.saver is not None
+        cur_epoch = self.epocher.cur_epoch
+        cur_batch_num = self.epocher.cur_batch_num
+
+        save_image_condition = cur_batch_num == 0 and cur_epoch % 3 == 0 and self.saver is not None
         save_image_condition = save_image_condition or (self.save_flag and self.saver is not None)
+        save_matrix_condition = self.save_np_flag and (self.mx_saver is not None)
 
         n_unl = len(unlabeled_logits_tf)
         feature_ = self.extractor.feature()[-n_unl * 2:]
@@ -446,8 +453,11 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
         if save_image_condition and self.saver is not None:
             self.saver.save_map(
                 image=unlabeled_image_tf, feature_map1=unlabeled_tf_features, feature_map2=unlabeled_features_tf,
-                cur_epoch=self.epocher.cur_epoch, cur_batch_num=self.epocher.cur_batch_num, save_name="feature"
+                cur_epoch=cur_epoch, cur_batch_num=cur_batch_num, save_name="feature"
             )
+        if save_matrix_condition:
+            self.mx_saver.save_matrix(matrix=unlabeled_tf_features, cur_epoch=cur_epoch, cur_batch_num=cur_batch_num,
+                                      save_name="feature")
 
         projected_dist_tf, projected_tf_dist = zip(*[torch.chunk(x, 2) for x in self.projector(
             torch.cat([unlabeled_features_tf, unlabeled_tf_features], dim=0))])
@@ -456,18 +466,23 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
             if self.saver is not None:
                 self.saver.save_map(
                     image=unlabeled_image_tf, feature_map1=projected_dist_tf[0], feature_map2=projected_tf_dist[0],
-                    cur_epoch=self.epocher.cur_epoch, cur_batch_num=self.epocher.cur_batch_num, save_name="probability"
+                    cur_epoch=cur_epoch, cur_batch_num=cur_batch_num, save_name="probability"
                 )
             if self.dist_saver is not None:
                 self.dist_saver.save_map(dist1=projected_dist_tf[0], dist2=projected_tf_dist[0],
-                                         cur_epoch=self.epocher.cur_epoch)
+                                         cur_epoch=cur_epoch)
+
+        if save_matrix_condition:
+            self.mx_saver.save_matrix(matrix=projected_dist_tf[0], cur_epoch=cur_epoch, cur_batch_num=cur_batch_num,
+                                      save_name="probability")
+
         with fix_all_seed_within_context(seed):
             dist_losses = tuple(
                 self._run_dist_hooks(
                     input1=prob1, input2=prob2, image=unlabeled_image_tf,
                     feature_map1=unlabeled_tf_features, feature_map2=unlabeled_features_tf, saver=self.saver,
-                    save_image_condition=save_image_condition, cur_epoch=self.epocher.cur_epoch,
-                    cur_batch_num=self.epocher.cur_batch_num
+                    save_image_condition=save_image_condition, cur_epoch=cur_epoch,
+                    cur_batch_num=cur_batch_num
                 )
                 for prob1, prob2 in zip(projected_tf_dist, projected_dist_tf)
             )
@@ -490,6 +505,10 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
     def save_flag(self) -> bool:
         return os.environ.get("contrast_save_flag", "false") == "true"
 
+    @property
+    def save_np_flag(self) -> bool:
+        return os.environ.get("contrast_save_np_flag", "false") == "true"
+
 
 class _CrossCorrelationHook(_TinyHook):
 
@@ -506,8 +525,6 @@ class _CrossCorrelationHook(_TinyHook):
     @autocast(enabled=False)
     def __call__(self, *, image: Tensor, input1: Tensor, input2: Tensor, saver: "FeatureMapSaver",
                  save_image_condition: bool, cur_epoch: int, cur_batch_num: int, **kwargs):
-        if self.weight == 0:
-            return torch.tensor(0.0, dtype=image.dtype, device=image.device)
         device = image.device
         self.criterion.to(device)  # noqa
 
