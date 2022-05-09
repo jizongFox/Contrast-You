@@ -294,6 +294,10 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
                       retain_graph=False,
                       **kwargs):
         self.optimizer_zero(self._optimizer, cur_iter=cur_batch_num)
+        if cur_batch_num <= 5:
+            logger.trace(
+                f"labeled_image filenames: {','.join(labeled_filename)}, "
+                f"unlabeled_image filenames: {','.join(unlabeled_filename)}")
 
         with self.autocast:
             label_logits, unlabeled_logits, unlabeled_tf_logits = self.forward_pass(

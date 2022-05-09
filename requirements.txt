@@ -6,7 +6,7 @@ torch
 torchvision
 torch_optimizer
 termcolor
-tqdm
+git+https://github.com/jizongFox/tqdm.git
 pyyaml
 scikit-learn
 matplotlib

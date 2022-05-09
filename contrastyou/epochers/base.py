@@ -1,7 +1,7 @@
 import functools
 import weakref
 from abc import abstractmethod, ABCMeta
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from typing import Union, Dict, List, final
 
 import torch
@@ -13,6 +13,14 @@ from ..hooks.base import EpocherHook
 from ..meters import MeterInterface, AverageValueListMeter
 from ..mytqdm import tqdm
 from ..utils import class_name
+
+try:
+    from tqdm.contrib.logging import loguru_redirect_tqdm
+except ImportError:
+    from loguru import logger
+
+    logger.warning("tqdm.contrib.logging is not installed. Please install it from my github.")
+    loguru_redirect_tqdm = nullcontext
 
 
 def _epocher_initialized(func):
@@ -105,7 +113,8 @@ class EpocherBase(AMPScaler, DDPMixin, metaclass=ABCMeta):
         self.to(self.device)  # put all things into the same device
 
         with self.meters, self._register_indicator():  # noqa
-            run_result = self._run(**kwargs)
+            with loguru_redirect_tqdm():
+                run_result = self._run(**kwargs)
 
         return run_result
 
