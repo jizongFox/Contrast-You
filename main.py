@@ -67,7 +67,7 @@ def worker(config, absolute_save_dir, seed):
             logger.warning(e)
 
     trainer_name = config["Trainer"]["name"]
-    assert trainer_name in trainer_zoo, trainer_name
+    assert trainer_name in trainer_zoo, (trainer_name, trainer_zoo.keys())
     is_pretrain = ("pretrain" in trainer_name)
     total_freedom = True if is_pretrain or trainer_name == "mixup" else False
     if "CrossCorrelationParameters" or "InfonceParams" in config:
