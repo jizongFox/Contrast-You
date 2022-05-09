@@ -5,10 +5,11 @@ from typing import Union, List, Iterator
 
 import torch
 from loguru import logger
+from torch import nn
 from torch.nn import Parameter, Module
 
 if TYPE_CHECKING:
-    from contrastyou.arch import UNet
+    pass
 
 __all__ = ["get_requires_grad", "get_bn_track", "SingleFeatureExtractor", "FeatureExtractor"]
 
@@ -24,7 +25,7 @@ def get_requires_grad(input_: Union[Parameter, Module]) -> bool:
 def get_bn_track(input_: Module) -> bool:
     """this just check the first bn submodule of the module, thus causing errors if inconsistency occurs"""
     if hasattr(input_, "track_running_stats"):
-        return input_.track_running_stats
+        return input_.track_running_stats  # type: bool
     for m in input_.modules():
         if hasattr(m, "track_running_stats"):
             return m.track_running_stats
@@ -63,11 +64,11 @@ class _FeatureCollector:
 
 class SingleFeatureExtractor:
 
-    def __init__(self, model: 'UNet', feature_name: str) -> None:
+    def __init__(self, model: nn.Module, feature_name: str) -> None:
         self._model = model
         self._feature_name = feature_name
         assert self._feature_name in model.arch_elements, self._feature_name
-        self._feature_extractor: _FeatureCollector = None  # noqa
+        self._feature_extractor: _FeatureCollector = None  # type: ignore # noqa
         self._hook_handler = None
         self.__bind_done__ = False
 
@@ -116,7 +117,7 @@ class SingleFeatureExtractor:
 
 class FeatureExtractor:
 
-    def __init__(self, model: 'UNet', feature_names: Union[str, List[str]]):
+    def __init__(self, model: nn.Module, feature_names: Union[str, List[str]]):
         self._feature_names = (feature_names,) if isinstance(feature_names, str) else feature_names
         self._extractor_list = [SingleFeatureExtractor(model, f) for f in self._feature_names]
 

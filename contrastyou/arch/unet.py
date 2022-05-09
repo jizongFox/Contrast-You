@@ -2,7 +2,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from enum import Enum
 from functools import lru_cache, partial
-from typing import List
+from typing import List, Protocol, ContextManager, Sequence
 
 import torch
 from loguru import logger
@@ -101,7 +101,19 @@ class _UpConv(nn.Module):
         return x
 
 
-class UNet(nn.Module):
+class _Network(Protocol):
+    encoder_names: Sequence[str]
+    decoder_names: Sequence[str]
+    arch_elements: Sequence[str]
+
+    def switch_grad(self, **kwargs) -> ContextManager:
+        ...
+
+    def switch_bn_track(self, **kwargs) -> ContextManager:
+        ...
+
+
+class UNet(nn.Module, _Network):
     layer_dimension = {"Conv1": 1, "Conv2": 2, "Conv3": 4, "Conv4": 8, "Conv5": 16, "Up_conv5": 8, "Up_conv4": 4,
                        "Up_conv3": 2, "Up_conv2": 1, "Deconv_1x1": None}
 
