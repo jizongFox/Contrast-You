@@ -10,7 +10,7 @@ from torch.optim.optimizer import Optimizer as _optimizerType
 
 def optimizer_to(optim, device):
     for param in optim.state.values():
-        # Not sure there are any global tensors in the state dict
+        # Not sure if there are any global tensors in the state dict
         if isinstance(param, torch.Tensor):
             param.data = param.data.to(device)
             if param._grad is not None:
