@@ -1,13 +1,19 @@
 import atexit
+import contextlib
 import math
+import typing as t
+from functools import wraps
 
 from loguru import logger
-from tqdm import tqdm as _tqdm
 
+from tqdm import tqdm as _tqdm
 from ..utils.printable import item2str
 
+if t.TYPE_CHECKING:
+    from contrastyou.epochers.base import EpocherBase
 
-def create_meter_display(group_dict, ignore_start_with="_"):
+
+def create_meter_display(group_dict: t.Dict, ignore_start_with="_"):
     def prune_dict(dictionary: dict, ignore="_"):
         for k, v in dictionary.copy().items():
             if isinstance(v, dict):
@@ -34,6 +40,32 @@ def create_meter_display(group_dict, ignore_start_with="_"):
     return display
 
 
+class frequency_cache:
+
+    def __init__(self, freq: int = 10) -> None:
+        self.freq = freq
+        self._n = 0
+
+        self._cache = None
+        self.__func__ = None
+
+    def __call__(self, func):
+        self.__func__ = func
+
+        @wraps(func)
+        def wrapper(*args, force_update, **kwargs):
+            self._n += 1
+            if force_update is True or self._n == 1:
+                self.cache = func(*args, **kwargs)
+                return self.cache
+            if self._n % self.freq == 0:
+                self.cache = func(*args, **kwargs)
+                return self.cache
+            return self.cache
+
+        return wrapper
+
+
 class tqdm(_tqdm):
 
     def __init__(self, iterable=None, desc=None, total=None, leave=False, file=None, ncols=None, mininterval=0.1,
@@ -58,7 +90,7 @@ class tqdm(_tqdm):
     def __enter__(self):
         return self
 
-    def set_desc_from_epocher(self, epocher):
+    def set_desc_from_epocher(self, epocher: "EpocherBase"):
         des = f"{epocher.__class__.__name__:<15} {epocher._cur_epoch:03d}"
         return self.set_description(desc=des)
 
@@ -81,3 +113,14 @@ class tqdm(_tqdm):
     def _set_postfix_statics(self, dict2display):
         pretty_str = create_meter_display(dict2display)
         self.set_postfix_str(pretty_str)
+
+    @frequency_cache(freq=10)
+    def set_postfix_statics2(self, group_dictionary, force_update: bool = False):
+        return self._set_postfix_statics(dict(group_dictionary))
+
+    @contextlib.contextmanager
+    def disable_cache(self):
+        orig_func = self.set_postfix_statics2
+        self.set_postfix_statics2 = self.set_postfix_statics2.__func__
+        yield
+        self.set_postfix_statics2 = orig_func
