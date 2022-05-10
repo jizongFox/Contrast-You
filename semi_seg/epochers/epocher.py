@@ -1,4 +1,5 @@
 import random
+import typing as t
 from abc import ABC
 from contextlib import nullcontext
 from copy import deepcopy
@@ -24,6 +25,9 @@ from semi_seg.augment import RisingWrapper
 from semi_seg.epochers.helper import preprocess_input_with_twice_transformation, \
     preprocess_input_with_single_transformation, InferenceSaver
 from semi_seg.hooks import EMAUpdater
+
+if t.TYPE_CHECKING:
+    from contrastyou.trainer.base import Trainer
 
 
 def assert_transform_freedom(dataloader, is_true):
@@ -53,9 +57,9 @@ class EpocherBase(_EpocherBase, ABC):
                          **kwargs)
         self._retain_graph = False
 
-    def init(self):
+    def init(self, trainer: "Trainer" = None) -> None:
         """we added an assertion to control the hyper-parameters."""
-        super(EpocherBase, self).init()
+        super(EpocherBase, self).init(trainer=trainer)
         self._assertion()
 
     @property

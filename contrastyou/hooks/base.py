@@ -13,9 +13,14 @@ from contrastyou.utils import class_name
 
 if t.TYPE_CHECKING:
     from contrastyou.trainer.base import Trainer
+    from contrastyou.epochers.base import EpocherBase
 
 
 class HookNameExistError(Exception):
+    pass
+
+
+class HookNotInitializedError(Exception):
     pass
 
 
@@ -61,10 +66,6 @@ class TrainerHook(nn.Module, metaclass=_ClassNameMeta):
     def after_initialize(self):
         pass
 
-    def set_trainer(self, trainer: 'Trainer'):
-        self._trainer = weakref.proxy(trainer)
-        self._initialized = True
-
     @property
     def trainer(self):
         if self._initialized:
@@ -72,14 +73,14 @@ class TrainerHook(nn.Module, metaclass=_ClassNameMeta):
         raise RuntimeError(f"{class_name(self)} not initialized yet.")
 
     @trainer.setter
-    def trainer(self, value: 'Trainer'):
+    def trainer(self, trainer: 'Trainer'):
         self._initialized = True
-        self._trainer = value
+        self._trainer = trainer
 
 
 class CombineTrainerHook(TrainerHook):
 
-    def __init__(self, *trainer_hook: TrainerHook):
+    def __init__(self, *trainer_hook: 'TrainerHook'):
         super().__init__(hook_name="")
         self._hooks = nn.ModuleList(trainer_hook)
 
@@ -94,10 +95,6 @@ class CombineTrainerHook(TrainerHook):
         for h in self._hooks:
             h.close()
 
-    def set_trainer(self, trainer: 'Trainer'):
-        for h in self._hooks:
-            h.set_trainer(trainer)
-
     @property
     def trainer(self):
         for h in self._hooks:
@@ -106,9 +103,9 @@ class CombineTrainerHook(TrainerHook):
         raise RuntimeError(f"{class_name(self)} not initialized yet.")
 
     @trainer.setter
-    def trainer(self, value: 'Trainer'):
+    def trainer(self, trainer: 'Trainer'):
         for h in self._hooks:
-            h.trainer = value
+            h.trainer = trainer
 
     def after_initialize(self):
         for h in self._hooks:
@@ -123,18 +120,17 @@ class EpocherHook:
         self.meters: t.Optional[MeterInterface] = None
         self._epocher_init = False
 
-    def set_epocher(self, epocher):
-        """not necessary to be called, but need to be called with training with the epocher."""
+    @property
+    def epocher(self):
+        if self._epocher_init:
+            return self._epocher
+        raise HookNotInitializedError(f"{self._name} not initialized yet.")
+
+    @epocher.setter
+    def epocher(self, epocher: "EpocherBase"):
         self._epocher = weakref.proxy(epocher)
         self.meters = weakref.proxy(epocher.meters)
         self._epocher_init = True
-
-    @property
-    def epocher(self):
-        return self._epocher
-
-    def set_meters_given_epocher(self):
-        assert self._epocher_init, f"epocher not set to {class_name(self)}."
         with self.meters.focus_on(self.name):
             self.configure_meters_given_epocher(self.meters)
 
@@ -144,31 +140,37 @@ class EpocherHook:
     # calling interface for epocher.
     @t.final
     def call_before_batch_update(self, **kwargs):
+        assert self._epocher_init
         with self.context:
             return self.before_batch_update(**kwargs)
 
     @t.final
     def call_before_forward_pass(self, **kwargs):
+        assert self._epocher_init
         with self.context:
             return self.before_forward_pass(**kwargs)
 
     @t.final
     def call_after_forward_pass(self, **kwargs):
+        assert self._epocher_init
         with self.context:
             return self.after_forward_pass(**kwargs)
 
     @t.final
     def call_before_regularization(self, **kwargs):
+        assert self._epocher_init
         with self.context:
             return self.before_regularization(**kwargs)
 
     @t.final
     def call_after_regularization(self, **kwargs):
+        assert self._epocher_init
         with self.context:
             return self.after_regularization(**kwargs)
 
     @t.final
     def call_after_batch_update(self, **kwargs):
+        assert self._epocher_init
         with self.context:
             return self.after_batch_update(**kwargs)
 
@@ -193,6 +195,7 @@ class EpocherHook:
 
     @t.final
     def __call__(self, **kwargs):
+        assert self._epocher_init
         with self.context:
             return self._call_implementation(**kwargs)
 
@@ -218,14 +221,6 @@ class EpocherHook:
 class CombineEpochHook(EpocherHook):
     def __init__(self, *epocher_hook: EpocherHook) -> None:  # noqa
         self._epocher_hook = epocher_hook
-
-    def set_meters_given_epocher(self):
-        for h in self._epocher_hook:
-            h.set_meters_given_epocher()
-
-    def set_epocher(self, epocher):
-        for h in self._epocher_hook:
-            h.set_epocher(epocher)
 
     @t.final
     def call_before_forward_pass(self, **kwargs):  # noqa
@@ -272,6 +267,11 @@ class CombineEpochHook(EpocherHook):
     def epocher(self):
         for h in self._epocher_hook:
             return h._epocher
+
+    @epocher.setter
+    def epocher(self, epocher: "EpocherBase"):
+        for h in self._epocher_hook:
+            h.epocher = epocher
 
 
 def meter_focus(_func=None, *, attribute="_name"):
