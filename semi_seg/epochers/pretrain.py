@@ -54,7 +54,7 @@ class _PretrainEpocherMixin(_Base, metaclass=ABCMeta):
             )
 
             report_dict = self.meters.statistics()
-            self.indicator.set_postfix_statics(report_dict, cache_time=20)
+            self.indicator.set_postfix_statics2(report_dict, force_update=self.cur_batch_num == self.num_batches - 1)
 
     def _batch_update(self, *, cur_batch_num: int, unlabeled_image, unlabeled_image_tf, seed,  # type: ignore
                       unl_group, unl_partition, unlabeled_filename, **kwargs):

@@ -150,7 +150,7 @@ class EvalEpocher(EpocherBase):
                               file_names=file_path)
 
             report_dict = self.meters.statistics()
-            self.indicator.set_postfix_statics(report_dict)
+            self.indicator.set_postfix_statics2(report_dict, force_update=True)
 
     def _batch_update(self, *, eval_img, eval_target, eval_group, file_names):
         with self.autocast:
@@ -287,7 +287,7 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
                               retain_graph=self._retain_graph)
 
             report_dict = self.meters.statistics()
-            self.indicator.set_postfix_statics2(report_dict, force_update=self.cur_batch_num == self._num_batches - 1)
+            self.indicator.set_postfix_statics2(report_dict, force_update=self.cur_batch_num == self.num_batches - 1)
 
     def _batch_update(self, *, cur_batch_num: int, labeled_image, labeled_target, labeled_filename, label_group,
                       unlabeled_image, unlabeled_image_tf, seed, unl_group, unl_partition, unlabeled_filename,

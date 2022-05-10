@@ -150,3 +150,7 @@ class EpocherBase(AMPScaler, DDPMixin, metaclass=ABCMeta):
     @property
     def cur_epoch(self):
         return self._cur_epoch
+
+    @property
+    def num_batches(self):
+        return self._num_batches

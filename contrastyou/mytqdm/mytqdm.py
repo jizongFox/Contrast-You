@@ -122,5 +122,7 @@ class tqdm(_tqdm):
     def disable_cache(self):
         orig_func = self.set_postfix_statics2
         self.set_postfix_statics2 = self.set_postfix_statics2.__func__
-        yield
-        self.set_postfix_statics2 = orig_func
+        try:
+            yield
+        finally:
+            self.set_postfix_statics2 = orig_func

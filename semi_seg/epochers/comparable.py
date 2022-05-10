@@ -48,7 +48,7 @@ class MixupEpocher(SemiSupervisedEpocher, ABC):
                               retain_graph=self._retain_graph)
 
             report_dict = self.meters.statistics()
-            self.indicator.set_postfix_statics(report_dict, cache_time=20)
+            self.indicator.set_postfix_statics2(report_dict, force_update=self.cur_batch_num == self.num_batches - 1)
 
     def _batch_update(self, *, cur_batch_num: int, labeled_image, labeled_target, labeled_image_tf, labeled_target_tf,
                       labeled_filename, label_group,
@@ -190,7 +190,8 @@ class AdversarialEpocher(SemiSupervisedEpocher, ABC):
                     self.meters["dis_loss"].add(disc_loss.item())
 
                 report_dict = self.meters.statistics()
-                self.indicator.set_postfix_statics(report_dict, cache_time=10)
+                self.indicator.set_postfix_statics2(report_dict,
+                                                    force_update=self.cur_batch_num == self.num_batches - 1)
 
     @property
     @lru_cache()
