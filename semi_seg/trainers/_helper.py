@@ -6,7 +6,7 @@ from torch.utils.data.dataloader import _BaseDataLoaderIter as BaseDataLoaderIte
 
 from contrastyou import get_true_data_path
 from contrastyou.data import InfiniteRandomSampler, ScanBatchSampler, DatasetBase
-from contrastyou.utils import get_dataset, fix_seed, class_name
+from contrastyou.utils import get_dataset, fix_seed, class_name, deprecated
 from semi_seg.data import ACDCDataset, ProstateDataset, mmWHSCTDataset, ProstateMDDataset, SpleenDataset, \
     HippocampusDataset
 from semi_seg.data.creator import augment_zoo, data_zoo
@@ -27,6 +27,7 @@ def get_partition_num(name: str):
 
 
 @fix_seed
+@deprecated # todo: replace this function
 def _get_contrastive_dataloader(partial_loader, contrastive_params):
     contrastive_params = dcopy(contrastive_params)
     # going to get all dataset with contrastive sampler

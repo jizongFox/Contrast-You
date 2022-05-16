@@ -59,6 +59,8 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
         self._initialized = False
 
     def init(self):
+        if self._initialized:
+            raise RuntimeError(f"{self.__class__.__name__} has been initialized.")
         self._optimizer = self._init_optimizer()
         self._scheduler = self._init_scheduler(self._optimizer, scheduler_params=self._config.get("Scheduler", None))
         self._initialized = True
