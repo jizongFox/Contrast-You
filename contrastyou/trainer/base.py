@@ -1,4 +1,5 @@
 import os
+import typing as t
 from abc import ABCMeta, abstractmethod
 from contextlib import nullcontext, contextmanager
 from itertools import chain
@@ -54,10 +55,12 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
         if config is not None:
             self.dump_config(self._config)
         self._optimizer = None
-        self._scheduler: GradualWarmupScheduler = None
+        self._scheduler: t.Optional[GradualWarmupScheduler] = None
         self._initialized = False
 
     def init(self):
+        if self._initialized:
+            raise RuntimeError(f"{self.__class__.__name__} has been initialized.")
         self._optimizer = self._init_optimizer()
         self._scheduler = self._init_scheduler(self._optimizer, scheduler_params=self._config.get("Scheduler", None))
         self._initialized = True
@@ -69,11 +72,11 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
         for h in hook:
             assert isinstance(h, TrainerHook), h
             self._hooks.append(h)
-            h.set_trainer(self)
-        logger.trace("bind TrainerHooks")
-        for h in self._hooks:
+            h.trainer = self
             h.to(self.device)  # put the hook into device.
-            # calling after_init of hooks
+
+        logger.trace("bind TrainerHooks")
+
         for h in self._hooks:
             h.after_initialize()
         yield
@@ -95,9 +98,9 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
         )
         return optimizer
 
-    def _init_scheduler(self, optimizer, scheduler_params) -> GradualWarmupScheduler:
+    def _init_scheduler(self, optimizer, scheduler_params) -> t.Optional[GradualWarmupScheduler]:
         if scheduler_params is None:
-            return
+            return None
         max_epoch = self._max_epoch
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer,

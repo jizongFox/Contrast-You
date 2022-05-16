@@ -1,13 +1,13 @@
 from unittest import TestCase
 
+from deepclustering2.configparser import ConfigManger
+from deepclustering2.loss import KL_div
+from semi_seg.dsutils import get_dataloaders
+from semi_seg.utils import ContrastiveProjectorWrapper  # noqa
 from torch.optim import Adam
 
 from contrastyou.arch import UNet
 from contrastyou.losses.contrastive import SupConLoss2
-from deepclustering2.configparser import ConfigManger
-from deepclustering2.loss import KL_div
-from semi_seg.utils import ContrastiveProjectorWrapper  # noqa
-from semi_seg.dsutils import get_dataloaders
 from semi_seg.epochers.comparable import InfoNCEEpocher
 
 
@@ -21,8 +21,8 @@ class TestInfoNCECase(TestCase):
         self._feature_names = ["Conv5", "Conv5", "Up_conv2"]
         self._feature_importance = [1.0, 1.0, 1.0]
         with ConfigManger(
-            base_path="../config/base.yaml",
-            optional_paths="../config/specific/infonce.yaml"
+                base_path="../config/base.yaml",
+                optional_paths="../config/specific/infonce.yaml"
         )(scope="base") as self.config:
             self.labeled_loader, self.unlabeled_loader, self.val_loader = get_dataloaders(self.config)
             self._projector = ContrastiveProjectorWrapper()

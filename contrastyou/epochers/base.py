@@ -1,4 +1,5 @@
 import functools
+import typing as t
 import weakref
 from abc import abstractmethod, ABCMeta
 from contextlib import contextmanager, nullcontext
@@ -22,6 +23,9 @@ except ImportError:
     logger.warning("tqdm.contrib.logging is not installed. Please install it from my github.")
     loguru_redirect_tqdm = nullcontext
 
+if t.TYPE_CHECKING:
+    from contrastyou.trainer.base import Trainer
+
 
 def _epocher_initialized(func):
     @functools.wraps(func)
@@ -30,6 +34,10 @@ def _epocher_initialized(func):
         return func(self, *args, **kwargs)
 
     return wrapped_func
+
+
+class TrainerNotSetError(Exception):
+    pass
 
 
 class EpocherBase(AMPScaler, DDPMixin, metaclass=ABCMeta):
@@ -53,18 +61,29 @@ class EpocherBase(AMPScaler, DDPMixin, metaclass=ABCMeta):
         self._cur_epoch = cur_epoch
 
         self._trainer = None
-        self.__bind_trainer_done__ = False
         self._hooks: List[EpocherHook] = []
 
         # place holder
         self.meters = None
         self.indicator = None
 
-    def init(self):
+    @property
+    def trainer(self):
+        if self._trainer is not None:
+            return self._trainer
+        raise TrainerNotSetError(f"{self.__class__.__name__} should call `set_trainer` first")
+
+    @trainer.setter
+    def trainer(self, trainer: "Trainer"):
+        self._trainer = weakref.proxy(trainer)
+
+    def init(self, trainer: "Trainer" = None):
         self.meters = MeterInterface(default_focus=self.meter_focus)
         self.configure_meters(self.meters)
         self.indicator = tqdm(range(self._num_batches), disable=not self.on_master(), leave=False, ncols=2)
         self._initialized = True
+        if trainer is not None:
+            self.trainer = trainer
 
     @final
     @contextmanager
@@ -76,10 +95,10 @@ class EpocherBase(AMPScaler, DDPMixin, metaclass=ABCMeta):
         >>> with epocher.register_hook(*hooks):
         >>>     epocher.run()
         """
+        assert self._initialized, f"{class_name(self)} must be initialized by calling {class_name(self)}.init()."
         for h in hook:
             self._hooks.append(h)
-            h.set_epocher(self)
-            h.set_meters_given_epocher()
+            h.epocher = self
         yield
         self.close_hook()
 
@@ -135,13 +154,6 @@ class EpocherBase(AMPScaler, DDPMixin, metaclass=ABCMeta):
 
     def set_trainer(self, trainer):
         self._trainer = weakref.proxy(trainer)
-        self.__bind_trainer_done__ = True
-
-    @property
-    def trainer(self):
-        if not self.__bind_trainer_done__:
-            raise RuntimeError(f"{self.__class__.__name__} should call `set_trainer` first")
-        return self._trainer
 
     @property
     def device(self):

@@ -1,12 +1,16 @@
 import typing as t
 from functools import partial
 
-import rising.transforms as rt
 from torch import Tensor
 from torchvision import transforms
 
 from contrastyou.augment import pil_augment, SequentialWrapperTwice, SequentialWrapper
 from contrastyou.utils import fix_all_seed_for_transforms
+
+try:
+    from rising.transforms import AbstractTransform
+except ImportError:
+    from rising.transforms import _AbstractTransform as AbstractTransform
 
 __all__ = ["augment_zoo", "RisingWrapper"]
 
@@ -284,8 +288,8 @@ class RisingWrapper:
     def __init__(
             self,
             *,
-            geometry_transform: rt._AbstractTransform = None,
-            intensity_transform: rt._AbstractTransform = None
+            geometry_transform: AbstractTransform = None,
+            intensity_transform: AbstractTransform = None
     ) -> None:
         self.geometry_transform = geometry_transform
         self.intensity_transform = intensity_transform

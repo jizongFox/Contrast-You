@@ -87,8 +87,7 @@ class _PretrainTrainerMixin(_Base):
             chain_dataloader=self._contrastive_loader, inference_until=self._inference_until, scaler=self.scaler,
             accumulate_iter=1
         )
-        epocher.set_trainer(self)
-        epocher.init()
+        epocher.init(trainer=self)
         return epocher
 
 
@@ -110,8 +109,7 @@ class _PretrainInferenceMixin(_BaseInference):
                                                   disable_bn=False,
                                                   inference_until=self._inference_until, scaler=self.scaler,
                                                   accumulate_iter=1)
-        epocher.set_trainer(self)
-        epocher.init()
+        epocher.init(trainer=self)
         use_hook = self.activate_hooks and len(self._hooks) > 0
         with epocher.register_hook(*[h() for h in self._hooks]) if use_hook else nullcontext():
             epocher.run()

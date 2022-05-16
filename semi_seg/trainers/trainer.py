@@ -59,15 +59,13 @@ class SemiTrainer(Trainer):
             cur_epoch=self._cur_epoch, device=self._device, two_stage=self._two_stage, disable_bn=self._disable_bn,
             scaler=self.scaler, accumulate_iter=self._accumulate_iter
         )
-        epocher.set_trainer(self)
-        epocher.init()
+        epocher.init(trainer=self)
         return epocher
 
     def _create_initialized_eval_epoch(self, *, model, loader, **kwargs) -> EpocherBase:
         epocher = EvalEpocher(model=model, loader=loader, sup_criterion=self._criterion, cur_epoch=self._cur_epoch,
                               device=self._device, scaler=self.scaler, accumulate_iter=self._accumulate_iter)
-        epocher.set_trainer(self)
-        epocher.init()
+        epocher.init(trainer=self)
         return epocher
 
     def inference(self, checkpoint_path: str = None, checkpoint_name: str = "best.pth", save_dir: str = None,
@@ -111,8 +109,7 @@ class SemiTrainer(Trainer):
                                    cur_epoch=10000, device=self._device, scaler=self.scaler,
                                    accumulate_iter=self._accumulate_iter,
                                    enable_prediction_saver=enable_prediction_save)
-        epocher.set_trainer(self)
-        epocher.init()
+        epocher.init(trainer=self)
         epocher.run()
         return epocher.get_metric(), epocher.get_score()
 
@@ -196,7 +193,7 @@ class DMTTrainer(SemiTrainer):
             scaler=self.scaler, accumulate_iter=self._accumulate_iter, mt_criterion=nn.MSELoss(),
             ema_updater=EMAUpdater(), teacher_model=self._teacher_model
         )
-        epocher.init()
+        epocher.init(trainer=self)
         return epocher
 
 
@@ -261,5 +258,5 @@ class AdversarialTrainer(SemiTrainer):
             discriminator=self._discriminator, disc_optimizer=self._dis_optimizer, reg_weight=self._reg_weight,
             dis_consider_image=self._dis_consider_image, scaler=self.scaler
         )
-        epocher.init()
+        epocher.init(trainer=self)
         return epocher

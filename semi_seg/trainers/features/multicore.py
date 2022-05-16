@@ -14,7 +14,7 @@ class MulticoreTrainer(SemiTrainer):
         epocher = MultiCoreEvalEpocher(model=model, loader=loader, sup_criterion=self._criterion,
                                        cur_epoch=self._cur_epoch,
                                        device=self._device, scaler=self.scaler, accumulate_iter=self._accumulate_iter)
-        epocher.set_trainer(self)
+        epocher.trainer = self
         epocher.init()
         return epocher
 
