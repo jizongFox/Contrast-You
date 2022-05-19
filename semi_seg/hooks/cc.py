@@ -46,7 +46,7 @@ class CrossCorrelationOnLogitsHook(TrainerHook):
 
     def after_initialize(self):
         if self.save:
-            self.saver = FeatureMapSaver(save_dir=self.trainer.absolute_save_dir, folder_name=f"vis/logit")
+            self.saver = FeatureMapSaver(save_dir=self.trainer.absolute_save_dir, folder_name="vis/logit")
 
     def __call__(self, **kwargs):
         return _CrossCorrelationLogitEpocherHook(

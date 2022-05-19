@@ -5,3 +5,4 @@ from .entmin import *
 from .infonce import *
 from .mt import *
 from .pseudolabel import *
+from .autoencoder import *

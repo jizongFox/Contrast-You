@@ -34,8 +34,7 @@ class RedundancyCriterion(nn.Module, LossClass[Tensor]):
 
     @lru_cache()
     def onehot_label(self, k, device):
-        label = torch.eye(k, device=device, dtype=torch.bool)
-        return label
+        return torch.eye(k, device=device, dtype=torch.bool)
 
     def kl_criterion(self, dist: Tensor, prior: Tensor):
         return -(prior * (dist + self._eps).log() + (1 - prior) * (1 - dist + self._eps).log()).mean()

@@ -10,7 +10,6 @@ from torch import nn
 from torch.cuda.amp import GradScaler
 
 from ..amp import AMPScaler, DDPMixin
-from ..hooks.base import EpocherHook
 from ..meters import MeterInterface, AverageValueListMeter
 from ..mytqdm import tqdm
 from ..utils import class_name
@@ -25,6 +24,7 @@ except ImportError:
 
 if t.TYPE_CHECKING:
     from contrastyou.trainer.base import Trainer
+    from ..hooks.base import EpocherHook
 
 
 def _epocher_initialized(func):
@@ -61,7 +61,7 @@ class EpocherBase(AMPScaler, DDPMixin, metaclass=ABCMeta):
         self._cur_epoch = cur_epoch
 
         self._trainer = None
-        self._hooks: List[EpocherHook] = []
+        self._hooks: List['EpocherHook'] = []
 
         # place holder
         self.meters = None
@@ -88,7 +88,7 @@ class EpocherBase(AMPScaler, DDPMixin, metaclass=ABCMeta):
     @final
     @contextmanager
     @_epocher_initialized
-    def register_hook(self, *hook: EpocherHook):
+    def register_hook(self, *hook: 'EpocherHook'):
         """
         >>> epocher = EpocherBase(...)
         >>> hooks = ...

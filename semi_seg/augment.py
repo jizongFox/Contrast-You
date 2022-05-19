@@ -18,19 +18,19 @@ __all__ = ["augment_zoo", "RisingWrapper"]
 class _Transform(t.Protocol):
     @property
     def pretrain(self) -> SequentialWrapperTwice:
-        raise NotImplemented
+        raise NotImplementedError
 
     @property
     def label(self) -> SequentialWrapperTwice:
-        raise NotImplemented
+        raise NotImplementedError
 
     @property
     def val(self) -> SequentialWrapper:
-        raise NotImplemented
+        raise NotImplementedError
 
     @property
     def trainval(self) -> SequentialWrapperTwice:
-        raise NotImplemented
+        raise NotImplementedError
 
 
 class ACDCTransforms2(_Transform):
@@ -295,7 +295,8 @@ class RisingWrapper:
         self.intensity_transform = intensity_transform
 
     def __call__(self, image: Tensor, *, mode: str, seed: int):
-        assert mode in ("image", "feature"), f"`mode` must be in `image` or `feature`, given {mode}."
+        assert mode in {"image", "feature"}, f"`mode` must be in `image` or `feature`, given {mode}."
+
         if mode == "image":
             with fix_all_seed_for_transforms(seed):
                 if self.intensity_transform is not None:

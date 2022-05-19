@@ -6,14 +6,14 @@ from contextlib import nullcontext
 from functools import wraps
 
 from torch import nn
-from torch.nn import Parameter
 
-from contrastyou.meters import MeterInterface
 from contrastyou.utils import class_name
 
 if t.TYPE_CHECKING:
     from contrastyou.trainer.base import Trainer
     from contrastyou.epochers.base import EpocherBase
+    from contrastyou.meters import MeterInterface
+    from torch.nn import Parameter
 
 
 class HookNameExistError(Exception):
@@ -32,6 +32,7 @@ class _ClassNameMeta(type):
     names: t.Set[str] = set()
 
     def __call__(cls, *args, **kwargs):
+        # sourcery skip: instance-method-first-arg-name
         if "hook_name" in kwargs:
             hook_name = kwargs["hook_name"]
             if hook_name in cls.names:
@@ -49,7 +50,7 @@ class TrainerHook(nn.Module, metaclass=_ClassNameMeta):
         self._initialized = False
 
     @t.final
-    def parameters(self, recurse: bool = True) -> t.Iterator[Parameter]:
+    def parameters(self, recurse: bool = True) -> t.Iterator['Parameter']:
         for m in self.learnable_modules:
             yield from m.parameters(recurse=recurse)
 
@@ -66,12 +67,14 @@ class TrainerHook(nn.Module, metaclass=_ClassNameMeta):
     def after_initialize(self):
         pass
 
+    @t.final
     @property
     def trainer(self):
         if self._initialized:
             return self._trainer
         raise RuntimeError(f"{class_name(self)} not initialized yet.")
 
+    @t.final
     @trainer.setter
     def trainer(self, trainer: 'Trainer'):
         self._initialized = True
@@ -95,6 +98,7 @@ class CombineTrainerHook(TrainerHook):
         for h in self._hooks:
             h.close()
 
+    @t.final
     @property
     def trainer(self):
         for h in self._hooks:
@@ -102,6 +106,7 @@ class CombineTrainerHook(TrainerHook):
                 return h.trainer
         raise RuntimeError(f"{class_name(self)} not initialized yet.")
 
+    @t.final
     @trainer.setter
     def trainer(self, trainer: 'Trainer'):
         for h in self._hooks:
@@ -117,15 +122,17 @@ class EpocherHook:
     def __init__(self, *, name: str, ) -> None:
         self._name = name
         self._epocher = None
-        self.meters: t.Optional[MeterInterface] = None
+        self.meters: t.Optional['MeterInterface'] = None
         self._epocher_init = False
 
+    @t.final
     @property
     def epocher(self):
         if self._epocher_init:
             return self._epocher
         raise HookNotInitializedError(f"{self._name} not initialized yet.")
 
+    @t.final
     @epocher.setter
     def epocher(self, epocher: "EpocherBase"):
         self._epocher = weakref.proxy(epocher)
@@ -134,7 +141,7 @@ class EpocherHook:
         with self.meters.focus_on(self.name):
             self.configure_meters_given_epocher(self.meters)
 
-    def configure_meters_given_epocher(self, meters: MeterInterface) -> MeterInterface:
+    def configure_meters_given_epocher(self, meters: 'MeterInterface') -> 'MeterInterface':
         return meters
 
     # calling interface for epocher.
@@ -254,7 +261,7 @@ class CombineEpochHook(EpocherHook):
 
     @t.final
     def __call__(self, **kwargs):  # noqa just to modify it once.
-        return sum([h(**kwargs) for h in self._epocher_hook])
+        return sum(h(**kwargs) for h in self._epocher_hook)
 
     def _call_implementation(self, **kwargs):
         raise NotImplementedError()
@@ -263,11 +270,13 @@ class CombineEpochHook(EpocherHook):
         for h in self._epocher_hook:
             h.close()
 
+    @t.final
     @property
     def epocher(self):
         for h in self._epocher_hook:
             return h._epocher
 
+    @t.final
     @epocher.setter
     def epocher(self, epocher: "EpocherBase"):
         for h in self._epocher_hook:

@@ -107,10 +107,6 @@ class MeanTeacherTrainerHook(TrainerHook):
         self._extra_teacher_updater = EMAUpdater(alpha=alpha, weight_decay=weight_decay, update_bn=True)
         self._hard_clip = hard_clip
 
-        if num_teachers > 1:
-            logger.debug(f"Initializing {num_teachers} extra teachers")
-            self._extra_teachers.extend([deepcopy(model) for _ in range(num_teachers - 1)])
-
         detach_model(self._teacher_model)
         for _model in self._extra_teachers:
             detach_model(_model)

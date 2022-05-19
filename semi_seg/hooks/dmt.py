@@ -98,7 +98,7 @@ class DifferentiableMeanTeacherTrainerHook(TrainerHook):
                 name=self._hook_name, model=self._model, weight=self._weight, student_criterion=self._criterion,
                 meta_criterion=self._meta_criterion, teacher_model=self.teacher_model, updater=self._updater,
                 meta_weight=self._meta_weight, teacher_optimizer=self._teacher_optimizer)
-        raise NotImplemented(self._method_name)
+        raise NotImplementedError(self._method_name)
 
     @property
     def teacher_model(self):
