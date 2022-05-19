@@ -20,12 +20,10 @@ from .mixup import MixUpTrainHook
 from .mt import MeanTeacherTrainerHook, UAMeanTeacherTrainerHook, ICTMeanTeacherTrainerHook
 from .orthogonal import OrthogonalTrainerHook
 from .pseudolabel import PseudoLabelTrainerHook
+from .autoencoder import DenosingAutoEncoderTrainerHook
 
 decoder_names = UNet.decoder_names
 encoder_names = UNet.encoder_names
-
-if typing.TYPE_CHECKING:
-    pass
 
 T = TypeVar("T")
 item_or_seq = Union[T, Sequence[T]]
@@ -314,3 +312,7 @@ def create_ict_hook(*, weight: float, alpha: float, weight_decay: float, update_
     hook = ICTMeanTeacherTrainerHook(name="ict", weight=weight, alpha=alpha, weight_decay=weight_decay,
                                      update_bn=update_bn, model=model)
     return hook
+
+
+def create_dae_hook(*, weight: float, num_classes: int):
+    return DenosingAutoEncoderTrainerHook(hook_name="dae", weight=weight, num_classes=num_classes)

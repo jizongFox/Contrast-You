@@ -2,13 +2,7 @@ from contrastyou.utils import class_name
 from semi_seg.hooks import create_infonce_hooks, create_sp_infonce_hooks, create_discrete_mi_consistency_hook, \
     create_mt_hook, create_differentiable_mt_hook, create_ent_min_hook, create_orthogonal_hook, create_iid_seg_hook, \
     create_pseudo_label_hook, create_imsat_hook, create_consistency_hook, create_cross_correlation_hooks2, \
-    create_intermediate_imsat_hook, create_uamt_hook, create_mixup_hook, create_ict_hook
-
-
-def _hook_config_validator(config, is_pretrain):
-    if is_pretrain:
-        """Do not accept MeanTeacher and Consistency"""
-        pass
+    create_intermediate_imsat_hook, create_uamt_hook, create_mixup_hook, create_ict_hook, create_dae_hook
 
 
 def create_hook_from_config(model, config, *, is_pretrain=False, trainer):
@@ -104,4 +98,7 @@ def create_hook_from_config(model, config, *, is_pretrain=False, trainer):
                                  enable_bn=config["MixUpParams"]["enable_bn"])
         hooks.append(hook)
 
+    if "DAEParameters" in config:
+        hook = create_dae_hook(weight=config["DAEParameters"]["weight"], num_classes=config["OPT"]["num_classes"])
+        hooks.append(hook)
     return hooks
