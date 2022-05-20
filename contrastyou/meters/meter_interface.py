@@ -59,8 +59,7 @@ class MeterInterface:
     def _get_meters_by_group(self, group_name: str):
         if group_name not in self.groups():
             raise KeyError(f"{group_name} not in {self.__class__.__name__}: ({', '.join(self.groups())})")
-        meters: Dict[str, metric.Metric] = self._group_bank[group_name]
-        return meters
+        return self._group_bank[group_name]
 
     def _get_meter(self, *, name: str, group_name: str):
         meters: Dict[str, metric.Metric] = self._get_meters_by_group(group_name=group_name)

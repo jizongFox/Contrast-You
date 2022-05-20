@@ -88,14 +88,11 @@ class Trainer(DDPMixin, _ToMixin, _IOMixin, metaclass=ABCMeta):
         optim_params = self._config["Optim"]
         optimizer = optim.__dict__[optim_params["name"]](
             params=filter(lambda p: p.requires_grad, self._model.parameters()),
-            **{k: v for k, v in optim_params.items() if k != "name" and k != "pre_lr" and k != "ft_lr"}
-        )
-        optimizer.add_param_group(
-            {
-                "params": chain(*(x.parameters() for x in self._hooks)),
-                **{k: v for k, v in optim_params.items() if k != "name" and k != "pre_lr" and k != "ft_lr"}
-            }
-        )
+            **{k: v for k, v in optim_params.items() if k not in ["name", "pre_lr", "ft_lr"]})
+
+        optimizer.add_param_group({"params": chain(*(x.parameters() for x in self._hooks)),
+                                   **{k: v for k, v in optim_params.items() if k not in ["name", "pre_lr", "ft_lr"]}})
+
         return optimizer
 
     def _init_scheduler(self, optimizer, scheduler_params) -> t.Optional[GradualWarmupScheduler]:
