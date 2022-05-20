@@ -35,15 +35,13 @@ class _BufferMixin:
         if "_buffers" not in self.__dict__:
             raise AttributeError("cannot assign buffer before Module.__init__() call")
         elif not isinstance(name, str):
-            raise TypeError(
-                "buffer name should be a string. " "Got {}".format(torch.typename(name))
-            )
+            raise TypeError(f"buffer name should be a string. Got {torch.typename(name)}")
         elif "." in name:
             raise KeyError('buffer name can\'t contain "."')
-        elif name == "":
+        elif not name:
             raise KeyError('buffer name can\'t be empty string ""')
         elif hasattr(self, name) and name not in self._buffers:
-            raise KeyError("attribute '{}' already exists".format(name))
+            raise KeyError(f"attribute '{name}' already exists")
         else:
             if is_path(value):
                 value = str(value)
@@ -121,7 +119,7 @@ class _BufferMixin:
         return destination
 
     def _load_from_state_dict(
-        self, state_dict, prefix, strict, missing_keys, unexpected_keys, error_msgs
+            self, state_dict, prefix, strict, missing_keys, unexpected_keys, error_msgs
     ):
         r"""Copies parameters and buffers from :attr:`state_dict` into only
         this module, but not its descendants. This is called on every submodule
@@ -271,3 +269,24 @@ class _BufferMixin:
                     )
                 )
         return _IncompatibleKeys(missing_keys, unexpected_keys)
+
+
+class Buffer:
+    """
+    A buffer that can be used to store the state of a module.
+    """
+
+    def __init__(self, data=None):
+        if isinstance(data, torch.nn.Module):
+            raise ValueError(f"cannot wrap a Module in a Buffer, given {data.__class__.__name__}")
+
+        if isinstance(data, torch.optim.Optimizer):
+            raise ValueError(f"cannot wrap an Optimizer in a Buffer, given {data.__class__.__name__}")
+
+        if isinstance(data, torch.optim.lr_scheduler._LRScheduler):  # noqa
+            raise ValueError(f"cannot wrap a Scheduler in a Buffer, given {data.__class__.__name__}")
+
+        self.data = data
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.data})"
