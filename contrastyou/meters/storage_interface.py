@@ -33,12 +33,12 @@ class Storage(metaclass=ABCMeta):
         self.to_csv()
 
     def put(
-        self, name: str, value: Dict[str, float], epoch=None, prefix="", postfix=""
+            self, name: str, value: Dict[str, float], epoch=None, prefix="", postfix=""
     ):
         self.__storage[prefix + name + postfix].add(value, epoch)
 
     def put_group(
-        self, group_name: str, epoch_result: Dict, epoch=None, sep="/",
+            self, group_name: str, epoch_result: Dict, epoch=None, sep="/",
     ):
         assert isinstance(group_name, str), group_name
         if epoch_result:
@@ -57,15 +57,12 @@ class Storage(metaclass=ABCMeta):
         return self.__storage[name][epoch]
 
     def summary(self) -> pd.DataFrame:
-        list_of_summary = [
-            rename_df_columns(v.summary(), k, "/") for k, v in self.__storage.items()
-        ]
-        summary = []
-        if len(list_of_summary) > 0:
+        if list_of_summary := [rename_df_columns(v.summary(), k, "/") for k, v in self.__storage.items()]:
             summary = functools.reduce(
-                lambda x, y: pd.merge(x, y, left_index=True, right_index=True),
-                list_of_summary,
+                lambda x, y: pd.merge(x, y, left_index=True, right_index=True), list_of_summary
             )
+        else:
+            summary = []
         return pd.DataFrame(summary)
 
     @property

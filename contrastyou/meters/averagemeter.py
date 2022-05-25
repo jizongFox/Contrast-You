@@ -24,9 +24,7 @@ class AverageValueMeter(Metric[metric_result]):
 
     def _summary(self) -> metric_result:
         # this function returns a dict and tends to aggregate the historical results.
-        if self.n == 0:
-            return np.nan
-        return float(self.sum / self.n)
+        return np.nan if self.n == 0 else float(self.sum / self.n)
 
 
 class AverageValueDictionaryMeter(Metric[dictionary_metric_result]):

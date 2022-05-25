@@ -5,8 +5,8 @@ import typing as t
 from functools import wraps
 
 from loguru import logger
-
 from tqdm import tqdm as _tqdm
+
 from ..utils.printable import item2str
 
 if t.TYPE_CHECKING:
@@ -53,8 +53,9 @@ class frequency_cache:
         self.__func__ = func
 
         @wraps(func)
-        def wrapper(*args, force_update, **kwargs):
+        def wrapper(*args, **kwargs):
             self._n += 1
+            force_update = kwargs.pop("force_update", False)
             if force_update is True or self._n == 1:
                 self.cache = func(*args, **kwargs)
                 return self.cache
@@ -85,7 +86,7 @@ class tqdm(_tqdm):
 
     def log_result(self):
         if hasattr(self, "__cached__"):
-            logger.opt(depth=3).info(self.desc + "    " + create_meter_display(self.__cached__))
+            logger.opt(depth=3).info(f"{self.desc}    {create_meter_display(self.__cached__)}")
 
     def __enter__(self):
         return self
@@ -115,7 +116,7 @@ class tqdm(_tqdm):
         self.set_postfix_str(pretty_str)
 
     @frequency_cache(freq=10)
-    def set_postfix_statics2(self, group_dictionary, force_update: bool = False):
+    def set_postfix_statics2(self, group_dictionary, *, force_update: bool = False):
         return self._set_postfix_statics(dict(group_dictionary))
 
     @contextlib.contextmanager
