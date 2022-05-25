@@ -155,14 +155,16 @@ class _TrainerBase(nn.Module):
         scheduler_dict = state_dict["scheduler_state"]
         missing_keys.extend(list(set(self._scheduler_state_dict()) - set(scheduler_dict)))
         unexpected_keys.extend(list(set(scheduler_dict) - set(self._scheduler_state_dict())))
+        for name in self._scheduler_state_dict():
+            if name in scheduler_dict:
+                getattr(self, name).load_state_dict(scheduler_dict[name], )
 
         other_dict = state_dict["other_state"]
         missing_keys.extend(list(set(self._other_state_dict()) - set(other_dict)))
         unexpected_keys.extend(list(set(other_dict) - set(self._other_state_dict())))
-
         for name in self._other_state_dict():
             if name in other_dict:
-                getattr(self, name).load_state_dict(scheduler_dict[name])
+                getattr(self, name).load_state_dict(other_dict[name])
 
         if strict:
             record_err_msg(missing_keys, unexpected_keys, error_msgs)
