@@ -1,14 +1,13 @@
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 from typing import Any, Union, List
 
 import torch
 from torch import nn
-from torch.nn.modules.module import _addindent
+from torch.nn.modules.module import _addindent  # noqa
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler  # noqa
 
-from contrastyou.trainer._buffer import Buffer, _IncompatibleKeys
-from contrastyou.trainer._functional import optimizer_to, scheduler_to
+from ._functional import optimizer_to, scheduler_to
 
 
 def record_err_msg(missing_keys: List[str], unexpected_keys: List[str], error_msgs: List[str]):
@@ -21,29 +20,56 @@ def record_err_msg(missing_keys: List[str], unexpected_keys: List[str], error_ms
             ', '.join(f'"{k}"' for k in missing_keys)))
 
 
-class TrainerBase(nn.Module):
+class _IncompatibleKeys(
+    namedtuple("IncompatibleKeys", ["missing_keys", "unexpected_keys"])
+):
+    def __repr__(self):
+        if not self.missing_keys and not self.unexpected_keys:
+            return "<All keys matched successfully>"
+        return super(_IncompatibleKeys, self).__repr__()
 
-    def __init__(self, *, model: nn.Module, criterion, tra_loader, val_loader, save_dir, max_epoch:
-    int, num_batches: int, config, **kwargs) -> None:
+    __str__ = __repr__
+
+
+class Buffer:
+    """
+    A buffer that can be used to store the state of a module.
+    """
+
+    def __init__(self, data=None):
+        if isinstance(data, torch.nn.Module):
+            raise ValueError(f"cannot wrap a Module in a Buffer, given {data.__class__.__name__}")
+
+        if isinstance(data, torch.optim.Optimizer):
+            raise ValueError(f"cannot wrap an Optimizer in a Buffer, given {data.__class__.__name__}")
+
+        if isinstance(data, torch.optim.lr_scheduler._LRScheduler):  # noqa
+            raise ValueError(f"cannot wrap a Scheduler in a Buffer, given {data.__class__.__name__}")
+
+        self.data = data
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.data})"
+
+
+class _TrainerBase(nn.Module):
+
+    def __init__(self) -> None:
         super().__init__()
         self._persist_buffer: OrderedDict = OrderedDict()
-        self._model = model
-        self._criterion = criterion
-        self._tra_loader = tra_loader
-        self._val_loader = val_loader
-        self._save_dir = Buffer(save_dir)
-        self._max_epoch = Buffer(max_epoch)
-        self._num_batches = Buffer(num_batches)
-        self._config = Buffer(config)
 
     def __setattr__(self, key, value):
         if isinstance(value, Buffer):
+            if "_persist_buffer" not in self.__dict__:
+                raise AttributeError("cannot assign Buffer before Module.__init__() call")
             self._persist_buffer[key] = value.data
+        elif "_persist_buffer" in self.__dict__ and key in self._persist_buffer:
+            self.__setattr__(key, Buffer(value))  # noqa
         else:
             super().__setattr__(key, value)
 
     def __getattr__(self, item):
-        if item in self._persist_buffer:
+        if "_persist_buffer" in self.__dict__ and item in self._persist_buffer:
             return self._persist_buffer[item]
         else:
             return super().__getattr__(item)
@@ -82,16 +108,26 @@ class TrainerBase(nn.Module):
     def _scheduler_state_dict(self):
         return {k: v.state_dict() for k, v in self.__dict__.items() if isinstance(v, _LRScheduler)}
 
+    def _other_state_dict(self):
+        return {
+            k: v.state_dict() for k, v in self.__dict__.items() if
+            k not in [*self._scheduler_state_dict(), *self._optimizer_state_dict()]
+            and hasattr(v, 'state_dict') and callable(v.state_dict)
+        }
+
     def state_dict(self, destination=None, prefix='', keep_vars=False):
         super_state = super().state_dict(destination, prefix, keep_vars)
         buffer_state = self._persist_buffer.copy()
         optimizer_state = self._optimizer_state_dict()
         scheduler_state = self._scheduler_state_dict()
+        other_state = self._other_state_dict()
+
         return OrderedDict({
             "module_state": super_state,
             "buffer_state": buffer_state,
             "optimizer_state": optimizer_state,
-            "scheduler_state": scheduler_state
+            "scheduler_state": scheduler_state,
+            "other_state": other_state
         })
 
     def load_state_dict(self, state_dict: OrderedDict[str, Any], strict=True):
@@ -120,8 +156,12 @@ class TrainerBase(nn.Module):
         missing_keys.extend(list(set(self._scheduler_state_dict()) - set(scheduler_dict)))
         unexpected_keys.extend(list(set(scheduler_dict) - set(self._scheduler_state_dict())))
 
-        for name in self._scheduler_state_dict():
-            if name in scheduler_dict:
+        other_dict = state_dict["other_state"]
+        missing_keys.extend(list(set(self._other_state_dict()) - set(other_dict)))
+        unexpected_keys.extend(list(set(other_dict) - set(self._other_state_dict())))
+
+        for name in self._other_state_dict():
+            if name in other_dict:
                 getattr(self, name).load_state_dict(scheduler_dict[name])
 
         if strict:
@@ -142,16 +182,3 @@ class TrainerBase(nn.Module):
                 scheduler_to(module, device)
 
         return super().to(device=device, **kwargs)
-
-
-if __name__ == '__main__':
-    a = TrainerBase(model=nn.Linear(1, 1), criterion=nn.MSELoss(), tra_loader=None, val_loader=None, save_dir=None,
-                    max_epoch=1, num_batches=1, config=None, extra_opt=True)
-    b = TrainerBase(model=nn.Linear(1, 1), criterion=nn.MSELoss(), tra_loader=None, val_loader=None, save_dir="dfadfsa",
-                    max_epoch=1, num_batches=10, config=1, )
-    b.fds = Buffer(2)
-    a.dfsfs = Buffer(3)
-    print(a._num_batches)
-    print(a.load_state_dict(b.state_dict(), strict=True))
-    print(a)
-    # print(str(b._optimizer))
