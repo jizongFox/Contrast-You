@@ -393,8 +393,7 @@ class FineTuneEpocher(SemiSupervisedEpocher, ABC):
         return meters
 
     def _forward_pass(self, labeled_image, **kwargs):
-        label_logits = self._model(labeled_image)
-        return label_logits
+        return self._model(labeled_image)
 
     def _batch_update(self, *, cur_batch_num: int, labeled_image, labeled_target, label_group, retain_graph=False,
                       **kwargs):
