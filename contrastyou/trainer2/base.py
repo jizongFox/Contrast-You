@@ -1,41 +1,41 @@
-from typing import Dict, Any
+from itertools import chain
+from typing import Dict, Any, Optional, cast
 
 import torch.optim.optimizer
-from torch import Tensor, nn
+from torch import Tensor, nn, optim
 
 from contrastyou.meters import Storage
 from ._amp import AMPScalerMixin
 from ._base import _TrainerBase, Buffer
 from ._ddp import DDPMixin
+from ._hooks import _HookMixin
+from .. import MODEL_PATH
 from ..losses import LossClass
+from ..optim import GradualWarmupScheduler
 from ..types import SizedIterable
 from ..writer import SummaryWriter
 
-"""
-class _TrainerMeta(type):
-    def __new__(cls, name, bases, attrs):
-        super(_TrainerMeta, cls).__new__(cls, name, bases, attrs)
-        cls.init()
-"""
 
-
-class Trainer(DDPMixin, AMPScalerMixin, _TrainerBase):
+class Trainer(_HookMixin, DDPMixin, AMPScalerMixin, _TrainerBase):
+    RUN_PATH = MODEL_PATH  # type:str # absolute path
 
     def __init__(self, *, model: nn.Module, criterion: LossClass[Tensor], tra_loader: SizedIterable,
                  val_loader: SizedIterable, save_dir: str, max_epoch: int = 100, num_batches: int = 100, device="cpu",
                  config: Dict[str, Any], enable_scale: bool = False) -> None:
         super().__init__(enable_scale=enable_scale, accumulate_iter=1)
-        self._initialized = True
+        self._initialized = False
 
-        self.model = model
+        self._model = model
         self.criterion = criterion
-        self.tra_loader = tra_loader
-        self.val_loader = val_loader
-        self.save_dir = Buffer(save_dir)
-        self.max_epoch = Buffer(max_epoch)
-        self.num_batches = Buffer(num_batches)
+        self._tra_loader = tra_loader
+        self._val_loader = val_loader
+        self.save_dir = cast(str, Buffer(save_dir))
+        self._save_dir = self.save_dir
+        self._max_epoch = Buffer(max_epoch)
+        self._num_batches = Buffer(num_batches)
         self.device = device
         self.config = Buffer(config)
+        self._config = self.config
 
         self._storage = Storage(save_dir=self._save_dir)
         self._writer = SummaryWriter(log_dir=self._save_dir) if self.on_master else None
@@ -50,7 +50,7 @@ class Trainer(DDPMixin, AMPScalerMixin, _TrainerBase):
         self._scheduler = self._init_scheduler(self._optimizer, scheduler_params=self._config.get("Scheduler", None))
         self._initialized = True
 
-    def _init_optimizer(self) -> torch.optim.optimizer.Optimizer:
+    def _init_optimizer(self) -> torch.optim.Optimizer:
         optim_params = self._config["Optim"]
         optimizer = optim.__dict__[optim_params["name"]](
             params=filter(lambda p: p.requires_grad, self._model.parameters()),
@@ -61,7 +61,7 @@ class Trainer(DDPMixin, AMPScalerMixin, _TrainerBase):
 
         return optimizer
 
-    def _init_scheduler(self, optimizer, scheduler_params) -> t.Optional[GradualWarmupScheduler]:
+    def _init_scheduler(self, optimizer, scheduler_params) -> Optional[GradualWarmupScheduler]:
         if scheduler_params is None:
             return None
         max_epoch = self._max_epoch

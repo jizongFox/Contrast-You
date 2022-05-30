@@ -15,6 +15,8 @@ from contrastyou.data import ScanBatchSampler
 from contrastyou.losses import LossClass
 from contrastyou.trainer import create_save_dir
 from contrastyou.trainer.base import Trainer
+from contrastyou.trainer2.base import Trainer
+
 from contrastyou.types import criterionType, SizedIterable
 from contrastyou.utils import fix_all_seed_within_context, get_dataset
 from contrastyou.utils.printable import item2str
