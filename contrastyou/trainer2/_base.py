@@ -70,10 +70,15 @@ class _TrainerBase(nn.Module):
         self._non_trackable_buffer: Set[Union[torch._six.string_classes]] = set()
 
     def __setattr__(self, key, value):
+        # todo: may have bugs here
         if isinstance(value, Buffer):
             self.register_persist_buffer(key, value.data)
+        elif key in self._persist_buffer:
+            self._persist_buffer[key] = value
         elif isinstance(value, NoTrackable):
             self.register_non_trackable_buffer(key, value.data)
+        elif key in self._non_persistent_buffers_set:
+            object.__setattr__(self, key, value)
         else:
             super().__setattr__(key, value)
 
