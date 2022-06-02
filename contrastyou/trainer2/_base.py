@@ -1,5 +1,5 @@
 from collections import OrderedDict, namedtuple
-from typing import Any, Union, List
+from typing import Any, Union, List, Set
 
 import torch
 from torch import nn
@@ -52,19 +52,28 @@ class Buffer:
         return f"{self.__class__.__name__}({self.data})"
 
 
+class NoTrackable:
+
+    def __init__(self, data) -> None:
+        super().__init__()
+        self.data = data
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.data})"
+
+
 class _TrainerBase(nn.Module):
 
     def __init__(self) -> None:
         super().__init__()
         self._persist_buffer: OrderedDict = OrderedDict()
+        self._non_trackable_buffer: Set[Union[torch._six.string_classes]] = set()
 
     def __setattr__(self, key, value):
         if isinstance(value, Buffer):
-            if "_persist_buffer" not in self.__dict__:
-                raise AttributeError("cannot assign Buffer before Module.__init__() call")
-            self._persist_buffer[key] = value.data
-        elif "_persist_buffer" in self.__dict__ and key in self._persist_buffer:
-            self.__setattr__(key, Buffer(value))  # noqa
+            self.register_persist_buffer(key, value.data)
+        elif isinstance(value, NoTrackable):
+            self.register_non_trackable_buffer(key, value.data)
         else:
             super().__setattr__(key, value)
 
@@ -73,6 +82,40 @@ class _TrainerBase(nn.Module):
             return self._persist_buffer[item]
         else:
             return super().__getattr__(item)
+
+    def register_persist_buffer(self, name: str, data: Any):
+
+        if '_persist_buffer' not in self.__dict__:
+            raise AttributeError(
+                "cannot assign buffer before _TrainerBase.__init__() call")
+        elif not isinstance(name, torch._six.string_classes):
+            raise TypeError("buffer name should be a string. "
+                            "Got {}".format(torch.typename(name)))
+        elif '.' in name:
+            raise KeyError("buffer name can't contain \".\"")
+        elif name == '':
+            raise KeyError("buffer name can't be empty string \"\"")
+        elif hasattr(self, name) and name not in self._persist_buffers:
+            raise KeyError("attribute '{}' already exists".format(name))
+        self._persist_buffer[name] = data
+
+    def register_non_trackable_buffer(self, name, module: nn.Module):
+        if '_non_trackable_buffer' not in self.__dict__:
+            raise AttributeError(
+                "cannot assign buffer before _TrainerBase.__init__() call")
+        elif not isinstance(name, torch._six.string_classes):
+            raise TypeError("buffer name should be a string. "
+                            "Got {}".format(torch.typename(name)))
+        elif '.' in name:
+            raise KeyError("buffer name can't contain \".\"")
+        elif name == '':
+            raise KeyError("buffer name can't be empty string \"\"")
+        elif hasattr(self, name) and name not in self._non_trackable_buffer:
+            raise KeyError("attribute '{}' already exists".format(name))
+
+        if name not in self._non_persistent_buffers_set:
+            self._non_trackable_buffer.add(name)
+        return object.__setattr__(self, name, module)
 
     def __repr__(self):
         # We treat the extra repr like the sub-module, one item per line
@@ -102,31 +145,20 @@ class _TrainerBase(nn.Module):
         main_str += ')'
         return main_str
 
-    def _optimizer_state_dict(self):
-        return {k: v.state_dict() for k, v in self.__dict__.items() if isinstance(v, Optimizer)}
-
-    def _scheduler_state_dict(self):
-        return {k: v.state_dict() for k, v in self.__dict__.items() if isinstance(v, _LRScheduler)}
-
     def _other_state_dict(self):
         return {
             k: v.state_dict() for k, v in self.__dict__.items() if
-            k not in [*self._scheduler_state_dict(), *self._optimizer_state_dict()]
-            and hasattr(v, 'state_dict') and callable(v.state_dict)
+            hasattr(v, 'state_dict') and callable(v.state_dict) and k not in self._non_trackable_buffer
         }
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):
         super_state = super().state_dict(destination, prefix, keep_vars)
         buffer_state = self._persist_buffer.copy()
-        optimizer_state = self._optimizer_state_dict()
-        scheduler_state = self._scheduler_state_dict()
         other_state = self._other_state_dict()
 
         return OrderedDict({
             "module_state": super_state,
             "buffer_state": buffer_state,
-            "optimizer_state": optimizer_state,
-            "scheduler_state": scheduler_state,
             "other_state": other_state
         })
 
@@ -143,21 +175,6 @@ class _TrainerBase(nn.Module):
         for key in self._persist_buffer.keys():
             if key in buffer_dict:
                 self._persist_buffer[key] = buffer_dict[key]
-
-        optimizer_dict = state_dict["optimizer_state"]
-        missing_keys.extend(list(set(self._optimizer_state_dict()) - set(optimizer_dict)))
-        unexpected_keys.extend(list(set(optimizer_dict) - set(self._optimizer_state_dict())))
-
-        for name in self._optimizer_state_dict():
-            if name in optimizer_dict:
-                getattr(self, name).load_state_dict(optimizer_dict[name], )
-
-        scheduler_dict = state_dict["scheduler_state"]
-        missing_keys.extend(list(set(self._scheduler_state_dict()) - set(scheduler_dict)))
-        unexpected_keys.extend(list(set(scheduler_dict) - set(self._scheduler_state_dict())))
-        for name in self._scheduler_state_dict():
-            if name in scheduler_dict:
-                getattr(self, name).load_state_dict(scheduler_dict[name], )
 
         other_dict = state_dict["other_state"]
         missing_keys.extend(list(set(self._other_state_dict()) - set(other_dict)))
