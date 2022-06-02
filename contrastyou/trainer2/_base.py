@@ -83,6 +83,13 @@ class _TrainerBase(nn.Module):
         else:
             return super().__getattr__(item)
 
+    def __delattr__(self, item):
+        if item in self._non_trackable_buffer:
+            self._non_trackable_buffer.remove(item)
+            object.__delattr__(self, item)
+        else:
+            return super(_TrainerBase, self).__delattr__(item)
+
     def register_persist_buffer(self, name: str, data: Any):
 
         if '_persist_buffer' not in self.__dict__:
@@ -195,6 +202,8 @@ class _TrainerBase(nn.Module):
     def to(self, device: Union[str, torch.device], **kwargs):
 
         for k, module in self.__dict__.items():
+            if k in self._non_trackable_buffer:
+                continue
             if isinstance(module, Optimizer):
                 optimizer_to(module, device)
             elif isinstance(module, _LRScheduler):
