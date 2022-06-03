@@ -11,7 +11,7 @@ from torch import nn
 from contrastyou.hooks import TrainerHook
 
 if t.TYPE_CHECKING:
-    from contrastyou.trainer2.base import Trainer
+    from contrastyou.trainer.base import Trainer
 
     _Base = Trainer
 else:

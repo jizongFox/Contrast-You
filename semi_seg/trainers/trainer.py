@@ -15,8 +15,6 @@ from contrastyou.data import ScanBatchSampler
 from contrastyou.losses import LossClass
 from contrastyou.trainer import create_save_dir
 from contrastyou.trainer.base import Trainer
-from contrastyou.trainer2.base import Trainer
-
 from contrastyou.types import criterionType, SizedIterable
 from contrastyou.utils import fix_all_seed_within_context, get_dataset
 from contrastyou.utils.printable import item2str
@@ -137,7 +135,7 @@ class MTTrainer(SemiTrainer):
         for self._cur_epoch in range(start_epoch, self._max_epoch + 1):
             with self._storage:  # save csv each epoch
                 train_metrics = self.tra_epoch()
-                if self.on_master():
+                if self.on_master:
                     logger.info("inference on teacher model")
                     with self.switch_inference_model(mt_hook.teacher_model):
                         eval_metrics, cur_score = self.eval_epoch(model=self.inference_model, loader=self._val_loader)
@@ -164,7 +162,7 @@ class MTTrainer(SemiTrainer):
                 if best_case_sofa:
                     self._best_score = cur_score
 
-            if self.on_master():
+            if self.on_master:
                 self.save_to(save_name="last.pth")
                 if best_case_sofa:
                     self.save_to(save_name="best.pth")
