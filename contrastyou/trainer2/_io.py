@@ -1,10 +1,14 @@
 import typing as t
+from pathlib import Path
 
 import torch
+from easydict import EasyDict as edict
 from loguru import logger
 
 from contrastyou.trainer2._utils import safe_save
 from contrastyou.utils import path2Path
+from ..configure import yaml_write
+from ..types import typePath
 
 if t.TYPE_CHECKING:
     from .base import Trainer
@@ -45,5 +49,18 @@ class IOMixin(_Base):
     def resume_from_path(self, path: str, name="last.pth", strict=True, ):
         return self.load_state_dict_from_path(str(path), name, strict)
 
-    def load_state_dict(self, state_dict, strict):
-        pass
+    def dump_config(self, config, path: typePath = None, save_name="config.yaml"):
+        path_ = self._save_dir
+        if path:
+            path_ = path2Path(path)
+            if not path_.is_absolute():
+                path_ = Path(self.RUN_PATH) / path_
+        if isinstance(config, edict):
+            from contrastyou.configure import edict2dict
+            config = edict2dict(config)
+
+        if Path(path_, save_name).exists():
+            all_save_names = sorted(Path(path_).glob("*.yaml"))
+            save_name = f"{save_name.split('.')[0]}_{len(all_save_names)}.yaml"
+
+        yaml_write(config, str(path_), save_name=save_name)

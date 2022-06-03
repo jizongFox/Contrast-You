@@ -44,6 +44,9 @@ class Trainer(IOMixin, HookMixin, DDPMixin, AMPScalerMixin, ModuleBase):
         self.config = cast(dict, Buffer(config))
         self._config = self.config
 
+        if config is not None:
+            self.dump_config(self._config)
+
         self._storage = Storage(save_dir=self._save_dir)
         self._writer = SummaryWriter(log_dir=self._save_dir) if self.on_master else None
 
