@@ -12,20 +12,11 @@ from contrastyou.configure import yaml_load, ConfigManager
 from contrastyou.losses.kl import KL_div
 from contrastyou.trainer import create_save_dir
 from contrastyou.utils import fix_all_seed_within_context, adding_writable_sink, extract_model_state_dict
+from utils import logging_configs
 from hook_creator import create_hook_from_config
 from semi_seg.data.creator import get_data
 from semi_seg.hooks import feature_until_from_hooks
-from semi_seg.trainers.pretrain import PretrainEncoderTrainer, PretrainDecoderTrainer
-from semi_seg.trainers.trainer import SemiTrainer, FineTuneTrainer, MixUpTrainer, MTTrainer, DMTTrainer
-from utils import logging_configs, find_checkpoint
-
-trainer_zoo = {"semi": SemiTrainer,
-               "ft": FineTuneTrainer,
-               "pretrain": PretrainEncoderTrainer,
-               "pretrain_decoder": PretrainDecoderTrainer,
-               "mt": MTTrainer,
-               "dmt": DMTTrainer,
-               "mixup": MixUpTrainer}
+from semi_seg.trainers import trainer_zoo, SemiTrainer
 
 
 @logger.catch(reraise=True)
