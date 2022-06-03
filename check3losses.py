@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import sys
 import typing as t
@@ -43,14 +45,14 @@ class IMSATLoss(nn.Module):
 
 
 class IIDLoss(nn.Module, LossClass[Tensor]):
-    def __init__(self, lamb: float = 1.0, eps: float = sys.float_info.epsilon, symmetric=False):
+    def __init__(self, lamb: float | int = 1.0, eps: float = sys.float_info.epsilon, symmetric=False):
         """
         :param lamb:
         :param eps:
         """
         super().__init__()
         self.lamb = float(lamb)
-        self.eps = float(eps)
+        self.eps = eps
         self.symmetric = symmetric
 
     def forward(self, x_out: Tensor, x_tf_out: Tensor):
@@ -252,7 +254,7 @@ if __name__ == '__main__':
     record, record_plot, record_aggrement = run(IIDLoss(), 100, epoch_2_evaluate=batches_run)
     save_joint_plot(f"{save_dir}/iic", record_plot)
     save_joint_curve(f"{save_dir}/iic", record, record_aggrement, title="curve optimized by iic", K=K)
-
+    """"
     input1, input2 = get_data(num_sample, K)
     optimizer = torch.optim.Adam((input1, input2), lr=1e-2)
 
@@ -302,3 +304,4 @@ if __name__ == '__main__':
     record, record_plot, record_aggrement = run(RRDLoss(alpha=1.0), 100, epoch_2_evaluate=batches_run)
     save_joint_plot(f"{save_dir}/rr/a_1.0", record_plot)
     save_joint_curve(f"{save_dir}/rr/a_1.0", record, record_aggrement, title="curve optimized by rr", K=K)
+"""

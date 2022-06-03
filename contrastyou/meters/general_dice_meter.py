@@ -53,14 +53,13 @@ class UniversalDice(Metric[metric_result]):
         B, C, *hw = pred.shape
 
         if group_name is None:
-            group_name = [str(self._n) + f"_{i:03d}" for i in range(B)]  # make it like slice based dice
+            group_name = [f"{str(self._n)}_{i:03d}" for i in range(B)]
+        elif isinstance(group_name, str):
+            group_name = [group_name for _ in range(B)]
+        elif isinstance(group_name, (tuple, list)):
+            group_name = list(group_name)
         else:
-            if isinstance(group_name, str):
-                group_name = [group_name for _ in range(B)]
-            elif isinstance(group_name, (tuple, list)):
-                group_name = list(group_name)
-            else:
-                raise TypeError(f"type of `group_name` wrong {type(group_name)}")
+            raise TypeError(f"type of `group_name` wrong {type(group_name)}")
         assert len(group_name) == B
 
         interaction, union = (
@@ -74,9 +73,8 @@ class UniversalDice(Metric[metric_result]):
 
     def compute_dice_by_group(self) -> t.Optional[Tensor]:
         if self._n > 0:
-            dices = self._compute_dice(intersection=torch.stack(tuple(self._intersections.values()), dim=0),
-                                       union=torch.stack(tuple(self._unions.values()), dim=0))
-            return dices
+            return self._compute_dice(intersection=torch.stack(tuple(self._intersections.values()), dim=0),
+                                      union=torch.stack(tuple(self._unions.values()), dim=0))
 
     @staticmethod
     def _compute_dice(intersection: Tensor, union: Tensor) -> Tensor:
@@ -89,7 +87,7 @@ class UniversalDice(Metric[metric_result]):
         else:
             means, stds = (np.nan,) * self._C, (np.nan,) * self._C
         report_dict = {f"DSC{i}": to_float(means[i]) for i in self._report_axis}
-        report_dict.update({"DSC_mean": average_iter(report_dict.values())})
+        report_dict["DSC_mean"] = average_iter(report_dict.values())
         return report_dict
 
     @property
@@ -104,8 +102,7 @@ class UniversalDice(Metric[metric_result]):
         :param target: onehot target
         :return: tensor of intersaction over classes
         """
-        intersect = (pred * target).sum(list(range(2, pred.dim()))).long()
-        return intersect
+        return (pred * target).sum(list(range(2, pred.dim()))).long()
 
     @staticmethod
     def _union(pred: Tensor, target: Tensor):

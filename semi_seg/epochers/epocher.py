@@ -246,7 +246,8 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
         self.cur_batch_num = 0
 
     def transform_with_seed(self, features, *, mode: str, seed: int):
-        assert mode in ("image", "feature"), f"mode must be either `image` or `feature`, given {mode}"
+        assert mode in {"image", "feature"}, f"mode must be either `image` or `feature`, given {mode}"
+
         with fix_all_seed_for_transforms(seed):
             features_tf = self._affine_transformer(features, mode=mode, seed=seed)
         return features_tf
@@ -392,8 +393,7 @@ class FineTuneEpocher(SemiSupervisedEpocher, ABC):
         return meters
 
     def _forward_pass(self, labeled_image, **kwargs):
-        label_logits = self._model(labeled_image)
-        return label_logits
+        return self._model(labeled_image)
 
     def _batch_update(self, *, cur_batch_num: int, labeled_image, labeled_target, label_group, retain_graph=False,
                       **kwargs):

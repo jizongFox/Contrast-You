@@ -12,9 +12,8 @@ def prune_dict(dictionary: dict, ignore="_"):
     for k, v in dictionary.copy().items():
         if isinstance(v, dict):
             prune_dict(v, ignore)
-        else:
-            if k.startswith(ignore):
-                del dictionary[k]
+        elif k.startswith(ignore):
+            del dictionary[k]
 
 
 class SummaryWriter(_SummaryWriter):
@@ -46,7 +45,7 @@ class SummaryWriter(_SummaryWriter):
     def add_scalars_from_meter_interface(self, *, epoch: int, **kwargs):
         for g, group_dictionary in kwargs.items():
             for k, v in group_dictionary.items():
-                self.add_scalar_with_tag(g + "/" + k, v, global_step=epoch)
+                self.add_scalar_with_tag(f"{g}/{k}", v, global_step=epoch)
 
     def __enter__(self):
         __tensorboard_queue__.append(self)
