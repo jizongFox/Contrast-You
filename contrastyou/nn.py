@@ -7,80 +7,41 @@ from torch.nn.modules.module import _addindent  # noqa
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler  # noqa
 
-from ._functional import optimizer_to, scheduler_to
+__all__ = ["ModuleBase", "Buffer", "NoTrackable"]
 
 
-def record_err_msg(missing_keys: List[str], unexpected_keys: List[str], error_msgs: List[str]):
-    if unexpected_keys:
-        error_msgs.insert(0, 'Unexpected key(s) in state_dict: {}. '.format(
-            ', '.join(f'"{k}"' for k in unexpected_keys)))
-
-    if missing_keys:
-        error_msgs.insert(0, 'Missing key(s) in state_dict: {}. '.format(
-            ', '.join(f'"{k}"' for k in missing_keys)))
-
-
-class _IncompatibleKeys(
-    namedtuple("IncompatibleKeys", ["missing_keys", "unexpected_keys"])
-):
-    def __repr__(self):
-        if not self.missing_keys and not self.unexpected_keys:
-            return "<All keys matched successfully>"
-        return super(_IncompatibleKeys, self).__repr__()
-
-    __str__ = __repr__
-
-
-class Buffer:
+class ModuleBase(nn.Module):
     """
-    A buffer that can be used to store the state of a module.
+    This module is to enhance nn.Module with `NoTrackable` argument and "Buffer" argument
     """
-
-    def __init__(self, data=None):
-        if isinstance(data, torch.nn.Module):
-            raise ValueError(f"cannot wrap a Module in a Buffer, given {data.__class__.__name__}")
-
-        if isinstance(data, torch.optim.Optimizer):
-            raise ValueError(f"cannot wrap an Optimizer in a Buffer, given {data.__class__.__name__}")
-
-        if isinstance(data, torch.optim.lr_scheduler._LRScheduler):  # noqa
-            raise ValueError(f"cannot wrap a Scheduler in a Buffer, given {data.__class__.__name__}")
-
-        self.data = data
-
-    def __repr__(self):
-        return f"{self.__class__.__name__}({self.data})"
-
-
-class NoTrackable:
-
-    def __init__(self, data) -> None:
-        super().__init__()
-        self.data = data
-
-    def __repr__(self):
-        return f"{self.__class__.__name__}({self.data})"
-
-
-class _TrainerBase(nn.Module):
 
     def __init__(self) -> None:
         super().__init__()
         self._persist_buffer: OrderedDict = OrderedDict()
-        self._non_trackable_buffer: Set[Union[torch._six.string_classes]] = set()
+        self._non_trackable_buffer: Set[str, bytes] = set()
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, name, value):
         # todo: may have bugs here
+        def remove_from(*dicts_or_sets):
+            for d in dicts_or_sets:
+                if name in d:
+                    if isinstance(d, dict):
+                        del d[name]
+                    else:
+                        d.discard(name)
+
         if isinstance(value, Buffer):
-            self.register_persist_buffer(key, value.data)
-        elif key in self._persist_buffer:
-            self._persist_buffer[key] = value
+            remove_from(self.__dict__, self._buffers, self._modules, self._non_persistent_buffers_set,
+                        self._persist_buffer, self._non_trackable_buffer)
+            self.register_persist_buffer(name, value.data)
         elif isinstance(value, NoTrackable):
-            self.register_non_trackable_buffer(key, value.data)
-        elif key in self._non_persistent_buffers_set:
-            object.__setattr__(self, key, value)
+            remove_from(self.__dict__, self._buffers, self._modules, self._non_persistent_buffers_set,
+                        self._persist_buffer, self._non_trackable_buffer)
+            self.register_non_trackable_buffer(name, value.data)
+        elif hasattr(self, "_non_persistent_buffers_set") and name in self._non_persistent_buffers_set:
+            object.__setattr__(self, name, value)
         else:
-            super().__setattr__(key, value)
+            super().__setattr__(name, value)
 
     def __getattr__(self, item):
         if "_persist_buffer" in self.__dict__ and item in self._persist_buffer:
@@ -93,7 +54,7 @@ class _TrainerBase(nn.Module):
             self._non_trackable_buffer.remove(item)
             object.__delattr__(self, item)
         else:
-            return super(_TrainerBase, self).__delattr__(item)
+            return super(ModuleBase, self).__delattr__(item)
 
     def register_persist_buffer(self, name: str, data: Any):
 
@@ -205,7 +166,6 @@ class _TrainerBase(nn.Module):
                                  incompatible_keys.unexpected_keys + unexpected_keys)
 
     def to(self, device: Union[str, torch.device], **kwargs):
-
         for k, module in self.__dict__.items():
             if k in self._non_trackable_buffer:
                 continue
@@ -215,3 +175,78 @@ class _TrainerBase(nn.Module):
                 scheduler_to(module, device)
 
         return super().to(device=device, **kwargs)
+
+
+class Buffer:
+    """
+    A buffer that can be used to store the state of a module.
+    """
+
+    def __init__(self, data=None):
+        if isinstance(data, torch.nn.Module):
+            raise ValueError(f"cannot wrap a Module in a Buffer, given {data.__class__.__name__}")
+
+        if isinstance(data, torch.optim.Optimizer):
+            raise ValueError(f"cannot wrap an Optimizer in a Buffer, given {data.__class__.__name__}")
+
+        if isinstance(data, torch.optim.lr_scheduler._LRScheduler):  # noqa
+            raise ValueError(f"cannot wrap a Scheduler in a Buffer, given {data.__class__.__name__}")
+
+        self.data = data
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.data})"
+
+
+class NoTrackable:
+
+    def __init__(self, data) -> None:
+        super().__init__()
+        self.data = data
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.data})"
+
+
+def record_err_msg(missing_keys: List[str], unexpected_keys: List[str], error_msgs: List[str]):
+    if unexpected_keys:
+        error_msgs.insert(0, 'Unexpected key(s) in state_dict: {}. '.format(
+            ', '.join(f'"{k}"' for k in unexpected_keys)))
+
+    if missing_keys:
+        error_msgs.insert(0, 'Missing key(s) in state_dict: {}. '.format(
+            ', '.join(f'"{k}"' for k in missing_keys)))
+
+
+class _IncompatibleKeys(
+    namedtuple("IncompatibleKeys", ["missing_keys", "unexpected_keys"])
+):
+    def __repr__(self):
+        if not self.missing_keys and not self.unexpected_keys:
+            return "<All keys matched successfully>"
+        return super(_IncompatibleKeys, self).__repr__()
+
+    __str__ = __repr__
+
+
+def optimizer_to(optimizer: Optimizer, device):
+    for param in optimizer.state.values():
+        # Not sure if there are any global tensors in the state dict
+        if isinstance(param, torch.Tensor):
+            param.data = param.data.to(device)
+            if param._grad is not None:
+                param._grad.data = param._grad.data.to(device)
+        elif isinstance(param, dict):
+            for subparam in param.values():
+                if isinstance(subparam, torch.Tensor):
+                    subparam.data = subparam.data.to(device)
+                    if subparam._grad is not None:
+                        subparam._grad.data = subparam._grad.data.to(device)
+
+
+def scheduler_to(scheduler: _LRScheduler, device):
+    for param in scheduler.__dict__.values():
+        if isinstance(param, torch.Tensor):
+            param.data = param.data.to(device)
+            if param._grad is not None:
+                param._grad.data = param._grad.data.to(device)
