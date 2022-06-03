@@ -101,10 +101,7 @@ class _PretrainEpocherMixin(_Base, metaclass=ABCMeta):
         return (image, image_ct), None, filename, partition, group
 
 
-if t.TYPE_CHECKING:
-    _BaseInference = _PretrainEpocherMixin
-else:
-    _BaseInference = object
+_BaseInference = _PretrainEpocherMixin if t.TYPE_CHECKING else object
 
 
 class _PretrainInferenceEpocherMixin(_BaseInference, metaclass=ABCMeta):
@@ -136,7 +133,7 @@ class _PretrainInferenceEpocherMixin(_BaseInference, metaclass=ABCMeta):
 
     @contextlib.contextmanager
     def disable_rising_augmentation(self):
-        logger.trace(f"disable rising augmentation")
+        logger.trace("disable rising augmentation")
         rising_wrapper = self._affine_transformer
         geometric = iter_transform(rising_wrapper.geometry_transform)
         geometric_p = {id(x): x.p for x in geometric if hasattr(x, "p")}
@@ -151,7 +148,7 @@ class _PretrainInferenceEpocherMixin(_BaseInference, metaclass=ABCMeta):
             if hasattr(t, "p"):
                 setattr(t, "p", 0)
         yield
-        logger.trace(f"resume rising augmentation")
+        logger.trace("resume rising augmentation")
 
         for t in iter_transform(rising_wrapper.geometry_transform):
             if hasattr(t, "p"):

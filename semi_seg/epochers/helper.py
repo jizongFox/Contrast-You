@@ -73,7 +73,7 @@ def _write_single_png(mask: Tensor, save_dir: str, filename: str):
         os.mkdir(save_dir)
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
-        imsave(os.path.join(save_dir, (filename + ".png")), mask.astype(np.uint8))
+        imsave(os.path.join(save_dir, f"{filename}.png"), mask.astype(np.uint8))
 
 
 def write_predict(predict_logit: Tensor, save_dir: str, filenames: Union[str, List[str]]):

@@ -91,10 +91,7 @@ class _PretrainTrainerMixin(_Base):
         return epocher
 
 
-if TYPE_CHECKING:
-    _BaseInference = _PretrainTrainerMixin
-else:
-    _BaseInference = object
+_BaseInference = _PretrainTrainerMixin if TYPE_CHECKING else object
 
 
 class _PretrainInferenceMixin(_BaseInference):

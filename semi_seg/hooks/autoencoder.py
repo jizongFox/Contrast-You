@@ -37,10 +37,10 @@ class DenosingAutoEncoderTrainerHook(TrainerHook):
         return [self.aux_layer, ]
 
     def __call__(self, *args, **kwargs):
-        return DenosingAutoEncoderEpocherHook(extra_layer=self.aux_layer, weight=self.weight)
+        return DenoisingAutoEncoderEpocherHook(extra_layer=self.aux_layer, weight=self.weight)
 
 
-class DenosingAutoEncoderEpocherHook(EpocherHook):
+class DenoisingAutoEncoderEpocherHook(EpocherHook):
 
     def __init__(self, *, name: str = "deAE", extra_layer: "AuxiliaryLayer", weight) -> None:
         super().__init__(name=name)

@@ -87,9 +87,8 @@ class SemiTrainer(Trainer):
 
         if save_dir is None:
             save_dir = self.absolute_save_dir
-        else:
-            if not os.path.isabs(save_dir):
-                save_dir = create_save_dir(self, save_dir)
+        elif not os.path.isabs(save_dir):
+            save_dir = create_save_dir(self, save_dir)
 
         assert save_dir
         Path(save_dir).mkdir(exist_ok=True, parents=True)
@@ -99,7 +98,7 @@ class SemiTrainer(Trainer):
 
         if self._writer:
             self._writer.add_scalars_from_meter_interface(infer=epoch_metric, epoch=10000)
-        logger.info(f"Inference results: " + item2str(epoch_metric))
+        logger.info(f"Inference results: {item2str(epoch_metric)}")
         logger.success(f"{class_name(self)} Done")
 
     # store the results.
@@ -236,15 +235,14 @@ class AdversarialTrainer(SemiTrainer):
             self._discriminator = Discriminator(input_dim=input_dim, hidden_dim=64)
         optim_params = self._config["Optim"]
         logger.trace(
-            f'Initializing the discriminator optimizer with '
-            f'{item2str({k: v for k, v in optim_params.items() if k != "name" and k != "pre_lr" and k != "ft_lr"})}'
-        )
+            f"Initializing the discriminator optimizer with {item2str({k: v for k, v in optim_params.items() if k not in ['name', 'pre_lr', 'ft_lr']})}")
+
         self._dis_optimizer = optim.__dict__[optim_params["name"]](
             params=filter(lambda p: p.requires_grad, self._discriminator.parameters()),
-            **{k: v for k, v in optim_params.items() if k != "name" and k != "pre_lr" and k != "ft_lr"}
-        )
+            **{k: v for k, v in optim_params.items() if k not in ["name", "pre_lr", "ft_lr"]})
+
         self._reg_weight = float(reg_weight)
-        logger.trace(f"Initializing weight = {float(self._reg_weight)}")
+        logger.trace(f"Initializing weight = {self._reg_weight}")
 
     @property
     def train_epocher(self) -> Type[EpocherBase]:

@@ -499,8 +499,7 @@ class DMTEpcoher(SemiSupervisedEpocher):
         with torch.no_grad():
             teacher_unlabeled_prob = teacher_model(unlabeled_image).softmax(1)
             teacher_unlabeled_prob_tf = affine_transformer(teacher_unlabeled_prob)
-        loss = self._mt_criterion(teacher_unlabeled_prob_tf, student_unlabeled_tf_prob)
-        return loss
+        return self._mt_criterion(teacher_unlabeled_prob_tf, student_unlabeled_tf_prob)
 
     @property
     def teacher_model(self):
