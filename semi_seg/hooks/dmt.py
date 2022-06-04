@@ -52,17 +52,17 @@ class DifferentiableMeanTeacherTrainerHook(TrainerHook):
         super().__init__(hook_name=name)
         self._weight = weight
         self._criterion = nn.MSELoss()
-        assert meta_criterion in ("ce", "dice")
+        assert meta_criterion in {"ce", "dice"}
         self._meta_criterion = KL_div() if meta_criterion == "ce" else DiceLoss(ignore_index=0)
         self._updater = EMAUpdater(alpha=alpha, weight_decay=weight_decay, update_bn=True)
         self._model = model
         self._teacher_model = deepcopy(model)
         self._meta_weight = meta_weight
-        logger.opt(depth=0).trace("meta_weight: {}".format(meta_weight))
+        logger.opt(depth=0).trace(f"meta_weight: {meta_weight}")
         self._method_name = method_name
         logger.info(f"{class_name(self)} method name: {method_name}")
         self._teacher_optimizer = None
-        if method_name in ("method1", "method3", "method4"):
+        if method_name in {"method1", "method3", "method4"}:
             self._teacher_optimizer = torch.optim.Adam(self._teacher_model.parameters(), lr=meta_weight,
                                                        weight_decay=1e-5)
             self._initialize_teacher_gradient(self._teacher_model, self._teacher_optimizer)

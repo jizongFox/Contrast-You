@@ -20,7 +20,7 @@ from .mixup import MixUpTrainHook
 from .mt import MeanTeacherTrainerHook, UAMeanTeacherTrainerHook, ICTMeanTeacherTrainerHook
 from .orthogonal import OrthogonalTrainerHook
 from .pseudolabel import PseudoLabelTrainerHook
-from .autoencoder import DenosingAutoEncoderTrainerHook
+from .autoencoder import DenoisingAutoEncoderTrainerHook
 
 decoder_names = UNet.decoder_names
 encoder_names = UNet.encoder_names
@@ -315,4 +315,4 @@ def create_ict_hook(*, weight: float, alpha: float, weight_decay: float, update_
 
 
 def create_dae_hook(*, weight: float, num_classes: int):
-    return DenosingAutoEncoderTrainerHook(hook_name="dae", weight=weight, num_classes=num_classes)
+    return DenoisingAutoEncoderTrainerHook(hook_name="dae", weight=weight, num_classes=num_classes)

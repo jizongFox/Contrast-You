@@ -11,18 +11,9 @@ from contrastyou.nn import ModuleBase
 from contrastyou.utils import class_name
 
 if t.TYPE_CHECKING:
-    from contrastyou.trainer.base import Trainer
     from contrastyou.epochers.base import EpocherBase
     from contrastyou.meters import MeterInterface
     from torch.nn import Parameter
-
-
-class HookNameExistError(Exception):
-    pass
-
-
-class HookNotInitializedError(Exception):
-    pass
 
 
 class _ClassNameMeta(type):
@@ -68,21 +59,23 @@ class TrainerHook(ModuleBase, metaclass=_ClassNameMeta):
     def after_initialize(self):
         pass
 
-    # @t.final
-    # @property
-    # def trainer(self):
-    #     if self._initialized:
-    #         return self._trainer
-    #     raise RuntimeError(f"{class_name(self)} not initialized yet.")
+    """
+    @t.final
+    @property
+    def trainer(self):
+        if self._initialized:
+            return self._trainer
+        raise RuntimeError(f"{class_name(self)} not initialized yet.")
 
-    # @t.final
-    # @trainer.setter
-    # def trainer(self, trainer: 'Trainer'):
-    #     self._initialized = True
-    #     self.register_trainer(trainer)
+    @t.final
+    @trainer.setter
+    def trainer(self, trainer: 'Trainer'):
+        self._initialized = True
+        self.register_trainer(trainer)
 
     def register_trainer(self, trainer: 'Trainer'):
         return object.__setattr__(self, "_trainer", trainer)
+    """
 
 
 class CombineTrainerHook(TrainerHook):
@@ -102,23 +95,25 @@ class CombineTrainerHook(TrainerHook):
         for h in self._hooks:
             h.close()
 
-    # @t.final
-    # @property
-    # def trainer(self):
-    #     for h in self._hooks:
-    #         if h._initialized:  # noqa
-    #             return h.trainer
-    #     raise RuntimeError(f"{class_name(self)} not initialized yet.")
+    """
+    @t.final
+    @property
+    def trainer(self):
+        for h in self._hooks:
+            if h._initialized:  # noqa
+                return h.trainer
+        raise RuntimeError(f"{class_name(self)} not initialized yet.")
 
-    # @t.final
-    # @trainer.setter
-    # def trainer(self, trainer: 'Trainer'):
-    #     for h in self._hooks:
-    #         h.trainer = trainer
+    @t.final
+    @trainer.setter
+    def trainer(self, trainer: 'Trainer'):
+        for h in self._hooks:
+            h.trainer = trainer
 
     def after_initialize(self):
         for h in self._hooks:
             h.after_initialize()
+    """
 
 
 class EpocherHook:
@@ -300,3 +295,11 @@ def meter_focus(_func=None, *, attribute="_name"):
         return decorator_focus
     else:
         return decorator_focus(_func)
+
+
+class HookNameExistError(Exception):
+    pass
+
+
+class HookNotInitializedError(Exception):
+    pass

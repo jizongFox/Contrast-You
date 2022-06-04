@@ -1,8 +1,10 @@
-import torch
 import typing as t
-from contrastyou.hooks import TrainerHook, EpocherHook
-from torch import nn, Tensor
+
+import torch
 import torch.nn.functional as F
+from torch import nn, Tensor
+
+from contrastyou.hooks import TrainerHook, EpocherHook
 from contrastyou.meters import AverageValueMeter
 
 if t.TYPE_CHECKING:
@@ -25,7 +27,7 @@ class AuxiliaryLayer(nn.Module):
         return self.activation(self.fc(x))
 
 
-class DenosingAutoEncoderTrainerHook(TrainerHook):
+class DenoisingAutoEncoderTrainerHook(TrainerHook):
     def __init__(self, *, hook_name: str = "deAE", num_classes: int, weight: float = 0.0, **kwargs):
         super().__init__(hook_name=hook_name)
         self.num_classes = num_classes
