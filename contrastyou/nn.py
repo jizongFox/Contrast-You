@@ -34,11 +34,13 @@ class ModuleBase(nn.Module):
             remove_from(self.__dict__, self._buffers, self._modules, self._non_persistent_buffers_set,
                         self._persist_buffer, self._non_trackable_buffer)
             self.register_persist_buffer(name, value.data)
+        elif hasattr(self, "_persist_buffer") and name in self._persist_buffer:
+            self._persist_buffer[name] = value
         elif isinstance(value, NoTrackable):
             remove_from(self.__dict__, self._buffers, self._modules, self._non_persistent_buffers_set,
                         self._persist_buffer, self._non_trackable_buffer)
             self.register_non_trackable_buffer(name, value.data)
-        elif hasattr(self, "_non_persistent_buffers_set") and name in self._non_persistent_buffers_set:
+        elif hasattr(self, "_non_trackable_buffer") and name in self._non_trackable_buffer:
             object.__setattr__(self, name, value)
         else:
             super().__setattr__(name, value)
@@ -53,6 +55,8 @@ class ModuleBase(nn.Module):
         if item in self._non_trackable_buffer:
             self._non_trackable_buffer.remove(item)
             object.__delattr__(self, item)
+        elif item in self._persist_buffer:
+            del self._persist_buffer[item]
         else:
             return super(ModuleBase, self).__delattr__(item)
 
@@ -62,14 +66,13 @@ class ModuleBase(nn.Module):
             raise AttributeError(
                 "cannot assign buffer before _TrainerBase.__init__() call")
         elif not isinstance(name, torch._six.string_classes):
-            raise TypeError("buffer name should be a string. "
-                            "Got {}".format(torch.typename(name)))
+            raise TypeError(f"buffer name should be a string. Got {torch.typename(name)}")
         elif '.' in name:
             raise KeyError("buffer name can't contain \".\"")
-        elif name == '':
+        elif not name:
             raise KeyError("buffer name can't be empty string \"\"")
         elif hasattr(self, name) and name not in self._persist_buffers:
-            raise KeyError("attribute '{}' already exists".format(name))
+            raise KeyError(f"attribute '{name}' already exists")
         self._persist_buffer[name] = data
 
     def register_non_trackable_buffer(self, name, module: nn.Module):
@@ -77,14 +80,13 @@ class ModuleBase(nn.Module):
             raise AttributeError(
                 "cannot assign buffer before _TrainerBase.__init__() call")
         elif not isinstance(name, torch._six.string_classes):
-            raise TypeError("buffer name should be a string. "
-                            "Got {}".format(torch.typename(name)))
+            raise TypeError(f"buffer name should be a string. Got {torch.typename(name)}")
         elif '.' in name:
             raise KeyError("buffer name can't contain \".\"")
         elif name == '':
             raise KeyError("buffer name can't be empty string \"\"")
         elif hasattr(self, name) and name not in self._non_trackable_buffer:
-            raise KeyError("attribute '{}' already exists".format(name))
+            raise KeyError(f"attribute '{name}' already exists")
 
         if name not in self._non_persistent_buffers_set:
             self._non_trackable_buffer.add(name)

@@ -3,13 +3,14 @@ from unittest import TestCase
 import torch
 from torch import nn
 
-from contrastyou.nn import ModuleBase, NoTrackable
+from contrastyou.nn import ModuleBase, NoTrackable, Buffer
 
 
 class SmallModule(ModuleBase):
-    def __init__(self) -> None:
+    def __init__(self, name: str) -> None:
         super().__init__()
         self._conv1 = nn.Conv2d(3, 3, 1)
+        self.name = Buffer(name)
 
         self._optimizer = torch.optim.Adam(self._conv1.parameters())
 
@@ -18,8 +19,8 @@ class TestModule(TestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        self._module1 = SmallModule()
-        self._module2 = nn.Conv1d(1, 1, 1)
+        self._module1 = SmallModule("model1")
+        self._module2 = SmallModule("model2")
 
     def test_failed_case(self):
         self._module2.module1 = self._module1
@@ -63,3 +64,10 @@ class TestModule(TestCase):
 
         print(self._module1.apply(lambda x: x.type(torch.float)))
         print(self._module1.state_dict().keys())
+
+    def test_assign_value(self):
+        self._module1.value1 = Buffer(1)
+        assert "value1" in self._module1._persist_buffer
+        self._module1.value1 = 23
+        assert self._module1._persist_buffer["value1"] == 23
+        assert "value1" not in self._module1.__dict__
