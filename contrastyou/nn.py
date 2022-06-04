@@ -30,16 +30,17 @@ class ModuleBase(nn.Module):
                     else:
                         d.discard(name)
 
-        if isinstance(value, Buffer) or (hasattr(self, "_persis_buffer") and name in self._persist_buffer):
+        if isinstance(value, Buffer):
             remove_from(self.__dict__, self._buffers, self._modules, self._non_persistent_buffers_set,
                         self._persist_buffer, self._non_trackable_buffer)
             self.register_persist_buffer(name, value.data)
-        elif isinstance(value, NoTrackable) or (
-                hasattr(self, "_non_trackable_buffer") and name in self._non_trackable_buffer):
+        elif hasattr(self, "_persis_buffer") and name in self._persist_buffer:
+            self._persist_buffer[name] = value
+        elif isinstance(value, NoTrackable):
             remove_from(self.__dict__, self._buffers, self._modules, self._non_persistent_buffers_set,
                         self._persist_buffer, self._non_trackable_buffer)
             self.register_non_trackable_buffer(name, value.data)
-        elif hasattr(self, "_non_persistent_buffers_set") and name in self._non_persistent_buffers_set:
+        elif hasattr(self, "_non_trackable_buffer") and name in self._non_trackable_buffer:
             object.__setattr__(self, name, value)
         else:
             super().__setattr__(name, value)
