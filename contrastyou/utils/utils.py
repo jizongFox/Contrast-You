@@ -87,7 +87,7 @@ def plt_interactive():
 
 def extract_model_state_dict(trainer_checkpoint_path: str, *, keyword="_model"):
     trainer_state = torch.load(trainer_checkpoint_path, map_location="cpu")
-    return trainer_state[keyword]
+    return {k[7:]: v for k, v in trainer_state["module_state"].items() if k.startswith("_model.")}
 
 
 def deprecated(func):

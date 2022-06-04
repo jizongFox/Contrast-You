@@ -53,8 +53,8 @@ class DenoisingAutoEncoderEpocherHook(EpocherHook):
         recovered_output = self.layer(unlabeled_tf_logits)
         loss = F.mse_loss(recovered_output, unlabeled_image_tf)
         if self.meters:
-            self.meters[self.name].add(loss.item())
+            self.meters["ls"].add(loss.item())
         return self._weight * loss
 
     def configure_meters_given_epocher(self, meters: 'MeterInterface'):
-        self.meters.register_meter(self.name, AverageValueMeter())
+        self.meters.register_meter("ls", AverageValueMeter())
