@@ -26,6 +26,7 @@ class DDPMixin:
         except (AssertionError, AttributeError, RuntimeError):
             return None
 
+    @property
     @lru_cache()
     def on_master(self) -> bool:
         return (self.rank == 0) or (self.rank is None)

@@ -59,7 +59,7 @@ class MultiCoreTrainEpocher(_MultiCoreMixin, SemiSupervisedEpocher, ABC):
         self.optimizer_step(self._optimizer, cur_iter=cur_batch_num)
 
         # recording can be here or in the regularization method
-        if self.meters and self.on_master():
+        if self.meters and self.on_master:
             with torch.no_grad():
                 reduced_simplex = self._sup_criterion.reduced_simplex(label_logits.softmax(1))
                 self.meters["sup_loss"].add(sup_loss.item())
@@ -85,7 +85,7 @@ class MultiCoreEvalEpocher(_MultiCoreMixin, EvalEpocher):
 
             true_eval_loss = self._sup_criterion.kl(reduced_simplex, onehot_target)
 
-        if self.meters and self.on_master():
+        if self.meters and self.on_master:
             self.meters["loss"].add(eval_loss.item())
             self.meters["true_loss"].add(true_eval_loss.item())
             self.meters["dice"].add(reduced_simplex.max(1)[1], eval_target.squeeze(1), group_name=eval_group)

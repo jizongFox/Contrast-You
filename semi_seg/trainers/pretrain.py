@@ -65,7 +65,7 @@ class _PretrainTrainerMixin(_Base):
 
                 train_metrics = self.tra_epoch()
 
-                if self.on_master():
+                if self.on_master:
                     self._storage.add_from_meter_interface(
                         pre_tra=train_metrics, epoch=self._cur_epoch)
                     assert self._writer
@@ -76,7 +76,7 @@ class _PretrainTrainerMixin(_Base):
                     assert self._scheduler
                     self._scheduler.step()
 
-            if self.on_master():
+            if self.on_master:
                 self.save_to(save_name="last.pth")
 
     def _create_initialized_tra_epoch(self, **kwargs) -> 'EpocherBase':
@@ -114,7 +114,7 @@ class _PretrainInferenceMixin(_BaseInference):
     def inference(self, **kwargs):
         monitor_dataloader = self._monitor_loader
         self._model.eval()
-        with self._writer if self.on_master() else nullcontext():
+        with self._writer if self.on_master else nullcontext():
             self._inference(monitor_dataloader=monitor_dataloader)
         self._model.train()
 

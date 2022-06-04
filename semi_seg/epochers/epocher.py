@@ -338,7 +338,7 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
         self.optimizer_step(self._optimizer, cur_iter=cur_batch_num)
 
         # recording can be here or in the regularization method
-        if self.on_master():
+        if self.on_master:
             with torch.no_grad():
                 self.meters["sup_loss"].add(sup_loss.item())
                 self.meters["sup_dice"].add(label_logits.max(1)[1], labeled_target.squeeze(1),
@@ -411,7 +411,7 @@ class FineTuneEpocher(SemiSupervisedEpocher, ABC):
         self.scale_loss(total_loss).backward(retain_graph=retain_graph)
         self.optimizer_step(self._optimizer, cur_iter=cur_batch_num)
         # recording can be here or in the regularization method
-        if self.on_master():
+        if self.on_master:
             with torch.no_grad():
                 self.meters["sup_loss"].add(sup_loss.item())
                 self.meters["sup_dice"].add(label_logits.max(1)[1], labeled_target.squeeze(1),
@@ -486,7 +486,7 @@ class DMTEpcoher(SemiSupervisedEpocher):
         self.teacher_model.load_state_dict(old_teacher)
         self._ema_updater(ema_model=self.teacher_model, student_model=self._model)
 
-        if self.on_master():
+        if self.on_master:
             with torch.no_grad():
                 self.meters["sup_loss"].add(sup_loss.item())
                 self.meters["sup_dice"].add(label_logits.max(1)[1], labeled_target.squeeze(1),

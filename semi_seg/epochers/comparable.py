@@ -82,7 +82,7 @@ class MixupEpocher(SemiSupervisedEpocher, ABC):
         self.optimizer_step(self._optimizer, cur_iter=cur_batch_num)
 
         # recording can be here or in the regularization method
-        if self.on_master():
+        if self.on_master:
             with torch.no_grad():
                 self.meters["sup_loss"].add(sup_loss.item())
                 self.meters["sup_dice"].add(label_logits.max(1)[1], labeled_target.squeeze(1),
@@ -157,7 +157,7 @@ class AdversarialEpocher(SemiSupervisedEpocher, ABC):
             generator_loss = sup_loss + self._reg_weight * generator_err
             generator_loss.backward()
             optimizerG.step()
-            if self.on_master():
+            if self.on_master:
                 with torch.no_grad():
                     self.meters["sup_loss"].add(sup_loss.item())
                     self.meters["sup_dice"].add(labeled_logits.max(1)[1], labeled_target.squeeze(1),
@@ -185,7 +185,7 @@ class AdversarialEpocher(SemiSupervisedEpocher, ABC):
                 disc_loss = discr_err_labeled + discr_err_unlabeled
                 (disc_loss * self._reg_weight).backward()
                 optimizerD.step()
-            if self.on_master():
+            if self.on_master:
                 with self.meters.focus_on("adv_reg"):
                     self.meters["dis_loss"].add(disc_loss.item())
 

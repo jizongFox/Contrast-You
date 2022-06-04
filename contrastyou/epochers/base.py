@@ -80,7 +80,7 @@ class EpocherBase(AMPScaler, DDPMixin, metaclass=ABCMeta):
     def init(self, trainer: "Trainer" = None):
         self.meters = MeterInterface(default_focus=self.meter_focus)
         self.configure_meters(self.meters)
-        self.indicator = tqdm(range(self._num_batches), disable=not self.on_master(), leave=False, ncols=2)
+        self.indicator = tqdm(range(self._num_batches), disable=not self.on_master, leave=False, ncols=2)
         self._initialized = True
         if trainer is not None:
             self.trainer = trainer
