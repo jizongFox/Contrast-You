@@ -20,12 +20,14 @@ def disable_output():
 
 class DDPMixin:
     @property
+    @lru_cache()
     def rank(self) -> Optional[int]:
         try:
             return dist.get_rank()
         except (AssertionError, AttributeError, RuntimeError):
             return None
 
+    @property
     @lru_cache()
     def on_master(self) -> bool:
         return (self.rank == 0) or (self.rank is None)
