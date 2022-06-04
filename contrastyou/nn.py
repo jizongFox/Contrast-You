@@ -34,7 +34,7 @@ class ModuleBase(nn.Module):
             remove_from(self.__dict__, self._buffers, self._modules, self._non_persistent_buffers_set,
                         self._persist_buffer, self._non_trackable_buffer)
             self.register_persist_buffer(name, value.data)
-        elif hasattr(self, "_persis_buffer") and name in self._persist_buffer:
+        elif hasattr(self, "_persist_buffer") and name in self._persist_buffer:
             self._persist_buffer[name] = value
         elif isinstance(value, NoTrackable):
             remove_from(self.__dict__, self._buffers, self._modules, self._non_persistent_buffers_set,
