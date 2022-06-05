@@ -170,9 +170,8 @@ def ntuple(n):
             x = list(x)
             if len(x) == 1:
                 return tuple(repeat(x[0], n))
-            else:
-                if len(x) != n:
-                    raise RuntimeError(f"inconsistent shape between {x} and {n}")
+            if len(x) != n:
+                raise RuntimeError(f"inconsistent shape between {x} and {n}")
             return x
 
         return tuple(repeat(x, n))

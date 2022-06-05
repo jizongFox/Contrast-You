@@ -12,9 +12,7 @@ from semi_seg.trainers.trainer import SemiTrainer
 if TYPE_CHECKING:
     from semi_seg.epochers.epocher import EpocherBase
 
-    _Base = SemiTrainer
-else:
-    _Base = object
+_Base = EpocherBase if TYPE_CHECKING else object
 
 __all__ = ["PretrainEncoderTrainer", "PretrainDecoderTrainer"]
 
