@@ -63,7 +63,7 @@ def _complete_arch_start2end(start: str, end: str, include_start=True, include_e
         range(start_index if include_start else start_index + 1, end_index + 1 if include_end else end_index)
     )
     component_list = [_index2arch_element(i) for i in all_index]
-    if len(component_list) == 0:
+    if not component_list:
         logger.opt(depth=2).debug("component list None")
     return component_list
 
@@ -170,10 +170,9 @@ class UNet(nn.Module, _Network):
                                      padding=(0, 0))
 
     def forward(self, x, until: str = None):
-        if until:
-            if until not in self.layer_dimension:
-                raise KeyError(f"`return_until` should be in {', '.join(self.layer_dimension.keys())},"
-                               f" given {until}  ")
+        if until and until not in self.layer_dimension:
+            raise KeyError(f"`return_until` should be in {', '.join(self.layer_dimension.keys())},"
+                           f" given {until}  ")
         # encoding path
         e1 = self._Conv1(x)  # 16 224 224
         # e1-> Conv1
@@ -241,7 +240,6 @@ class UNet(nn.Module, _Network):
             return d2
 
         # d2->up2+upconv2
-
         d1 = self._Deconv_1x1(d2)  # 4 224 224
         return d1
 
@@ -264,7 +262,7 @@ class UNet(nn.Module, _Network):
         if len(all_component) > 0:
             logger.opt(depth=2).trace("set grad {} to {}", enable, ", ".join(all_component))
         for c in all_component:
-            cur_module = getattr(self, "_" + c)
+            cur_module = getattr(self, f"_{c}")
             prev_state[c] = get_requires_grad(cur_module)
             cur_module.requires_grad_(enable)
         try:
@@ -273,7 +271,7 @@ class UNet(nn.Module, _Network):
             if len(all_component) > 0:
                 logger.opt(depth=2).trace("restore previous status to {}", ", ".join(all_component))
             for c in all_component:
-                cur_module = getattr(self, "_" + c)
+                cur_module = getattr(self, f"_{c}")
                 cur_module.requires_grad_(prev_state[c])
 
     @contextmanager
