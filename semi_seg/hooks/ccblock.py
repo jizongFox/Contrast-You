@@ -12,7 +12,7 @@ from torch import Tensor, nn
 from torch.cuda.amp import autocast
 from torch.nn import functional as F
 
-from contrastyou.arch.unet import UNetFeatureMapEnum
+from contrastyou.arch._base import _Network
 from contrastyou.arch.utils import SingleFeatureExtractor
 from contrastyou.hooks import TrainerHook, EpocherHook
 from contrastyou.losses.cross_correlation import CCLoss
@@ -71,17 +71,16 @@ class _TinyHook(metaclass=ABCMeta):
 
 class ProjectorGeneralHook(TrainerHook):
 
-    def __init__(self, *, name: str, model: nn.Module, feature_name: UNetFeatureMapEnum,
+    def __init__(self, *, name: str, model: _Network, feature_name: str,
                  projector_params: t.Dict[str, t.Any], save: bool = False):
         super().__init__(hook_name=name)
-        feature_name = UNetFeatureMapEnum(feature_name)
-        self._feature_name = feature_name.value
+        self._feature_name = feature_name
         logger.info(
-            f"Creating {class_name(self)} @{feature_name.name}.")
+            f"Creating {class_name(self)} @{feature_name}.")
         self._extractor = SingleFeatureExtractor(
-            model=model, feature_name=UNetFeatureMapEnum(feature_name).name  # noqa
+            model=model, feature_name=feature_name  # noqa
         )
-        input_dim = model.get_channel_dim(feature_name.value)  # model: type: UNet
+        input_dim = model.get_channel_dim(feature_name)
         logger.trace(f"Creating projector with {item2str(projector_params)}")
         with logger.contextualize(enabled=False):
             self._projector = CrossCorrelationProjector(input_dim=input_dim, **projector_params)

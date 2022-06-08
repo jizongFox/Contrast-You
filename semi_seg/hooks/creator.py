@@ -1,4 +1,3 @@
-import typing
 from typing import List, Union, TypeVar, Sequence, Any, Dict
 
 from torch import nn
@@ -6,6 +5,7 @@ from torch import nn
 from contrastyou.arch import UNet
 from contrastyou.hooks.base import CombineTrainerHook, TrainerHook
 from contrastyou.utils.utils import ntuple, class_name
+from .autoencoder import DenoisingAutoEncoderTrainerHook
 from .cc import CrossCorrelationOnLogitsHook
 from .ccblock import ProjectorGeneralHook, _CrossCorrelationHook, _MIHook, _CenterCompactnessHook, _RedundancyReduction, \
     _IMSATHook, _ConsistencyHook
@@ -20,7 +20,6 @@ from .mixup import MixUpTrainHook
 from .mt import MeanTeacherTrainerHook, UAMeanTeacherTrainerHook, ICTMeanTeacherTrainerHook
 from .orthogonal import OrthogonalTrainerHook
 from .pseudolabel import PseudoLabelTrainerHook
-from .autoencoder import DenoisingAutoEncoderTrainerHook
 
 decoder_names = UNet.decoder_names
 encoder_names = UNet.encoder_names
@@ -39,18 +38,14 @@ def get_individual_hook(*hooks):
 
 
 def mt_in_hooks(*hooks) -> bool:
-    for h in get_individual_hook(hooks):
-        if isinstance(h, MeanTeacherTrainerHook):
-            return True
-    return False
+    return any(isinstance(h, MeanTeacherTrainerHook) for h in get_individual_hook(hooks))
 
 
-def feature_until_from_hooks(*hooks) -> Union[str, None]:
+def feature_until_from_hooks(*hooks, model) -> Union[str, None]:
     hook_iter = get_individual_hook(*hooks)
-    feature_name_list = [h._feature_name for h in hook_iter if hasattr(h, "_feature_name")]
-    if len(feature_name_list) > 0:
-        from contrastyou.arch import sort_arch
-        return sort_arch(feature_name_list)[-1]
+    if feature_name_list := [h._feature_name for h in hook_iter if hasattr(h, "_feature_name")]:
+        from contrastyou.arch._base import sort_arch
+        return sort_arch(feature_name_list, model=model)[-1]
     return UNet.arch_elements[-1]
 
 
@@ -81,10 +76,7 @@ def create_intermediate_imsat_hook(*, feature_name: str, weight: float, num_clus
 def create_discrete_mi_consistency_hook(*, model: nn.Module, feature_names: Union[str, List[str]],
                                         mi_weights: Union[float, List[float]],
                                         dense_paddings: List[int] = None, consistency_weight: float):
-    if isinstance(feature_names, str):
-        n_features = 1
-    else:
-        n_features = len(feature_names)
+    n_features = 1 if isinstance(feature_names, str) else len(feature_names)
     pair_generator = ntuple(n_features)
     feature_names = pair_generator(feature_names)
     mi_weights = pair_generator(mi_weights)
@@ -116,10 +108,7 @@ def _infonce_sp_hook(*, model: nn.Module, feature_name: str, weight: float, cont
 def create_infonce_hooks(*, model: nn.Module, feature_names: Union[str, List[str]], weights: Union[float, List[float]],
                          contrast_ons: Union[str, List[str]], spatial_size: Union[int, Sequence[int]],
                          data_name: str, ):
-    if isinstance(feature_names, str):
-        num_features = 1
-    else:
-        num_features = len(feature_names)
+    num_features = 1 if isinstance(feature_names, str) else len(feature_names)
     pair_generator = ntuple(num_features)
 
     feature_names = pair_generator(feature_names)
@@ -138,10 +127,7 @@ def create_sp_infonce_hooks(*, model: nn.Module, feature_names: Union[str, List[
                             begin_values: Union[float, List[float]] = 1e10,
                             end_values: Union[float, List[float]] = 1e10, mode: str, p=0.5, max_epoch: int,
                             correct_grad: Union[bool, List[bool]] = False):
-    if isinstance(feature_names, str):
-        num_features = 1
-    else:
-        num_features = len(feature_names)
+    num_features = 1 if isinstance(feature_names, str) else len(feature_names)
     pair_generator = ntuple(num_features)
 
     feature_names = pair_generator(feature_names)

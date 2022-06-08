@@ -2,70 +2,15 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from enum import Enum
 from functools import lru_cache, partial
-from typing import List, Protocol, ContextManager, Sequence
 
 import torch
 from loguru import logger
 from torch import nn
 
+from ._base import _Network, _check_params, _complete_arch_start2end
 from .utils import get_requires_grad, get_bn_track
 
-__all__ = ["UNet", "arch_order", "get_channel_dim", "sort_arch", "UNetFeatureMapEnum"]
-
-
-@lru_cache()
-def _arch_element2index():
-    return {k: i for i, k in enumerate(UNet.arch_elements)}
-
-
-@lru_cache()
-def _index2arch_element(index: int):
-    return {i: k for i, k in enumerate(UNet.arch_elements)}[index]
-
-
-@lru_cache()
-def arch_order(name: str):
-    return _arch_element2index()[name]
-
-
-def sort_arch(name_list: [List[str]], reverse=False) -> List[str]:
-    return sorted(name_list, key=arch_order, reverse=reverse)
-
-
-def _check_params(start, end, include_start, include_end):
-    """
-    1. raise error when start is None but include_start=False
-    2. raise error when end is None but include_end=False
-    3. raise error when start is larger than end when both given
-    4. if start or end are given, they should in a list
-    """
-    if start is None and include_start is False:
-        raise ValueError('include_start should be True given start=None')
-
-    if end is None and include_end is False:
-        raise ValueError('include_end should be True given end=None')
-
-    if isinstance(start, str):
-        if start not in UNet.layer_dimension.keys():
-            raise ValueError(start)
-    if isinstance(end, str):
-        if end not in UNet.layer_dimension.keys():
-            raise ValueError(end)
-    if isinstance(start, str) and isinstance(end, str):
-        if arch_order(start) > arch_order(end):
-            raise ValueError((start, end))
-
-
-def _complete_arch_start2end(start: str, end: str, include_start=True, include_end=True):
-    start_index, end_index = arch_order(start), arch_order(end)
-    assert start_index <= end_index, (start, end)
-    all_index = list(
-        range(start_index if include_start else start_index + 1, end_index + 1 if include_end else end_index)
-    )
-    component_list = [_index2arch_element(i) for i in all_index]
-    if not component_list:
-        logger.opt(depth=2).debug("component list None")
-    return component_list
+__all__ = ["UNet", "UNetFeatureMapEnum"]
 
 
 class _ConvBlock(nn.Module):
@@ -99,18 +44,6 @@ class _UpConv(nn.Module):
     def forward(self, x):
         x = self.up(x)
         return x
-
-
-class _Network(Protocol):
-    encoder_names: Sequence[str]
-    decoder_names: Sequence[str]
-    arch_elements: Sequence[str]
-
-    def switch_grad(self, **kwargs) -> ContextManager:
-        ...
-
-    def switch_bn_track(self, **kwargs) -> ContextManager:
-        ...
 
 
 class UNet(nn.Module, _Network):
@@ -252,12 +185,17 @@ class UNet(nn.Module, _Network):
         else:
             raise KeyError(name)
 
+    def get_module(self, name: str) -> nn.Module:
+        assert name in self.arch_elements, name
+        return getattr(self, f"_{name}")
+
     @contextmanager
     def switch_grad(self, enable=True, *, start: str = None, end: str = None, include_start=True, include_end=True):
-        _check_params(start, end, include_start, include_end)
+        _check_params(start, end, include_start, include_end, model=self)
         start, end = (start or "Conv1"), (end or "Deconv_1x1")
 
-        all_component = _complete_arch_start2end(start, end, include_start=include_start, include_end=include_end)
+        all_component = _complete_arch_start2end(start, end, include_start=include_start, include_end=include_end,
+                                                 model=self)
         prev_state = OrderedDict()
         if len(all_component) > 0:
             logger.opt(depth=2).trace("set grad {} to {}", enable, ", ".join(all_component))
@@ -276,10 +214,11 @@ class UNet(nn.Module, _Network):
 
     @contextmanager
     def switch_bn_track(self, enable=True, *, start: str = None, end: str = None, include_start=True, include_end=True):
-        _check_params(start, end, include_start, include_end)
+        _check_params(start, end, include_start, include_end, model=self)
         start, end = (start or "Conv1"), (end or "Deconv_1x1")
 
-        all_component = _complete_arch_start2end(start, end, include_start=include_start, include_end=include_end)
+        all_component = _complete_arch_start2end(start, end, include_start=include_start, include_end=include_end,
+                                                 model=self)
         prev_state = OrderedDict()
         if len(all_component) > 0:
             logger.opt(depth=2).trace("set bn_track as {} to {}", enable, ", ".join(all_component))
@@ -320,9 +259,3 @@ class UNetFeatureMapEnum(Enum):
     Up_conv3 = "Up_conv3"
     Up_conv2 = "Up_conv2"
     Deconv_1x1 = "Deconv_1x1"
-
-
-def get_channel_dim(layer_name: str, *, max_channel=None):
-    max_channel = max_channel or 256
-    assert layer_name in {k: v for k, v in UNet.layer_dimension.items() if v is not None}
-    return int(UNet.layer_dimension[layer_name] / 16 * max_channel)

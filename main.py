@@ -93,7 +93,7 @@ def worker(config, absolute_save_dir, seed):
 
     with hook_registration(*hooks):
         if is_pretrain:
-            until = feature_until_from_hooks(*hooks)
+            until = feature_until_from_hooks(*hooks, model=model)
             trainer.forward_until = until
             with model.switch_grad(False, start=until, include_start=False):
                 trainer.init()

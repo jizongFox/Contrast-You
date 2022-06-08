@@ -45,7 +45,7 @@ class _PretrainTrainerMixin(_Base):
                 self._inference_until = None
                 logger.opt(depth=1).debug(f"{self.__class__.__name__} set forward pass to {self.forward_until}")
                 return
-            assert forward_until in UNet.arch_elements, forward_until
+            assert forward_until in self._model.arch_elements, forward_until
         self._inference_until = forward_until
         logger.opt(depth=1).debug(f"{self.__class__.__name__} set forward pass to {self.forward_until}")
 

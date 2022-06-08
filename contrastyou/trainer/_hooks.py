@@ -30,10 +30,7 @@ class HookMixin(_Base):
         for h in hook:
             self._hooks.append(h)
             h.to(self.device)  # put the hook into device.
-            h.register_non_trackable_buffer("trainer", self)
-            if hasattr(h, "_trainer"):
-                del h._trainer
-            h.register_non_trackable_buffer("_trainer", self)
+            h.register_trainer(self)
 
         logger.trace("bind TrainerHooks")
 
