@@ -16,7 +16,7 @@ from hook_creator import create_hook_from_config
 from semi_seg.data.creator import get_data
 from semi_seg.hooks import feature_until_from_hooks
 from semi_seg.trainers import trainer_zoo, SemiTrainer
-from utils import logging_configs
+from utils import logging_configs, find_checkpoint
 
 
 @logger.catch(reraise=True)
