@@ -11,7 +11,7 @@ from contrastyou.configure import yaml_load
 from contrastyou.submitter import SlurmSubmitter
 from script.utils import grid_search, move_dataset
 
-enable_acdc_all_class_train = os.environ.get("ACDC_ALL_CLASS", "0") == "1"
+global enable_acdc_all_class_train
 
 
 def get_args():
@@ -23,6 +23,8 @@ def get_args():
         default="acdc",
         help="dataset_choice"
     )
+    parser.add_argument("--enable_acdc_all_class_train", action="store_true", help="enable acdc all class train",
+                        default=False)
     parser.add_argument("--max-epoch-pretrain", default=50, type=int, help="max epoch")
     parser.add_argument("--max-epoch", default=30, type=int, help="max epoch")
     parser.add_argument("--num-batches", default=300, type=int, help="number of batches")
@@ -282,6 +284,8 @@ def run_semi_regularize_with_grid_search(
 
 if __name__ == '__main__':
     args = get_args()
+    global enable_acdc_all_class_train
+    enable_acdc_all_class_train = args.enable_acdc_all_class_train
     account = cycle(__accounts)
     on_local = not on_cc()
     force_show = args.force_show

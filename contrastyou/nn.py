@@ -1,5 +1,5 @@
 from collections import OrderedDict, namedtuple
-from typing import Any, Union, List, Set
+from typing import Any, Union, List, Set, Dict
 
 import torch
 from torch import nn
@@ -137,7 +137,7 @@ class ModuleBase(nn.Module):
             "other_state": other_state
         })
 
-    def load_state_dict(self, state_dict: OrderedDict[str, Any], strict=True):
+    def load_state_dict(self, state_dict: Dict[str, Any], strict=True):
         if "module_state" not in state_dict:
             raise ValueError("Missing module_state in state_dict")
         incompatible_keys = super().load_state_dict(state_dict["module_state"], strict)
