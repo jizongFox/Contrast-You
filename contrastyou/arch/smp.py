@@ -13,7 +13,7 @@ from contrastyou.arch.utils import get_requires_grad, get_bn_track
 
 
 class UNet_SMP(smp.Unet, _Network):
-    encoder_names = ("layer1", "layer2", "layer3", "layer4")
+    encoder_names = ("conv1", "bn1", "layer1", "layer2", "layer3", "layer4")
     decoder_names = ("up5", "up4", "up3", "up2", "up1", "output")
     arch_elements = tuple(list(encoder_names) + list(decoder_names))
 
@@ -102,8 +102,8 @@ class UNet_SMP(smp.Unet, _Network):
 
     @lru_cache()
     def get_channel_dim(self, name: str):
-        if name in self.encoder_names:
-            return self.encoder.out_channels[-4:][self.encoder_names.index(name)]
+        if name in self.encoder_names[3:]:
+            return self.encoder.out_channels[-4:][self.encoder_names[3:].index(name)]
         elif name in self.decoder_names[:-1]:
             return self._decoder_channels[self.decoder_names.index(name)]
         elif name == "output":

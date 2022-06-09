@@ -25,8 +25,7 @@ def get_args():
     parser.add_argument("--seeds", type=int, nargs="+", default=[10, ], )
     parser.add_argument("--pretrain-scan-num", type=int, default=6, help="default `scan_sample_num` for pretraining")
     parser.add_argument("--force-show", action="store_true", help="showing script")
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def _run_pretrain_cc(*, save_dir: str, random_seed: int = 10, max_epoch: int, num_batches: int, lr: float,
@@ -68,7 +67,7 @@ def _run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, ma
 def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int, max_epoch: int, num_batches: int,
                     pretrain_scan_sample_num: int, data_name: str = "acdc", imsat_weight: float, cons_weight: float,
                     num_clusters: int, num_subheads: int, head_type: str, imsat_lamda: float, use_dynamic: str, ):
-    data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
+    data_opt = yaml_load(os.path.join(OPT_PATH, f"{data_name}.yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
     pretrain_save_dir = os.path.join(save_dir, "pretrain")
     pretrain_script = _run_pretrain_cc(
@@ -99,7 +98,7 @@ def run_semi_regularize(
         imsat_weight: float, cons_weight: float, num_clusters: int,
         num_subheads: int, head_type: str, imsat_lamda: float, use_dynamic: str,
 ) -> List[str]:
-    data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
+    data_opt = yaml_load(os.path.join(OPT_PATH, f"{data_name}.yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
     semi_script = [
         _run_semi(
