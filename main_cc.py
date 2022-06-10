@@ -92,11 +92,17 @@ def worker(config, absolute_save_dir, seed):
 
     hook_registration = trainer.register_hook if trainer_name not in ("ft", "dmt") else nullcontext
 
+    cxm_grad = nullcontext()
+    if "CrossCorrelationParameters" in config and "train_encoder" in config["CrossCorrelationParameters"]:
+        if not config["CrossCorrelationParameters"]["train_encoder"]:
+            cxm_grad = model.switch_grad(False, start="conv1", include_start=True, end="up5",
+                                         include_end=False)
+
     with hook_registration(*hooks):
         if is_pretrain:
             until = feature_until_from_hooks(*hooks, model=model)
             trainer.forward_until = until
-            with model.switch_grad(False, start=until, include_start=False):
+            with model.switch_grad(False, start=until, include_start=False), cxm_grad:
                 trainer.init()
                 if checkpoint:
                     trainer.resume_from_path(checkpoint)
@@ -112,6 +118,6 @@ def worker(config, absolute_save_dir, seed):
 if __name__ == '__main__':
     import torch
 
-    torch.use_deterministic_algorithms(True)
-    # torch.backends.cudnn.benchmark = True  # noqa
+    # torch.use_deterministic_algorithms(True)
+    torch.backends.cudnn.benchmark = True  # noqa
     main()

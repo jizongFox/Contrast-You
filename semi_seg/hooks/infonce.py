@@ -7,7 +7,6 @@ import numpy as np
 import torch
 from torch import nn
 
-from contrastyou.arch import UNet
 from contrastyou.arch.utils import SingleFeatureExtractor
 from contrastyou.hooks.base import TrainerHook, EpocherHook
 from contrastyou.losses.contrastive import SelfPacedSupConLoss, SupConLoss1
@@ -15,9 +14,6 @@ from contrastyou.meters import MeterInterface, AverageValueMeter
 from contrastyou.utils import fix_all_seed_for_transforms, switch_plt_backend
 from contrastyou.writer import get_tb_writer
 from .utils import get_label
-
-decoder_names = UNet.decoder_names
-encoder_names = UNet.encoder_names
 
 
 def region_extractor(normalize_features, *, point_nums=5, seed: int):
@@ -86,13 +82,14 @@ class INFONCEHook(TrainerHook):
                  spatial_size: t.Sequence[int] = None,
                  data_name: str, contrast_on: str) -> None:
         super().__init__(hook_name=name)
-        assert feature_name in encoder_names + decoder_names, feature_name
+        self.register_non_trackable_buffer("_model", model)
+        assert feature_name in model.arch_elements
         self._feature_name = feature_name
         self._weight = weight
 
         self._extractor = SingleFeatureExtractor(model, feature_name=feature_name)  # noqa
         input_dim = model.get_channel_dim(feature_name)
-        if feature_name in encoder_names:
+        if feature_name in self._model.encoder_names:
             assert (spatial_size is None) or (spatial_size == (1, 1))
             spatial_size = (1, 1)
         else:
@@ -131,7 +128,7 @@ class INFONCEHook(TrainerHook):
 
     @property
     def is_encoder(self):
-        return self._feature_name in encoder_names
+        return self._feature_name in self._model.encoder_names
 
 
 class SelfPacedINFONCEHook(INFONCEHook):

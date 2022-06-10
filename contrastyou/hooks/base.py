@@ -14,6 +14,7 @@ if t.TYPE_CHECKING:
     from contrastyou.epochers.base import EpocherBase
     from contrastyou.meters import MeterInterface
     from torch.nn import Parameter
+    from contrastyou.trainer import Trainer
 
 
 class _ClassNameMeta(type):
@@ -38,7 +39,6 @@ class TrainerHook(ModuleBase, metaclass=_ClassNameMeta):
     def __init__(self, *, hook_name: str):
         super().__init__()
         self._hook_name = hook_name
-        self._trainer = None
         self._initialized = False
 
     @t.final
@@ -72,10 +72,12 @@ class TrainerHook(ModuleBase, metaclass=_ClassNameMeta):
     def trainer(self, trainer: 'Trainer'):
         self._initialized = True
         self.register_trainer(trainer)
+"""
 
     def register_trainer(self, trainer: 'Trainer'):
-        return object.__setattr__(self, "_trainer", trainer)
-    """
+        self._initialized = True
+        self.register_non_trackable_buffer("trainer", trainer)
+        self.register_non_trackable_buffer("_trainer", trainer)
 
 
 class CombineTrainerHook(TrainerHook):
@@ -109,11 +111,24 @@ class CombineTrainerHook(TrainerHook):
     def trainer(self, trainer: 'Trainer'):
         for h in self._hooks:
             h.trainer = trainer
+    """
+
+    @t.final
+    @property
+    def trainer(self):
+        for h in self._hooks:
+            if h._initialized:  # noqa
+                return h.trainer
+        raise RuntimeError(f"{class_name(self)} not initialized yet.")
+
+    def register_trainer(self, trainer: 'Trainer'):
+        for h in self._hooks:
+            h.register_non_trackable_buffer("trainer", trainer)
+            h.register_non_trackable_buffer("_trainer", trainer)
 
     def after_initialize(self):
         for h in self._hooks:
             h.after_initialize()
-    """
 
 
 class EpocherHook:

@@ -1,15 +1,12 @@
 from collections import OrderedDict
 from contextlib import contextmanager, ExitStack
-from typing import TYPE_CHECKING
 from typing import Union, List, Iterator
 
 import torch
 from loguru import logger
-from torch import nn
 from torch.nn import Parameter, Module
 
-if TYPE_CHECKING:
-    pass
+from contrastyou.arch._base import _Network
 
 __all__ = ["get_requires_grad", "get_bn_track", "SingleFeatureExtractor", "FeatureExtractor"]
 
@@ -64,7 +61,7 @@ class _FeatureCollector:
 
 class SingleFeatureExtractor:
 
-    def __init__(self, model: nn.Module, feature_name: str) -> None:
+    def __init__(self, model: _Network, feature_name: str) -> None:
         self._model = model
         self._feature_name = feature_name
         assert self._feature_name in model.arch_elements, self._feature_name
@@ -74,9 +71,8 @@ class SingleFeatureExtractor:
 
     def bind(self):
         logger.opt(depth=3).trace(f"Binding {self.__class__.__name__}@{self._feature_name}")
-        model = self._model
         extractor = _FeatureCollector()
-        handler = getattr(model, "_" + self._feature_name).register_forward_hook(extractor)
+        handler = self._model.get_module(self._feature_name).register_forward_hook(extractor)
         self._feature_extractor = extractor
         self._hook_handler = handler
         self.__bind_done__ = True
@@ -111,13 +107,13 @@ class SingleFeatureExtractor:
         logger.opt(depth=3).trace(f"{'enable' if enable else 'disable'} recording")
         self.set_enable(enable)
         yield
-        logger.opt(depth=3).trace(f"restore previous recording status")
+        logger.opt(depth=3).trace("restore previous recording status")
         self.set_enable(prev_state)
 
 
 class FeatureExtractor:
 
-    def __init__(self, model: nn.Module, feature_names: Union[str, List[str]]):
+    def __init__(self, model: _Network, feature_names: Union[str, List[str]]):
         self._feature_names = (feature_names,) if isinstance(feature_names, str) else feature_names
         self._extractor_list = [SingleFeatureExtractor(model, f) for f in self._feature_names]
 

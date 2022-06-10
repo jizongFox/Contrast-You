@@ -28,3 +28,5 @@ tensorboard
 loguru
 gdown
 git+https://github.com/jizongFox/rising.git
+einops
+segmentation-models-pytorch

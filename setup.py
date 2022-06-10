@@ -11,7 +11,8 @@ setup(
     description='',
     entry_points={
         "console_scripts": [
-            "delete_failed_experiments=script.delete_failed_runs:_main"
+            "delete_failed_experiments=script.delete_failed_runs:_main",
+            "report=contrastyou.report:call_from_cmd",
         ]
 
     }

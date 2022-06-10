@@ -11,7 +11,7 @@ from contrastyou.configure import yaml_load
 from contrastyou.submitter import SlurmSubmitter
 from script.utils import grid_search, move_dataset
 
-enable_acdc_all_class_train = os.environ.get("ACDC_ALL_CLASS", "0") == "1"
+global enable_acdc_all_class_train
 
 
 def get_args():
@@ -23,6 +23,8 @@ def get_args():
         default="acdc",
         help="dataset_choice"
     )
+    parser.add_argument("--enable_acdc_all_class_train", action="store_true", help="enable acdc all class train",
+                        default=False)
     parser.add_argument("--max-epoch-pretrain", default=50, type=int, help="max epoch")
     parser.add_argument("--max-epoch", default=30, type=int, help="max epoch")
     parser.add_argument("--num-batches", default=300, type=int, help="number of batches")
@@ -33,8 +35,7 @@ def get_args():
     parser.add_argument("--semi", action="store_true", help="showing script")
     parser.add_argument("--baseline", action="store_true", help="showing script")
 
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def get_hyper_param_string(**kwargs):
@@ -76,7 +77,7 @@ def _run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, ma
               consistency_weight: float, power: float, head_type: str, num_subheads: int,
               num_clusters: int, kernel_size: int, rr_weight: float,
               rr_symmetric: str, rr_lamda: float, rr_alpha: float):
-    return f""" python main_nd.py RandomSeed={random_seed} Trainer.name=semi \
+    return f""" python main_cc.py RandomSeed={random_seed} Trainer.name=semi \
      Trainer.save_dir={save_dir} Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name} \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
     CrossCorrelationParameters.num_clusters={num_clusters}  \
@@ -125,7 +126,7 @@ def _run_pretrain_cc(*, save_dir: str, random_seed: int = 10, max_epoch: int, nu
                      num_subheads: int, num_clusters: int,
                      kernel_size: int, rr_weight: float, rr_symmetric: str,
                      rr_lamda: float, rr_alpha: float):
-    return f"""  python main_nd.py RandomSeed={random_seed} Trainer.name=pretrain_decoder Trainer.save_dir={save_dir} \
+    return f"""  python main_cc.py RandomSeed={random_seed} Trainer.name=pretrain_decoder Trainer.save_dir={save_dir} \
     Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches}  Optim.lr={lr:.10f} Data.name={data_name} \
     CrossCorrelationParameters.num_clusters={num_clusters}  \
     CrossCorrelationParameters.num_subheads={num_subheads}  \
@@ -150,7 +151,7 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int,
                     rr_weight: float, rr_symmetric: str, rr_lamda: float,
                     rr_alpha: float
                     ):
-    data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
+    data_opt = yaml_load(os.path.join(OPT_PATH, f"{data_name}.yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
     pretrain_save_dir = os.path.join(save_dir, "pretrain")
     pretrain_script = _run_pretrain_cc(
@@ -185,7 +186,7 @@ def run_semi_regularize(
         num_subheads: int, num_clusters: int, kernel_size: int, rr_weight: float,
         rr_symmetric: str, rr_lamda: float, rr_alpha: float
 ) -> List[str]:
-    data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
+    data_opt = yaml_load(os.path.join(OPT_PATH, f"{data_name}.yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
     semi_script = [
         _run_semi(
@@ -206,7 +207,7 @@ def run_baseline(
         *, save_dir, random_seed: int = 10, max_epoch: int, num_batches: int, data_name: str = "acdc",
         arch_checkpoint: str = "null"
 ) -> List[str]:
-    data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
+    data_opt = yaml_load(os.path.join(OPT_PATH, f"{data_name}.yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
     if data_name == "acdc" and not enable_acdc_all_class_train:
         run_ft = _run_ft_per_class
@@ -283,6 +284,8 @@ def run_semi_regularize_with_grid_search(
 
 if __name__ == '__main__':
     args = get_args()
+    global enable_acdc_all_class_train
+    enable_acdc_all_class_train = args.enable_acdc_all_class_train
     account = cycle(__accounts)
     on_local = not on_cc()
     force_show = args.force_show
