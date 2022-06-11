@@ -63,10 +63,10 @@ def _run_ft_per_class(*, save_dir: str, random_seed: int = 10, num_labeled_scan:
     return f""" python main.py -o RandomSeed={random_seed} Trainer.name=ft \
      Trainer.save_dir={save_dir}/lv Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name}_lv \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f}  && \
-    python main.py RandomSeed={random_seed} Trainer.name=ft \
+    python main.py -o RandomSeed={random_seed} Trainer.name=ft \
      Trainer.save_dir={save_dir}/rv Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name}_rv \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f}  && \
-    python main.py RandomSeed={random_seed} Trainer.name=ft \
+    python main.py -o RandomSeed={random_seed} Trainer.name=ft \
      Trainer.save_dir={save_dir}/myo Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name}_myo \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f}  \
     """
