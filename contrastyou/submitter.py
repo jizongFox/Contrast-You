@@ -15,7 +15,7 @@ def randomString():
     import random
     import string
     letters = string.ascii_lowercase
-    return ''.join(random.choice(letters) for i in range(10))
+    return ''.join(random.choice(letters) for _ in range(10))
 
 
 default_cc_account = ["def-chdesa", "rrg-mpederso", "def-mpederso"]

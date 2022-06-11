@@ -2,7 +2,7 @@ import os
 import subprocess
 from itertools import cycle
 from pprint import pprint, pformat
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 
 from termcolor import colored
 from typing_extensions import Protocol
@@ -77,10 +77,17 @@ class SlurmSubmitter(AbstractSubmitter):
 
         self._work_dir: Optional[str] = None
         self._env: Dict[str, Any] = {}
+        self._prepare_scripts: Tuple[str, ...] = ()
         self._sbatch_params: Dict[str, Any] = {}
 
     def set_startpoint_path(self, startpoint_path: str) -> None:
         self._work_dir = startpoint_path
+
+    @property
+    def absolute_work_dir(self) -> str:
+        if self._work_dir is not None:
+            return os.path.abspath(self._work_dir)
+        raise SubmitError("work_dir is not set")
 
     def set_env_params(self, **env_params: Any) -> None:
         self._env = env_params
@@ -89,22 +96,15 @@ class SlurmSubmitter(AbstractSubmitter):
         self._env.update(env_params)
 
     @property
-    def absolute_work_dir(self) -> str:
-        if self._work_dir is not None:
-            return os.path.abspath(self._work_dir)
-        raise SubmitError("work_dir is not set")
-
-    @property
     def env(self) -> str:
-        if len(self._env) == 0:
-            return ""
-        return pformat(self._env)
+        return "" if len(self._env) == 0 else pformat(self._env)
+
+    def set_prepare_scripts(self, *prepare_scripts: str) -> None:
+        self._prepare_scripts = prepare_scripts
 
     @property
     def sbatch_params(self) -> str:
-        if len(self._sbatch_params) == 0:
-            return ""
-        return pformat(self._sbatch_params)
+        return "" if len(self._sbatch_params) == 0 else pformat(self._sbatch_params)
 
     def set_sbatch_params(self, **kwargs: Any) -> None:
         self._sbatch_params = kwargs
@@ -122,7 +122,7 @@ class SlurmSubmitter(AbstractSubmitter):
                **kwargs) -> None:
 
         # move to the work_dir
-        move_script = f"cd {self.absolute_work_dir}"
+        set_workdir_script = f"cd {self.absolute_work_dir}"
 
         # set environment variables
         set_env_script = ""
@@ -135,7 +135,9 @@ class SlurmSubmitter(AbstractSubmitter):
             self.update_sbatch_params(account=current_account)
             sbatch_prefix = self.sbatch_prefix()
 
-            full_script = "\n".join([sbatch_prefix, move_script, set_env_script, current_cmd])
+            prepare_script = "\n".join(self._prepare_scripts)
+
+            full_script = "\n".join([sbatch_prefix, set_workdir_script, set_env_script, prepare_script, current_cmd])
             if self._verbose or self._dry_run:
                 print(colored(full_script, "green"))
             if self._dry_run:
@@ -156,7 +158,7 @@ class SlurmSubmitter(AbstractSubmitter):
         param on_local: if True, run the script using bash on the local machine, else using sbatch on cluster
         param remove_sh_script: if True, remove the script after running it
         """
-        random_name = randomString() + ".sh"
+        random_name = f"{randomString()}.sh"
         workdir = self.absolute_work_dir
         random_bash = os.path.join(workdir, random_name)
 

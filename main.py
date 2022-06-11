@@ -3,12 +3,11 @@ import typing as t
 from contextlib import nullcontext
 from pathlib import Path
 
-from easydict import EasyDict as edict
 from loguru import logger
 
 from contrastyou import CONFIG_PATH, git_hash, OPT_PATH, on_cc
 from contrastyou.arch import get_arch
-from contrastyou.configure import yaml_load, ConfigManager
+from contrastyou.configure.omega_parser import OmegaParser
 from contrastyou.losses.kl import KL_div
 from contrastyou.trainer import create_save_dir
 from contrastyou.utils import fix_all_seed_within_context, adding_writable_sink, extract_model_state_dict
@@ -21,7 +20,7 @@ from utils import logging_configs, find_checkpoint
 
 @logger.catch(reraise=True)
 def main():
-    manager = ConfigManager(os.path.join(CONFIG_PATH, "base.yaml"), strict=True, verbose=False)
+    manager = OmegaParser(os.path.join(CONFIG_PATH, "base.yaml"))
     with manager(scope="base") as config:
         # this handles input save dir with relative and absolute paths
         absolute_save_dir = create_save_dir(SemiTrainer, config["Trainer"]["save_dir"])
@@ -29,8 +28,8 @@ def main():
             logger.warning(f"{absolute_save_dir} exists, may overwrite the folder")
         adding_writable_sink(absolute_save_dir)
         logging_configs(manager, logger)
-
-        config.update({"GITHASH": git_hash})
+        with OmegaParser.modifiable(config, True):
+            config.update({"GITHASH": git_hash})
 
         seed = config.get("RandomSeed", 10)
         logger.info(f"using seed = {seed}, saved at \"{absolute_save_dir}\"")
@@ -41,11 +40,11 @@ def main():
 def worker(config, absolute_save_dir, seed):
     # load data setting
     data_name = config.Data.name
-    data_opt = yaml_load(Path(OPT_PATH) / (data_name + ".yaml"))
-    data_opt = edict(data_opt)
-    config.OPT = data_opt
+    data_opt = OmegaParser.load_yaml(Path(OPT_PATH) / (data_name + ".yaml"))
+    with OmegaParser.modifiable(config, True):
+        config.OPT = data_opt
+        model_checkpoint = config["Arch"].pop("checkpoint", None)
 
-    model_checkpoint = config["Arch"].pop("checkpoint", None)
     with fix_all_seed_within_context(seed):
         model = get_arch(input_dim=data_opt.input_dim, num_classes=data_opt.num_classes, **config["Arch"])
     if model_checkpoint:

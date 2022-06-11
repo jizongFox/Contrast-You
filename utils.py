@@ -1,9 +1,9 @@
 import os
-import pprint
 from functools import reduce
 from typing import Optional
 
 from loguru import logger
+from omegaconf import OmegaConf
 
 from contrastyou.configure import dictionary_merge_by_hierachy, extract_dictionary_from_anchor, \
     extract_params_with_key_prefix, ConfigManager
@@ -40,16 +40,15 @@ def separate_pretrain_finetune_configs(config_manager):
 
 
 def logging_configs(manager: ConfigManager, logger: logger):
-    unmerged_dictionaries = manager.unmerged_configs
+    unmerged_dictionaries = manager.base_config
     parsed_params = manager.parsed_config
     config_dictionary = manager.config
-    for i, od in enumerate(unmerged_dictionaries):
-        logger.info(f"optional configs {i}")
-        logger.info("\n" + pprint.pformat(od))
-    logger.info(f"parsed params")
-    logger.info("\n" + pprint.pformat(parsed_params))
+    logger.info("base params")
+    logger.info("\n" + OmegaConf.to_yaml(unmerged_dictionaries))
+    logger.info("parsed params")
+    logger.info("\n" + OmegaConf.to_yaml(parsed_params))
     logger.info("merged params")
-    logger.info("\n" + pprint.pformat(config_dictionary))
+    logger.info("\n" + OmegaConf.to_yaml(config_dictionary))
 
 
 def find_checkpoint(trainer_folder, name="last.pth") -> Optional[str]:

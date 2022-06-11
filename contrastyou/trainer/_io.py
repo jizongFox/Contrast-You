@@ -4,6 +4,7 @@ from pathlib import Path
 import torch
 from easydict import EasyDict as edict
 from loguru import logger
+from omegaconf import DictConfig, OmegaConf
 
 from contrastyou.trainer._utils import safe_save
 from contrastyou.utils import path2Path
@@ -62,5 +63,6 @@ class IOMixin(_Base):
         if Path(path_, save_name).exists():
             all_save_names = sorted(Path(path_).glob("*.yaml"))
             save_name = f"{save_name.split('.')[0]}_{len(all_save_names)}.yaml"
-
+        if isinstance(config, DictConfig):
+            config = OmegaConf.to_container(config)
         yaml_write(config, str(path_), save_name=save_name)
