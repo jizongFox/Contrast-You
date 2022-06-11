@@ -4,6 +4,7 @@ from contextlib import nullcontext
 from pathlib import Path
 
 from loguru import logger
+from omegaconf import OmegaConf
 
 from contrastyou import CONFIG_PATH, git_hash, OPT_PATH, on_cc
 from contrastyou.arch import get_arch
@@ -68,7 +69,8 @@ def worker(config, absolute_save_dir, seed):
         unlabeled_loader_params=config["UnlabeledLoader"], pretrain=is_pretrain, total_freedom=total_freedom,
         order_num=order_num
     )
-
+    OmegaConf.set_struct(config, False)
+    OmegaConf.set_readonly(config, False)
     Trainer: 'Trainer' = trainer_zoo[trainer_name]
 
     trainer = Trainer(
