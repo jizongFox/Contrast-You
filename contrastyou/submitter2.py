@@ -118,7 +118,7 @@ class SlurmSubmitter(AbstractSubmitter):
     def set_default_accounts(self, *accounts: str) -> None:
         self.cc_default_accounts = cycle(list(accounts))
 
-    def submit(self, *command_sequence: str, account: str = None, remove_script: bool = True, on_local: bool = False,
+    def submit(self, *command_sequence: str, account: str = None, remove_script: bool = True, on_local: bool,
                **kwargs) -> None:
 
         # move to the work_dir
@@ -142,7 +142,7 @@ class SlurmSubmitter(AbstractSubmitter):
                 print(colored(full_script, "green"))
             if self._dry_run:
                 continue
-
+            breakpoint()
             code = self._write_run_remove(full_script, on_local=on_local, remove_sh_script=remove_script)
             if code == 127:
                 if self._stop_on_error:
