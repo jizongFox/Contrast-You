@@ -142,7 +142,6 @@ class SlurmSubmitter(AbstractSubmitter):
                 print(colored(full_script, "green"))
             if self._dry_run:
                 continue
-            breakpoint()
             code = self._write_run_remove(full_script, on_local=on_local, remove_sh_script=remove_script)
             if code == 127:
                 if self._stop_on_error:
