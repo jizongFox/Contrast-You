@@ -15,7 +15,7 @@ from hook_creator import create_hook_from_config
 from semi_seg.data.creator import get_data
 from semi_seg.hooks import feature_until_from_hooks
 from semi_seg.trainers import trainer_zoo, SemiTrainer
-from utils import logging_configs, find_checkpoint
+from utils import find_checkpoint
 
 
 @logger.catch(reraise=True)
@@ -27,7 +27,7 @@ def main():
         if os.path.exists(absolute_save_dir):
             logger.warning(f"{absolute_save_dir} exists, may overwrite the folder")
         adding_writable_sink(absolute_save_dir)
-        logging_configs(manager, logger)
+        logger.info("configuration:\n" + str(manager.summary()))
         with OmegaParser.modifiable(config, True):
             config.update({"GITHASH": git_hash})
 

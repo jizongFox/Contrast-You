@@ -33,4 +33,4 @@ segmentation-models-pytorch
 six~=1.16.0
 omegaconf~=2.2.2
 typing_extensions~=4.1.1
-omegaconf~=2.2.2
+prettytable

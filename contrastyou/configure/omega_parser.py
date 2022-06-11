@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import List, Union
 
 from omegaconf import OmegaConf, DictConfig
+from prettytable import PrettyTable
+from prettytable.colortable import ColorTable, Themes  # noqa
 
 __config_dictionary__: OrderedDict = OrderedDict()
 
@@ -162,3 +164,12 @@ class OmegaParser:
         finally:
             OmegaConf.set_readonly(config, prev_read)
             OmegaConf.set_struct(config, prev_str)
+
+    def summary(self) -> PrettyTable:
+        table = ColorTable(theme=Themes.OCEAN)
+        table.add_column("Base params:",
+                         [OmegaConf.to_yaml(self.base_config)], align="l")
+        table.add_column("CMD-parsed params:", [OmegaConf.to_yaml(self.cmd_config), ], align="l", valign="t")
+        table.add_column("Merged params:",
+                         [OmegaConf.to_yaml(self.config), ], align="l")
+        return table
