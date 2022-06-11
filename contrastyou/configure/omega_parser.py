@@ -29,7 +29,8 @@ class OmegaParser:
         OmegaConf.set_struct(config, True)
         return config
 
-    def _cli_merge(self, config: DictConfig, cmd_str: str) -> DictConfig:
+    @staticmethod
+    def _cli_merge(config: DictConfig, cmd_str: str) -> DictConfig:
         if cmd_str.startswith("~"):
             name = cmd_str[1:]
             OmegaConf.set_struct(config, False)
@@ -62,6 +63,7 @@ class OmegaParser:
 
         return config
 
+    @property
     def cmd_config(self):
         """
         merge cmd variables to base config
@@ -160,14 +162,3 @@ class OmegaParser:
         finally:
             OmegaConf.set_readonly(config, prev_read)
             OmegaConf.set_struct(config, prev_str)
-
-
-if __name__ == '__main__':
-    parser = OmegaParser()
-    print(parser._config_paths)
-    print(parser._cmd_str_list)
-    # print(OmegaConf.to_yaml(parser.base_config))
-    # print(OmegaConf.to_yaml(parser.cmd_config()))
-    clf = parser.parse_args()
-    print(OmegaConf.to_yaml(clf))
-    parser.save_yaml(clf, "./config.yaml")

@@ -4,6 +4,7 @@ from typing import Optional
 
 from loguru import logger
 from omegaconf import OmegaConf
+from prettytable.colortable import ColorTable, Themes
 
 from contrastyou.configure import dictionary_merge_by_hierachy, extract_dictionary_from_anchor, \
     extract_params_with_key_prefix, ConfigManager
@@ -41,14 +42,21 @@ def separate_pretrain_finetune_configs(config_manager):
 
 def logging_configs(manager: ConfigManager, logger: logger):
     unmerged_dictionaries = manager.base_config
-    parsed_params = manager.parsed_config
+    parsed_params = manager.cmd_config
     config_dictionary = manager.config
     logger.info("base params")
-    logger.info("\n" + OmegaConf.to_yaml(unmerged_dictionaries))
+    # logger.info("\n" + OmegaConf.to_yaml(unmerged_dictionaries))
     logger.info("parsed params")
-    logger.info("\n" + OmegaConf.to_yaml(parsed_params))
+    # logger.info("\n" + OmegaConf.to_yaml(parsed_params))
     logger.info("merged params")
-    logger.info("\n" + OmegaConf.to_yaml(config_dictionary))
+    # logger.info("\n" + OmegaConf.to_yaml(config_dictionary))
+    x = ColorTable(theme=Themes.OCEAN)
+    x.add_column("base params",
+                 [OmegaConf.to_yaml(unmerged_dictionaries)], align="l")
+    x.add_column("parsed params", [OmegaConf.to_yaml(parsed_params), ], align="l", valign="t")
+    x.add_column("merged params",
+                 [OmegaConf.to_yaml(config_dictionary), ], align="l")
+    logger.info("\n" + str(x))
 
 
 def find_checkpoint(trainer_folder, name="last.pth") -> Optional[str]:
