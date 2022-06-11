@@ -1,6 +1,7 @@
 import argparse
 from collections import OrderedDict
 from contextlib import contextmanager
+from functools import partial, lru_cache
 from pathlib import Path
 from typing import List, Union
 
@@ -167,6 +168,7 @@ class OmegaParser:
 
     def summary(self) -> PrettyTable:
         table = ColorTable(theme=Themes.OCEAN)
+        table._max_width = {"Base Params": 50, "CMD-parsed params:": 55, "Merged params:": 50}
         table.add_column("Base params:",
                          [OmegaConf.to_yaml(self.base_config)], align="l")
         table.add_column("CMD-parsed params:", [OmegaConf.to_yaml(self.cmd_config), ], align="l", valign="t")
