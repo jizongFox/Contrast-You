@@ -8,7 +8,7 @@ from loguru import logger
 
 from contrastyou import __accounts, on_cc, MODEL_PATH, OPT_PATH, git_hash
 from contrastyou.configure import yaml_load
-from contrastyou.submitter import SlurmSubmitter
+from contrastyou.submitter2 import SlurmSubmitter
 from script.utils import grid_search, move_dataset
 
 global enable_acdc_all_class_train
@@ -51,7 +51,7 @@ def get_hyper_param_string(**kwargs):
 
 def _run_ft(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int, num_batches: int,
             arch_checkpoint: str = "null", lr: float, data_name: str = "acdc"):
-    return f""" python main.py RandomSeed={random_seed} Trainer.name=ft \
+    return f""" python main.py -o RandomSeed={random_seed} Trainer.name=ft \
      Trainer.save_dir={save_dir} Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name} \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
     """
@@ -60,13 +60,13 @@ def _run_ft(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_
 def _run_ft_per_class(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int, num_batches: int,
                       arch_checkpoint: str = "null", lr: float, data_name: str = "acdc"):
     assert data_name == "acdc", "only support acdc dataset"
-    return f""" python main.py RandomSeed={random_seed} Trainer.name=ft \
+    return f""" python main.py -o RandomSeed={random_seed} Trainer.name=ft \
      Trainer.save_dir={save_dir}/lv Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name}_lv \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f}  && \
-    python main.py RandomSeed={random_seed} Trainer.name=ft \
+    python main.py -o RandomSeed={random_seed} Trainer.name=ft \
      Trainer.save_dir={save_dir}/rv Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name}_rv \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f}  && \
-    python main.py RandomSeed={random_seed} Trainer.name=ft \
+    python main.py -o RandomSeed={random_seed} Trainer.name=ft \
      Trainer.save_dir={save_dir}/myo Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name}_myo \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f}  \
     """
@@ -77,7 +77,7 @@ def _run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, ma
               consistency_weight: float, power: float, head_type: str, num_subheads: int,
               num_clusters: int, kernel_size: int, rr_weight: float,
               rr_symmetric: str, rr_lamda: float, rr_alpha: float):
-    return f""" python main_cc.py RandomSeed={random_seed} Trainer.name=semi \
+    return f""" python main_cc.py -o RandomSeed={random_seed} Trainer.name=semi \
      Trainer.save_dir={save_dir} Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name} \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
     CrossCorrelationParameters.num_clusters={num_clusters}  \
@@ -101,7 +101,7 @@ def _run_multicore_semi(*, save_dir: str, random_seed: int = 10, num_labeled_sca
                         consistency_weight: float, power: float, head_type: str,
                         num_subheads: int, mulitcore_multiplier: int, kernel_size: int, rr_weight: float,
                         rr_symmetric: str, rr_lamda: float, rr_alpha: float):
-    return f""" python main_multicore.py RandomSeed={random_seed} Trainer.name=semi \
+    return f""" python main_multicore.py -o RandomSeed={random_seed} Trainer.name=semi \
      Trainer.save_dir={save_dir} Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name} \
     Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
     CrossCorrelationParameters.feature_name=Deconv_1x1  \
@@ -126,7 +126,7 @@ def _run_pretrain_cc(*, save_dir: str, random_seed: int = 10, max_epoch: int, nu
                      num_subheads: int, num_clusters: int,
                      kernel_size: int, rr_weight: float, rr_symmetric: str,
                      rr_lamda: float, rr_alpha: float):
-    return f"""  python main_cc.py RandomSeed={random_seed} Trainer.name=pretrain_decoder Trainer.save_dir={save_dir} \
+    return f"""  python main_cc.py -o RandomSeed={random_seed} Trainer.name=pretrain_decoder Trainer.save_dir={save_dir} \
     Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches}  Optim.lr={lr:.10f} Data.name={data_name} \
     CrossCorrelationParameters.num_clusters={num_clusters}  \
     CrossCorrelationParameters.num_subheads={num_subheads}  \
@@ -306,26 +306,16 @@ if __name__ == '__main__':
 
     save_dir = os.path.join(save_dir, f"hash_{git_hash}/{data_name}")
 
-    submitter = SlurmSubmitter(work_dir="../", stop_on_error=on_local, on_local=on_local)
-    submitter.configure_environment([
-        # "set -e "
-        "module load python/3.8.2 ",
-        f"source ~/venv/bin/activate ",
-        'if [ $(which python) == "/usr/bin/python" ]',
-        "then",
-        "exit 9",
-        "fi",
-        "export OMP_NUM_THREADS=1",
-        "export PYTHONOPTIMIZE=1",
-        "export PYTHONWARNINGS=ignore ",
-        "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
-        "export LOGURU_LEVEL=TRACE",
-        "echo $(pwd)",
-        move_dataset(),
-        "nvidia-smi",
-        "python -c 'import torch; print(torch.randn(1,1,1,1,device=\"cuda\"))'"
-    ])
-    submitter.configure_sbatch(mem=24)
+    submitter = SlurmSubmitter(stop_on_error=True, verbose=True, dry_run=False)
+    submitter.set_startpoint_path("../")
+    submitter.set_prepare_scripts(
+        *["module load python/3.8.2 ", "source ~/venv/bin/activate ", 'if [ $(which python) == "/usr/bin/python" ]',
+          "then", "exit 9", "fi", "export OMP_NUM_THREADS=1", "export PYTHONOPTIMIZE=1",
+          "export PYTHONWARNINGS=ignore ", "export CUBLAS_WORKSPACE_CONFIG=:16:8 ", "export LOGURU_LEVEL=TRACE",
+          "echo $(pwd)", move_dataset(), "nvidia-smi",
+          "python -c 'import torch; print(torch.randn(1,1,1,1,device=\"cuda\"))'"])
+
+    submitter.update_sbatch_params(mem=24)
 
     if args.baseline:
         # baseline
@@ -336,7 +326,8 @@ if __name__ == '__main__':
         jobs = list(job_generator)
         logger.info(f"logging {len(jobs)} jobs")
         for job in jobs:
-            submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
+            submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account),
+                             on_local=on_local)
 
     if args.pretrain:
         # use only rr
@@ -361,7 +352,8 @@ if __name__ == '__main__':
         jobs = list(job_generator)
         logger.info(f"logging {len(jobs)} jobs")
         for job in jobs:
-            submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
+            submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account),
+                             on_local=on_local)
 
     if args.semi:
         # only with RR on semi supervised case
@@ -386,4 +378,5 @@ if __name__ == '__main__':
         jobs = list(job_generator)
         logger.info(f"logging {len(jobs)} jobs")
         for job in jobs:
-            submitter.submit(" && \n ".join(job), force_show=force_show, time=8, account=next(account))
+            submitter.submit(" && \n ".join(job), force_show=force_show, time=8, account=next(account),
+                             on_local=on_local)

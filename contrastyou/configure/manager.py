@@ -73,9 +73,13 @@ class ConfigManager:
     def parsed_config(self):
         return edict(dcp(self._parsed_args))
 
+    cmd_config = parsed_config
+
     @property
     def unmerged_configs(self):
         return [edict(x) for x in dcp(self._configs)]
+
+    base_config = unmerged_configs
 
     @property
     def merged_config(self):
