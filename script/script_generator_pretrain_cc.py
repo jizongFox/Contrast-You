@@ -163,6 +163,7 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int,
         scan_sample_num=pretrain_scan_sample_num
     )
     ft_save_dir = os.path.join(save_dir, "tra")
+    global enable_acdc_all_class_train
     if data_name == "acdc" and not enable_acdc_all_class_train:
         run_ft = _run_ft_per_class
     else:
@@ -209,6 +210,7 @@ def run_baseline(
 ) -> List[str]:
     data_opt = yaml_load(os.path.join(OPT_PATH, f"{data_name}.yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
+    global enable_acdc_all_class_train
     if data_name == "acdc" and not enable_acdc_all_class_train:
         run_ft = _run_ft_per_class
     else:
@@ -306,7 +308,7 @@ if __name__ == '__main__':
 
     save_dir = os.path.join(save_dir, f"hash_{git_hash}/{data_name}")
 
-    submitter = SlurmSubmitter(stop_on_error=True, verbose=True, dry_run=False)
+    submitter = SlurmSubmitter(stop_on_error=True, verbose=True, dry_run=force_show, on_local=not on_cc())
     submitter.set_startpoint_path("../")
     submitter.set_prepare_scripts(
         *["module load python/3.8.2 ", "source ~/venv/bin/activate ", 'if [ $(which python) == "/usr/bin/python" ]',
@@ -326,8 +328,7 @@ if __name__ == '__main__':
         jobs = list(job_generator)
         logger.info(f"logging {len(jobs)} jobs")
         for job in jobs:
-            submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account),
-                             on_local=on_local)
+            submitter.submit(" && \n ".join(job), time=4, )
 
     if args.pretrain:
         # use only rr
@@ -352,8 +353,7 @@ if __name__ == '__main__':
         jobs = list(job_generator)
         logger.info(f"logging {len(jobs)} jobs")
         for job in jobs:
-            submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account),
-                             on_local=on_local)
+            submitter.submit(" && \n ".join(job), time=4, )
 
     if args.semi:
         # only with RR on semi supervised case
@@ -378,5 +378,4 @@ if __name__ == '__main__':
         jobs = list(job_generator)
         logger.info(f"logging {len(jobs)} jobs")
         for job in jobs:
-            submitter.submit(" && \n ".join(job), force_show=force_show, time=8, account=next(account),
-                             on_local=on_local)
+            submitter.submit(" && \n ".join(job), time=8, )

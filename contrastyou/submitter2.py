@@ -1,5 +1,6 @@
 import os
 import subprocess
+from dataclasses import dataclass
 from itertools import cycle
 from pprint import pprint, pformat
 from typing import Dict, Any, Optional, Tuple
@@ -17,6 +18,54 @@ def randomString():
     import string
     letters = string.ascii_lowercase
     return ''.join(random.choice(letters) for _ in range(10))
+
+
+@dataclass()
+class Config:
+    job_script: str
+    job_name: str = "default_job_name"
+    account: str = "rrg-mpederso"
+    time: int = 5
+    cpu_per_task: int = 6
+    mem: int = 16
+    gres: str = "gpu:1"
+    nodes: int = 1
+    email: str = "jizong.peng.1@etsmtl.net"
+
+    # def ___repr__(self):
+    #     # should look like this:
+    #     # JobEnvironment(job_id=17015819, hostname=learnfair0218, local_rank=2(3), node=1(2), global_rank=5(6))
+    #     info = [f"{n}={getattr(self, n)}" for n in
+    #             ("worker_dir", "account", "time_hours", "cpu_per_task", "gres", "nodes", "email")]
+    #
+    #     breakpoint()
+    #     info_str = ", ".join(info)
+    #     return f"JobEnvironment({info_str})"
+
+    def to_script(self) -> str:
+        prefix = self._create_cc_sbatch_prefix(
+            job_name=self.job_name, nodes=self.nodes, gres=self.gres, cpus_per_task=self.cpu_per_task, mem=self.mem,
+            mail_user=self.email, account=self.account, time=self.time
+        )
+        return prefix + "\n" * 2 + self.job_script
+
+    @staticmethod
+    def _create_cc_sbatch_prefix(*, job_name="default_job_name", nodes=1, gres="gpu:1",
+                                 cpus_per_task=12, mem: int = 16, mail_user="jizong.peng.1@etsmtl.net",
+                                 account="rrg-mpederso", time: int = 4
+                                 ) -> str:
+        return (
+            f"#!/bin/bash \n"
+            f"#SBATCH --account={account} \n"
+            f"#SBATCH --time={time}:0:0 \n"
+            f"#SBATCH --cpus-per-task={cpus_per_task} \n"
+            f"#SBATCH --gres={gres} \n"
+            f"#SBATCH --job-name={job_name} \n"
+            f"#SBATCH --nodes={nodes} \n"
+            f"#SBATCH --mem={mem}000M \n"
+            f"#SBATCH --mail-user={mail_user} \n"
+            f"#SBATCH --mail-type=FAIL \n"
+        )
 
 
 class AbstractSubmitter(Protocol):
@@ -42,38 +91,23 @@ class AbstractSubmitter(Protocol):
         ...
 
 
-def _create_cc_sbatch_prefix(
-        *, job_name="default_job_name", nodes=1, gres="gpu:1",
-        cpus_per_task=12, mem: int = 16, mail_user="jizong.peng.1@etsmtl.net", account="rrg-mpederso", time: int = 4,
-        node=1
-) -> str:
-    return (
-        f"#!/bin/bash \n"
-        f"#SBATCH --account={account} \n"
-        f"#SBATCH --time={time}:0:0 \n"
-        f"#SBATCH --node={node} \n"
-        f"#SBATCH --cpus-per-task={cpus_per_task} \n"
-        f"#SBATCH --gres={gres} \n"
-        f"#SBATCH --job-name={job_name} \n"
-        f"#SBATCH --nodes={nodes} \n"
-        f"#SBATCH --mem={mem}000M \n"
-        f"#SBATCH --mail-user={mail_user} \n"
-        f"#SBATCH --mail-type=FAIL \n"
-    )
-
-
 class SlurmSubmitter(AbstractSubmitter):
     cc_default_accounts = cycle(["rrg-mpederso", "def-mpederso"])
 
-    def __init__(self, stop_on_error=False, verbose=True, dry_run: bool = False) -> None:
+    def __init__(self, stop_on_error=False, verbose=True, dry_run: bool = False, on_local: bool = False,
+                 remove_script: bool = True) -> None:
         """
         :param stop_on_error: if True, raise SubmitError when the job fails
         :param verbose: if True, print the job script
         :param dry_run: if True, do not submit the job
+        :param on_local: if True, run the job on local machine
+        :param remove_script: if True, remove the job script after submission
         """
         self._stop_on_error = stop_on_error
         self._verbose = verbose
         self._dry_run = dry_run
+        self._on_local = on_local
+        self._remove_script = remove_script
 
         self._work_dir: Optional[str] = None
         self._env: Dict[str, Any] = {}
@@ -118,37 +152,45 @@ class SlurmSubmitter(AbstractSubmitter):
     def set_default_accounts(self, *accounts: str) -> None:
         self.cc_default_accounts = cycle(list(accounts))
 
-    def submit(self, *command_sequence: str, account: str = None, remove_script: bool = True, on_local: bool,
+    def submit(self, *command_sequence: str, account: str = None, remove_script: bool = None, on_local: bool = None,
                **kwargs) -> None:
 
+        for current_cmd in command_sequence:
+            self._submit_single_job(current_cmd, account=account, remove_script=remove_script, on_local=on_local,
+                                    **kwargs)
+
+    def _submit_single_job(self, command: str, **kwargs):
         # move to the work_dir
         set_workdir_script = f"cd {self.absolute_work_dir}"
 
         # set environment variables
         set_env_script = ""
-        if len(self._env) > 0:
+        if self._env:
             set_env_script = "\n".join([f"export {k}={str(v)}" for k, v in self._env.items()])
 
-        for current_cmd in command_sequence:
-            # sbatch params:
-            current_account = account or next(self.cc_default_accounts)
-            self.update_sbatch_params(account=current_account)
-            sbatch_prefix = self.sbatch_prefix()
+        on_local = kwargs.pop("on_local") or self._on_local
+        account = kwargs.pop("account") or next(self.cc_default_accounts)
+        remove_script = kwargs.pop("remove_script") or self._remove_script
 
-            prepare_script = "\n".join(self._prepare_scripts)
+        self.update_sbatch_params(account=account, **kwargs)
 
-            full_script = "\n".join([sbatch_prefix, set_workdir_script, set_env_script, prepare_script, current_cmd])
-            if self._verbose or self._dry_run:
-                print(colored(full_script, "green"))
-            if self._dry_run:
-                continue
-            code = self._write_run_remove(full_script, on_local=on_local, remove_sh_script=remove_script)
-            if code == 127:
-                if self._stop_on_error:
-                    raise SubmitError("sbatch not found on the machine. Please run with on_local=true")
-            elif code != 0:
-                if self._stop_on_error:
-                    raise SubmitError(code)
+        prepare_script = "\n".join(self._prepare_scripts)
+
+        full_script = "\n".join([set_workdir_script, set_env_script, prepare_script, command])
+
+        script_config = Config(**self._sbatch_params, job_script=full_script)
+
+        if self._verbose or self._dry_run:
+            print(colored(script_config.to_script(), "green"))
+        if self._dry_run:
+            return
+        code = self._write_run_remove(script_config.to_script(), on_local=on_local, remove_sh_script=remove_script)
+        if code == 127:
+            if self._stop_on_error:
+                raise SubmitError("sbatch not found on the machine. Please run with on_local=true")
+        elif code != 0:
+            if self._stop_on_error:
+                raise SubmitError(code)
 
     def _write_run_remove(self, full_script: str, *, on_local: bool = False, remove_sh_script: bool = True) -> int:
         """
