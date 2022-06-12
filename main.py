@@ -4,7 +4,6 @@ from contextlib import nullcontext
 from pathlib import Path
 
 from loguru import logger
-from omegaconf import OmegaConf
 
 from contrastyou import CONFIG_PATH, git_hash, OPT_PATH, on_cc
 from contrastyou.arch import get_arch
@@ -29,7 +28,7 @@ def main():
             logger.warning(f"{absolute_save_dir} exists, may overwrite the folder")
         adding_writable_sink(absolute_save_dir)
         logger.info("configuration:\n" + str(manager.summary()))
-        with OmegaParser.modifiable(config, True):
+        with OmegaParser.modifiable_cxm(config, True):
             config.update({"GITHASH": git_hash})
 
         seed = config.get("RandomSeed", 10)
@@ -42,7 +41,7 @@ def worker(config, absolute_save_dir, seed):
     # load data setting
     data_name = config.Data.name
     data_opt = OmegaParser.load_yaml(Path(OPT_PATH) / (data_name + ".yaml"))
-    with OmegaParser.modifiable(config, True):
+    with OmegaParser.modifiable_cxm(config, True):
         config.OPT = data_opt
         model_checkpoint = config["Arch"].pop("checkpoint", None)
 
@@ -69,8 +68,7 @@ def worker(config, absolute_save_dir, seed):
         unlabeled_loader_params=config["UnlabeledLoader"], pretrain=is_pretrain, total_freedom=total_freedom,
         order_num=order_num
     )
-    OmegaConf.set_struct(config, False)
-    OmegaConf.set_readonly(config, False)
+    OmegaParser.set_modifiable(config, True)
     Trainer: 'Trainer' = trainer_zoo[trainer_name]
 
     trainer = Trainer(

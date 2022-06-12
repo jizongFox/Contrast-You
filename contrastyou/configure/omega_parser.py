@@ -1,7 +1,7 @@
 import argparse
+import itertools
 from collections import OrderedDict
 from contextlib import contextmanager
-from functools import partial, lru_cache
 from pathlib import Path
 from typing import List, Union
 
@@ -15,8 +15,10 @@ __config_dictionary__: OrderedDict = OrderedDict()
 class OmegaParser:
     def __init__(self, *path: str) -> None:
         args = self._setup()
-        self._config_paths: List[str] = args.path or list(path)
-        self._cmd_str_list: List[str] = [x.strip() for x in args.optional_variables] if args.optional_variables else []
+        config_path = args.path or list(path)
+        self._config_paths: List[str] = list(itertools.chain(*config_path))
+        cmd_str_list = [x.strip() for x in itertools.chain(*args.optional_variables)] if args.optional_variables else []
+        self._cmd_str_list: List[str] = cmd_str_list
 
     @property
     def base_config(self) -> DictConfig:
@@ -97,11 +99,12 @@ class OmegaParser:
 
         path_parser = parser.add_argument_group("config path parser")
         path_parser.add_argument(
-            "-p", "--path", type=str, required=False, default=None, nargs=argparse.ZERO_OR_MORE,
+            "-p", "--path", type=str, required=False, default=None, nargs=argparse.ZERO_OR_MORE, action='append',
             help="base config path location",
         )
         cmd_parser = parser.add_argument_group("cmd parser")
         cmd_parser.add_argument("-o", "--optional_variables", nargs=argparse.ZERO_OR_MORE, type=str, default=None,
+                                action='append',
                                 help="commandline based variables to override config file")
         return parser.parse_args()
 
@@ -133,7 +136,7 @@ class OmegaParser:
 
     @staticmethod
     @contextmanager
-    def set_struct(config: DictConfig, enable: bool):
+    def struct_cxm(config: DictConfig, enable: bool):
         prev = OmegaConf.is_struct(config)
         OmegaConf.set_struct(config, enable)
         try:
@@ -143,7 +146,7 @@ class OmegaParser:
 
     @staticmethod
     @contextmanager
-    def set_writable(config: DictConfig, enable: bool):
+    def writable_cxm(config: DictConfig, enable: bool):
         prev = OmegaConf.is_readonly(config)
         OmegaConf.set_readonly(config, not enable)
         try:
@@ -153,18 +156,22 @@ class OmegaParser:
 
     @staticmethod
     @contextmanager
-    def modifiable(config: DictConfig, enable: bool):
+    def modifiable_cxm(config: DictConfig, enable: bool):
         prev_read = OmegaConf.is_readonly(config)
-        OmegaConf.set_readonly(config, not enable)
-
         prev_str = OmegaConf.is_struct(config)
-        OmegaConf.set_struct(config, not enable)
 
+        OmegaConf.set_readonly(config, not enable)
+        OmegaConf.set_struct(config, not enable)
         try:
             yield config
         finally:
             OmegaConf.set_readonly(config, prev_read)
             OmegaConf.set_struct(config, prev_str)
+
+    @staticmethod
+    def set_modifiable(config: DictConfig, enable: bool) -> None:
+        OmegaConf.set_readonly(config, not enable)
+        OmegaConf.set_struct(config, not enable)
 
     def summary(self) -> PrettyTable:
         table = ColorTable(theme=Themes.OCEAN)
