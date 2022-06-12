@@ -311,11 +311,19 @@ if __name__ == '__main__':
     submitter = SlurmSubmitter(stop_on_error=True, verbose=True, dry_run=force_show, on_local=not on_cc())
     submitter.set_startpoint_path("../")
     submitter.set_prepare_scripts(
-        *["module load python/3.8.2 ", "source ~/venv/bin/activate ", 'if [ $(which python) == "/usr/bin/python" ]',
-          "then", "exit 9", "fi", "export OMP_NUM_THREADS=1", "export PYTHONOPTIMIZE=1",
-          "export PYTHONWARNINGS=ignore ", "export CUBLAS_WORKSPACE_CONFIG=:16:8 ", "export LOGURU_LEVEL=TRACE",
-          "echo $(pwd)", move_dataset(), "nvidia-smi",
-          "python -c 'import torch; print(torch.randn(1,1,1,1,device=\"cuda\"))'"])
+        *[
+            "module load python/3.8.2 ", "source ~/venv/bin/activate ",
+            move_dataset(), "nvidia-smi",
+            "python -c 'import torch; print(torch.randn(1,1,1,1,device=\"cuda\"))'"
+        ])
+
+    submitter.update_env_params(
+        PYTHONWARNINGS="ignore",
+        CUBLAS_WORKSPACE_CONFIG=":16:8",
+        LOGURU_LEVEL="TRACE",
+        OMP_NUM_THREADS=1,
+        PYTHONOPTIMIZE=1
+    )
 
     submitter.update_sbatch_params(mem=24)
 

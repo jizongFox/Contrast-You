@@ -21,7 +21,7 @@ def randomString():
 
 
 @dataclass()
-class Config:
+class JobConfig:
     job_script: str
     job_name: str = "default_job_name"
     account: str = "rrg-mpederso"
@@ -31,16 +31,6 @@ class Config:
     gres: str = "gpu:1"
     nodes: int = 1
     email: str = "jizong.peng.1@etsmtl.net"
-
-    # def ___repr__(self):
-    #     # should look like this:
-    #     # JobEnvironment(job_id=17015819, hostname=learnfair0218, local_rank=2(3), node=1(2), global_rank=5(6))
-    #     info = [f"{n}={getattr(self, n)}" for n in
-    #             ("worker_dir", "account", "time_hours", "cpu_per_task", "gres", "nodes", "email")]
-    #
-    #     breakpoint()
-    #     info_str = ", ".join(info)
-    #     return f"JobEnvironment({info_str})"
 
     def to_script(self) -> str:
         prefix = self._create_cc_sbatch_prefix(
@@ -127,6 +117,7 @@ class SlurmSubmitter(AbstractSubmitter):
         self._env = env_params
 
     def update_env_params(self, **env_params: Any) -> None:
+        env_params = {k: str(v) for k, v in env_params.items()}
         self._env.update(env_params)
 
     @property
@@ -141,32 +132,29 @@ class SlurmSubmitter(AbstractSubmitter):
         return "" if len(self._sbatch_params) == 0 else pformat(self._sbatch_params)
 
     def set_sbatch_params(self, **kwargs: Any) -> None:
+        for k in kwargs:
+            assert k in JobConfig.__annotations__, f"{k} is not a valid sbatch parameter"
+
         self._sbatch_params = kwargs
 
     def update_sbatch_params(self, **kwargs: Any) -> None:
+        for k in kwargs:
+            assert k in JobConfig.__annotations__, f"{k} is not a valid sbatch parameter"
         self._sbatch_params.update(kwargs)
-
-    def sbatch_prefix(self) -> str:
-        return _create_cc_sbatch_prefix(**self._sbatch_params)
 
     def set_default_accounts(self, *accounts: str) -> None:
         self.cc_default_accounts = cycle(list(accounts))
 
     def submit(self, *command_sequence: str, account: str = None, remove_script: bool = None, on_local: bool = None,
-               **kwargs) -> None:
+               **sbatch_kwargs) -> None:
 
         for current_cmd in command_sequence:
             self._submit_single_job(current_cmd, account=account, remove_script=remove_script, on_local=on_local,
-                                    **kwargs)
+                                    **sbatch_kwargs)
 
     def _submit_single_job(self, command: str, **kwargs):
         # move to the work_dir
         set_workdir_script = f"cd {self.absolute_work_dir}"
-
-        # set environment variables
-        set_env_script = ""
-        if self._env:
-            set_env_script = "\n".join([f"export {k}={str(v)}" for k, v in self._env.items()])
 
         on_local = kwargs.pop("on_local") or self._on_local
         account = kwargs.pop("account") or next(self.cc_default_accounts)
@@ -176,15 +164,16 @@ class SlurmSubmitter(AbstractSubmitter):
 
         prepare_script = "\n".join(self._prepare_scripts)
 
-        full_script = "\n".join([set_workdir_script, set_env_script, prepare_script, command])
+        full_script = "\n".join([set_workdir_script, prepare_script, command])
 
-        script_config = Config(**self._sbatch_params, job_script=full_script)
+        script_config = JobConfig(**self._sbatch_params, job_script=full_script)
 
         if self._verbose or self._dry_run:
             print(colored(script_config.to_script(), "green"))
         if self._dry_run:
             return
-        code = self._write_run_remove(script_config.to_script(), on_local=on_local, remove_sh_script=remove_script)
+        code = self._write_run_remove(script_config.to_script(), env=self._env, on_local=on_local,
+                                      remove_sh_script=remove_script)
         if code == 127:
             if self._stop_on_error:
                 raise SubmitError("sbatch not found on the machine. Please run with on_local=true")
@@ -192,7 +181,8 @@ class SlurmSubmitter(AbstractSubmitter):
             if self._stop_on_error:
                 raise SubmitError(code)
 
-    def _write_run_remove(self, full_script: str, *, on_local: bool = False, remove_sh_script: bool = True) -> int:
+    def _write_run_remove(self, full_script: str, env: Dict[str, Any], *, on_local: bool = False,
+                          remove_sh_script: bool = True) -> int:
         """
         write the script to the work_dir, run it and remove the script
         param full_script: the script to run
@@ -207,9 +197,9 @@ class SlurmSubmitter(AbstractSubmitter):
             f.write(full_script)
         try:
             if on_local:
-                code = subprocess.call(f"bash {random_bash}", shell=True)
+                code = subprocess.call(f"bash {random_bash}", shell=True, env={**os.environ, **env})
             else:
-                code = subprocess.call(f"sbatch {random_bash}", shell=True)
+                code = subprocess.call(f"sbatch {random_bash}", shell=True, env={**os.environ, **env})
 
         finally:
             if os.path.exists(random_bash) and remove_sh_script:
