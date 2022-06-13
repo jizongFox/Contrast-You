@@ -5,10 +5,11 @@ class AMPScaler:
 
     def __init__(self, *, scaler: GradScaler, accumulate_iter: int = 1) -> None:
         self.scaler = scaler
+        assert accumulate_iter >= 1
         self._accumulate_iter = accumulate_iter
 
     def scale_loss(self, loss):
-        return self.scaler.scale(loss)
+        return self.scaler.scale(loss / self._accumulate_iter)
 
     def optimizer_step(self, optimizer, *, cur_iter: int):
         """this step updates the optimizer and the scaler in the same time."""
