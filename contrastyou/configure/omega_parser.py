@@ -15,7 +15,7 @@ __config_dictionary__: OrderedDict = OrderedDict()
 class OmegaParser:
     def __init__(self, *path: str) -> None:
         args = self._setup()
-        config_path = args.path or list(path)
+        config_path = args.path or [list(path)]
         self._config_paths: List[str] = list(itertools.chain(*config_path))
         cmd_str_list = [x.strip() for x in itertools.chain(*args.optional_variables)] if args.optional_variables else []
         self._cmd_str_list: List[str] = cmd_str_list
