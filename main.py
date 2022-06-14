@@ -40,7 +40,7 @@ def main():
 def worker(config, absolute_save_dir, seed):
     # load data setting
     data_name = config.Data.name
-    data_opt = OmegaParser.load_yaml(Path(OPT_PATH) / (data_name + ".yaml"))
+    data_opt = OmegaParser.load_yaml(Path(OPT_PATH) / f"{data_name}.yaml")
     with OmegaParser.modifiable_cxm(config, True):
         config.OPT = data_opt
         model_checkpoint = config["Arch"].pop("checkpoint", None)
@@ -59,23 +59,20 @@ def worker(config, absolute_save_dir, seed):
     trainer_name = config["Trainer"]["name"]
     assert trainer_name in trainer_zoo, (trainer_name, trainer_zoo.keys())
     is_pretrain = ("pretrain" in trainer_name)
-    total_freedom = True if is_pretrain or trainer_name == "mixup" else False
-    if "CrossCorrelationParameters" or "InfonceParams" in config:
-        total_freedom = False
     order_num = config["Data"]["order_num"]
     labeled_loader, unlabeled_loader, val_loader, test_loader = get_data(
         data_params=config["Data"], labeled_loader_params=config["LabeledLoader"],
-        unlabeled_loader_params=config["UnlabeledLoader"], pretrain=is_pretrain, total_freedom=total_freedom,
+        unlabeled_loader_params=config["UnlabeledLoader"], pretrain=is_pretrain, total_freedom=False,
         order_num=order_num
     )
     OmegaParser.set_modifiable(config, True)
     Trainer: 'Trainer' = trainer_zoo[trainer_name]
 
-    trainer = Trainer(
-        model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
-        val_loader=val_loader, test_loader=test_loader, criterion=KL_div(), config=config, save_dir=absolute_save_dir,
-        **{k: v for k, v in config["Trainer"].items() if k != "save_dir" and k != "name"}
-    )
+    trainer = Trainer(model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
+                      val_loader=val_loader, test_loader=test_loader, criterion=KL_div(), config=config,
+                      save_dir=absolute_save_dir,
+                      **{k: v for k, v in config["Trainer"].items() if k not in ["save_dir", "name"]})
+
     # find the last.pth from the save folder.
     if on_cc():
         checkpoint: t.Optional[str] = find_checkpoint(trainer.absolute_save_dir)
