@@ -12,8 +12,16 @@ from prettytable.colortable import ColorTable, Themes  # noqa
 __config_dictionary__: OrderedDict = OrderedDict()
 
 
+def dict_config_has_key(config: DictConfig, name: str) -> bool:
+    impossible_value = "____IMPOSSIBLE_KEY___"
+    tried_value = OmegaConf.select(config, name, default=impossible_value)
+    return tried_value != impossible_value
+
+
 class OmegaParser:
-    def __init__(self, *path: str) -> None:
+    def __init__(self, *path: str, check_missing: bool = True) -> None:
+        self._check_missing = check_missing
+
         args = self._setup()
         config_path = args.path or [list(path)]
         self._config_paths: List[str] = list(itertools.chain(*config_path))
@@ -53,17 +61,15 @@ class OmegaParser:
         assert len(cmd_str.split("=")) == 2, "cmd_str should be key=value"
         if cmd_str.startswith("+"):
             name, value = cmd_str[1:].split("=")
-            try:
-                tried_value = OmegaConf.select(config, name, default="____IMPOSSIBLE_KEY___")
-                has_key = tried_value != "____IMPOSSIBLE_KEY___"
-            except NameError:
-                has_key = False
-            if has_key:
+            if dict_config_has_key(config, name):
                 raise ValueError(f"{name} already exists, remove '+' ")
             OmegaConf.set_struct(config, False)
             config = OmegaConf.merge(config, OmegaConf.from_cli([cmd_str[1:]]))
             OmegaConf.set_struct(config, True)
         else:
+            name, value = cmd_str.split("=")
+            if not dict_config_has_key(config, name):
+                raise ValueError(f"{name} does not exist, please add `+` before {name}={value}")
             config = OmegaConf.merge(config, OmegaConf.from_cli([cmd_str]))
 
         return config
@@ -116,6 +122,9 @@ class OmegaParser:
         for cmd_str in self._cmd_str_list:
             config = self._cli_merge(config, cmd_str)
         OmegaConf.set_readonly(config, True)
+        if self._check_missing:
+            if missing_key := OmegaConf.missing_keys(config):
+                raise ValueError(f"missing keys: {','.join(missing_key)}")
         return config
 
     @contextmanager
