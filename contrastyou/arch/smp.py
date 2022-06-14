@@ -102,8 +102,8 @@ class UNet_SMP(smp.Unet, _Network):
 
     @lru_cache()
     def get_channel_dim(self, name: str):
-        if name in self.encoder_names[3:]:
-            return self.encoder.out_channels[-4:][self.encoder_names[3:].index(name)]
+        if name in self.encoder_names:
+            return self.encoder.out_channels[self.encoder_names.index(name)]
         elif name in self.decoder_names[:-1]:
             return self._decoder_channels[self.decoder_names.index(name)]
         elif name == "output":
