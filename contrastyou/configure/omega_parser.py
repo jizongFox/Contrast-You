@@ -1,5 +1,6 @@
 import argparse
 import itertools
+import uuid
 from collections import OrderedDict
 from contextlib import contextmanager
 from pathlib import Path
@@ -13,7 +14,7 @@ __config_dictionary__: OrderedDict = OrderedDict()
 
 
 def dict_config_has_key(config: DictConfig, name: str) -> bool:
-    impossible_value = "____IMPOSSIBLE_KEY___"
+    impossible_value = str(uuid.uuid4())
     tried_value = OmegaConf.select(config, name, default=impossible_value)
     return tried_value != impossible_value
 
@@ -125,6 +126,7 @@ class OmegaParser:
         if self._check_missing:
             if missing_key := OmegaConf.missing_keys(config):
                 raise ValueError(f"missing keys: {','.join(missing_key)}")
+        OmegaConf.resolve(config)
         return config
 
     @contextmanager
