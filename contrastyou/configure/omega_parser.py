@@ -184,8 +184,8 @@ class OmegaParser:
         OmegaConf.set_readonly(config, not enable)
         OmegaConf.set_struct(config, not enable)
 
-    def summary(self) -> PrettyTable:
-        table = ColorTable(theme=Themes.OCEAN)
+    def summary(self, colored=True) -> PrettyTable:
+        table = ColorTable(theme=Themes.OCEAN) if colored else PrettyTable()
         table._max_width = {"Base Params": 50, "CMD-parsed params:": 55, "Merged params:": 50}
         table.add_column("Base params:",
                          [OmegaConf.to_yaml(self.base_config)], align="l")

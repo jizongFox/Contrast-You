@@ -27,13 +27,13 @@ class AMPScaler:
         if cur_iter % self._accumulate_iter == (self._accumulate_iter - 1):
             self.scaler.step(optimizer)
             self.scaler.update()
-            if cur_iter <= 10:
+            if self._accumulate_iter > 1 and cur_iter <= 10:
                 logger.trace(f"iter: {cur_iter}, step optimizer")
 
     def optimizer_zero(self, optimizer, *, cur_iter: int):
         if cur_iter % self._accumulate_iter == 0:
             optimizer.zero_grad()
-            if cur_iter <= 10:
+            if self._accumulate_iter > 1 and cur_iter <= 10:
                 logger.trace(f"iter: {cur_iter}, zero optimizer")
 
     @property
