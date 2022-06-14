@@ -3,10 +3,9 @@ import subprocess
 from dataclasses import dataclass
 from itertools import cycle
 from pprint import pprint, pformat
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, Protocol
 
 from termcolor import colored
-from typing_extensions import Protocol
 
 
 class SubmitError(RuntimeError):
@@ -20,7 +19,7 @@ def randomString():
     return ''.join(random.choice(letters) for _ in range(10))
 
 
-@dataclass()
+@dataclass
 class JobConfig:
     job_script: str
     job_name: str = "default_job_name"
@@ -59,7 +58,7 @@ class JobConfig:
 
 
 class AbstractSubmitter(Protocol):
-    def submit(self, *command_sequence: str, **kwargs) -> None:
+    def submit(self, *command_sequence: str, **kwargs: Any) -> None:
         ...
 
     def set_prefix(self, prefix: str) -> None:
@@ -146,8 +145,7 @@ class SlurmSubmitter(AbstractSubmitter):
         self.cc_default_accounts = cycle(list(accounts))
 
     def submit(self, *command_sequence: str, account: str = None, remove_script: bool = None, on_local: bool = None,
-               **sbatch_kwargs) -> None:
-
+               **sbatch_kwargs: Any) -> None:
         for current_cmd in command_sequence:
             self._submit_single_job(current_cmd, account=account, remove_script=remove_script, on_local=on_local,
                                     **sbatch_kwargs)
@@ -228,7 +226,7 @@ def get_args():
 
 def main():
     args = get_args()
-    submitter = SlurmSubmitter(stop_on_error=True, dry_run=True, verbose=True)
+    submitter: AbstractSubmitter = SlurmSubmitter(stop_on_error=True, dry_run=True, verbose=True)
     submitter.set_startpoint_path(args.work_dir)
     submitter.set_sbatch_params(account=args.account, cpus_per_task=args.cpus_per_task, mem=args.mem, gres=args.gres,
                                 time=args.time, node=1)
