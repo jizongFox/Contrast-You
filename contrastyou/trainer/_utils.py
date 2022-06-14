@@ -61,3 +61,15 @@ def create_save_dir(self, save_dir: Union[Path, str]):
     Path(save_dir).mkdir(exist_ok=True, parents=True)
     assert os.path.isabs(save_dir), f"save_dir must be an absolute path, given {save_dir}."
     return save_dir
+
+
+def run_once(f):
+    def wrapper(*args, **kwargs):
+        if not wrapper.has_run:
+            wrapper.has_run = True
+            return f(*args, **kwargs)
+        else:
+            raise RuntimeError(f"{f} has been called more than once.")
+
+    wrapper.has_run = False
+    return wrapper

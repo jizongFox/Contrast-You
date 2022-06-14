@@ -1,5 +1,13 @@
+from functools import lru_cache
+
 from loguru import logger
 from torch.cuda.amp import GradScaler, autocast
+
+
+@lru_cache(maxsize=1)
+def _warning(accumulate_iter):
+    logger.warning(
+        f"._accumulate_iter={accumulate_iter} > 1, may reduce performance.")
 
 
 class AMPScaler:
@@ -8,6 +16,8 @@ class AMPScaler:
         self.scaler = scaler
         assert accumulate_iter >= 1
         self._accumulate_iter = accumulate_iter
+        if self._accumulate_iter > 1:
+            _warning(self._accumulate_iter)
 
     def scale_loss(self, loss):
         return self.scaler.scale(loss / self._accumulate_iter)

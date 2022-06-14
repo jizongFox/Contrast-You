@@ -14,6 +14,7 @@ from ._amp import AMPScalerMixin
 from ._ddp import DDPMixin
 from ._hooks import HookMixin
 from ._io import IOMixin
+from ._utils import run_once
 from .. import MODEL_PATH, success
 from ..epochers.base import EpocherBase
 from ..losses import LossClass
@@ -21,18 +22,6 @@ from ..nn import ModuleBase, Buffer
 from ..optim import GradualWarmupScheduler
 from ..types import SizedIterable
 from ..writer import SummaryWriter
-
-
-def run_once(f):
-    def wrapper(*args, **kwargs):
-        if not wrapper.has_run:
-            wrapper.has_run = True
-            return f(*args, **kwargs)
-        else:
-            raise RuntimeError(f"{f} has been called more than once.")
-
-    wrapper.has_run = False
-    return
 
 
 class Trainer(IOMixin, HookMixin, DDPMixin, AMPScalerMixin, ModuleBase):
