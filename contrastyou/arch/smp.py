@@ -15,7 +15,7 @@ from contrastyou.arch.utils import get_requires_grad, get_bn_track
 class UNet_SMP(smp.Unet, _Network):
     encoder_names = ("conv1", "bn1", "layer1", "layer2", "layer3", "layer4")
     decoder_names = ("up5", "up4", "up3", "up2", "up1", "output")
-    arch_elements = tuple(list(encoder_names) + list(decoder_names))
+    arch_elements = encoder_names + decoder_names
 
     def __init__(self, encoder_name: str = "resnet18", encoder_depth: int = 5,
                  encoder_weights: Optional[str] = "imagenet", decoder_use_batchnorm: bool = True,

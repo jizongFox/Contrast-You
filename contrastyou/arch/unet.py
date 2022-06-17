@@ -52,7 +52,7 @@ class UNet(nn.Module, _Network):
 
     encoder_names = ("Conv1", "Conv2", "Conv3", "Conv4", "Conv5")
     decoder_names = ("Up5", "Up_conv5", "Up4", "Up_conv4", "Up3", "Up_conv3", "Up2", "Up_conv2", "Deconv_1x1")
-    arch_elements = tuple(list(encoder_names) + list(decoder_names))
+    arch_elements = encoder_names + decoder_names
 
     r"""the difference between layer_dimension and arch_elements is that we allow operations on layer_dimension 
     while the latter can server to intermediate usage, such as gradient stop"""
