@@ -94,18 +94,7 @@ def match_narval(name):
 
 def on_cc() -> bool:
     """return if running on Compute Canada"""
-    import socket
-    hostname = socket.gethostname()
-    # on beluga
-    if "beluga" in hostname or "blg" in hostname:
-        return True
-    # on cedar
-    if "cedar" in hostname or "cdr" in hostname:
-        return True
-    # on graham
-    if "gra" in hostname:
-        return True
-    if "narval" in hostname or match_narval(hostname):
+    if on_beluga() or on_narval() or on_cedar():
         return True
     return False
 
