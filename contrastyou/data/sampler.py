@@ -1,6 +1,6 @@
 import random
 from collections import defaultdict
-from typing import List, Optional, Sized
+from typing import List, Optional, Sized, Sequence
 
 import numpy as np
 import torch
@@ -13,7 +13,7 @@ except ImportError:
 from torch.utils.data import Sampler
 
 
-class SequentialSampler(Sampler):
+class SequentialSampler(Sampler[int]):
     r"""Samples elements sequentially, always in the same order.
 
     Arguments:
@@ -30,7 +30,7 @@ class SequentialSampler(Sampler):
         return len(self.data_source)
 
 
-class RandomSampler(Sampler):
+class RandomSampler(Sampler[int]):
     r"""Samples elements randomly. If without replacement, then sample from a shuffled dataset.
     If with replacement, then user can specify :attr:`num_samples` to draw.
 
@@ -85,7 +85,7 @@ class RandomSampler(Sampler):
         return self.num_samples
 
 
-class SubsetRandomSampler(Sampler):
+class SubsetRandomSampler(Sampler[int]):
     r"""Samples elements randomly from a given list of indices, without replacement.
 
     Arguments:
@@ -102,7 +102,7 @@ class SubsetRandomSampler(Sampler):
         return len(self.indices)
 
 
-class WeightedRandomSampler(Sampler):
+class WeightedRandomSampler(Sampler[int]):
     r"""Samples elements from ``[0,..,len(weights)-1]`` with given probabilities (weights).
 
     Args:
@@ -147,7 +147,7 @@ class WeightedRandomSampler(Sampler):
         return self.num_samples
 
 
-class BatchSampler(Sampler):
+class BatchSampler(Sampler[Sequence[int]]):
     r"""Wraps another sampler to yield a mini-batch of indices.
 
     Args:
@@ -204,7 +204,7 @@ class BatchSampler(Sampler):
             return (len(self.sampler) + self.batch_size - 1) // self.batch_size
 
 
-class InfiniteRandomSampler(Sampler):
+class InfiniteRandomSampler(Sampler[int]):
 
     def __init__(self, data_source, shuffle=True):
         super().__init__(data_source)
@@ -227,7 +227,7 @@ class InfiniteRandomSampler(Sampler):
         return len(self.data_source)
 
 
-class LimitedIterationSampler(Sampler):
+class LimitedIterationSampler(Sampler[int]):
     """
     this is to give a limited size of batch sampler
     """
