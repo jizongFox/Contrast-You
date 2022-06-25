@@ -29,7 +29,7 @@ class Trainer(IOMixin, HookMixin, DDPMixin, AMPScalerMixin, ModuleBase):
 
     def __init__(self, *, model: nn.Module, criterion: LossClass[Tensor], tra_loader: SizedIterable,
                  val_loader: SizedIterable, save_dir: str, max_epoch: int = 100, num_batches: int = 100, device="cpu",
-                 config: Dict[str, Any], enable_scale: bool = False, accumulate_iter: int = 1) -> None:
+                 config: Dict[str, Any], enable_scale: bool = False, accumulate_iter: int = 1, **kwargs) -> None:
         super().__init__(enable_scale=enable_scale, accumulate_iter=accumulate_iter)
         self._initialized = False
 

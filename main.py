@@ -66,7 +66,7 @@ def worker(config, absolute_save_dir, seed):
         order_num=order_num
     )
     OmegaParser.set_modifiable(config, True)
-    Trainer: 'Trainer' = trainer_zoo[trainer_name]
+    Trainer = trainer_zoo[trainer_name]
 
     trainer = Trainer(model=model, labeled_loader=iter(labeled_loader), unlabeled_loader=iter(unlabeled_loader),
                       val_loader=val_loader, test_loader=test_loader, criterion=KL_div(), config=config,
@@ -90,7 +90,7 @@ def worker(config, absolute_save_dir, seed):
 
     with hook_registration(*hooks):
         if is_pretrain:
-            until = feature_until_from_hooks(*hooks, model=model)
+            until = feature_until_from_hooks(*hooks, model=model, )
             trainer.forward_until = until
             with model.switch_grad(False, start=until, include_start=False):
                 trainer.init()
