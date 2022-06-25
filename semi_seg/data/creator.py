@@ -1,6 +1,7 @@
 import json
 import os
 import typing as t
+import warnings
 
 import numpy as np
 from loguru import logger
@@ -14,6 +15,18 @@ from semi_seg.augment import augment_zoo
 from semi_seg.data import mmWHSCTDataset, mmWHSMRDataset, data_zoo
 
 __all__ = ["create_tra_test_dataset", "create_val_loader", "get_data_loaders", "get_data"]
+
+
+def configure_test_ratio(dataset: DatasetBase) -> float:
+    """
+    hardcored dataset ratio for validation and test
+    @param dataset:
+    @return: a float between 0 and 1
+    """
+    scan_ratio = 0.45
+    if isinstance(dataset, (mmWHSCTDataset, mmWHSMRDataset)):
+        scan_ratio = 0.35
+    return scan_ratio
 
 
 def create_tra_test_dataset(name: str, total_freedom: bool = True):
@@ -161,9 +174,8 @@ def create_val_loader(*, test_loader) -> t.Tuple[DataLoader, DataLoader]:
     batch_sampler = test_loader.batch_sampler
     is_group_scan = isinstance(batch_sampler, ScanBatchSampler)
 
-    if_mmwhs_dataset = isinstance(test_dataset, (mmWHSCTDataset, mmWHSMRDataset))
+    scan_nums = int(test_size * configure_test_ratio(test_dataset))
 
-    scan_nums = int(0.35 * test_size) if not if_mmwhs_dataset else int(0.45 * test_size)
     val_set, test_set = split_dataset(test_dataset, scan_nums)
     val_batch_sampler = ScanBatchSampler(val_set) if is_group_scan else None
 
@@ -182,6 +194,8 @@ def create_val_loader(*, test_loader) -> t.Tuple[DataLoader, DataLoader]:
 
 def get_data(data_params, labeled_loader_params, unlabeled_loader_params, *, pretrain=False, total_freedom=False,
              order_num=0):
+    if total_freedom is True:
+        warnings.warn("total freedom is True is not supported yet.")
     labeled_loader, unlabeled_loader, test_loader = get_data_loaders(
         data_params=data_params, labeled_loader_params=labeled_loader_params,
         unlabeled_loader_params=unlabeled_loader_params, pretrain=pretrain, group_test=True,
