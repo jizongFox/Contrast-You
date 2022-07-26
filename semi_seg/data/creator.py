@@ -19,7 +19,7 @@ __all__ = ["create_tra_test_dataset", "create_val_loader", "get_data_loaders", "
 
 def configure_test_ratio(dataset: DatasetBase) -> float:
     """
-    hardcored dataset ratio for validation and test
+    hardcoded dataset ratio for validation and test
     @param dataset:
     @return: a float between 0 and 1
     """
@@ -66,8 +66,7 @@ def split_dataset_with_predefined_filenames(dataset: DatasetBase, data_name: str
     labeled_scans = data_ordering[:labeled_scan_nums]
     unlabeled_scans = sorted(set(dataset.get_scan_list()) - set(labeled_scans))
     logger.debug(f"using predefined ordering to {dataset.__class__.__name__}.")
-    return [extract_sub_dataset_based_on_scan_names(dataset, group_names=labeled_scans),
-            extract_sub_dataset_based_on_scan_names(dataset, group_names=unlabeled_scans)]
+    return [extract_sub_dataset_based_on_scan_names(dataset, group_names=x) for x in [labeled_scans, unlabeled_scans]]
 
 
 def split_dataset(dataset: DatasetBase, *scans: float, seed: int = 1) -> t.List[DatasetBase]:
