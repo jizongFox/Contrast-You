@@ -25,7 +25,7 @@ def configure_test_ratio(dataset: DatasetBase) -> float:
     """
     scan_ratio = 0.45
     if isinstance(dataset, (mmWHSCTDataset, mmWHSMRDataset)):
-        scan_ratio = 0.35
+        scan_ratio = 0.4
     return scan_ratio
 
 
