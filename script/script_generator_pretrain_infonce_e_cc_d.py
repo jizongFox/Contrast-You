@@ -9,6 +9,7 @@ from contrastyou import __accounts, on_cc, MODEL_PATH, OPT_PATH, git_hash
 from contrastyou.configure import yaml_load
 from contrastyou.submitter import SlurmSubmitter
 from contrastyou.utils import deprecated
+from script import utils
 from script.script_generator_pretrain_cc import get_hyper_param_string, _run_ft_per_class, _run_ft, \
     run_baseline_with_grid_search
 from script.utils import grid_search, move_dataset
@@ -19,8 +20,8 @@ def get_args():
     parser.add_argument("save_dir", type=str, help="save dir")
     parser.add_argument("--data-name", type=str,
                         choices=(
-                        "acdc", "acdc_lv", "acdc_rv", "acdc_myo", "prostate", "spleen", "hippocampus", "mmwhsct",
-                        "mmwhsmr"),
+                            "acdc", "acdc_lv", "acdc_rv", "acdc_myo", "prostate", "spleen", "hippocampus", "mmwhsct",
+                            "mmwhsmr"),
                         default="acdc",
                         help="dataset_choice")
     parser.add_argument("--enable_acdc_all_class_train", action="store_true", help="enable acdc all class train",
@@ -104,7 +105,7 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int,
         scan_sample_num=pretrain_scan_sample_num
     )
     ft_save_dir = os.path.join(save_dir, "tra")
-    if data_name == "acdc" and not args.enable_acdc_all_class_train:
+    if data_name == "acdc" and not utils.enable_acdc_all_class_train:
         run_ft = _run_ft_per_class
     else:
         run_ft = _run_ft
@@ -196,6 +197,7 @@ def run_semi_regularize_with_grid_search(
 
 if __name__ == '__main__':
     args = get_args()
+    utils.enable_acdc_all_class_train = args.enable_acdc_all_class_train
     account = cycle(__accounts)
     on_local = not on_cc()
     force_show = args.force_show
@@ -239,7 +241,7 @@ if __name__ == '__main__':
     # baseline
     if args.baseline:
         job_generator = run_baseline_with_grid_search(
-            save_dir=os.path.join(save_dir, "pretrain"), random_seeds=random_seeds, max_epoch=max_epoch,
+            save_dir=os.path.join(save_dir, "baseline"), random_seeds=random_seeds, max_epoch=max_epoch,
             num_batches=num_batches, data_name=data_name)
         jobs = list(job_generator)
         logger.info(f"logging {len(jobs)} jobs")

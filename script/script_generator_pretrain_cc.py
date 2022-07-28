@@ -11,8 +11,8 @@ from contrastyou.configure import yaml_load
 from contrastyou.submitter2 import SlurmSubmitter
 from contrastyou.utils import deprecated
 from script.utils import grid_search, move_dataset
+from script import utils
 
-global enable_acdc_all_class_train
 
 
 def get_args():
@@ -165,8 +165,7 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int,
         scan_sample_num=pretrain_scan_sample_num
     )
     ft_save_dir = os.path.join(save_dir, "tra")
-    global enable_acdc_all_class_train
-    if data_name == "acdc" and not enable_acdc_all_class_train:
+    if data_name == "acdc" and not utils.enable_acdc_all_class_train:
         run_ft = _run_ft_per_class
     else:
         run_ft = _run_ft
@@ -213,8 +212,7 @@ def run_baseline(
 ) -> List[str]:
     data_opt = yaml_load(os.path.join(OPT_PATH, f"{data_name}.yaml"))
     labeled_scans = data_opt["labeled_ratios"][:-1]
-    global enable_acdc_all_class_train
-    if data_name == "acdc" and not enable_acdc_all_class_train:
+    if data_name == "acdc" and not utils.enable_acdc_all_class_train:
         run_ft = _run_ft_per_class
     else:
         run_ft = _run_ft
@@ -290,8 +288,7 @@ def run_semi_regularize_with_grid_search(
 
 if __name__ == '__main__':
     args = get_args()
-    global enable_acdc_all_class_train
-    enable_acdc_all_class_train = args.enable_acdc_all_class_train
+    utils.enable_acdc_all_class_train = args.enable_acdc_all_class_train
     account = cycle(__accounts)
     on_local = not on_cc()
     force_show = args.force_show
@@ -310,7 +307,7 @@ if __name__ == '__main__':
     elif "spleen" in data_name:
         power = (0.5,)
     elif "mmwhs" in data_name:
-        power = (0.5, 1.0, 1.5)
+        power = (0.75,)
     else:
         raise NotImplementedError("powers")
 
@@ -371,7 +368,7 @@ if __name__ == '__main__':
         for job in jobs:
             submitter.submit(" && \n ".join(job), time=4, )
 
-    if args.semi:
+    if 0:
         # only with RR on semi supervised case
         raise NotImplementedError("Do not support semi supervised case")
         job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),

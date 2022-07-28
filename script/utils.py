@@ -158,3 +158,6 @@ def move_dataset():
         from contrastyou import DATA_PATH
         return f" find {DATA_PATH}  " + "-name '*.zip' -exec cp {} $SLURM_TMPDIR \;"
     return ""
+
+
+enable_acdc_all_class_train = False
