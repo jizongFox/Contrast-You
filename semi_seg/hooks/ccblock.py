@@ -12,7 +12,7 @@ from torch import Tensor, nn
 from torch.cuda.amp import autocast
 from torch.nn import functional as F
 
-from contrastyou.arch._base import _Network
+from contrastyou.arch._base import _Network  # noqa
 from contrastyou.arch.utils import SingleFeatureExtractor
 from contrastyou.hooks import TrainerHook, EpocherHook
 from contrastyou.losses.cross_correlation import CCLoss
