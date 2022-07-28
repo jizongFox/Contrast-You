@@ -7,7 +7,7 @@ from loguru import logger
 
 from contrastyou import __accounts, on_cc, MODEL_PATH, OPT_PATH, git_hash
 from contrastyou.configure import yaml_load
-from contrastyou.submitter import SlurmSubmitter
+from contrastyou.submitter2 import SlurmSubmitter
 from script import utils
 from script.script_generator_pretrain_cc import _run_ft, _run_ft_per_class, get_hyper_param_string, \
     run_baseline_with_grid_search
@@ -171,26 +171,24 @@ if __name__ == '__main__':
 
     save_dir = os.path.join(save_dir, f"hash_{git_hash}/{data_name}/infonce")
 
-    submitter = SlurmSubmitter(work_dir="../", stop_on_error=on_local, on_local=on_local)
-    submitter.configure_environment([
-        # "set -e "
-        "module load python/3.8.2 ",
-        f"source ~/venv/bin/activate ",
-        'if [ $(which python) == "/usr/bin/python" ]',
-        "then",
-        "exit 9",
-        "fi",
-        "export OMP_NUM_THREADS=1",
-        "export PYTHONOPTIMIZE=1",
-        "export PYTHONWARNINGS=ignore ",
-        "export CUBLAS_WORKSPACE_CONFIG=:16:8 ",
-        "export LOGURU_LEVEL=TRACE",
-        "echo $(pwd)",
-        move_dataset(),
-        "nvidia-smi",
-        "python -c 'import torch; print(torch.randn(1,1,1,1,device=\"cuda\"))'"
-    ])
-    submitter.configure_sbatch(mem=24)
+    submitter = SlurmSubmitter(stop_on_error=True, verbose=True, dry_run=force_show, on_local=not on_cc())
+    submitter.set_startpoint_path("../")
+    submitter.set_prepare_scripts(
+        *[
+            "module load python/3.8.2 ", "source ~/venv/bin/activate ",
+            move_dataset(), "nvidia-smi",
+            "python -c 'import torch; print(torch.randn(1,1,1,1,device=\"cuda\"))'"
+        ])
+
+    submitter.update_env_params(
+        PYTHONWARNINGS="ignore",
+        CUBLAS_WORKSPACE_CONFIG=":16:8",
+        LOGURU_LEVEL="TRACE",
+        OMP_NUM_THREADS=1,
+        PYTHONOPTIMIZE=1
+    )
+
+    submitter.update_sbatch_params(mem=24)
     # baseline
     if args.baseline:
         job_generator = run_baseline_with_grid_search(
@@ -199,7 +197,7 @@ if __name__ == '__main__':
         jobs = list(job_generator)
         logger.info(f"logging {len(jobs)} jobs")
         for job in jobs:
-            submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
+            submitter.submit(" && \n ".join(job), time=4, )
 
     if args.encoder:
         # only with encoder
@@ -216,7 +214,7 @@ if __name__ == '__main__':
         jobs = list(job_generator)
         logger.info(f"logging {len(jobs)} jobs")
         for job in jobs:
-            submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
+            submitter.submit(" && \n ".join(job), time=4, )
     if args.decoder:
         # only with decoder
         job_generator = run_pretrain_ft_with_grid_search(
@@ -232,7 +230,7 @@ if __name__ == '__main__':
         jobs = list(job_generator)
         logger.info(f"logging {len(jobs)} jobs")
         for job in jobs:
-            submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
+            submitter.submit(" && \n ".join(job), time=4, )
 
     if args.encoder and args.decoder:
         # encoder + decoder
@@ -249,8 +247,7 @@ if __name__ == '__main__':
         jobs = list(job_generator)
         logger.info(f"logging {len(jobs)} jobs")
         for job in jobs:
-            submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
-
+            submitter.submit(" && \n ".join(job), time=4, )
     # semi
     if 0:
         # only with encoder

@@ -246,7 +246,8 @@ if __name__ == '__main__':
         jobs = list(job_generator)
         logger.info(f"logging {len(jobs)} jobs")
         for job in jobs:
-            submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
+            submitter.submit(" && \n ".join(job), time=4, )
+
 
     # use only rr
     if args.pretrain:
@@ -271,7 +272,8 @@ if __name__ == '__main__':
         jobs = list(job_generator)
         logger.info(f"logging {len(jobs)} jobs")
         for job in jobs:
-            submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
+            submitter.submit(" && \n ".join(job), time=4, )
+
 
     if 0:
         # only with RR on semi supervised case
