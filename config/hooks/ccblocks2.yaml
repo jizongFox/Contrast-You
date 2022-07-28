@@ -1,6 +1,6 @@
 CrossCorrelationParameters:
-  feature_name: up1
-  train_encoder: false
+  feature_name: Up_conv2
+  train_encoder: true
   num_clusters: 20
   head_type: mlp
   num_subheads: 1
