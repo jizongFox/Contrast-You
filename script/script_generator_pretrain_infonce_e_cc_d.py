@@ -8,8 +8,9 @@ from loguru import logger
 from contrastyou import __accounts, on_cc, MODEL_PATH, OPT_PATH, git_hash
 from contrastyou.configure import yaml_load
 from contrastyou.submitter import SlurmSubmitter
+from contrastyou.utils import deprecated
 from script.script_generator_pretrain_cc import get_hyper_param_string, _run_ft_per_class, _run_ft, \
-    run_baseline_with_grid_search, enable_acdc_all_class_train
+    run_baseline_with_grid_search
 from script.utils import grid_search, move_dataset
 
 
@@ -17,19 +18,26 @@ def get_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("save_dir", type=str, help="save dir")
     parser.add_argument("--data-name", type=str,
-                        choices=("acdc", "acdc_lv", "acdc_rv", "acdc_myo", "prostate", "spleen"),
+                        choices=(
+                        "acdc", "acdc_lv", "acdc_rv", "acdc_myo", "prostate", "spleen", "hippocampus", "mmwhsct",
+                        "mmwhsmr"),
                         default="acdc",
                         help="dataset_choice")
+    parser.add_argument("--enable_acdc_all_class_train", action="store_true", help="enable acdc all class train",
+                        default=False)
     parser.add_argument("--max-epoch-pretrain", default=50, type=int, help="max epoch")
     parser.add_argument("--max-epoch", default=30, type=int, help="max epoch")
     parser.add_argument("--num-batches", default=300, type=int, help="number of batches")
     parser.add_argument("--seeds", type=int, nargs="+", default=[10, ], )
     parser.add_argument("--pretrain-scan-num", type=int, default=6, help="default `scan_sample_num` for pretraining")
     parser.add_argument("--force-show", action="store_true", help="showing script")
+    parser.add_argument("--pretrain", action="store_true", help="showing script")
+    parser.add_argument("--baseline", action="store_true", help="showing script")
     args = parser.parse_args()
     return args
 
 
+@deprecated
 def _run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int, num_batches: int,
               arch_checkpoint: str, lr: float, data_name: str = "acdc", cc_weight: float,
               consistency_weight: float, power: float, head_type: str, num_subheads: int,
@@ -59,7 +67,7 @@ def _run_pretrain_cc(*, save_dir: str, random_seed: int = 10, max_epoch: int, nu
                      num_subheads: int, num_clusters: int,
                      kernel_size: int, rr_weight: float, rr_symmetric: str,
                      rr_lamda: float, rr_alpha: float):
-    return f"""  python main_nd.py RandomSeed={random_seed} Trainer.name=pretrain_decoder Trainer.save_dir={save_dir} \
+    return f"""  python main_nd.py -o RandomSeed={random_seed} Trainer.name=pretrain_decoder Trainer.save_dir={save_dir} \
     Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches}  Optim.lr={lr:.10f} Data.name={data_name} \
     CrossCorrelationParameters.num_clusters={num_clusters}  \
     CrossCorrelationParameters.num_subheads={num_subheads}  \
@@ -96,7 +104,7 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int,
         scan_sample_num=pretrain_scan_sample_num
     )
     ft_save_dir = os.path.join(save_dir, "tra")
-    if data_name == "acdc" and not enable_acdc_all_class_train:
+    if data_name == "acdc" and not args.enable_acdc_all_class_train:
         run_ft = _run_ft_per_class
     else:
         run_ft = _run_ft
@@ -113,6 +121,7 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int,
     return [pretrain_script] + ft_script
 
 
+@deprecated
 def run_semi_regularize(
         *, save_dir, random_seed: int = 10, max_epoch: int, num_batches: int, data_name: str = "acdc",
         cc_weight: float, consistency_weight: float, power: float, head_type: str,
@@ -228,37 +237,39 @@ if __name__ == '__main__':
     submitter.configure_sbatch(mem=24)
 
     # baseline
-    job_generator = run_baseline_with_grid_search(
-        save_dir=os.path.join(save_dir, "pretrain"), random_seeds=random_seeds, max_epoch=max_epoch,
-        num_batches=num_batches, data_name=data_name)
-    jobs = list(job_generator)
-    logger.info(f"logging {len(jobs)} jobs")
-    for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
+    if args.baseline:
+        job_generator = run_baseline_with_grid_search(
+            save_dir=os.path.join(save_dir, "pretrain"), random_seeds=random_seeds, max_epoch=max_epoch,
+            num_batches=num_batches, data_name=data_name)
+        jobs = list(job_generator)
+        logger.info(f"logging {len(jobs)} jobs")
+        for job in jobs:
+            submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
 
     # use only rr
-    job_generator = run_pretrain_ft_with_grid_search(save_dir=os.path.join(save_dir, "pretrain"),
-                                                     random_seeds=random_seeds, max_epoch=max_epoch,
-                                                     num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
-                                                     data_name=data_name,
-                                                     cc_weights=[0, 0.1, 0.5, 1, 2],
-                                                     consistency_weights=[0],
-                                                     powers=power,
-                                                     head_types="linear",
-                                                     num_subheads=(3,),
-                                                     num_clusters=[20, 40, 60],
-                                                     max_num=500,
-                                                     kernel_size=5,
-                                                     rr_weight=(1,),
-                                                     rr_symmetric="true",
-                                                     rr_lamda=(1,),
-                                                     rr_alpha=(0, 0.25, 0.5, 0.75, 1),
-                                                     pretrain_scan_sample_num=(pretrain_scan_num,)
-                                                     )
-    jobs = list(job_generator)
-    logger.info(f"logging {len(jobs)} jobs")
-    for job in jobs:
-        submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
+    if args.pretrain:
+        job_generator = run_pretrain_ft_with_grid_search(save_dir=os.path.join(save_dir, "pretrain"),
+                                                         random_seeds=random_seeds, max_epoch=max_epoch,
+                                                         num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
+                                                         data_name=data_name,
+                                                         cc_weights=[0, 0.1, 0.5, 1, 2],
+                                                         consistency_weights=[0],
+                                                         powers=power,
+                                                         head_types="linear",
+                                                         num_subheads=(3,),
+                                                         num_clusters=[20, 40, 60],
+                                                         max_num=500,
+                                                         kernel_size=5,
+                                                         rr_weight=(1,),
+                                                         rr_symmetric="true",
+                                                         rr_lamda=(1,),
+                                                         rr_alpha=(0, 0.5, 1),
+                                                         pretrain_scan_sample_num=(pretrain_scan_num,)
+                                                         )
+        jobs = list(job_generator)
+        logger.info(f"logging {len(jobs)} jobs")
+        for job in jobs:
+            submitter.submit(" && \n ".join(job), force_show=force_show, time=4, account=next(account))
 
     if 0:
         # only with RR on semi supervised case

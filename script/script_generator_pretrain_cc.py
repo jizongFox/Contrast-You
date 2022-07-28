@@ -9,6 +9,7 @@ from loguru import logger
 from contrastyou import __accounts, on_cc, MODEL_PATH, OPT_PATH, git_hash
 from contrastyou.configure import yaml_load
 from contrastyou.submitter2 import SlurmSubmitter
+from contrastyou.utils import deprecated
 from script.utils import grid_search, move_dataset
 
 global enable_acdc_all_class_train
@@ -19,7 +20,7 @@ def get_args():
     parser.add_argument("save_dir", type=str, help="save dir")
     parser.add_argument(
         "--data-name", type=str,
-        choices=("acdc", "acdc_lv", "acdc_rv", "acdc_myo", "prostate", "spleen", "hippocampus"),
+        choices=("acdc", "acdc_lv", "acdc_rv", "acdc_myo", "prostate", "spleen", "hippocampus", "mmwhsct", "mmwhsmr"),
         default="acdc",
         help="dataset_choice"
     )
@@ -32,7 +33,6 @@ def get_args():
     parser.add_argument("--pretrain-scan-num", type=int, default=6, help="default `scan_sample_num` for pretraining")
     parser.add_argument("--force-show", action="store_true", help="showing script")
     parser.add_argument("--pretrain", action="store_true", help="showing script")
-    parser.add_argument("--semi", action="store_true", help="showing script")
     parser.add_argument("--baseline", action="store_true", help="showing script")
 
     return parser.parse_args()
@@ -72,6 +72,7 @@ def _run_ft_per_class(*, save_dir: str, random_seed: int = 10, num_labeled_scan:
     """
 
 
+@deprecated
 def _run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int, num_batches: int,
               arch_checkpoint: str, lr: float, data_name: str = "acdc", cc_weight: float,
               consistency_weight: float, power: float, head_type: str, num_subheads: int,
@@ -95,6 +96,7 @@ def _run_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, ma
     """
 
 
+@deprecated
 def _run_multicore_semi(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int,
                         num_batches: int,
                         arch_checkpoint: str, lr: float, data_name: str = "acdc", cc_weight: float,
@@ -181,6 +183,7 @@ def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int,
     return [pretrain_script] + ft_script
 
 
+@deprecated
 def run_semi_regularize(
         *, save_dir, random_seed: int = 10, max_epoch: int, num_batches: int, data_name: str = "acdc",
         cc_weight: float, consistency_weight: float, power: float, head_type: str,
@@ -259,6 +262,7 @@ def run_pretrain_ft_with_grid_search(
                               data_name=data_name, **param)
 
 
+@deprecated
 def run_semi_regularize_with_grid_search(
         *, save_dir, random_seeds: Sequence[int] = 10, max_epoch: int, num_batches: int,
         data_name: str,
@@ -303,6 +307,10 @@ if __name__ == '__main__':
         power = (0.75,)
     elif "prostate" in data_name:
         power = (0.5,)
+    elif "spleen" in data_name:
+        power = (0.5,)
+    elif "mmwhs" in data_name:
+        power = (0.5, 1.0, 1.5)
     else:
         raise NotImplementedError("powers")
 
@@ -365,6 +373,7 @@ if __name__ == '__main__':
 
     if args.semi:
         # only with RR on semi supervised case
+        raise NotImplementedError("Do not support semi supervised case")
         job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),
                                                              random_seeds=random_seeds, max_epoch=max_epoch,
                                                              num_batches=num_batches,
