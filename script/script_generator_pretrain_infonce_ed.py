@@ -192,7 +192,7 @@ if __name__ == '__main__':
     # baseline
     if args.baseline:
         job_generator = run_baseline_with_grid_search(
-            save_dir=os.path.join(save_dir, "pretrain", "baseline"), random_seeds=random_seeds, max_epoch=max_epoch,
+            save_dir=os.path.join(save_dir, "baseline"), random_seeds=random_seeds, max_epoch=max_epoch,
             num_batches=num_batches, data_name=data_name)
         jobs = list(job_generator)
         logger.info(f"logging {len(jobs)} jobs")
