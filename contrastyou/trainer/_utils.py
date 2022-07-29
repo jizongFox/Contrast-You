@@ -1,3 +1,4 @@
+import contextlib
 import os
 import shutil
 from pathlib import Path
@@ -48,6 +49,7 @@ def safe_save(checkpoint_dictionary, save_path):
         logger.error(e)
 
 
+@contextlib.contextmanager
 def create_save_dir(self, save_dir: Union[Path, str]):
     """
     return absolute path given a save_dir
@@ -58,6 +60,7 @@ def create_save_dir(self, save_dir: Union[Path, str]):
     if not Path(save_dir).is_absolute():
         save_dir = str(Path(self.RUN_PATH) / save_dir)  # absolute path
         logger.trace(f"relative path found, set path to {save_dir}")
+    yield save_dir
     Path(save_dir).mkdir(exist_ok=True, parents=True)
     assert os.path.isabs(save_dir), f"save_dir must be an absolute path, given {save_dir}."
     return save_dir

@@ -23,9 +23,10 @@ def main():
     manager = OmegaParser(os.path.join(CONFIG_PATH, "base.yaml"))
     with manager(scope="base") as config:
         # this handles input save dir with relative and absolute paths
-        absolute_save_dir = create_save_dir(SemiTrainer, config["Trainer"]["save_dir"])
-        if os.path.exists(absolute_save_dir):
-            logger.warning(f"{absolute_save_dir} exists, may overwrite the folder")
+
+        with create_save_dir(SemiTrainer, config["Trainer"]["save_dir"]) as absolute_save_dir:
+            if os.path.exists(absolute_save_dir):
+                logger.warning(f"{absolute_save_dir} exists, may overwrite the folder")
         adding_writable_sink(absolute_save_dir)
         logger.info("configuration:\n" + str(manager.summary()))
         with OmegaParser.modifiable_cxm(config, True):
