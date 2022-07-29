@@ -90,7 +90,7 @@ class ProstateMDDataset(ContrastDataset, _prostate_md):
 
 
 class _mmWHSBase(ContrastDataset):
-    partition_num = 8
+    partition_num = 5
     _get_scan_name: Callable[[str], str]
 
     def __init__(self, *, root_dir: str, mode: str, transforms: SequentialWrapper = None) -> None:
