@@ -52,7 +52,8 @@ class SummaryWriter(_SummaryWriter):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
+        pass
+        # self.close()
 
     def close(self):
         try:
