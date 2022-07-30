@@ -92,9 +92,10 @@ class Trainer(IOMixin, HookMixin, DDPMixin, AMPScalerMixin, ModuleBase):
         if not self._initialized:
             raise RuntimeError(f"{self.__class__.__name__} should call `init()` first")
         self.to(self.device)
-        self._start_training(**kwargs)
-        if self.on_master:
-            success(save_dir=self.absolute_save_dir)
+        with self._writer if self.on_master else nullcontext():
+            self._start_training(**kwargs)
+            if self.on_master:
+                success(save_dir=self.absolute_save_dir)
 
     def _start_training(self, **kwargs):
         start_epoch = max(self._cur_epoch + 1, self._start_epoch)
