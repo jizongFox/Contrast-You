@@ -13,7 +13,7 @@ from .consistency import ConsistencyTrainerHook
 from .discretemi import DiscreteMITrainHook, DiscreteIMSATTrainHook
 from .dmt import DifferentiableMeanTeacherTrainerHook
 from .entmin import EntropyMinTrainerHook
-from .infonce import SelfPacedINFONCEHook, INFONCEHook
+from .infonce import SelfPacedINFONCEHook, INFONCEHook, SuperPixelInfoNCEHook
 from .midl import IIDSegmentationTrainerHook
 from .midl import IMSATTrainHook
 from .mixup import MixUpTrainHook
@@ -251,3 +251,29 @@ def create_ict_hook(*, weight: float, alpha: float, weight_decay: float, update_
 
 def create_dae_hook(*, weight: float, num_classes: int):
     return DenoisingAutoEncoderTrainerHook(hook_name="dae", weight=weight, num_classes=num_classes)
+
+
+def _create_superpixel_hook(*, model: nn.Module, feature_name: str, weight: float, data_name: str,
+                            spatial_size: int):
+    return SuperPixelInfoNCEHook(name=f"infonce/{feature_name}/superpixel", model=model, feature_name=feature_name,
+                                 weight=weight, data_name=data_name, contrast_on="self",
+                                 spatial_size=(spatial_size, spatial_size))
+
+
+def create_superpixel_hooks(*, model: nn.Module, feature_names: Union[str, List[str]],
+                            weights: Union[float, List[float]], spatial_size: Union[int, Sequence[int]],
+                            data_name: str, ):
+    num_features = 1 if isinstance(feature_names, str) else len(feature_names)
+    pair_generator = ntuple(num_features)
+
+    feature_names = pair_generator(feature_names)
+    weights = pair_generator(weights)
+    spatial_size = pair_generator(spatial_size)
+
+    hooks = [
+        _create_superpixel_hook(
+            model=model, feature_name=f, weight=w, data_name=data_name, spatial_size=ss
+        ) for f, w, ss in zip(feature_names, weights, spatial_size)
+    ]
+
+    return CombineTrainerHook(*hooks)

@@ -1,0 +1,7 @@
+InfonceSuperPixelParams:
+  feature_names: Up_conv2
+  weights: 1.0
+  spatial_size: 64
+Trainer:
+  name: pretrain_decoder
+  enable_scale: true

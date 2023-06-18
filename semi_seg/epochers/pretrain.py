@@ -4,6 +4,7 @@ import random
 import typing as t
 from abc import ABC, ABCMeta
 from functools import partial
+from pathlib import Path
 
 import torch
 from loguru import logger
@@ -43,6 +44,15 @@ class _PretrainEpocherMixin(_Base, metaclass=ABCMeta):
             seed = random.randint(0, int(1e7))
             (unlabeled_image, unlabeled_image_tf), _, unlabeled_filename, unl_partition, unl_group = \
                 self._unzip_data(data, self._device)
+
+            unlabeled_file_path: t.List[str]
+            file_path_root = Path(
+                self._chain_dataloader._dataset.root_dir,  # noqa
+                # self._chain_dataloader._dataset.folder_name,  # noqa
+                self._chain_dataloader._dataset.mode,  # noqa
+            )
+            unlabeled_file_path = [(file_path_root / f).as_posix() for f in unlabeled_filename]
+
             unlabeled_image_tf = self.transform_with_seed(unlabeled_image_tf, mode="image", seed=seed)
 
             self.batch_update(
@@ -50,7 +60,8 @@ class _PretrainEpocherMixin(_Base, metaclass=ABCMeta):
                 unlabeled_image=unlabeled_image,
                 unlabeled_image_tf=unlabeled_image_tf,
                 seed=seed, unl_group=unl_group, unl_partition=unl_partition,
-                unlabeled_filename=unlabeled_filename
+                unlabeled_filename=unlabeled_filename,
+                unlabeled_file_path=unlabeled_file_path,
             )
 
             report_dict = self.meters.statistics()
@@ -77,7 +88,8 @@ class _PretrainEpocherMixin(_Base, metaclass=ABCMeta):
                 label_group=unl_group,
                 partition_group=unl_partition,
                 unlabeled_filename=unlabeled_filename,
-                affine_transformer=partial(self.transform_with_seed, seed=seed, mode="feature")
+                affine_transformer=partial(self.transform_with_seed, seed=seed, mode="feature"),
+                **kwargs
             )
 
         self.scale_loss(reg_loss).backward()
