@@ -245,7 +245,7 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
 
         self.cur_batch_num = 0
 
-    def transform_with_seed(self, features, *, mode: str, seed: int):
+    def transform_with_seed(self, features, *, mode: t.Literal["image", "feature"], seed: int):
         assert mode in {"image", "feature"}, f"mode must be either `image` or `feature`, given {mode}"
 
         with fix_all_seed_for_transforms(seed):
