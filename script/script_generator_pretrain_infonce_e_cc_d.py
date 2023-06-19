@@ -245,54 +245,27 @@ if __name__ == '__main__':
         for job in jobs:
             submitter.submit(" && \n ".join(job), time=4, )
 
-
     # use only rr
     if args.pretrain:
         job_generator = run_pretrain_ft_with_grid_search(save_dir=os.path.join(save_dir, "pretrain"),
                                                          random_seeds=random_seeds, max_epoch=max_epoch,
                                                          num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
                                                          data_name=data_name,
-                                                         cc_weights=[0, 0.1, 0.5, 1, 2],
+                                                         cc_weights=[1],
                                                          consistency_weights=[0],
                                                          powers=power,
                                                          head_types="linear",
                                                          num_subheads=(3,),
-                                                         num_clusters=[20, 40, 60],
+                                                         num_clusters=[40],
                                                          max_num=500,
                                                          kernel_size=5,
                                                          rr_weight=(1,),
                                                          rr_symmetric="true",
                                                          rr_lamda=(1,),
-                                                         rr_alpha=(0, 0.5, 1),
+                                                         rr_alpha=(0.5,),
                                                          pretrain_scan_sample_num=(pretrain_scan_num,)
                                                          )
         jobs = list(job_generator)
         logger.info(f"logging {len(jobs)} jobs")
         for job in jobs:
             submitter.submit(" && \n ".join(job), time=4, )
-
-
-    if 0:
-        # only with RR on semi supervised case
-        job_generator = run_semi_regularize_with_grid_search(save_dir=os.path.join(save_dir, "semi"),
-                                                             random_seeds=random_seeds,
-                                                             max_epoch=max_epoch, num_batches=num_batches,
-                                                             data_name=data_name,
-                                                             cc_weights=[0, 0.001, 0.01, 0.1],
-                                                             consistency_weights=[0, 0.1, 0.5, ],
-                                                             powers=power,
-                                                             head_types="linear",
-                                                             num_subheads=3,
-                                                             num_clusters=[40],
-                                                             max_num=500,
-                                                             kernel_size=5,
-                                                             rr_weight=[0.01, 0.02, 0.1],
-                                                             rr_symmetric="true",
-                                                             rr_lamda=(1,),
-                                                             rr_alpha=(0, 0.25, 0.5, 0.75, 1)
-                                                             )
-
-        jobs = list(job_generator)
-        logger.info(f"logging {len(jobs)} jobs")
-        for job in jobs:
-            submitter.submit(" && \n ".join(job), force_show=force_show, time=8, account=next(account))

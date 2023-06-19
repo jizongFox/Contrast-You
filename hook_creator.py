@@ -106,7 +106,7 @@ def create_hook_from_config(model, config, *, is_pretrain=False, trainer):
     if "InfonceSuperPixelParams" in config:
         hook = create_superpixel_hooks(
             model=model,
-            weights=float(config["InfonceSuperPixelParams"]["weights"]),
+            weights=config["InfonceSuperPixelParams"]["weights"],
             spatial_size=config["InfonceSuperPixelParams"]["spatial_size"],
             data_name=data_name,
             feature_names=config["InfonceSuperPixelParams"]["feature_names"]
