@@ -315,9 +315,9 @@ class _SuperPixelInfoNCEEPochHook(_INFONCEEpochHook):
                              unlabeled_logits_tf,
                              partition_group,
                              label_group,
-                             unlabeled_file_path: t.List[str] = None,
+                             batch_data: t.Dict[str, t.Any] = None,
                              **kwargs):
-        assert unlabeled_file_path is not None
+        assert batch_data is not None
         n_unl = len(unlabeled_logits_tf)
         feature_ = self._extractor.feature()[-n_unl * 2:]
         unlabeled_features, unlabeled_tf_features = torch.chunk(feature_, 2, dim=0)
@@ -328,11 +328,9 @@ class _SuperPixelInfoNCEEPochHook(_INFONCEEpochHook):
         norm_features_tf_selected = region_extractor(norm_features_tf, point_nums=5, seed=seed)
         norm_tf_features_selected = region_extractor(norm_tf_features, point_nums=5, seed=seed)
 
-        superpixel_mask = torch.stack(
-            [_load_superpixel_image(f) for f in unlabeled_file_path], dim=0
-        ).to(norm_tf_features.device)
+        superpixel_mask = (batch_data["superpixel"][0].to(norm_tf_features.device) * 255.0).type(torch.uint8).float()
 
-        superpixel_mask_tf = affine_transformer(superpixel_mask[:, None, ...])
+        superpixel_mask_tf = affine_transformer(superpixel_mask)
 
         superpixel_mask_tf_pooled = F.interpolate(
             superpixel_mask_tf,

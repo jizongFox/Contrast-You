@@ -1,7 +1,7 @@
 import os
 import re
 from pathlib import Path
-from typing import Tuple, List, Callable, Dict
+from typing import Tuple, List, Callable, Dict, Any
 
 import numpy as np
 from torch import Tensor
@@ -25,11 +25,11 @@ class ACDCDataset(ContrastDataset, _acdc):
                                   allow_pickle=True).item()
         assert isinstance(self._acdc_info, dict) and len(self._acdc_info) == 200
 
-    def __getitem__(self, index) -> Tuple[List[Tensor], str, Tuple[str, str]]:
-        images, filename = super().__getitem__(index)
-        partition = self._get_partition(filename)
-        scan_num = self._get_scan_name(filename)
-        return images, filename, (partition, scan_num)
+    def __getitem__(self, index) -> Dict[str, Any]:
+        data = super().__getitem__(index)
+        partition = self._get_partition(data["filename"])
+        scan_num = self._get_scan_name(data["filename"])
+        return {**data, **dict(partition=partition, scan_num=scan_num)}
 
     def _get_partition(self, stem) -> str:
         # set partition
@@ -177,7 +177,8 @@ class HippocampusDataset(ContrastDataset, _Hippocampus):
         return str(2)
 
 
-data_zoo = {"acdc_lv": ACDCDataset, "acdc_rv": ACDCDataset,"acdc_myo": ACDCDataset, "acdc": ACDCDataset, "prostate": ProstateDataset,
+data_zoo = {"acdc_lv": ACDCDataset, "acdc_rv": ACDCDataset, "acdc_myo": ACDCDataset, "acdc": ACDCDataset,
+            "prostate": ProstateDataset,
             "prostate_md": ProstateMDDataset,
             "mmwhsct": mmWHSCTDataset, "mmwhsmr": mmWHSMRDataset, "spleen": SpleenDataset,
             "hippocampus": HippocampusDataset}

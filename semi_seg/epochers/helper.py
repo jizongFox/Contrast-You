@@ -26,24 +26,29 @@ class unl_extractor:
 
 
 def preprocess_input_with_twice_transformation(data, device, non_blocking=True):
-    if len(data[0]) == 4:
-        (image, image_tf, target, target_tf), filename, (partition_list, group_list) = \
-            to_device(data[0], device, non_blocking), data[1], data[2]
-        return (image, target), (image_tf, target_tf), filename, partition_list, group_list
+    if isinstance(data["img"], list):
+        data = to_device(data, device, non_blocking)
+        return (data["img"][0], data["gt"][0]), (data["img"][1], data["gt"][1]), data["filename"][0], data["partition"][
+            0], data["scan_num"][0]
+
+        # (image, image_tf, target, target_tf), filename, (partition_list, group_list) = \
+        #     to_device(data, device, non_blocking)
+        # return (image, target), (image_tf, target_tf), filename, partition_list, group_list
     else:
+        raise NotImplementedError()
+        data = to_device(data, device, non_blocking)
+        return (data["img"][0], data["gt"][0]), (data["img"][1], data["gt"][1]), data["filename"][0], (
+            data["partition"][0], data["scan_num"][0])
+
         (t2, dw, t2_tf, dw_tf, target, target_tf), filename, (partition_list, group_list) = \
             to_device(data[0], device, non_blocking), data[1], data[2]
         return (torch.cat([t2, dw], dim=1), target), (torch.cat([t2_tf, dw_tf], dim=1), target_tf), \
-               filename, partition_list, group_list
+            filename, partition_list, group_list
 
 
 def preprocess_input_with_single_transformation(data, device, non_blocking=True):
-    if len(data[0]) == 2:
-        return data[0][0].to(device, non_blocking=non_blocking), data[0][1].to(device, non_blocking=non_blocking), \
-               data[1], *data[2]
-    (t2, dw, target), filename, (partition_list, group_list) = \
-        to_device(data[0], device, non_blocking), data[1], data[2]
-    return torch.cat([t2, dw], dim=1), target, filename, partition_list, group_list
+    data = to_device(data, device, non_blocking)
+    return data["img"], data["gt"], data["filename"], data["partition"], data["scan_num"]
 
 
 class PartitionLabelGenerator:

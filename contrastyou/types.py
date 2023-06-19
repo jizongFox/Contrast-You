@@ -385,6 +385,8 @@ def to_device(obj, device, non_blocking=True):
         return {k: to_device(o, device, non_blocking) for k, o in obj.items()}
     elif isinstance(obj, (tuple, list, collections.UserList)):
         return [to_device(o, device, non_blocking) for o in obj]
+    elif isinstance(obj, str):
+        return obj
     else:
         raise TypeError(f"{obj.__class__.__name__} cannot be converted to {device}")
 
