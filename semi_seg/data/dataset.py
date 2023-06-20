@@ -1,10 +1,9 @@
 import os
 import re
 from pathlib import Path
-from typing import Tuple, List, Callable, Dict, Any
+from typing import Callable, Dict, Any
 
 import numpy as np
-from torch import Tensor
 
 from contrastyou.augment import SequentialWrapper
 from contrastyou.data import ACDCDataset as _acdc, ProstateDataset as _prostate, mmWHSCTDataset as _mmct, \
@@ -52,11 +51,11 @@ class ProstateDataset(ContrastDataset, _prostate):
             = np.load(os.path.join(self._root_dir, "prostate_info.npy"), allow_pickle=True).item()  # noqa
         assert isinstance(self._prostate_info, dict) and len(self._prostate_info) == 50
 
-    def __getitem__(self, index) -> Tuple[List[Tensor], str, Tuple[str, str]]:
-        images, filename = super().__getitem__(index)
-        partition = self._get_partition(filename)
-        scan_num = self._get_scan_name(filename)
-        return images, filename, (partition, scan_num)
+    def __getitem__(self, index) -> Dict[str, Any]:
+        data = super().__getitem__(index)
+        partition = self._get_partition(data["filename"])
+        scan_num = self._get_scan_name(data["filename"])
+        return {**data, **dict(partition=partition, scan_num=scan_num)}
 
     def _get_partition(self, filename) -> str:
         # set partition
@@ -75,11 +74,11 @@ class ProstateMDDataset(ContrastDataset, _prostate_md):
             np.load(os.path.join(self._root_dir, "prostate_info.npy"), allow_pickle=True).item()  # noqa
         assert isinstance(self._prostate_info, dict) and len(self._prostate_info) == 32
 
-    def __getitem__(self, index) -> Tuple[List[Tensor], str, Tuple[str, str]]:
-        images, filename = super().__getitem__(index)
-        partition = self._get_partition(filename)
-        scan_num = self._get_scan_name(filename)
-        return images, filename, (partition, scan_num)
+    def __getitem__(self, index) -> Dict[str, Any]:
+        data = super().__getitem__(index)
+        partition = self._get_partition(data["filename"])
+        scan_num = self._get_scan_name(data["filename"])
+        return {**data, **dict(partition=partition, scan_num=scan_num)}
 
     def _get_partition(self, filename) -> str:
         # set partition
@@ -99,11 +98,11 @@ class _mmWHSBase(ContrastDataset):
         self._meta_info = {"ct": np.load(str(Path(root_dir, "MMWHS", "meta_ct.npy")), allow_pickle=True).tolist(),
                            "mr": np.load(str(Path(root_dir, "MMWHS", "meta_mr.npy")), allow_pickle=True).tolist()}
 
-    def __getitem__(self, index) -> Tuple[List[Tensor], str, Tuple[str, str]]:
-        images, filename = super().__getitem__(index)  # noqa
-        partition = self._get_partition(filename)
-        scan_num = self._get_scan_name(filename)
-        return images, filename, (partition, scan_num)
+    def __getitem__(self, index) -> Dict[str, Any]:
+        data = super().__getitem__(index)
+        partition = self._get_partition(data["filename"])
+        scan_num = self._get_scan_name(data["filename"])
+        return {**data, **dict(partition=partition, scan_num=scan_num)}
 
     def _get_partition(self, filename) -> str:
         # set partition
@@ -136,11 +135,11 @@ class SpleenDataset(ContrastDataset, _spleen):
             = np.load(os.path.join(self._root_dir, "spleen_info.npy"), allow_pickle=True).item()  # noqa
         assert isinstance(self._spleen_info, dict) and len(self._spleen_info) == 41
 
-    def __getitem__(self, index) -> Tuple[List[Tensor], str, Tuple[str, str]]:
-        images, filename = super().__getitem__(index)
-        partition = self._get_partition(filename)
-        scan_num = self._get_scan_name(filename)
-        return images, filename, (partition, scan_num)
+    def __getitem__(self, index) -> Dict[str, Any]:
+        data = super().__getitem__(index)
+        partition = self._get_partition(data["filename"])
+        scan_num = self._get_scan_name(data["filename"])
+        return {**data, **dict(partition=partition, scan_num=scan_num)}
 
     def _get_partition(self, filename) -> str:
         # set partition
@@ -159,11 +158,11 @@ class HippocampusDataset(ContrastDataset, _Hippocampus):
             = np.load(os.path.join(self._root_dir, "hippocampus_info.npy"), allow_pickle=True).item()  # noqa
         assert isinstance(self._hippocampus_info, dict) and len(self._hippocampus_info) == 260
 
-    def __getitem__(self, index) -> Tuple[List[Tensor], str, Tuple[str, str]]:
-        images, filename = super().__getitem__(index)
-        partition = self._get_partition(filename)
-        scan_num = self._get_scan_name(filename)
-        return images, filename, (partition, scan_num)
+    def __getitem__(self, index) -> Dict[str, Any]:
+        data = super().__getitem__(index)
+        partition = self._get_partition(data["filename"])
+        scan_num = self._get_scan_name(data["filename"])
+        return {**data, **dict(partition=partition, scan_num=scan_num)}
 
     def _get_partition(self, filename) -> str:
         # set partition
