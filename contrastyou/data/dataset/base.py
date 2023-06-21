@@ -1,15 +1,16 @@
 import os
 import re
 import typing as t
-from PIL import Image, ImageFile
 from collections import OrderedDict
 from copy import deepcopy as dcopy
-from loguru import logger
 from pathlib import Path
-from torch import Tensor
+
+from PIL import Image, ImageFile
+from loguru import logger
 from torch.utils.data import Dataset
 from tqdm import tqdm
-from ...augment import SequentialWrapper
+
+from ...augment import SequentialWrapper, SequentialWrapperTwice
 from ...augment.pil_augment import ToTensor, ToLabel
 from ...utils import path2Path
 
@@ -135,15 +136,32 @@ class DatasetBase(Dataset):
     def __len__(self) -> int:
         return int(len(self._memory[self._sub_folders[0]]))
 
-    def __getitem__(self, index) -> t.Tuple[t.List[Tensor], str]:
+    def __getitem__(self, index) -> t.Dict[str, t.Any]:
         image_list, filename_list = self._getitem_index(index)
         filename = Path(filename_list[0]).stem
 
         images = [x for x, _t in zip(image_list, self._sub_folder_types) if _t]
         labels = [x for x, _t in zip(image_list, self._sub_folder_types) if not _t]
 
-        images_, labels_ = self._transforms(images, labels)
-        return [*images_, *labels_], filename
+        if isinstance(self._transforms, SequentialWrapper) and not isinstance(self._transforms, SequentialWrapperTwice):
+            batch = self._transforms(images, labels)
+
+        elif isinstance(self._transforms, SequentialWrapperTwice):
+            batch1, batch2 = self._transforms(images, labels)
+
+            def _merge_batches(batch1, batch2):
+                new_batch = {}
+                for k in batch1:
+                    new_batch[k] = list(zip(*[batch1[k], batch2[k]]))
+                return new_batch
+
+            batch = _merge_batches(batch1, batch2)
+        else:
+            raise RuntimeError()
+        image_dict = dict(zip([s for (s, t) in zip(self._sub_folders, self._sub_folder_types) if t], batch["images"]))
+        label_dict = dict(
+            zip([s for (s, t) in zip(self._sub_folders, self._sub_folder_types) if not t], batch["targets"]))
+        return {**image_dict, **label_dict, **{"filename": filename}}
 
     def _getitem_index(self, index):
         image_list = self._preload_storage[index] if self._is_preload else \

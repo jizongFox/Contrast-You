@@ -1,11 +1,15 @@
 import typing as t
-from functools import partial
+from functools import partial, lru_cache
+from pathlib import Path
 from typing import List, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from torch import nn
+from PIL import Image
+from loguru import logger
+from torch import nn, Tensor
+from torch.nn import functional as F
 
 from contrastyou.arch.utils import SingleFeatureExtractor
 from contrastyou.hooks.base import TrainerHook, EpocherHook
@@ -14,6 +18,14 @@ from contrastyou.meters import MeterInterface, AverageValueMeter
 from contrastyou.utils import fix_all_seed_for_transforms, switch_plt_backend
 from contrastyou.writer import get_tb_writer
 from .utils import get_label
+
+
+@lru_cache()
+def _load_superpixel_image(f: str) -> Tensor:
+    f = list(Path(f).parts)
+    f.insert(-1, "superpixel")
+    with Image.open(Path(*f).as_posix() + ".png") as img:
+        return torch.from_numpy(np.array(img.convert("L"), dtype=np.float32))  # noqa
 
 
 def region_extractor(normalize_features, *, point_nums=5, seed: int):
@@ -165,6 +177,22 @@ class SelfPacedINFONCEHook(INFONCEHook):
         return hook
 
 
+class SuperPixelInfoNCEHook(INFONCEHook):
+
+    def __init__(self, *, name, model: nn.Module, feature_name: str, weight: float = 1.0,
+                 spatial_size: t.Sequence[int] = None, data_name: str, contrast_on: str) -> None:
+        logger.debug("SuperPixelInfoNCEHook initializing")
+        super().__init__(name=name, model=model, feature_name=feature_name, weight=weight, spatial_size=spatial_size,
+                         data_name=data_name, contrast_on=contrast_on)
+        assert self.is_encoder is False, f"{self.__class__.__name__} only supports decoder features"
+
+    def __call__(self) -> "_SuperPixelInfoNCEEPochHook":
+        return _SuperPixelInfoNCEEPochHook(
+            name=self._hook_name, weight=self._weight, extractor=self._extractor, projector=self._projector,
+            criterion=self._criterion, label_generator=self._label_generator
+        )
+
+
 class _INFONCEEpochHook(EpocherHook):
 
     def __init__(self, *, name: str, weight: float, extractor, projector,
@@ -277,3 +305,52 @@ class _SPINFONCEEpochHook(_INFONCEEpochHook):
             figure2board(sp_mask, "sp_mask", self._criterion, writer, self.epocher)
 
         return loss
+
+
+class _SuperPixelInfoNCEEPochHook(_INFONCEEpochHook):
+    def _call_implementation(self, *,
+                             affine_transformer,
+                             seed,
+                             unlabeled_tf_logits,
+                             unlabeled_logits_tf,
+                             partition_group,
+                             label_group,
+                             batch_data: t.Dict[str, t.Any] = None,
+                             **kwargs):
+        assert batch_data is not None
+        n_unl = len(unlabeled_logits_tf)
+        feature_ = self._extractor.feature()[-n_unl * 2:]
+        unlabeled_features, unlabeled_tf_features = torch.chunk(feature_, 2, dim=0)
+        unlabeled_features_tf = affine_transformer(unlabeled_features, seed=seed)
+        norm_features_tf, norm_tf_features = torch.chunk(
+            self._projector(torch.cat([unlabeled_features_tf, unlabeled_tf_features], dim=0)), 2)
+
+        norm_features_tf_selected = region_extractor(norm_features_tf, point_nums=5, seed=seed)
+        norm_tf_features_selected = region_extractor(norm_tf_features, point_nums=5, seed=seed)
+
+        superpixel_mask = (batch_data["superpixel"][0].to(norm_tf_features.device) * 255.0).type(torch.uint8).float()
+
+        superpixel_mask_tf = affine_transformer(superpixel_mask)
+
+        superpixel_mask_tf_pooled = F.interpolate(
+            superpixel_mask_tf,
+            size=(norm_features_tf.shape[-2], norm_features_tf.shape[-1]),
+            mode='nearest'
+        )
+        superpixel_mask_selected = region_extractor(superpixel_mask_tf_pooled, point_nums=5, seed=seed)
+
+        labels = superpixel_mask_selected.squeeze().type(torch.uint8).tolist()
+        loss = self._criterion(norm_features_tf_selected, norm_tf_features_selected, target=labels)
+        self.meters["loss"].add(loss.item())
+
+        if self._n == 0:
+            sim_exp = self._criterion.sim_exp
+            sim_logits = self._criterion.sim_logits
+            pos_mask = self._criterion.pos_mask
+            writer = get_tb_writer()
+            figure2board(pos_mask, self.name + "/mask", self._criterion, writer, self.epocher)
+            figure2board(sim_exp, self.name + "/sim_exp", self._criterion, writer, self.epocher)
+            figure2board(sim_logits, self.name + "/sim_logits", self._criterion, writer, self.epocher)
+
+        self._n += 1
+        return loss * self._weight

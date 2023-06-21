@@ -43,6 +43,7 @@ class _PretrainEpocherMixin(_Base, metaclass=ABCMeta):
             seed = random.randint(0, int(1e7))
             (unlabeled_image, unlabeled_image_tf), _, unlabeled_filename, unl_partition, unl_group = \
                 self._unzip_data(data, self._device)
+
             unlabeled_image_tf = self.transform_with_seed(unlabeled_image_tf, mode="image", seed=seed)
 
             self.batch_update(
@@ -50,7 +51,8 @@ class _PretrainEpocherMixin(_Base, metaclass=ABCMeta):
                 unlabeled_image=unlabeled_image,
                 unlabeled_image_tf=unlabeled_image_tf,
                 seed=seed, unl_group=unl_group, unl_partition=unl_partition,
-                unlabeled_filename=unlabeled_filename
+                unlabeled_filename=unlabeled_filename,
+                batch_data=data
             )
 
             report_dict = self.meters.statistics()
@@ -77,7 +79,8 @@ class _PretrainEpocherMixin(_Base, metaclass=ABCMeta):
                 label_group=unl_group,
                 partition_group=unl_partition,
                 unlabeled_filename=unlabeled_filename,
-                affine_transformer=partial(self.transform_with_seed, seed=seed, mode="feature")
+                affine_transformer=partial(self.transform_with_seed, seed=seed, mode="feature"),
+                **kwargs
             )
 
         self.scale_loss(reg_loss).backward()

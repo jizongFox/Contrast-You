@@ -115,7 +115,7 @@ class SequentialWrapper:
                 target_list_after_transform = [transform_(target, self._target_transform, target_seed)
                                                for target in target_list_after_transform]
 
-        return image_list_after_transform, target_list_after_transform
+        return dict(images=image_list_after_transform, targets=target_list_after_transform)
 
     def __repr__(self):
         return (
@@ -139,7 +139,7 @@ class SequentialWrapperTwice(SequentialWrapper):
         self._total_freedom = total_freedom
 
     def __call__(self, image_list: _pil_list, target_list: _pil_list = None, seed: int = None, **kwargs) -> \
-        Tuple[List[Tensor], List[Tensor]]:
+            Tuple[List[Tensor], List[Tensor]]:
         seed = seed or random_int()
 
         with fix_all_seed_for_transforms(seed):
@@ -148,18 +148,18 @@ class SequentialWrapperTwice(SequentialWrapper):
             target_seed1, target_seed2 = random_int(), random_int()
 
             if self._total_freedom:
-                image_list1, target_list1 = super(SequentialWrapperTwice, self).__call__(image_list, target_list,
-                                                                                         comm_seed1, img_seed1,
-                                                                                         target_seed1)
-                image_list2, target_list2 = super(SequentialWrapperTwice, self).__call__(image_list, target_list,
-                                                                                         comm_seed2, img_seed2,
-                                                                                         target_seed2)
-                return [*image_list1, *image_list2], [*target_list1, *target_list2]
+                batch1 = super(SequentialWrapperTwice, self).__call__(image_list, target_list,
+                                                                      comm_seed1, img_seed1,
+                                                                      target_seed1)
+                batch2 = super(SequentialWrapperTwice, self).__call__(image_list, target_list,
+                                                                      comm_seed2, img_seed2,
+                                                                      target_seed2)
+                return batch1, batch2
 
-            image_list1, target_list1 = super(SequentialWrapperTwice, self).__call__(image_list, target_list,
-                                                                                     comm_seed1, img_seed1,
-                                                                                     target_seed1)
-            image_list2, target_list2 = super(SequentialWrapperTwice, self).__call__(image_list, target_list,
-                                                                                     comm_seed1, img_seed2,
-                                                                                     target_seed1)
-            return [*image_list1, *image_list2], [*target_list1, *target_list2]
+            batch1 = super(SequentialWrapperTwice, self).__call__(image_list, target_list,
+                                                                  comm_seed1, img_seed1,
+                                                                  target_seed1)
+            batch2 = super(SequentialWrapperTwice, self).__call__(image_list, target_list,
+                                                                  comm_seed1, img_seed2,
+                                                                  target_seed1)
+            return batch1, batch2

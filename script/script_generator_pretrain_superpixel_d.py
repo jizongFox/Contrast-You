@@ -1,0 +1,163 @@
+import argparse
+import os
+from itertools import cycle
+from typing import Sequence, List, Iterator, Optional
+
+from loguru import logger
+
+from contrastyou import __accounts, on_cc, MODEL_PATH, OPT_PATH, git_hash
+from contrastyou.configure import yaml_load
+from contrastyou.submitter2 import SlurmSubmitter
+from script import utils
+from script.script_generator_pretrain_cc import _run_ft, _run_ft_per_class, get_hyper_param_string, \
+    run_baseline_with_grid_search
+from script.utils import grid_search, move_dataset
+
+
+def get_args():
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("save_dir", type=str, help="save dir")
+    parser.add_argument("--data-name", type=str,
+                        choices=("acdc", "acdc_lv", "acdc_rv", "acdc_myo", "prostate", "mmwhsct", "mmwhsmr"),
+                        default="acdc",
+                        help="dataset_choice")
+    parser.add_argument("--enable_acdc_all_class_train", action="store_true", help="enable acdc all class train",
+                        default=False)
+    parser.add_argument("--max-epoch-pretrain", default=50, type=int, help="max epoch")
+    parser.add_argument("--max-epoch", default=30, type=int, help="max epoch")
+    parser.add_argument("--num-batches", default=300, type=int, help="number of batches")
+    parser.add_argument("--seeds", type=int, nargs="+", default=[10, ], )
+    parser.add_argument("--force-show", action="store_true", help="showing script")
+    parser.add_argument("--encoder", action="store_true", default=False, help="enable encoder pretraining")
+    parser.add_argument("--decoder", action="store_true", default=False, help="enable decoder pretraining")
+    parser.add_argument("--baseline", action="store_true", default=False, help="enable baseline training")
+
+    parser.add_argument("--pretrain-scan-num", type=int, default=6, help="default `scan_sample_num` for pretraining")
+
+    args = parser.parse_args()
+    return args
+
+
+def _run_pretrain_cc(*, save_dir: str, random_seed: int = 10, max_epoch: int, num_batches: int, lr: float,
+                     scan_sample_num: int, data_name: str = "acdc",
+                     infonce_decoder_weight: float, decoder_spatial_size: int):
+    return f"""  python main_nd.py -o RandomSeed={random_seed} Trainer.name=pretrain_decoder Trainer.save_dir={save_dir} \
+    Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches}  Optim.lr={lr:.10f} Data.name={data_name} \
+    InfonceSuperPixelParams.weights=[{infonce_decoder_weight:.10f}] \
+    InfonceSuperPixelParams.spatial_size=[{decoder_spatial_size}] \
+    ContrastiveLoaderParams.scan_sample_num={scan_sample_num}  \
+    --path config/base.yaml config/pretrain.yaml config/hooks/infonce_dense_superpixel.yaml \
+    """
+
+
+def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int, max_epoch: int, num_batches: int,
+                    data_name: str = "acdc", pretrain_scan_sample_num: int,
+                    infonce_decoder_weight: float, decoder_spatial_size: int
+                    ):
+    data_opt = yaml_load(os.path.join(OPT_PATH, data_name + ".yaml"))
+    labeled_scans = data_opt["labeled_ratios"][:-1]
+    pretrain_save_dir = os.path.join(save_dir, "pretrain")
+    pretrain_script = _run_pretrain_cc(
+        save_dir=pretrain_save_dir, random_seed=random_seed, max_epoch=max_epoch_pretrain, num_batches=num_batches,
+        lr=data_opt["pre_lr"], data_name=data_name, infonce_decoder_weight=infonce_decoder_weight,
+        decoder_spatial_size=decoder_spatial_size,
+        scan_sample_num=pretrain_scan_sample_num
+    )
+    ft_save_dir = os.path.join(save_dir, "tra")
+    if data_name == "acdc" and not utils.enable_acdc_all_class_train:
+        run_ft = _run_ft_per_class
+    else:
+        run_ft = _run_ft
+    ft_script = [
+        run_ft(
+            save_dir=os.path.join(ft_save_dir, f"labeled_num_{l:03d}"), random_seed=random_seed,
+            num_labeled_scan=l, max_epoch=max_epoch, num_batches=num_batches,
+            arch_checkpoint=f"{os.path.join(MODEL_PATH, pretrain_save_dir, 'last.pth')}",
+            lr=data_opt["ft_lr"], data_name=data_name
+        )
+        for l in labeled_scans
+    ]
+    return [pretrain_script] + ft_script
+
+
+def run_pretrain_ft_with_grid_search(
+        *, save_dir, random_seeds: Sequence[int] = 10, max_epoch_pretrain: int, max_epoch: int, num_batches: int,
+        data_name: str, infonce_decoder_weight: Sequence[float],
+        decoder_spatial_size: Sequence[int],
+        max_num: Optional[int] = 200, pretrain_scan_sample_num: Sequence[int],
+) -> Iterator[List[str]]:
+    param_generator = grid_search(max_num=max_num,
+                                  random_seed=random_seeds,
+                                  pretrain_scan_sample_num=pretrain_scan_sample_num,
+                                  infonce_decoder_weight=infonce_decoder_weight,
+                                  decoder_spatial_size=decoder_spatial_size)
+    for param in param_generator:
+        random_seed = param.pop("random_seed")
+        sp_str = get_hyper_param_string(**param)
+        yield run_pretrain_ft(save_dir=os.path.join(save_dir, f"seed_{random_seed}", sp_str), random_seed=random_seed,
+                              max_epoch=max_epoch, num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
+                              data_name=data_name, **param)
+
+
+if __name__ == '__main__':
+
+    args = get_args()
+    utils.enable_acdc_all_class_train = args.enable_acdc_all_class_train
+
+    account = cycle(__accounts)
+    on_local = not on_cc()
+    force_show = args.force_show
+    data_name = args.data_name
+    random_seeds = args.seeds
+    max_epoch = args.max_epoch
+    max_epoch_pretrain = args.max_epoch_pretrain
+    num_batches = args.num_batches
+    pretrain_scan_num = args.pretrain_scan_num
+
+    save_dir = args.save_dir
+
+    save_dir = os.path.join(save_dir, f"hash_{git_hash}/{data_name}/infonce")
+
+    submitter = SlurmSubmitter(stop_on_error=True, verbose=True, dry_run=force_show, on_local=not on_cc())
+    submitter.set_startpoint_path("../")
+    submitter.set_prepare_scripts(
+        *[
+            "module load python/3.8.2 ", "source ~/venv/bin/activate ",
+            move_dataset(), "nvidia-smi",
+            "python -c 'import torch; print(torch.randn(1,1,1,1,device=\"cuda\"))'"
+        ])
+
+    submitter.update_env_params(
+        PYTHONWARNINGS="ignore",
+        CUBLAS_WORKSPACE_CONFIG=":16:8",
+        LOGURU_LEVEL="TRACE",
+        OMP_NUM_THREADS=1,
+        PYTHONOPTIMIZE=1
+    )
+
+    submitter.update_sbatch_params(mem=24)
+    # baseline
+    if args.baseline:
+        job_generator = run_baseline_with_grid_search(
+            save_dir=os.path.join(save_dir, "baseline"), random_seeds=random_seeds, max_epoch=max_epoch,
+            num_batches=num_batches, data_name=data_name)
+        jobs = list(job_generator)
+        logger.info(f"logging {len(jobs)} jobs")
+        for job in jobs:
+            submitter.submit(" && \n ".join(job), time=4, )
+
+    if args.decoder:
+        # only with decoder
+        job_generator = run_pretrain_ft_with_grid_search(
+            save_dir=os.path.join(save_dir, "pretrain", "decoder"),
+            random_seeds=random_seeds, max_epoch=max_epoch,
+            num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
+            data_name=data_name, infonce_decoder_weight=(1,),
+            decoder_spatial_size=(64,),
+            max_num=500,
+            pretrain_scan_sample_num=(pretrain_scan_num,)
+        )
+        jobs = list(job_generator)
+        logger.info(f"logging {len(jobs)} jobs")
+        for job in jobs:
+            submitter.submit(" && \n ".join(job), time=4, )
