@@ -1,0 +1,227 @@
+import argparse
+import os
+from collections.abc import Iterable
+from itertools import cycle
+from typing import Sequence, List, Iterator, Optional
+
+from loguru import logger
+
+from contrastyou import __accounts, on_cc, MODEL_PATH, OPT_PATH, git_hash
+from contrastyou.configure import yaml_load
+from contrastyou.submitter2 import SlurmSubmitter
+from script import utils
+from script.utils import grid_search, move_dataset
+
+
+def get_args():
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("save_dir", type=str, help="save dir")
+    parser.add_argument(
+        "--data-name", type=str,
+        choices=("acdc", "acdc_lv", "acdc_rv", "acdc_myo", "prostate", "spleen", "hippocampus", "mmwhsct", "mmwhsmr"),
+        default="acdc",
+        help="dataset_choice"
+    )
+    parser.add_argument("--enable_acdc_all_class_train", action="store_true", help="enable acdc all class train",
+                        default=False)
+    parser.add_argument("--max-epoch-pretrain", default=50, type=int, help="max epoch")
+    parser.add_argument("--max-epoch", default=30, type=int, help="max epoch")
+    parser.add_argument("--num-batches", default=300, type=int, help="number of batches")
+    parser.add_argument("--seeds", type=int, nargs="+", default=[10, ], )
+    parser.add_argument("--pretrain-scan-num", type=int, default=6, help="default `scan_sample_num` for pretraining")
+    parser.add_argument("--force-show", action="store_true", help="showing script")
+    parser.add_argument("--pretrain", action="store_true", help="showing script")
+    parser.add_argument("--baseline", action="store_true", help="showing script")
+
+    return parser.parse_args()
+
+
+def get_hyper_param_string(**kwargs):
+    def to_str(v):
+        if isinstance(v, Iterable) and (not isinstance(v, str)):
+            return "_".join([str(x) for x in v])
+        return v
+
+    list_string = [f"{k}_{to_str(v)}" for k, v in kwargs.items()]
+    prefix = "/".join(list_string)
+    return prefix
+
+
+def _run_ft(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int, num_batches: int,
+            arch_checkpoint: str = "null", lr: float, data_name: str = "acdc"):
+    return f""" python main.py -o RandomSeed={random_seed} Trainer.name=ft \
+     Trainer.save_dir={save_dir} Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name} \
+    Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f} \
+    """
+
+
+def _run_ft_per_class(*, save_dir: str, random_seed: int = 10, num_labeled_scan: int, max_epoch: int, num_batches: int,
+                      arch_checkpoint: str = "null", lr: float, data_name: str = "acdc"):
+    assert data_name == "acdc", "only support acdc dataset"
+    return f""" python main.py -o RandomSeed={random_seed} Trainer.name=ft \
+     Trainer.save_dir={save_dir}/lv Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name}_lv \
+    Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f}  && \
+    python main.py -o RandomSeed={random_seed} Trainer.name=ft \
+     Trainer.save_dir={save_dir}/rv Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name}_rv \
+    Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f}  && \
+    python main.py -o RandomSeed={random_seed} Trainer.name=ft \
+     Trainer.save_dir={save_dir}/myo Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches} Data.name={data_name}_myo \
+    Data.labeled_scan_num={num_labeled_scan}  Arch.checkpoint={arch_checkpoint} Optim.lr={lr:.10f}  \
+    """
+
+
+def _run_pretrain_byol(*, save_dir: str, random_seed: int = 10, max_epoch: int, num_batches: int, scan_sample_num: int,
+                       lr: float, data_name: str = "acdc"):
+    return f"""  python main_cc.py -o RandomSeed={random_seed} Trainer.name=pretrain_decoder Trainer.save_dir={save_dir} \
+    Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches}  Optim.lr={lr:.10f} Data.name={data_name} \
+    ContrastiveLoaderParams.scan_sample_num={scan_sample_num}  \
+    --path config/base.yaml config/pretrain.yaml config/hooks/byol.yaml 
+    """
+
+
+def run_pretrain_ft(*, save_dir, random_seed: int = 10, max_epoch_pretrain: int, max_epoch: int, num_batches: int,
+                    data_name: str = "acdc", pretrain_scan_sample_num: int):
+    data_opt = yaml_load(os.path.join(OPT_PATH, f"{data_name}.yaml"))
+    labeled_scans = data_opt["labeled_ratios"][:-1]
+    pretrain_save_dir = os.path.join(save_dir, "pretrain")
+    pretrain_script = _run_pretrain_byol(
+        save_dir=pretrain_save_dir, random_seed=random_seed, max_epoch=max_epoch_pretrain, num_batches=num_batches,
+        lr=data_opt["pre_lr"], data_name=data_name,
+
+        scan_sample_num=pretrain_scan_sample_num
+    )
+    ft_save_dir = os.path.join(save_dir, "tra")
+    if data_name == "acdc" and not utils.enable_acdc_all_class_train:
+        run_ft = _run_ft_per_class
+    else:
+        run_ft = _run_ft
+
+    ft_script = [
+        run_ft(
+            save_dir=os.path.join(ft_save_dir, f"labeled_num_{l:03d}"), random_seed=random_seed,
+            num_labeled_scan=l, max_epoch=max_epoch, num_batches=num_batches,
+            arch_checkpoint=f"{os.path.join(MODEL_PATH, pretrain_save_dir, 'last.pth')}",
+            lr=data_opt["ft_lr"], data_name=data_name
+        )
+        for l in labeled_scans
+    ]
+    return [pretrain_script] + ft_script
+
+
+def run_baseline(
+        *, save_dir, random_seed: int = 10, max_epoch: int, num_batches: int, data_name: str = "acdc",
+        arch_checkpoint: str = "null"
+) -> List[str]:
+    data_opt = yaml_load(os.path.join(OPT_PATH, f"{data_name}.yaml"))
+    labeled_scans = data_opt["labeled_ratios"][:-1]
+    if data_name == "acdc" and not utils.enable_acdc_all_class_train:
+        run_ft = _run_ft_per_class
+    else:
+        run_ft = _run_ft
+    ft_script = [
+        run_ft(
+            save_dir=os.path.join(save_dir, "baseline", f"labeled_num_{l:03d}"), random_seed=random_seed,
+            num_labeled_scan=l, max_epoch=max_epoch, num_batches=num_batches,
+            lr=data_opt["ft_lr"], data_name=data_name, arch_checkpoint=arch_checkpoint,
+        )
+        for l in labeled_scans
+    ]
+    return ft_script
+
+
+def run_baseline_with_grid_search(*, save_dir, random_seeds: Sequence[int] = 10, max_epoch: int, num_batches: int,
+                                  data_name: str = "acdc", arch_checkpoint: str = "null"):
+    rand_seed_gen = grid_search(random_seed=random_seeds)
+    for random_seed in rand_seed_gen:
+        yield run_baseline(save_dir=os.path.join(save_dir, f"seed_{random_seed['random_seed']}"),
+                           **random_seed, max_epoch=max_epoch, num_batches=num_batches,
+                           data_name=data_name, arch_checkpoint=arch_checkpoint)
+
+
+def run_pretrain_ft_with_grid_search(
+        *, save_dir, random_seeds: Sequence[int] = 10, max_epoch_pretrain: int, max_epoch: int, num_batches: int,
+        data_name: str,
+        max_num: Optional[int] = 200, pretrain_scan_sample_num: Sequence[int],
+) -> Iterator[List[str]]:
+    param_generator = grid_search(
+        max_num=max_num,
+        random_seed=random_seeds,
+        pretrain_scan_sample_num=pretrain_scan_sample_num
+    )
+    for param in param_generator:
+        random_seed = param.pop("random_seed")
+        sp_str = get_hyper_param_string(**param)
+        yield run_pretrain_ft(save_dir=os.path.join(save_dir, f"seed_{random_seed}", sp_str), random_seed=random_seed,
+                              max_epoch=max_epoch, num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
+                              data_name=data_name, **param)
+
+
+if __name__ == '__main__':
+    args = get_args()
+    utils.enable_acdc_all_class_train = args.enable_acdc_all_class_train
+    account = cycle(__accounts)
+    on_local = not on_cc()
+    force_show = args.force_show
+    data_name = args.data_name
+    random_seeds = args.seeds
+    max_epoch = args.max_epoch
+    max_epoch_pretrain = args.max_epoch_pretrain
+    num_batches = args.num_batches
+    pretrain_scan_num = args.pretrain_scan_num
+    save_dir = args.save_dir
+
+    if "acdc" in data_name:
+        power = (0.75,)
+    elif "prostate" in data_name:
+        power = (0.5,)
+    elif "spleen" in data_name:
+        power = (0.5,)
+    elif "mmwhs" in data_name:
+        power = (0.75,)
+    else:
+        raise NotImplementedError("powers")
+
+    save_dir = os.path.join(save_dir, f"hash_{git_hash}/{data_name}")
+
+    submitter = SlurmSubmitter(stop_on_error=True, verbose=True, dry_run=force_show, on_local=not on_cc())
+    submitter.set_startpoint_path("../")
+    submitter.set_prepare_scripts(
+        *[
+            "module load python/3.8.2 ", "source ~/venv/bin/activate ",
+            move_dataset(), "nvidia-smi",
+            "python -c 'import torch; print(torch.randn(1,1,1,1,device=\"cuda\"))'"
+        ])
+
+    submitter.update_env_params(
+        PYTHONWARNINGS="ignore",
+        CUBLAS_WORKSPACE_CONFIG=":16:8",
+        LOGURU_LEVEL="TRACE",
+        OMP_NUM_THREADS=1,
+        PYTHONOPTIMIZE=1
+    )
+
+    submitter.update_sbatch_params(mem=24)
+
+    if args.baseline:
+        # baseline
+        job_generator = run_baseline_with_grid_search(
+            save_dir=os.path.join(save_dir, "baseline"), random_seeds=random_seeds, max_epoch=max_epoch,
+            num_batches=num_batches, data_name=data_name)
+
+        jobs = list(job_generator)
+        logger.info(f"logging {len(jobs)} jobs")
+        for job in jobs:
+            submitter.submit(" && \n ".join(job), time=4, )
+
+    if args.pretrain:
+        # use only rr
+        job_generator = run_pretrain_ft_with_grid_search(save_dir=os.path.join(save_dir, "pretrain"),
+                                                         random_seeds=random_seeds, max_epoch=max_epoch,
+                                                         num_batches=num_batches, max_epoch_pretrain=max_epoch_pretrain,
+                                                         data_name=data_name,
+                                                         pretrain_scan_sample_num=(pretrain_scan_num,)
+                                                         )
+        jobs = list(job_generator)
+        logger.info(f"logging {len(jobs)} jobs")
+        for job in jobs:
+            submitter.submit(" && \n ".join(job), time=4, )
