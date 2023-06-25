@@ -17,7 +17,7 @@ from .infonce import SelfPacedINFONCEHook, INFONCEHook, SuperPixelInfoNCEHook
 from .midl import IIDSegmentationTrainerHook
 from .midl import IMSATTrainHook
 from .mixup import MixUpTrainHook
-from .mt import MeanTeacherTrainerHook, UAMeanTeacherTrainerHook, ICTMeanTeacherTrainerHook
+from .mt import MeanTeacherTrainerHook, UAMeanTeacherTrainerHook, ICTMeanTeacherTrainerHook, ByolTrainerHook
 from .orthogonal import OrthogonalTrainerHook
 from .pseudolabel import PseudoLabelTrainerHook
 
@@ -277,3 +277,8 @@ def create_superpixel_hooks(*, model: nn.Module, feature_names: Union[str, List[
     ]
 
     return CombineTrainerHook(*hooks)
+
+
+def byol_hook(*, model: nn.Module, weight: float):
+    return ByolTrainerHook(name=f"byol/Conv5", model=model,
+                           weight=weight, )

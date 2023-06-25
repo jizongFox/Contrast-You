@@ -3,7 +3,7 @@ from semi_seg.hooks import create_infonce_hooks, create_sp_infonce_hooks, create
     create_mt_hook, create_differentiable_mt_hook, create_ent_min_hook, create_orthogonal_hook, create_iid_seg_hook, \
     create_pseudo_label_hook, create_imsat_hook, create_consistency_hook, create_cross_correlation_hooks2, \
     create_intermediate_imsat_hook, create_uamt_hook, create_mixup_hook, create_ict_hook, create_dae_hook, \
-    create_superpixel_hooks
+    create_superpixel_hooks, byol_hook
 
 
 def create_hook_from_config(model, config, *, is_pretrain=False, trainer):
@@ -111,6 +111,10 @@ def create_hook_from_config(model, config, *, is_pretrain=False, trainer):
             data_name=data_name,
             feature_names=config["InfonceSuperPixelParams"]["feature_names"]
         )
+        hooks.append(hook)
+
+    if "BYOLParams" in config:
+        hook = byol_hook(model=model, weight=config["BYOLParams"]["weights"], )
         hooks.append(hook)
 
     return hooks

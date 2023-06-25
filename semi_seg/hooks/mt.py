@@ -5,8 +5,10 @@ from copy import deepcopy
 import torch
 from loguru import logger
 from torch import nn, Tensor
+from torch.nn import functional as F
 from torch.nn.modules.batchnorm import _BatchNorm  # noqa
 
+from contrastyou.arch.utils import SingleFeatureExtractor
 from contrastyou.hooks.base import TrainerHook, EpocherHook
 from contrastyou.meters import AverageValueMeter, MeterInterface
 from contrastyou.utils import simplex, class2one_hot, fix_all_seed_within_context
@@ -317,3 +319,127 @@ class _ICTMeanTeacherEpocherHook(_MeanTeacherEpocherHook):
         if self.meters:
             self.meters["loss"].add(loss.item())
         return self._weight * loss
+
+
+def _ByolMLP(dim, projection_size=64, hidden_size=4096):
+    return nn.Sequential(
+        nn.AdaptiveAvgPool2d((1, 1)),
+        nn.Flatten(),
+        nn.Linear(dim, hidden_size),
+        nn.BatchNorm1d(hidden_size),
+        nn.ReLU(inplace=True),
+        nn.Linear(hidden_size, projection_size)
+    )
+
+
+class ByolTrainerHook(TrainerHook):
+    def __init__(self, *, name: str, model: nn.Module, weight: float, alpha: float = 0.999, weight_decay: float = 1e-5,
+                 update_bn=True, hard_clip=False):
+        """
+        adding parameters: num_teachers to host multiple teacher model
+        The first model is going to update the bn or not but the following models must update bn by force
+        """
+        super().__init__(hook_name=name)
+        self._feature_name = "Conv5"
+
+        self._weight = weight
+        self._criterion = nn.CosineSimilarity()  # change the mse to reduction none
+        if update_bn:
+            logger.info("set all bn to be eval model")
+        self._updater = EMAUpdater(alpha=alpha, weight_decay=weight_decay, update_bn=update_bn)
+        self._teacher_model = deepcopy(model)
+
+        self._num_teachers = 1
+        self._hard_clip = hard_clip
+
+        detach_model(self._teacher_model)
+        self.online_predictor = _ByolMLP(dim=512, hidden_size=512, projection_size=512)
+
+        self._online_extractor = SingleFeatureExtractor(model, feature_name="Conv5")
+        self._mt_extractor = SingleFeatureExtractor(self._teacher_model, feature_name="Conv5")
+        self._online_extractor.bind()
+        self._mt_extractor.bind()
+
+    @property
+    def learnable_modules(self) -> t.List[nn.Module]:
+        return [self.online_predictor]
+
+    def __call__(self) -> "_ByolEpocherHook":
+        return _ByolEpocherHook(
+            name=self._hook_name, weight=self._weight, criterion=self._criterion,
+            teacher_model=self._teacher_model, updater=self._updater,
+            hard_clip=self._hard_clip, online_predictor=self.online_predictor,
+            online_feature_extractor=self._online_extractor, target_feature_extractor=self._mt_extractor
+        )
+
+
+class _ByolEpocherHook(EpocherHook):
+    def __init__(self, *, name: str, weight: float, criterion: t.Callable[[Tensor, Tensor], Tensor], teacher_model,
+                 updater, hard_clip: bool = False, online_feature_extractor: SingleFeatureExtractor, online_predictor,
+                 target_feature_extractor: SingleFeatureExtractor) -> None:
+        super().__init__(name=name)
+        self._weight = weight
+        self._criterion = criterion  # l2checker can break the pipeline if padding values are given.
+        self._teacher_model = teacher_model
+        self._updater = updater
+        self._hard_clip = hard_clip
+
+        self._teacher_model.train()
+        if updater._update_bn:  # noqa
+            # if update bn, then, freeze all bn in the network to eval()
+            for m in self._teacher_model.modules():
+                if isinstance(m, _BatchNorm):
+                    m.eval()
+        self.online_feature_extractor = online_feature_extractor
+        self.target_feature_extractor = target_feature_extractor
+        self.online_predictor = online_predictor
+
+    def before_forward_pass(self, **kwargs):
+        self.online_feature_extractor.clear()
+        self.online_feature_extractor.set_enable(True)
+
+    def after_forward_pass(self, **kwargs):
+        self.online_feature_extractor.set_enable(False)
+
+    def before_regularization(self, **kwargs):
+        self.target_feature_extractor.clear()
+        self.target_feature_extractor.set_enable(True)
+
+    def after_regularization(self, **kwargs):
+        self.target_feature_extractor.set_enable(False)
+
+    def configure_meters_given_epocher(self, meters: MeterInterface):
+        self.meters.register_meter("loss", AverageValueMeter())
+
+    def _call_implementation(self, *, unlabeled_image: Tensor, unlabeled_image_tf: Tensor, unlabeled_logits_tf: Tensor,
+                             seed: int,
+                             affine_transformer,
+                             **kwargs):
+
+        n_unl = len(unlabeled_image)
+        feature_online = self.online_feature_extractor.feature()[-n_unl * 2:]
+
+        unlabeled_features_online, _ = torch.chunk(feature_online, 2, dim=0)
+
+        with torch.no_grad():
+            _ = self.teacher_model(unlabeled_image_tf)
+            feature_target = self.target_feature_extractor.feature()
+            feature_target = F.adaptive_avg_pool2d(feature_target, output_size=(1, 1)).flatten(start_dim=1)
+        predicted_feature = self.online_predictor(unlabeled_features_online)
+        assert feature_target.shape == predicted_feature.shape
+
+        loss = self._criterion(predicted_feature, feature_target.detach()).mean()
+        self.meters["loss"].add(loss.item())
+        return self._weight * loss
+
+    def after_batch_update(self, **kwargs):
+        # using previous teacher to update the next teacher.
+        self._updater(ema_model=self._teacher_model, student_model=self.model)
+
+    @property
+    def model(self):
+        return self.epocher._model  # noqa
+
+    @property
+    def teacher_model(self):
+        return self._teacher_model
