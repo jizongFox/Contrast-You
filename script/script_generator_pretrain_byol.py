@@ -75,7 +75,7 @@ def _run_pretrain_byol(*, save_dir: str, random_seed: int = 10, max_epoch: int, 
     return f"""  python main_cc.py -o RandomSeed={random_seed} Trainer.name=pretrain_decoder Trainer.save_dir={save_dir} \
     Trainer.max_epoch={max_epoch} Trainer.num_batches={num_batches}  Optim.lr={lr:.10f} Data.name={data_name} \
     ContrastiveLoaderParams.scan_sample_num={scan_sample_num}  \
-    --path config/base.yaml config/pretrain.yaml config/hooks/byol.yaml 
+    --path config/base.yaml config/pretrain.yaml config/hooks/byol.yaml \
     """
 
 
