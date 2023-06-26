@@ -429,6 +429,7 @@ class _ByolEpocherHook(EpocherHook):
         assert feature_target.shape == predicted_feature.shape
 
         loss = self._criterion(predicted_feature, feature_target.detach()).mean()
+        loss = 1 - loss  # similarity to loss
         self.meters["loss"].add(loss.item())
         return self._weight * loss
 
