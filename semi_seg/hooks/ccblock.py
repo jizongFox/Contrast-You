@@ -24,6 +24,8 @@ from contrastyou.projectors import CrossCorrelationProjector
 from contrastyou.utils import class_name, item2str, probs2one_hot, fix_all_seed_within_context, simplex, deprecated
 from contrastyou.writer import get_tb_writer
 from semi_seg.hooks.utils import FeatureMapSaver, DistributionTracker, joint_2D_figure, MatrixSaver
+from skimage import io as sio
+from pathlib import Path
 
 if t.TYPE_CHECKING:
     from contrastyou.projectors.nn import _ProjectorHeadBase  # noqa
@@ -211,7 +213,7 @@ class _ProjectorEpocherGeneralHook(EpocherHook):
                     input1=prob1, input2=prob2, image=unlabeled_image_tf,
                     feature_map1=unlabeled_tf_features, feature_map2=unlabeled_features_tf, saver=self.saver,
                     save_image_condition=save_image_condition, cur_epoch=cur_epoch,
-                    cur_batch_num=cur_batch_num
+                    cur_batch_num=cur_batch_num, batch_data=kwargs["batch_data"], target_tf = affine_transformer(kwargs["batch_data"]["gt"][0].float()), unlabeled_filename=kwargs["unlabeled_filename"]
                 )
                 for prob1, prob2 in zip(projected_tf_dist, projected_dist_tf)
             )
@@ -353,7 +355,7 @@ class _RedundancyReduction(_TinyHook):
         return super(_RedundancyReduction, self).__repr_extra__() + \
                f" lamda={self.lamda} alpha={self.alpha} symmetric={self.symmetric}"
 
-    def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, **kwargs):
+    def __call__(self, input1: Tensor, input2: Tensor, cur_epoch: int, batch_data=None, **kwargs):
         if self.weight == 0:
             if self.meters:
                 self.meters[self.name].add(0)
@@ -372,6 +374,28 @@ class _RedundancyReduction(_TinyHook):
             self.criterion: RedundancyCriterion
             joint_2D_figure(self.criterion.get_joint_matrix(), tb_writer=self.get_tb_writer(), cur_epoch=cur_epoch,
                             tag=f"{class_name(self)}_{self.name}")
+            
+        if batch_data is not None and "target_tf" in kwargs and os.environ.get("SAVE_MAPPING", "0")=="1":
+            target_tf = kwargs["target_tf"]
+            prob = input1
+            unlabeled_filename = kwargs["unlabeled_filename"]
+            
+            save_dir = os.environ.get("SAVE_DIR", None)
+            assert save_dir is not None   
+            Path(save_dir, "predict").mkdir(exist_ok=True, parents=True)
+            Path(save_dir, "gt").mkdir(exist_ok=True, parents=True)
+            
+            def save_image(predict:Tensor, target:Tensor, filename:str):
+                import numpy as np
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    sio.imsave(Path(save_dir, "predict", filename+".png"), predict.argmax(0).cpu().numpy().astype(np.uint8))
+                    sio.imsave(Path(save_dir, "gt", filename+".png"), target.squeeze().cpu().numpy().astype(np.uint8))
+                
+                
+            for cur_pred, cur_target, cur_filename in zip(prob, target_tf, unlabeled_filename):
+                save_image(cur_pred, cur_target, cur_filename)
+                     
 
         return loss * self.weight
 

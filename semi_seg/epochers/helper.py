@@ -28,8 +28,7 @@ class unl_extractor:
 def preprocess_input_with_twice_transformation(data, device, non_blocking=True):
     if isinstance(data["img"], list):
         data = to_device(data, device, non_blocking)
-        return (data["img"][0], data["gt"][0]), (data["img"][1], data["gt"][1]), data["filename"][0], data["partition"][
-            0], data["scan_num"][0]
+        return (data["img"][0], data["gt"][0]), (data["img"][1], data["gt"][1]), data["filename"], data["partition"], data["scan_num"]
 
         # (image, image_tf, target, target_tf), filename, (partition_list, group_list) = \
         #     to_device(data, device, non_blocking)

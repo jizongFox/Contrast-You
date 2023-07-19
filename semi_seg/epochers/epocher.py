@@ -244,6 +244,15 @@ class SemiSupervisedEpocher(EpocherBase, ABC):
             logger.debug("{} set to disable bn tracking", self.__class__.__name__)
 
         self.cur_batch_num = 0
+        
+    def disable_affine_transformer(self):
+        logger.warning("disable_affine_transformer")
+        def identity(**kwargs):
+            return kwargs
+        self._affine_transformer = RisingWrapper(
+            geometry_transform=identity,
+            intensity_transform=identity,
+        )
 
     def transform_with_seed(self, features, *, mode: t.Literal["image", "feature"], seed: int):
         assert mode in {"image", "feature"}, f"mode must be either `image` or `feature`, given {mode}"

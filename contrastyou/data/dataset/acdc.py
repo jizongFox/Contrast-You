@@ -15,7 +15,7 @@ class ACDCDataset(DatasetBase):
 
     def __init__(self, *, root_dir: str, mode: str, transforms: SequentialWrapper = None) -> None:
         path = Path(root_dir, self.folder_name)
-        downloading(path, self.folder_name, self.download_link, root_dir, self.zip_name)
+        # downloading(path, self.folder_name, self.download_link, root_dir, self.zip_name)
 
         super().__init__(root_dir=str(path), mode=mode, sub_folders=self.sub_folders,
                          sub_folder_types=self.sub_folder_types,

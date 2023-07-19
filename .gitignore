@@ -34,6 +34,7 @@ venv
 .pytest_cache*
 .mypy_cache
 .pytest_cache
+*.png
 
 cotra_idea/checkpoint/
 cotra_idea/cifar-10-python.tar.gz

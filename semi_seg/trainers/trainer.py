@@ -47,9 +47,10 @@ class SemiTrainer(Trainer):
         self._accumulate_iter = accumulate_iter
         logger.info(f"{'Enable' if enable_scale else 'Disable'} mixed precision training "
                     f"with an accumulate iter: {accumulate_iter}")
+        self._enable_affine_transformer=True
 
     @property
-    def train_epocher(self) -> Type[EpocherBase]:
+    def train_epocher(self) -> Type[SemiSupervisedEpocher]:
         return SemiSupervisedEpocher
 
     def _create_initialized_tra_epoch(self, **kwargs) -> EpocherBase:
@@ -60,11 +61,19 @@ class SemiTrainer(Trainer):
             scaler=self.scaler, accumulate_iter=self._accumulate_iter
         )
         epocher.init(trainer=self)
+
         return epocher
+    
+    def tra_epoch(self, **kwargs):
+        epocher = self._create_initialized_tra_epoch(**kwargs)
+        if not self._enable_affine_transformer:
+            epocher.disable_affine_transformer()
+        return self._run_tra_epoch(epocher)
 
     def _create_initialized_eval_epoch(self, *, model, loader, **kwargs) -> EpocherBase:
         epocher = EvalEpocher(model=model, loader=loader, sup_criterion=self._criterion, cur_epoch=self._cur_epoch,
                               device=self._device, scaler=self.scaler, accumulate_iter=self._accumulate_iter)
+            
         epocher.init(trainer=self)
         return epocher
 
@@ -122,6 +131,11 @@ class SemiTrainer(Trainer):
         return loader
 
 
+    def disable_affine_transformer(self):
+        self._enable_affine_transformer=False
+        
+        
+        
 class MTTrainer(SemiTrainer):
     def _start_training(self, **kwargs):
         start_epoch = max(self._cur_epoch + 1, self._start_epoch)

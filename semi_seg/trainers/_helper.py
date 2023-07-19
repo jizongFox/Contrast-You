@@ -35,7 +35,7 @@ def _get_contrastive_dataloader(partial_loader, contrastive_params):
     data_name = {class_.__name__: name for name, class_ in data_zoo.items()}[dataset._name.split("-")[0]]
     is_preload = dataset._is_preload  # noqa
     dataset_type = dataset.__class__
-    dataset = dataset_type(root_dir=get_true_data_path(), mode="train", transforms=dcopy(dataset.transforms))  # noqa
+    dataset = dataset_type(root_dir=get_true_data_path(), mode="val", transforms=dcopy(dataset.transforms))  # noqa
 
     logger.opt(depth=2).debug(f"creating {dataset.__class__.__name__} contrastive dataset with "
                               f"{len(dataset.get_scan_list())} scans")

@@ -2,8 +2,6 @@ setuptools~=61.2.0
 numpy~=1.21.5
 pillow~=9.0.1
 scikit-image~=0.19.2
-torch
-torchvision~=0.12.0
 torch_optimizer
 termcolor
 git+https://github.com/jizongFox/tqdm.git
@@ -19,7 +17,6 @@ decorator
 distributed
 requests
 randaugment
-sklearn
 packaging
 nibabel
 nilearn

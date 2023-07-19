@@ -202,3 +202,22 @@ def get_data(data_params, labeled_loader_params, unlabeled_loader_params, *, pre
     )
     val_loader, test_loader = create_val_loader(test_loader=test_loader)
     return labeled_loader, unlabeled_loader, val_loader, test_loader
+
+def get_eval_train_data(data_params, labeled_loader_params, unlabeled_loader_params, *, pretrain=False, total_freedom=False,
+             order_num=0):
+    if total_freedom is True:
+        warnings.warn("total freedom is True is not supported yet.")
+    labeled_loader, unlabeled_loader, test_loader = get_data_loaders(
+        data_params=data_params, labeled_loader_params=labeled_loader_params,
+        unlabeled_loader_params=unlabeled_loader_params, pretrain=pretrain, group_test=True,
+        total_freedom=total_freedom, order_num=order_num
+    )
+    
+    val_loader, test_loader = create_val_loader(test_loader=test_loader)
+    test_data = test_loader.dataset
+    test_data._transforms = unlabeled_loader.dataset._transforms
+    
+    unlabeled_loader = create_infinite_loader(test_data, **unlabeled_loader_params)
+    labeled_loader = create_infinite_loader(test_data, **labeled_loader_params)
+    
+    return labeled_loader, unlabeled_loader, val_loader, test_loader

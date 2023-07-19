@@ -41,7 +41,7 @@ class _PretrainEpocherMixin(_Base, metaclass=ABCMeta):
     def _run_implement(self, **kwargs):
         for self.cur_batch_num, data in zip(self.indicator, self._chain_dataloader):
             seed = random.randint(0, int(1e7))
-            (unlabeled_image, unlabeled_image_tf), _, unlabeled_filename, unl_partition, unl_group = \
+            (unlabeled_image, unlabeled_image_tf), unlabeled_image_target , unlabeled_filename, unl_partition, unl_group = \
                 self._unzip_data(data, self._device)
 
             unlabeled_image_tf = self.transform_with_seed(unlabeled_image_tf, mode="image", seed=seed)
@@ -69,7 +69,6 @@ class _PretrainEpocherMixin(_Base, metaclass=ABCMeta):
             )
 
             unlabeled_logits_tf = self.transform_with_seed(unlabeled_logits, seed=seed, mode="feature")
-
             reg_loss = self.regularization(
                 seed=seed,
                 unlabeled_image=unlabeled_image,
